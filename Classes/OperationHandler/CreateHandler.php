@@ -40,9 +40,11 @@ class CreateHandler
 
         $baseUrl = '/_api/' . $config['general']['resourceName'];
 
+        $location = $baseUrl . '/' . $uid;
+
         return $this->hydraResponseBuilder->buildItem(
             $this->serializer->serialize($row, $config, $baseUrl),
-        )->withStatus(201);
+        )->withStatus(201)->withHeader('Location', $location);
     }
 
     private function filterWritableColumns(array $body, array $config): array

@@ -120,4 +120,30 @@ final class AccessControlTest extends ApiFunctionalTestCase
 
         self::assertSame(204, $response->getStatusCode());
     }
+
+    // ── 403 response body structure ───────────────────────────────────────────
+
+    public function testForbiddenResponseBodyIsHydraError(): void
+    {
+        $response = $this->executeApiWriteRequest('POST', '/_api/articles', ['title' => 'Test']);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame('hydra:Error', $body['@type']);
+    }
+
+    public function testForbiddenBodyHasAccessDeniedTitle(): void
+    {
+        $response = $this->executeApiWriteRequest('POST', '/_api/articles', ['title' => 'Test']);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame('Access Denied', $body['hydra:title']);
+    }
+
+    public function testForbiddenBodyDescriptionMentionsOperation(): void
+    {
+        $response = $this->executeApiWriteRequest('POST', '/_api/articles', ['title' => 'Test']);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertStringContainsString('create', $body['hydra:description']);
+    }
 }

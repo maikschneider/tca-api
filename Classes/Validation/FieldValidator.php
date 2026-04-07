@@ -32,12 +32,8 @@ class FieldValidator
             // required check
             if ($columnConfig['required'] ?? false) {
                 if (!$provided || $body[$column] === '' || $body[$column] === null) {
-                    $violations[] = [
-                        'propertyPath' => $column,
-                        'message'      => "Field '$column' is required.",
-                        'code'         => 'REQUIRED',
-                    ];
-                    continue; // no point running further validators on a missing value
+                    $violations[] = $this->buildViolation($column, "Field '$column' is required.", 'REQUIRED');
+                    continue;
                 }
             }
 
@@ -62,6 +58,8 @@ class FieldValidator
     {
         return match ($validatorConfig['type'] ?? '') {
             'maxLength' => $this->validateMaxLength($column, $value, (int)$validatorConfig['max']),
+            'minLength' => $this->validateMinLength($column, $value, (int)$validatorConfig['min']),
+            'regex'     => $this->validateRegex($column, $value, (string)$validatorConfig['pattern']),
             default     => null,
         };
     }
@@ -69,13 +67,35 @@ class FieldValidator
     private function validateMaxLength(string $column, mixed $value, int $max): ?array
     {
         if (mb_strlen((string)$value) > $max) {
-            return [
-                'propertyPath' => $column,
-                'message'      => "Field '$column' must not exceed $max characters.",
-                'code'         => 'MAX_LENGTH',
-            ];
+            return $this->buildViolation($column, "Field '$column' must not exceed $max characters.", 'MAX_LENGTH');
         }
 
         return null;
+    }
+
+    private function validateMinLength(string $column, mixed $value, int $min): ?array
+    {
+        if (mb_strlen((string)$value) < $min) {
+            return $this->buildViolation($column, "Field '$column' must be at least $min characters.", 'MIN_LENGTH');
+        }
+
+        return null;
+    }
+
+    private function validateRegex(string $column, mixed $value, string $pattern): ?array
+    {
+        if (preg_match($pattern, (string)$value) !== 1) {
+            return $this->buildViolation($column, "Field '$column' does not match the required pattern.", 'REGEX');
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{propertyPath: string, message: string, code: string}
+     */
+    private function buildViolation(string $column, string $message, string $code): array
+    {
+        return ['propertyPath' => $column, 'message' => $message, 'code' => $code];
     }
 }

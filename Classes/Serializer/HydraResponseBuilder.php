@@ -62,12 +62,12 @@ class HydraResponseBuilder
         return $response;
     }
 
-    public function buildError(int $statusCode, string $message): ResponseInterface
+    public function buildError(int $statusCode, string $message, string $title = 'Error'): ResponseInterface
     {
         $body = [
             '@context' => 'http://www.w3.org/ns/hydra/context.jsonld',
             '@type' => 'hydra:Error',
-            'hydra:title' => 'Error',
+            'hydra:title' => $title,
             'hydra:description' => $message,
         ];
 

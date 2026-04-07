@@ -12,6 +12,7 @@ use MaikSchneider\TcaApi\OperationHandler\GetItemHandler;
 use MaikSchneider\TcaApi\OperationHandler\UpdateHandler;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Security\AccessController;
+use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -26,6 +27,7 @@ class RequestDispatcher
         private readonly UpdateHandler $updateHandler,
         private readonly DeleteHandler $deleteHandler,
         private readonly AccessController $accessController,
+        private readonly HydraResponseBuilder $hydraResponseBuilder,
     ) {}
 
     public function dispatch(ServerRequestInterface $request): ResponseInterface
@@ -57,7 +59,7 @@ class RequestDispatcher
 
         $requiredRole = $config['security'][$operation] ?? AccessRole::PUBLIC;
         if (!$this->accessController->isAllowed($requiredRole, $request)) {
-            return $this->forbidden();
+            return $this->forbidden($operation);
         }
 
         return match ($operation) {
@@ -92,9 +94,12 @@ class RequestDispatcher
             ->withHeader('Content-Type', 'application/ld+json');
     }
 
-    private function forbidden(): ResponseInterface
+    private function forbidden(string $operation): ResponseInterface
     {
-        return $this->responseFactory->createResponse(403)
-            ->withHeader('Content-Type', 'application/ld+json');
+        return $this->hydraResponseBuilder->buildError(
+            403,
+            'Insufficient permissions for operation: ' . $operation,
+            'Access Denied',
+        );
     }
 }

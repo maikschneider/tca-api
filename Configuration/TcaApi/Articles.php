@@ -20,6 +20,8 @@ return [
             'required' => true,
             'validators' => [
                 ['type' => 'maxLength', 'max' => 20],
+                ['type' => 'minLength', 'min' => 3],
+                ['type' => 'regex', 'pattern' => '/^[\w\s]+$/u'],
             ],
         ],
     ],

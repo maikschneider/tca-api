@@ -39,7 +39,7 @@ class DataRepository
             );
 
         foreach ($constraints as $column => $filter) {
-            $qb->andWhere($qb->expr()->eq($column, $qb->createNamedParameter($filter['value'])));
+            $this->applyFilterConstraint($qb, $column, $filter);
         }
 
         foreach ($order as $column => $direction) {
@@ -67,10 +67,31 @@ class DataRepository
             );
 
         foreach ($constraints as $column => $filter) {
-            $qb->andWhere($qb->expr()->eq($column, $qb->createNamedParameter($filter['value'])));
+            $this->applyFilterConstraint($qb, $column, $filter);
         }
 
         return (int)$qb->executeQuery()->fetchOne();
+    }
+
+    private function applyFilterConstraint(\TYPO3\CMS\Core\Database\Query\QueryBuilder $qb, string $column, array $filter): void
+    {
+        $value = (string)$filter['value'];
+        $strategy = $filter['strategy'] ?? 'exact';
+
+        match ($strategy) {
+            'partial'    => $qb->andWhere($qb->expr()->like(
+                $column,
+                $qb->createNamedParameter('%' . $qb->escapeLikeWildcards($value) . '%'),
+            )),
+            'word_start' => $qb->andWhere($qb->expr()->like(
+                $column,
+                $qb->createNamedParameter($qb->escapeLikeWildcards($value) . '%'),
+            )),
+            default      => $qb->andWhere($qb->expr()->eq(
+                $column,
+                $qb->createNamedParameter($value),
+            )),
+        };
     }
 
 }

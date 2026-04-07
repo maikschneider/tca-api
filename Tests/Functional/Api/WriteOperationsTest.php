@@ -145,6 +145,27 @@ final class WriteOperationsTest extends ApiFunctionalTestCase
         self::assertSame(404, $response->getStatusCode());
     }
 
+    // ── Location header on POST ───────────────────────────────────────────────
+
+    public function testPostResponseHasLocationHeader(): void
+    {
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
+            'title' => 'New Article',
+        ]);
+
+        self::assertTrue($response->hasHeader('Location'));
+    }
+
+    public function testPostLocationHeaderPointsToCreatedResource(): void
+    {
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
+            'title' => 'Located Article',
+        ]);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame('/_api/articles/' . $body['uid'], $response->getHeaderLine('Location'));
+    }
+
     // ── 405 Method Not Allowed ───────────────────────────────────────────────
 
     public function testUnsupportedMethodReturns405(): void

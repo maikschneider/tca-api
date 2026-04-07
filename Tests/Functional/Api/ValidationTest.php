@@ -123,4 +123,66 @@ final class ValidationTest extends ApiFunctionalTestCase
 
         self::assertSame(422, $response->getStatusCode());
     }
+
+    // ── minLength validator ───────────────────────────────────────────────────
+
+    public function testPostReturns422WhenTitleBelowMinLength(): void
+    {
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
+            'title' => 'ab',
+        ]);
+
+        self::assertSame(422, $response->getStatusCode());
+    }
+
+    public function testMinLengthViolationHasMinLengthCode(): void
+    {
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
+            'title' => 'ab',
+        ]);
+        $body = $this->decodeResponseBody($response);
+
+        $codes = array_column($body['violations'], 'code');
+        self::assertContains('MIN_LENGTH', $codes);
+    }
+
+    public function testPostReturns201WhenTitleMeetsMinLength(): void
+    {
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
+            'title' => 'abc',
+        ]);
+
+        self::assertSame(201, $response->getStatusCode());
+    }
+
+    // ── regex validator ───────────────────────────────────────────────────────
+
+    public function testPostReturns422WhenTitleFailsRegex(): void
+    {
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
+            'title' => 'Invalid!!',
+        ]);
+
+        self::assertSame(422, $response->getStatusCode());
+    }
+
+    public function testRegexViolationHasRegexCode(): void
+    {
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
+            'title' => 'Invalid!!',
+        ]);
+        $body = $this->decodeResponseBody($response);
+
+        $codes = array_column($body['violations'], 'code');
+        self::assertContains('REGEX', $codes);
+    }
+
+    public function testPostReturns201WhenTitleMatchesRegex(): void
+    {
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
+            'title' => 'Valid Title',
+        ]);
+
+        self::assertSame(201, $response->getStatusCode());
+    }
 }
