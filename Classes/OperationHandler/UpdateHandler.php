@@ -8,6 +8,7 @@ use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\DataWriteService;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
+use MaikSchneider\TcaApi\Validation\FieldValidator;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -20,6 +21,7 @@ class UpdateHandler
         private readonly ResourceSerializer $serializer,
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly ResponseFactoryInterface $responseFactory,
+        private readonly FieldValidator $fieldValidator,
     ) {}
 
     public function handle(ServerRequestInterface $request, array $config, int $uid, bool $partial = false): ResponseInterface
@@ -34,11 +36,9 @@ class UpdateHandler
         $raw = (string)$request->getBody();
         $body = $raw !== '' ? (json_decode($raw, true, 512, JSON_THROW_ON_ERROR) ?? []) : [];
 
-        if (!$partial) {
-            $errors = $this->validate($body, $config);
-            if ($errors !== []) {
-                return $this->hydraResponseBuilder->buildError(422, implode(' ', $errors));
-            }
+        $violations = $this->fieldValidator->validate($body, $config, $partial);
+        if ($violations !== []) {
+            return $this->hydraResponseBuilder->buildValidationError($violations);
         }
 
         $data = $this->filterWritableColumns($body, $config);
@@ -50,19 +50,6 @@ class UpdateHandler
         return $this->hydraResponseBuilder->buildItem(
             $this->serializer->serialize($row, $config, $baseUrl),
         );
-    }
-
-    private function validate(array $body, array $config): array
-    {
-        $errors = [];
-        foreach ($config['columns'] as $column => $columnConfig) {
-            if (($columnConfig['required'] ?? false) && ($columnConfig['writable'] ?? false)) {
-                if (!isset($body[$column]) || $body[$column] === '') {
-                    $errors[] = "Field '$column' is required.";
-                }
-            }
-        }
-        return $errors;
     }
 
     private function filterWritableColumns(array $body, array $config): array

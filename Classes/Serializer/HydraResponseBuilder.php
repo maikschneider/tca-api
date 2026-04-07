@@ -45,6 +45,23 @@ class HydraResponseBuilder
         return $response;
     }
 
+    public function buildValidationError(array $violations): ResponseInterface
+    {
+        $body = [
+            '@context'          => 'http://www.w3.org/ns/hydra/context.jsonld',
+            '@type'             => 'hydra:Error',
+            'hydra:title'       => 'Validation Failed',
+            'hydra:description' => \count($violations) . ' validation error(s)',
+            'violations'        => $violations,
+        ];
+
+        $response = $this->responseFactory->createResponse(422)
+            ->withHeader('Content-Type', 'application/ld+json');
+        $response->getBody()->write(json_encode($body, JSON_THROW_ON_ERROR));
+
+        return $response;
+    }
+
     public function buildError(int $statusCode, string $message): ResponseInterface
     {
         $body = [
