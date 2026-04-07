@@ -17,6 +17,7 @@ return [
             'type' => 'string',
             'readable' => true,
             'writable' => true,
+            'required' => true,
         ],
     ],
     'filters' => [

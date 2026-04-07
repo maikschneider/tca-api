@@ -13,6 +13,9 @@ return [
             'disabled' => 'hidden',
         ],
         'iconfile' => 'EXT:core/Resources/Public/Icons/T3Icons/svgs/mimetypes/mimetypes-text-text.svg',
+        'security' => [
+            'ignorePageTypeRestriction' => true,
+        ],
     ],
     'columns' => [
         'hidden' => [

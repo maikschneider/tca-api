@@ -72,4 +72,5 @@ class DataRepository
 
         return (int)$qb->executeQuery()->fetchOne();
     }
+
 }
