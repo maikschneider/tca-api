@@ -23,17 +23,17 @@ class GetCollectionHandler
         return $httpMethod === 'GET' && $operation === 'list';
     }
 
-    public function handle(ServerRequestInterface $request, array $config): ResponseInterface
+    public function handle(ServerRequestInterface $request, array $config, int $page, int $itemsPerPage): ResponseInterface
     {
         $table = $config['general']['table'];
         $baseUrl = '/_api/' . $config['general']['resourceName'];
-        $limit = $config['general']['itemsPerPage'] ?? 20;
+        $offset = ($page - 1) * $itemsPerPage;
 
         $total = $this->dataRepository->count($table, [], $config);
-        $rows = $this->dataRepository->findCollection($table, [], $limit, 0, [], $config);
+        $rows = $this->dataRepository->findCollection($table, [], $itemsPerPage, $offset, [], $config);
         $members = $this->serializer->serializeCollection($rows, $config, $baseUrl);
 
-        return $this->hydraResponseBuilder->buildCollection($members, $total, $baseUrl, []);
+        return $this->hydraResponseBuilder->buildCollection($members, $total, $baseUrl, $page, $itemsPerPage);
     }
 
     public function getPriority(): int

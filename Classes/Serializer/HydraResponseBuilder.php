@@ -13,15 +13,20 @@ class HydraResponseBuilder
         private readonly ResponseFactoryInterface $responseFactory,
     ) {}
 
-    public function buildCollection(array $members, int $totalItems, string $collectionId, array $paginationLinks): ResponseInterface
-    {
-        // TODO: assemble Hydra Collection document, encode as JSON, return 200 response
+    public function buildCollection(
+        array $members,
+        int $totalItems,
+        string $collectionId,
+        int $page,
+        int $itemsPerPage,
+    ): ResponseInterface {
         $body = [
             '@context' => 'http://www.w3.org/ns/hydra/context.jsonld',
             '@type' => 'hydra:Collection',
             '@id' => $collectionId,
             'hydra:totalItems' => $totalItems,
             'hydra:member' => $members,
+            'hydra:view' => $this->buildView($collectionId, $page, $itemsPerPage, $totalItems),
         ];
 
         $response = $this->responseFactory->createResponse(200)
@@ -33,7 +38,6 @@ class HydraResponseBuilder
 
     public function buildItem(array $data): ResponseInterface
     {
-        // TODO: assemble Hydra item document, encode as JSON, return 200 response
         $response = $this->responseFactory->createResponse(200)
             ->withHeader('Content-Type', 'application/ld+json');
         $response->getBody()->write(json_encode($data, JSON_THROW_ON_ERROR));
@@ -43,7 +47,6 @@ class HydraResponseBuilder
 
     public function buildError(int $statusCode, string $message): ResponseInterface
     {
-        // TODO: Hydra error format
         $body = [
             '@context' => 'http://www.w3.org/ns/hydra/context.jsonld',
             '@type' => 'hydra:Error',
@@ -56,5 +59,20 @@ class HydraResponseBuilder
         $response->getBody()->write(json_encode($body, JSON_THROW_ON_ERROR));
 
         return $response;
+    }
+
+    private function buildView(string $collectionId, int $page, int $itemsPerPage, int $totalItems): array
+    {
+        $lastPage = (int)ceil($totalItems / $itemsPerPage);
+
+        $link = static fn(int $p) => $collectionId . '?page=' . $p . '&itemsPerPage=' . $itemsPerPage;
+
+        return [
+            '@type' => 'hydra:PartialCollectionView',
+            'hydra:first' => $link(1),
+            'hydra:last' => $link($lastPage),
+            'hydra:previous' => $page > 1 ? $link($page - 1) : null,
+            'hydra:next' => $page < $lastPage ? $link($page + 1) : null,
+        ];
     }
 }
