@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\OperationHandler;
 
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
+use MaikSchneider\TcaApi\Event\AfterOperationEvent;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
@@ -16,6 +18,7 @@ class GetCollectionHandler
         private readonly DataRepository $dataRepository,
         private readonly ResourceSerializer $serializer,
         private readonly HydraResponseBuilder $hydraResponseBuilder,
+        private readonly EventDispatcherInterface $eventDispatcher,
     ) {}
 
     public function supports(string $httpMethod, string $operation): bool
@@ -42,7 +45,10 @@ class GetCollectionHandler
         $rows = $this->dataRepository->findCollection($table, $safeFilters, $itemsPerPage, $offset, $safeOrder, $config);
         $members = $this->serializer->serializeCollection($rows, $config, $baseUrl);
 
-        return $this->hydraResponseBuilder->buildCollection($members, $total, $baseUrl, $page, $itemsPerPage);
+        $event = new AfterOperationEvent('list', $members);
+        $this->eventDispatcher->dispatch($event);
+
+        return $this->hydraResponseBuilder->buildCollection($event->getData(), $total, $baseUrl, $page, $itemsPerPage);
     }
 
     public function getPriority(): int

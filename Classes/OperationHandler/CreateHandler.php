@@ -6,9 +6,12 @@ namespace MaikSchneider\TcaApi\OperationHandler;
 
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\DataWriteService;
+use MaikSchneider\TcaApi\Event\AfterWriteEvent;
+use MaikSchneider\TcaApi\Event\BeforeWriteEvent;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
 use MaikSchneider\TcaApi\Validation\FieldValidator;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
@@ -20,6 +23,7 @@ class CreateHandler
         private readonly ResourceSerializer $serializer,
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly FieldValidator $fieldValidator,
+        private readonly EventDispatcherInterface $eventDispatcher,
     ) {}
 
     public function handle(ServerRequestInterface $request, array $config): ResponseInterface
@@ -35,8 +39,14 @@ class CreateHandler
         $data = $this->filterWritableColumns($body, $config);
         $data['pid'] = $config['general']['defaultPid'] ?? 1;
 
-        $uid = $this->writeService->create($config['general']['table'], $data);
-        $row = $this->dataRepository->findById($config['general']['table'], $uid, $config);
+        $table = $config['general']['table'];
+        $beforeEvent = new BeforeWriteEvent($table, 'create', $data);
+        $this->eventDispatcher->dispatch($beforeEvent);
+        $data = $beforeEvent->getData();
+
+        $uid = $this->writeService->create($table, $data);
+        $this->eventDispatcher->dispatch(new AfterWriteEvent($table, 'create', $uid));
+        $row = $this->dataRepository->findById($table, $uid, $config);
 
         $baseUrl = '/_api/' . $config['general']['resourceName'];
 

@@ -6,9 +6,12 @@ namespace MaikSchneider\TcaApi\OperationHandler;
 
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\DataWriteService;
+use MaikSchneider\TcaApi\Event\AfterWriteEvent;
+use MaikSchneider\TcaApi\Event\BeforeWriteEvent;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
 use MaikSchneider\TcaApi\Validation\FieldValidator;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -22,6 +25,7 @@ class UpdateHandler
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly ResponseFactoryInterface $responseFactory,
         private readonly FieldValidator $fieldValidator,
+        private readonly EventDispatcherInterface $eventDispatcher,
     ) {}
 
     public function handle(ServerRequestInterface $request, array $config, int $uid, bool $partial = false): ResponseInterface
@@ -42,7 +46,13 @@ class UpdateHandler
         }
 
         $data = $this->filterWritableColumns($body, $config);
+
+        $beforeEvent = new BeforeWriteEvent($table, 'update', $data);
+        $this->eventDispatcher->dispatch($beforeEvent);
+        $data = $beforeEvent->getData();
+
         $this->writeService->update($table, $uid, $data);
+        $this->eventDispatcher->dispatch(new AfterWriteEvent($table, 'update', $uid));
 
         $row = $this->dataRepository->findById($table, $uid, $config);
         $baseUrl = '/_api/' . $config['general']['resourceName'];

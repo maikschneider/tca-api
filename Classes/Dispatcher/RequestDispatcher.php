@@ -9,10 +9,12 @@ use MaikSchneider\TcaApi\OperationHandler\CreateHandler;
 use MaikSchneider\TcaApi\OperationHandler\DeleteHandler;
 use MaikSchneider\TcaApi\OperationHandler\GetCollectionHandler;
 use MaikSchneider\TcaApi\OperationHandler\GetItemHandler;
+use MaikSchneider\TcaApi\Event\BeforeOperationEvent;
 use MaikSchneider\TcaApi\OperationHandler\UpdateHandler;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Security\AccessController;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -28,6 +30,7 @@ class RequestDispatcher
         private readonly DeleteHandler $deleteHandler,
         private readonly AccessController $accessController,
         private readonly HydraResponseBuilder $hydraResponseBuilder,
+        private readonly EventDispatcherInterface $eventDispatcher,
     ) {}
 
     public function dispatch(ServerRequestInterface $request): ResponseInterface
@@ -61,6 +64,8 @@ class RequestDispatcher
         if (!$this->accessController->isAllowed($requiredRole, $request)) {
             return $this->forbidden($operation);
         }
+
+        $this->eventDispatcher->dispatch(new BeforeOperationEvent($operation, $request, $config));
 
         return match ($operation) {
             'list'   => $this->handleCollection($request, $config),

@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\OperationHandler;
 
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
+use MaikSchneider\TcaApi\Event\AfterOperationEvent;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -18,6 +20,7 @@ class GetItemHandler
         private readonly ResourceSerializer $serializer,
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly ResponseFactoryInterface $responseFactory,
+        private readonly EventDispatcherInterface $eventDispatcher,
     ) {}
 
     public function supports(string $httpMethod, string $operation): bool
@@ -36,9 +39,12 @@ class GetItemHandler
                 ->withHeader('Content-Type', 'application/ld+json');
         }
 
-        return $this->hydraResponseBuilder->buildItem(
-            $this->serializer->serialize($row, $config, $baseUrl),
-        );
+        $serialized = $this->serializer->serialize($row, $config, $baseUrl);
+
+        $event = new AfterOperationEvent('show', $serialized);
+        $this->eventDispatcher->dispatch($event);
+
+        return $this->hydraResponseBuilder->buildItem($event->getData());
     }
 
     public function getPriority(): int
