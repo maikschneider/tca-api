@@ -18,6 +18,9 @@ return [
             'readable' => true,
             'writable' => true,
             'required' => true,
+            'validators' => [
+                ['type' => 'maxLength', 'max' => 20],
+            ],
         ],
     ],
     'filters' => [
