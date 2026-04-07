@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Functional;
 
 use Psr\Http\Message\ResponseInterface;
+use TYPO3\CMS\Core\Http\Stream;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequest;
 
@@ -33,6 +34,27 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
         }
 
         return $this->executeFrontendSubRequest(new InternalRequest($uri));
+    }
+
+    /**
+     * Execute a write request (POST/PUT/PATCH/DELETE) with a JSON body.
+     */
+    protected function executeApiWriteRequest(string $method, string $path, array $data = []): ResponseInterface
+    {
+        $uri = 'http://localhost' . $path;
+
+        $body = new Stream('php://temp', 'rw');
+        if ($data !== []) {
+            $body->write(json_encode($data, JSON_THROW_ON_ERROR));
+            $body->rewind();
+        }
+
+        return $this->executeFrontendSubRequest(
+            (new InternalRequest($uri))
+                ->withMethod($method)
+                ->withAddedHeader('Content-Type', 'application/json')
+                ->withBody($body),
+        );
     }
 
     /**

@@ -9,7 +9,7 @@ return [
         'table' => 'tx_myext_domain_model_article',
         'resourceName' => 'articles',
         'resourceType' => 'Article',
-        'operations' => ['list', 'show'],
+        'operations' => ['list', 'show', 'create', 'update', 'delete'],
         'itemsPerPage' => 20,
     ],
     'columns' => [
