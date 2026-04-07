@@ -82,4 +82,18 @@ final class ArticleApiTest extends ApiFunctionalTestCase
         self::assertArrayHasKey('title', $firstMember);
         self::assertSame('First Article', $firstMember['title']);
     }
+
+    /**
+     * Records with hidden=1 must not appear in the collection.
+     */
+    public function testHiddenArticlesExcludedFromCollection(): void
+    {
+        $response = $this->executeApiRequest('/_api/articles');
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(3, $body['hydra:totalItems']);
+
+        $titles = array_column($body['hydra:member'], 'title');
+        self::assertNotContains('Hidden Article', $titles);
+    }
 }
