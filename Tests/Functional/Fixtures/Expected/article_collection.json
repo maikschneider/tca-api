@@ -1,0 +1,32 @@
+{
+    "@context": "http://www.w3.org/ns/hydra/context.jsonld",
+    "@type": "hydra:Collection",
+    "@id": "/_api/articles",
+    "hydra:totalItems": 3,
+    "hydra:member": [
+        {
+            "@type": "Article",
+            "@id": "/_api/articles/1",
+            "uid": 1,
+            "title": "First Article"
+        },
+        {
+            "@type": "Article",
+            "@id": "/_api/articles/2",
+            "uid": 2,
+            "title": "Second Article"
+        },
+        {
+            "@type": "Article",
+            "@id": "/_api/articles/3",
+            "uid": 3,
+            "title": "Third Article"
+        }
+    ],
+    "hydra:view": {
+        "@type": "hydra:PartialCollectionView",
+        "hydra:first": "/_api/articles?page=1",
+        "hydra:last": "/_api/articles?page=1",
+        "hydra:next": null
+    }
+}

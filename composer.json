@@ -40,6 +40,11 @@
 			"MaikSchneider\\TcaApi\\": "Classes"
 		}
 	},
+	"autoload-dev": {
+		"psr-4": {
+			"MaikSchneider\\TcaApi\\Tests\\": "Tests"
+		}
+	},
 	"config": {
 		"allow-plugins": {
 			"ergebnis/composer-normalize": true,

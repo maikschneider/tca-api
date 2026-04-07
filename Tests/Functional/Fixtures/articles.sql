@@ -1,0 +1,4 @@
+INSERT INTO `tx_myext_domain_model_article` (`uid`, `pid`, `title`, `hidden`, `deleted`, `tstamp`, `crdate`) VALUES
+(1, 1, 'First Article', 0, 0, 1704067200, 1704067200),
+(2, 1, 'Second Article', 0, 0, 1704067200, 1704067200),
+(3, 1, 'Third Article', 0, 0, 1704067200, 1704067200);
