@@ -8,8 +8,6 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
  * Functional tests for write operations: POST, PUT, PATCH, DELETE.
- *
- * RED phase: RequestDispatcher only handles GET — all tests must fail initially.
  */
 final class WriteOperationsTest extends ApiFunctionalTestCase
 {
@@ -18,13 +16,15 @@ final class WriteOperationsTest extends ApiFunctionalTestCase
         parent::setUp();
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/pages.csv');
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/articles.csv');
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_users.csv');
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/be_users.csv');
     }
 
     // ── POST ─────────────────────────────────────────────────────────────────
 
     public function testPostReturns201(): void
     {
-        $response = $this->executeApiWriteRequest('POST', '/_api/articles', [
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
             'title' => 'New Article',
         ]);
 
@@ -33,7 +33,7 @@ final class WriteOperationsTest extends ApiFunctionalTestCase
 
     public function testPostResponseContainsCreatedResource(): void
     {
-        $response = $this->executeApiWriteRequest('POST', '/_api/articles', [
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
             'title' => 'New Article',
         ]);
         $body = $this->decodeResponseBody($response);
@@ -45,7 +45,7 @@ final class WriteOperationsTest extends ApiFunctionalTestCase
 
     public function testPostPersistsRecordInDatabase(): void
     {
-        $this->executeApiWriteRequest('POST', '/_api/articles', ['title' => 'Persisted Article']);
+        $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, ['title' => 'Persisted Article']);
 
         $response = $this->executeApiRequest('/_api/articles', ['filters' => ['title' => 'Persisted Article']]);
         $body = $this->decodeResponseBody($response);
@@ -55,7 +55,7 @@ final class WriteOperationsTest extends ApiFunctionalTestCase
 
     public function testPostReturns422ForMissingTitle(): void
     {
-        $response = $this->executeApiWriteRequest('POST', '/_api/articles', []);
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, []);
 
         self::assertSame(422, $response->getStatusCode());
     }
@@ -64,7 +64,7 @@ final class WriteOperationsTest extends ApiFunctionalTestCase
 
     public function testPutReturns200(): void
     {
-        $response = $this->executeApiWriteRequest('PUT', '/_api/articles/1', [
+        $response = $this->executeApiWriteRequestAs('PUT', '/_api/articles/1', 1, [
             'title' => 'Updated Article',
         ]);
 
@@ -73,7 +73,7 @@ final class WriteOperationsTest extends ApiFunctionalTestCase
 
     public function testPutUpdatesRecord(): void
     {
-        $this->executeApiWriteRequest('PUT', '/_api/articles/1', ['title' => 'Updated Title']);
+        $this->executeApiWriteRequestAs('PUT', '/_api/articles/1', 1, ['title' => 'Updated Title']);
 
         $response = $this->executeApiRequest('/_api/articles/1');
         $body = $this->decodeResponseBody($response);
@@ -83,7 +83,7 @@ final class WriteOperationsTest extends ApiFunctionalTestCase
 
     public function testPutReturns404ForMissingRecord(): void
     {
-        $response = $this->executeApiWriteRequest('PUT', '/_api/articles/999', ['title' => 'Ghost']);
+        $response = $this->executeApiWriteRequestAs('PUT', '/_api/articles/999', 1, ['title' => 'Ghost']);
 
         self::assertSame(404, $response->getStatusCode());
     }
@@ -92,7 +92,7 @@ final class WriteOperationsTest extends ApiFunctionalTestCase
 
     public function testPatchReturns200(): void
     {
-        $response = $this->executeApiWriteRequest('PATCH', '/_api/articles/1', [
+        $response = $this->executeApiWriteRequestAs('PATCH', '/_api/articles/1', 1, [
             'title' => 'Patched Title',
         ]);
 
@@ -101,7 +101,7 @@ final class WriteOperationsTest extends ApiFunctionalTestCase
 
     public function testPatchUpdatesOnlySuppliedFields(): void
     {
-        $this->executeApiWriteRequest('PATCH', '/_api/articles/2', ['title' => 'Patched Second']);
+        $this->executeApiWriteRequestAs('PATCH', '/_api/articles/2', 1, ['title' => 'Patched Second']);
 
         $response = $this->executeApiRequest('/_api/articles/2');
         $body = $this->decodeResponseBody($response);
@@ -114,14 +114,14 @@ final class WriteOperationsTest extends ApiFunctionalTestCase
 
     public function testDeleteReturns204(): void
     {
-        $response = $this->executeApiWriteRequest('DELETE', '/_api/articles/3');
+        $response = $this->executeApiWriteRequestAsBackendAdmin('DELETE', '/_api/articles/3', 1);
 
         self::assertSame(204, $response->getStatusCode());
     }
 
     public function testDeletedRecordIsNoLongerReachable(): void
     {
-        $this->executeApiWriteRequest('DELETE', '/_api/articles/3');
+        $this->executeApiWriteRequestAsBackendAdmin('DELETE', '/_api/articles/3', 1);
 
         $response = $this->executeApiRequest('/_api/articles/3');
 
@@ -130,7 +130,7 @@ final class WriteOperationsTest extends ApiFunctionalTestCase
 
     public function testDeletedRecordIsExcludedFromCollection(): void
     {
-        $this->executeApiWriteRequest('DELETE', '/_api/articles/3');
+        $this->executeApiWriteRequestAsBackendAdmin('DELETE', '/_api/articles/3', 1);
 
         $response = $this->executeApiRequest('/_api/articles');
         $body = $this->decodeResponseBody($response);
@@ -140,7 +140,7 @@ final class WriteOperationsTest extends ApiFunctionalTestCase
 
     public function testDeleteReturns404ForMissingRecord(): void
     {
-        $response = $this->executeApiWriteRequest('DELETE', '/_api/articles/999');
+        $response = $this->executeApiWriteRequestAsBackendAdmin('DELETE', '/_api/articles/999', 1);
 
         self::assertSame(404, $response->getStatusCode());
     }

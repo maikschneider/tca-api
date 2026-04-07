@@ -8,6 +8,7 @@ use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Core\Http\Stream;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequest;
+use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequestContext;
 
 abstract class ApiFunctionalTestCase extends FunctionalTestCase
 {
@@ -34,6 +35,66 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
         }
 
         return $this->executeFrontendSubRequest(new InternalRequest($uri));
+    }
+
+    /**
+     * Execute a GET request as a specific frontend user.
+     */
+    protected function executeApiRequestAs(string $path, int $feUserId, array $queryParams = []): ResponseInterface
+    {
+        $uri = 'http://localhost' . $path;
+        if ($queryParams !== []) {
+            $uri .= '?' . http_build_query($queryParams);
+        }
+
+        return $this->executeFrontendSubRequest(
+            new InternalRequest($uri),
+            (new InternalRequestContext())->withFrontendUserId($feUserId),
+        );
+    }
+
+    /**
+     * Execute a write request as a specific frontend user.
+     */
+    protected function executeApiWriteRequestAs(string $method, string $path, int $feUserId, array $data = []): ResponseInterface
+    {
+        $uri = 'http://localhost' . $path;
+
+        $body = new Stream('php://temp', 'rw');
+        if ($data !== []) {
+            $body->write(json_encode($data, JSON_THROW_ON_ERROR));
+            $body->rewind();
+        }
+
+        return $this->executeFrontendSubRequest(
+            (new InternalRequest($uri))
+                ->withMethod($method)
+                ->withAddedHeader('Content-Type', 'application/json')
+                ->withBody($body),
+            (new InternalRequestContext())->withFrontendUserId($feUserId),
+        );
+    }
+
+    /**
+     * Execute a write request as a backend admin user.
+     */
+    protected function executeApiWriteRequestAsBackendAdmin(string $method, string $path, int $beUserId, array $data = []): ResponseInterface
+    {
+        $uri = 'http://localhost' . $path;
+
+        $body = new Stream('php://temp', 'rw');
+        if ($data !== []) {
+            $body->write(json_encode($data, JSON_THROW_ON_ERROR));
+            $body->rewind();
+        }
+
+        return $this->executeFrontendSubRequest(
+            (new InternalRequest($uri))
+                ->withMethod($method)
+                ->withAddedHeader('Content-Type', 'application/json')
+                ->withBody($body),
+            (new InternalRequestContext())->withBackendUserId($beUserId),
+        );
     }
 
     /**
