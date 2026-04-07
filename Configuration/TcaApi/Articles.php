@@ -19,6 +19,13 @@ return [
             'writable' => true,
         ],
     ],
+    'filters' => [
+        'title' => ['strategy' => 'exact'],
+    ],
+    'order' => [
+        'allowed' => ['title', 'uid'],
+        'default' => ['uid' => 'asc'],
+    ],
     'security' => [
         'list' => AccessRole::PUBLIC,
         'show' => AccessRole::PUBLIC,

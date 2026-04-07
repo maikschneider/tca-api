@@ -23,14 +23,23 @@ class GetCollectionHandler
         return $httpMethod === 'GET' && $operation === 'list';
     }
 
-    public function handle(ServerRequestInterface $request, array $config, int $page, int $itemsPerPage): ResponseInterface
-    {
+    public function handle(
+        ServerRequestInterface $request,
+        array $config,
+        int $page,
+        int $itemsPerPage,
+        array $filters = [],
+        array $order = [],
+    ): ResponseInterface {
         $table = $config['general']['table'];
         $baseUrl = '/_api/' . $config['general']['resourceName'];
         $offset = ($page - 1) * $itemsPerPage;
 
-        $total = $this->dataRepository->count($table, [], $config);
-        $rows = $this->dataRepository->findCollection($table, [], $itemsPerPage, $offset, [], $config);
+        $safeFilters = $this->resolveFilters($filters, $config);
+        $safeOrder = $this->resolveOrder($order, $config);
+
+        $total = $this->dataRepository->count($table, $safeFilters, $config);
+        $rows = $this->dataRepository->findCollection($table, $safeFilters, $itemsPerPage, $offset, $safeOrder, $config);
         $members = $this->serializer->serializeCollection($rows, $config, $baseUrl);
 
         return $this->hydraResponseBuilder->buildCollection($members, $total, $baseUrl, $page, $itemsPerPage);
@@ -39,5 +48,36 @@ class GetCollectionHandler
     public function getPriority(): int
     {
         return 10;
+    }
+
+    private function resolveFilters(array $requested, array $config): array
+    {
+        $declared = $config['filters'] ?? [];
+        $safe = [];
+        foreach ($requested as $column => $value) {
+            if (isset($declared[$column])) {
+                $safe[$column] = ['value' => $value, 'strategy' => $declared[$column]['strategy'] ?? 'exact'];
+            }
+        }
+        return $safe;
+    }
+
+    private function resolveOrder(array $requested, array $config): array
+    {
+        $allowed = $config['order']['allowed'] ?? [];
+        $default = $config['order']['default'] ?? [];
+
+        if (empty($requested)) {
+            return $default;
+        }
+
+        $safe = [];
+        foreach ($requested as $column => $direction) {
+            if (\in_array($column, $allowed, true)) {
+                $safe[$column] = \strtolower($direction) === 'desc' ? 'desc' : 'asc';
+            }
+        }
+
+        return $safe ?: $default;
     }
 }

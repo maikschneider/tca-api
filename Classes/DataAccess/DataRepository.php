@@ -38,6 +38,14 @@ class DataRepository
                 $qb->expr()->eq('hidden', 0),
             );
 
+        foreach ($constraints as $column => $filter) {
+            $qb->andWhere($qb->expr()->eq($column, $qb->createNamedParameter($filter['value'])));
+        }
+
+        foreach ($order as $column => $direction) {
+            $qb->addOrderBy($column, $direction);
+        }
+
         if ($limit > 0) {
             $qb->setMaxResults($limit);
         }
@@ -51,13 +59,17 @@ class DataRepository
     public function count(string $table, array $constraints, array $config): int
     {
         $qb = $this->connectionPool->getQueryBuilderForTable($table);
-        return (int)$qb->count('uid')
+        $qb->count('uid')
             ->from($table)
             ->where(
                 $qb->expr()->eq('deleted', 0),
                 $qb->expr()->eq('hidden', 0),
-            )
-            ->executeQuery()
-            ->fetchOne();
+            );
+
+        foreach ($constraints as $column => $filter) {
+            $qb->andWhere($qb->expr()->eq($column, $qb->createNamedParameter($filter['value'])));
+        }
+
+        return (int)$qb->executeQuery()->fetchOne();
     }
 }

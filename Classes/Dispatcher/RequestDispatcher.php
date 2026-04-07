@@ -40,7 +40,9 @@ class RequestDispatcher
         $params = $request->getQueryParams();
         $page = max(1, (int)($params['page'] ?? 1));
         $itemsPerPage = max(1, (int)($params['itemsPerPage'] ?? $config['general']['itemsPerPage'] ?? 20));
+        $filters = \is_array($params['filters'] ?? null) ? $params['filters'] : [];
+        $order = \is_array($params['order'] ?? null) ? $params['order'] : [];
 
-        return $this->collectionHandler->handle($request, $config, $page, $itemsPerPage);
+        return $this->collectionHandler->handle($request, $config, $page, $itemsPerPage, $filters, $order);
     }
 }
