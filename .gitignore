@@ -1,0 +1,14 @@
+node_modules/
+.idea
+public
+!Resources/Public
+vendor
+bin
+var/
+Documentation-GENERATED-temp
+tscommand-*.tmp.txt
+.Build
+config/system
+.tscache
+package-lock.json
+Resources/Public/JavaScript/*.js.map

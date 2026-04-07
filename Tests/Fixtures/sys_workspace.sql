@@ -1,0 +1,3 @@
+INSERT INTO `sys_workspace` (`uid`, `pid`, `tstamp`, `deleted`, `description`, `title`, `adminusers`, `members`, `db_mountpoints`, `file_mountpoints`, `live_edit`, `publish_access`, `previewlink_lifetime`, `custom_stages`, `stagechg_notification`, `edit_notification_defaults`, `edit_notification_preselection`, `edit_allow_notificaton_settings`, `publish_notification_defaults`, `publish_notification_preselection`, `publish_allow_notificaton_settings`, `execute_notification_defaults`, `execute_notification_preselection`, `execute_allow_notificaton_settings`, `publish_time`)
+VALUES
+	(1, 0, 1744190908, 0, '', 'Editorial', '', 'be_groups_1', '', NULL, 0, 0, 48, 0, 0, '', 2, 3, '', 1, 3, '', 3, 3, 0);
