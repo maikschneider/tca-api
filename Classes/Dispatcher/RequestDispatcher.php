@@ -73,16 +73,19 @@ class RequestDispatcher
 
         $this->eventDispatcher->dispatch(new BeforeOperationEvent($operation, $request, $config));
 
+        $params = $request->getQueryParams();
+        $fields = \is_array($params['fields'] ?? null) ? $params['fields'] : [];
+
         return match ($operation) {
-            'list'   => $this->handleCollection($request, $config),
-            'show'   => $this->itemHandler->handle($request, $config, $uid),
+            'list'   => $this->handleCollection($request, $config, $fields),
+            'show'   => $this->itemHandler->handle($request, $config, $uid, $fields),
             'create' => $this->createHandler->handle($request, $config),
             'update' => $this->updateHandler->handle($request, $config, $uid, $method === 'PATCH'),
             'delete' => $this->deleteHandler->handle($request, $config, $uid),
         };
     }
 
-    private function handleCollection(ServerRequestInterface $request, array $config): ResponseInterface
+    private function handleCollection(ServerRequestInterface $request, array $config, array $fields): ResponseInterface
     {
         $params = $request->getQueryParams();
         $page = max(1, (int)($params['page'] ?? 1));
@@ -90,7 +93,7 @@ class RequestDispatcher
         $filters = \is_array($params['filters'] ?? null) ? $params['filters'] : [];
         $order = \is_array($params['order'] ?? null) ? $params['order'] : [];
 
-        return $this->collectionHandler->handle($request, $config, $page, $itemsPerPage, $filters, $order);
+        return $this->collectionHandler->handle($request, $config, $page, $itemsPerPage, $filters, $order, $fields);
     }
 
     private function notFound(): ResponseInterface

@@ -1,0 +1,6 @@
+"fe_users"
+,"uid","pid","username","password","usergroup","disable","deleted"
+,20,1,"group1-user","$argon2i$v=19$m=65536,t=16,p=1$test$test","1",0,0
+,21,1,"group2-user","$argon2i$v=19$m=65536,t=16,p=1$test$test","2",0,0
+,22,1,"groups12-user","$argon2i$v=19$m=65536,t=16,p=1$test$test","1,2",0,0
+,23,1,"nogroup-user","$argon2i$v=19$m=65536,t=16,p=1$test$test","",0,0

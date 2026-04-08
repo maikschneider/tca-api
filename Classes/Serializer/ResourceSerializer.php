@@ -29,7 +29,7 @@ class ResourceSerializer
     ) {
     }
 
-    public function serialize(array $row, array $config, string $baseUrl): array
+    public function serialize(array $row, array $config, string $baseUrl, array $fields = []): array
     {
         $table = $config['general']['table'];
         $record = $this->recordFactory->createResolvedRecordFromDatabaseRow($table, $row);
@@ -43,6 +43,10 @@ class ResourceSerializer
 
         foreach ($config['columns'] as $column => $columnConfig) {
             if (!($columnConfig['readable'] ?? false)) {
+                continue;
+            }
+
+            if ($fields !== [] && !\in_array($column, $fields, true)) {
                 continue;
             }
 
@@ -76,9 +80,9 @@ class ResourceSerializer
         return $result;
     }
 
-    public function serializeCollection(array $rows, array $config, string $baseUrl): array
+    public function serializeCollection(array $rows, array $config, string $baseUrl, array $fields = []): array
     {
-        return array_map(fn (array $row) => $this->serialize($row, $config, $baseUrl), $rows);
+        return array_map(fn (array $row) => $this->serialize($row, $config, $baseUrl, $fields), $rows);
     }
 
     private function buildShallowEmbed(RecordInterface $record, array $columnConfig): array

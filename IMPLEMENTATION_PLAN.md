@@ -14,47 +14,47 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │  HTTP Request                                                       │
 └──────────────────────────┬──────────────────────────────────────────┘
-                           ▼
+                          ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │  TYPO3 Routing Layer                                               │
 │  RouteEnhancer (TcaApiEnhancer) → adds _tcaApiResource param       │
 └──────────────────────────┬──────────────────────────────────────────┘
-                           ▼
+                          ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │  TcaApiMiddleware  (PSR-15, priority 500)                          │
 │  Checks _tcaApiResource presence → dispatches to RequestDispatcher  │
 └──────────────────────────┬──────────────────────────────────────────┘
-                           ▼
+                          ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │  RequestDispatcher                                                  │
 │  Resolves resource config from ApiRegistry → selects OperationHandler│
 └──────────┬──────────────────────────────────┬────────────────────── ┘
-           ▼                                  ▼
+          ▼                                  ▼
 ┌─────────────────────┐            ┌──────────────────────────┐
 │  AccessController   │            │  OperationHandler        │
 │  Evaluates access   │            │  GET / POST / PUT /      │
 │  rules before ops   │            │  PATCH / DELETE          │
 └─────────────────────┘            └──────────┬───────────────┘
                                               ▼
-                           ┌──────────────────────────────────┐
-                           │  DataRepository (reads)          │
-                           │  ConnectionPool → QueryBuilder   │
-                           └──────────┬───────────────────────┘
+                          ┌──────────────────────────────────┐
+                          │  DataRepository (reads)          │
+                          │  ConnectionPool → QueryBuilder   │
+                          └──────────┬───────────────────────┘
                                       │
-                           ┌──────────▼───────────────────────┐
-                           │  DataHandler (writes)            │
-                           │  TYPO3 Core DataHandler          │
-                           └──────────┬───────────────────────┘
+                          ┌──────────▼───────────────────────┐
+                          │  DataHandler (writes)            │
+                          │  TYPO3 Core DataHandler          │
+                          └──────────┬───────────────────────┘
                                       ▼
-                           ┌──────────────────────────────────┐
-                           │  ResourceSerializer              │
-                           │  DB row → Hydra JSON-LD array    │
-                           └──────────┬───────────────────────┘
+                          ┌──────────────────────────────────┐
+                          │  ResourceSerializer              │
+                          │  DB row → Hydra JSON-LD array    │
+                          └──────────┬───────────────────────┘
                                       ▼
-                           ┌──────────────────────────────────┐
-                           │  ResponseFactory                 │
-                           │  PSR-7 JsonResponse              │
-                           └──────────────────────────────────┘
+                          ┌──────────────────────────────────┐
+                          │  ResponseFactory                 │
+                          │  PSR-7 JsonResponse              │
+                          └──────────────────────────────────┘
 ```
 
 ### 1.2 Key Design Decisions
@@ -77,17 +77,17 @@
 2. TYPO3 Router → TcaApiEnhancer decodes URL → adds _tcaApiResource=products, _tcaApiOperation=list
 3. TcaApiMiddleware::process() checks _tcaApiResource param
 4. RequestDispatcher::dispatch($request)
-   a. ApiRegistry::getResourceByName('products') → $config array
-   b. AccessController::check($config, 'list', $request) → 403 or continue
-   c. PSR-14: BeforeOperationEvent dispatched
-   d. OperationHandlerRegistry::resolve($method, $operation) → GetCollectionHandler
+  a. ApiRegistry::getResourceByName('products') → $config array
+  b. AccessController::check($config, 'list', $request) → 403 or continue
+  c. PSR-14: BeforeOperationEvent dispatched
+  d. OperationHandlerRegistry::resolve($method, $operation) → GetCollectionHandler
 5. GetCollectionHandler::handle($request, $config)
-   a. FilterParser::parse($request->getQueryParams(), $config['filters'])
-   b. PaginationParser::parse($request->getQueryParams(), $config['general'])
-   c. SortParser::parse($request->getQueryParams(), $config['sorting'])
-   d. DataRepository::findCollection($table, $where, $pagination, $sort)
-   e. ResourceSerializer::serializeCollection($rows, $config, $context)
-   f. PaginationLinkBuilder::build($pagination, $totalCount, $request)
+  a. FilterParser::parse($request->getQueryParams(), $config['filters'])
+  b. PaginationParser::parse($request->getQueryParams(), $config['general'])
+  c. SortParser::parse($request->getQueryParams(), $config['sorting'])
+  d. DataRepository::findCollection($table, $where, $pagination, $sort)
+  e. ResourceSerializer::serializeCollection($rows, $config, $context)
+  f. PaginationLinkBuilder::build($pagination, $totalCount, $request)
 6. PSR-14: AfterOperationEvent dispatched (serialized data can be mutated)
 7. HydraResponseBuilder::collection($serializedItems, $pagination, $meta)
 8. PSR-7 JsonResponse → 200 application/ld+json
@@ -757,7 +757,7 @@ final class DataRepository implements DataRepositoryInterface
         }
 
         $qb->setFirstResult($pagination->getOffset())
-           ->setMaxResults($pagination->getItemsPerPage());
+          ->setMaxResults($pagination->getItemsPerPage());
 
         foreach ($order as $orderItem) {
             $qb->addOrderBy($orderItem['field'], $orderItem['direction']);

@@ -34,6 +34,7 @@ class GetCollectionHandler
         int $itemsPerPage,
         array $filters = [],
         array $order = [],
+        array $fields = [],
     ): ResponseInterface {
         $table = $config['general']['table'];
         $baseUrl = '/_api/' . $config['general']['resourceName'];
@@ -44,7 +45,7 @@ class GetCollectionHandler
 
         $total = $this->dataRepository->count($table, $safeFilters, $config);
         $rows = $this->dataRepository->findCollection($table, $safeFilters, $itemsPerPage, $offset, $safeOrder, $config);
-        $members = $this->serializer->serializeCollection($rows, $config, $baseUrl);
+        $members = $this->serializer->serializeCollection($rows, $config, $baseUrl, $fields);
 
         $event = new AfterOperationEvent('list', $members);
         $this->eventDispatcher->dispatch($event);
