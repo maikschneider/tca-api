@@ -17,7 +17,7 @@
         <env name="typo3DatabaseHost" value="db"/>
         <env name="typo3DatabasePort" value="3306"/>
         <env name="typo3DatabaseName" value="db"/>
-        <env name="typo3DatabaseUsername" value="db"/>
-        <env name="typo3DatabasePassword" value="db"/>
+        <env name="typo3DatabaseUsername" value="root"/>
+        <env name="typo3DatabasePassword" value="root"/>
     </php>
 </phpunit>
