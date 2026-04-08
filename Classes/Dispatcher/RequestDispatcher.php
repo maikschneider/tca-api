@@ -61,6 +61,11 @@ class RequestDispatcher
             return $this->methodNotAllowed();
         }
 
+        $allowedOps = $config['general']['operations'] ?? [];
+        if (!\in_array($operation, $allowedOps, true)) {
+            return $this->methodNotAllowed($operation);
+        }
+
         $requiredRole = $config['security'][$operation] ?? AccessRole::PUBLIC;
         if (!$this->accessController->isAllowed($requiredRole, $request)) {
             return $this->forbidden($operation);
@@ -94,10 +99,13 @@ class RequestDispatcher
             ->withHeader('Content-Type', 'application/ld+json');
     }
 
-    private function methodNotAllowed(): ResponseInterface
+    private function methodNotAllowed(?string $operation = null): ResponseInterface
     {
-        return $this->responseFactory->createResponse(405)
-            ->withHeader('Content-Type', 'application/ld+json');
+        $description = $operation !== null
+            ? sprintf("Operation '%s' is not available on this resource", $operation)
+            : 'Method not allowed';
+
+        return $this->hydraResponseBuilder->buildError(405, $description, 'Method Not Allowed');
     }
 
     private function forbidden(string $operation): ResponseInterface
