@@ -1,0 +1,50 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+      - 'renovate/**'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  tests:
+    name: Tests (PHP ${{ matrix.php-version }}, TYPO3 ${{ matrix.typo3-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        typo3-version: ["13.4"]
+        php-version: ["8.2", "8.3", "8.4"]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Setup DDEV
+      - name: Setup DDEV
+        uses: ddev/github-action-setup-ddev@v1
+        with:
+          autostart: false
+
+      - name: Configure and start DDEV
+        run: |
+          ddev config --project-type=typo3 --php-version=${{ matrix.php-version }}
+          ddev start
+
+      # Install dependencies
+      - name: Install Composer dependencies
+        run: |
+          ddev composer config github-oauth.github.com ${{ secrets.GITHUB_TOKEN }}
+          ddev composer install --with=typo3/cms-core:"^${{ matrix.typo3-version }}"
+
+      # Init TYPO3
+      - name: Init TYPO3
+        run: ddev init-typo3
+
+      # Run tests
+      - name: Run functional tests
+        run: ddev exec vendor/bin/phpunit --configuration phpunit.xml
