@@ -26,11 +26,11 @@ return [
         ],
         'color_id' => [
             'readable' => true,
-            'writable' => false,
+            'writable' => true,
         ],
         'categories' => [
             'readable' => true,
-            'writable' => false,
+            'writable' => true,
         ],
     ],
     'filters' => [

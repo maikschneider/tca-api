@@ -18,6 +18,7 @@ use Psr\Http\Message\ServerRequestInterface;
 
 class UpdateHandler
 {
+    use ColumnFilterTrait;
     public function __construct(
         private readonly DataWriteService $writeService,
         private readonly DataRepository $dataRepository,
@@ -61,16 +62,5 @@ class UpdateHandler
         return $this->hydraResponseBuilder->buildItem(
             $this->serializer->serialize($row, $config, $baseUrl),
         );
-    }
-
-    private function filterWritableColumns(array $body, array $config): array
-    {
-        $result = [];
-        foreach ($config['columns'] as $column => $columnConfig) {
-            if (($columnConfig['writable'] ?? false) && \array_key_exists($column, $body)) {
-                $result[$column] = $body[$column];
-            }
-        }
-        return $result;
     }
 }
