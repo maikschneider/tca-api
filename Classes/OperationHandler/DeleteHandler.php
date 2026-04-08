@@ -20,7 +20,8 @@ class DeleteHandler
         private readonly DataRepository $dataRepository,
         private readonly ResponseFactoryInterface $responseFactory,
         private readonly EventDispatcherInterface $eventDispatcher,
-    ) {}
+    ) {
+    }
 
     public function handle(ServerRequestInterface $request, array $config, int $uid): ResponseInterface
     {

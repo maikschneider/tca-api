@@ -21,7 +21,8 @@ class GetItemHandler
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly ResponseFactoryInterface $responseFactory,
         private readonly EventDispatcherInterface $eventDispatcher,
-    ) {}
+    ) {
+    }
 
     public function supports(string $httpMethod, string $operation): bool
     {

@@ -21,7 +21,8 @@ final class BeforeOperationEvent implements StoppableEventInterface
         private readonly string $operation,
         private readonly ServerRequestInterface $request,
         private readonly array $config,
-    ) {}
+    ) {
+    }
 
     public function getOperation(): string
     {

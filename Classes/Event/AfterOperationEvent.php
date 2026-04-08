@@ -19,7 +19,8 @@ final class AfterOperationEvent implements StoppableEventInterface
     public function __construct(
         private readonly string $operation,
         private array $data,
-    ) {}
+    ) {
+    }
 
     public function getOperation(): string
     {

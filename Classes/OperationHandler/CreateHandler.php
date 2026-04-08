@@ -24,7 +24,8 @@ class CreateHandler
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly FieldValidator $fieldValidator,
         private readonly EventDispatcherInterface $eventDispatcher,
-    ) {}
+    ) {
+    }
 
     public function handle(ServerRequestInterface $request, array $config): ResponseInterface
     {

@@ -1,5 +1,6 @@
 node_modules/
 .idea
+.phpunit.cache
 public
 !Resources/Public
 vendor

@@ -11,7 +11,8 @@ class HydraResponseBuilder
 {
     public function __construct(
         private readonly ResponseFactoryInterface $responseFactory,
-    ) {}
+    ) {
+    }
 
     public function buildCollection(
         array $members,
@@ -82,7 +83,7 @@ class HydraResponseBuilder
     {
         $lastPage = (int)ceil($totalItems / $itemsPerPage);
 
-        $link = static fn(int $p) => $collectionId . '?page=' . $p . '&itemsPerPage=' . $itemsPerPage;
+        $link = static fn (int $p) => $collectionId . '?page=' . $p . '&itemsPerPage=' . $itemsPerPage;
 
         return [
             '@type' => 'hydra:PartialCollectionView',

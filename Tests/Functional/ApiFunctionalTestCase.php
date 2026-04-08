@@ -6,9 +6,9 @@ namespace MaikSchneider\TcaApi\Tests\Functional;
 
 use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Core\Http\Stream;
-use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequest;
 use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequestContext;
+use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
 abstract class ApiFunctionalTestCase extends FunctionalTestCase
 {

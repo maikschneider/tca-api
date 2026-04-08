@@ -20,7 +20,8 @@ final class AfterWriteEvent implements StoppableEventInterface
         private readonly string $table,
         private readonly string $operation,
         private readonly int $uid,
-    ) {}
+    ) {
+    }
 
     public function getTable(): string
     {

@@ -19,7 +19,8 @@ class GetCollectionHandler
         private readonly ResourceSerializer $serializer,
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly EventDispatcherInterface $eventDispatcher,
-    ) {}
+    ) {
+    }
 
     public function supports(string $httpMethod, string $operation): bool
     {

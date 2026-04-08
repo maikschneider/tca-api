@@ -63,6 +63,6 @@ final class EventCollector
      */
     public static function getByClass(string $class): array
     {
-        return array_values(array_filter(self::$events, fn(object $e) => $e instanceof $class));
+        return array_values(array_filter(self::$events, fn (object $e) => $e instanceof $class));
     }
 }

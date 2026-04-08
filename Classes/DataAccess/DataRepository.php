@@ -10,7 +10,8 @@ class DataRepository
 {
     public function __construct(
         private readonly ConnectionPool $connectionPool,
-    ) {}
+    ) {
+    }
 
     public function findById(string $table, int $uid, array $config): ?array
     {
@@ -93,5 +94,4 @@ class DataRepository
             )),
         };
     }
-
 }

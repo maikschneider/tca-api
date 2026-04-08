@@ -26,7 +26,8 @@ class ResourceSerializer
     public function __construct(
         private readonly RecordFactory $recordFactory,
         private readonly TcaSchemaFactory $schemaFactory,
-    ) {}
+    ) {
+    }
 
     public function serialize(array $row, array $config, string $baseUrl): array
     {
@@ -63,7 +64,7 @@ class ResourceSerializer
                 } else {
                     $collection = $record->get($column);
                     $result[$column] = array_map(
-                        fn(RecordInterface $item) => $this->buildShallowEmbed($item, $columnConfig),
+                        fn (RecordInterface $item) => $this->buildShallowEmbed($item, $columnConfig),
                         $collection instanceof \Traversable ? iterator_to_array($collection, false) : [],
                     );
                 }
@@ -77,7 +78,7 @@ class ResourceSerializer
 
     public function serializeCollection(array $rows, array $config, string $baseUrl): array
     {
-        return array_map(fn(array $row) => $this->serialize($row, $config, $baseUrl), $rows);
+        return array_map(fn (array $row) => $this->serialize($row, $config, $baseUrl), $rows);
     }
 
     private function buildShallowEmbed(RecordInterface $record, array $columnConfig): array

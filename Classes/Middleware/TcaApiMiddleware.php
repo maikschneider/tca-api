@@ -16,7 +16,8 @@ class TcaApiMiddleware implements MiddlewareInterface
 
     public function __construct(
         private readonly RequestDispatcher $dispatcher,
-    ) {}
+    ) {
+    }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {

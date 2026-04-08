@@ -26,7 +26,8 @@ class UpdateHandler
         private readonly ResponseFactoryInterface $responseFactory,
         private readonly FieldValidator $fieldValidator,
         private readonly EventDispatcherInterface $eventDispatcher,
-    ) {}
+    ) {
+    }
 
     public function handle(ServerRequestInterface $request, array $config, int $uid, bool $partial = false): ResponseInterface
     {

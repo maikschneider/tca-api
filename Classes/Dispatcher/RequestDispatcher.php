@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Dispatcher;
 
 use MaikSchneider\TcaApi\Enum\AccessRole;
+use MaikSchneider\TcaApi\Event\BeforeOperationEvent;
 use MaikSchneider\TcaApi\OperationHandler\CreateHandler;
 use MaikSchneider\TcaApi\OperationHandler\DeleteHandler;
 use MaikSchneider\TcaApi\OperationHandler\GetCollectionHandler;
 use MaikSchneider\TcaApi\OperationHandler\GetItemHandler;
-use MaikSchneider\TcaApi\Event\BeforeOperationEvent;
 use MaikSchneider\TcaApi\OperationHandler\UpdateHandler;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Security\AccessController;
@@ -31,7 +31,8 @@ class RequestDispatcher
         private readonly AccessController $accessController,
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly EventDispatcherInterface $eventDispatcher,
-    ) {}
+    ) {
+    }
 
     public function dispatch(ServerRequestInterface $request): ResponseInterface
     {

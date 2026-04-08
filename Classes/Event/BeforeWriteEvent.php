@@ -20,7 +20,8 @@ final class BeforeWriteEvent implements StoppableEventInterface
         private readonly string $table,
         private readonly string $operation,
         private array $data,
-    ) {}
+    ) {
+    }
 
     public function getTable(): string
     {
