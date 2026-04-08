@@ -225,15 +225,15 @@ Validation failures return **422 Unprocessable Entity**:
 Relations are resolved automatically from the TCA schema:
 
 - **hasOne** — A column like `color_id` is embedded as a shallow object (the `_id` suffix is stripped in the response):
-  ```json
-  "color": { "@id": "/_api/colors/1", "@type": "Color", "uid": 1 }
-  ```
+```json
+"color": { "@id": "/_api/colors/1", "@type": "Color", "uid": 1 }
+```
 - **manyToMany** — Resolved via MM tables and embedded as arrays:
-  ```json
-  "categories": [
-      { "@id": "/_api/sys-categories/1", "@type": "SysCategory", "uid": 1 }
-  ]
-  ```
+```json
+"categories": [
+    {"@id": "/_api/sys-categories/1", "@type": "SysCategory", "uid": 1}
+]
+```
 
 Related objects are **shallow**: they contain only `@id`, `@type`, and `uid`. Follow the `@id` link to fetch full details.
 
@@ -255,8 +255,8 @@ services:
   My\Extension\EventListener\EnrichArticleListener:
     tags:
       - name: event.listener
-        identifier: 'my-extension/enrich-article'
-        event: MaikSchneider\TcaApi\Event\AfterOperationEvent
+          identifier: 'my-extension/enrich-article'
+          event: MaikSchneider\TcaApi\Event\AfterOperationEvent
 ```
 
 ## API response examples

@@ -1,147 +1,147 @@
 {
-  "project": {
-    "name": "TYPO3 TCA API",
-    "description": "",
-    "type": "typo3-extension",
-    "framework": "TYPO3 CMS"
-  },
-  "context": {
-    "description": "This is a TYPO3 extension that provides an OpenAPI based on the TYPO3 TCA to facilitate interaction with database and configurations.",
-    "key_directories": {
-      "Classes/Controller": "Backend controllers implementing record list logic",
-      "Classes/Controller/Example": "Example controllers demonstrating usage",
-      "Resources/Private/Templates": "Fluid templates for rendering views",
-      "Resources/Private/Partials": "Reusable Fluid template partials for columns and UI elements",
-      "Resources/Private/Language": "XLIFF language files for internationalization",
-      "Resources/Public/JavaScript": "JavaScript modules for frontend functionality",
-      "Resources/Public/Css": "Stylesheets for the extension",
-      "Tests/Acceptance": "Codeception acceptance tests and fixtures"
-    },
-    "patterns": {
-      "controllers": "Classes/Controller/**/*Controller.php",
-      "templates": "Resources/Private/Templates/**/*.html",
-      "partials": "Resources/Private/Partials/**/*.html",
-      "languages": "Resources/Private/Language/**/*.xlf",
-      "javascript": "Resources/Public/JavaScript/**/*.js",
-      "tests": "Tests/**/*.php"
-    }
-  },
-  "conventions": {
-    "coding_standards": [
-      "Follow TYPO3 coding guidelines (PSR-12)",
-      "Use type declarations for all parameters and return types",
-      "Document classes and methods with PHPDoc",
-      "Use dependency injection for services"
-    ],
-    "naming": {
-      "controllers": "PascalCase with 'Controller' suffix",
-      "actions": "camelCase with 'Action' suffix",
-      "templates": "Match controller action names",
-      "javascript_modules": "kebab-case with descriptive names"
-    },
-    "fluid_templates": [
-      "Use layouts for consistent page structure",
-      "Organize partials by functionality (Columns/, etc.)",
-      "Use XLIFF for all translatable strings",
-      "Follow TYPO3 ViewHelper conventions"
-    ]
-  },
-  "technologies": {
-    "backend": ["PHP 8.2+", "TYPO3 13.4+"],
-    "frontend": ["Fluid templating", "Vanilla JavaScript", "CSS"],
-    "testing": ["Codeception", "Acceptance tests"],
-    "database": ["SQL fixtures for test data"]
-  },
-  "commands": {
-    "quality": {
-      "phpstan": {
-        "command": "ddev exec vendor/bin/phpstan analyse",
-        "description": "Run PHPStan static analysis"
-      },
-      "php_cs_fixer": {
-        "command": "ddev exec vendor/bin/php-cs-fixer fix --dry-run --diff",
-        "description": "Check code style (dry-run)"
-      },
-      "php_cs_fixer_fix": {
-        "command": "ddev exec vendor/bin/php-cs-fixer fix",
-        "description": "Fix code style issues"
-      },
-      "rector": {
-        "command": "ddev exec vendor/bin/rector process --dry-run",
-        "description": "Check code with Rector (dry-run)"
-      },
-      "rector_fix": {
-        "command": "ddev exec vendor/bin/rector process",
-        "description": "Apply Rector fixes"
-      }
-    },
-    "database": {
-      "import_fixtures": {
-        "command": "ddev import-db --file=Tests/Fixtures/tx_news_domain_model_news.sql",
-        "description": "Import test fixtures to database"
-      },
-      "typo3_db_update": {
-        "command": "ddev exec vendor/bin/typo3 database:updateschema",
-        "description": "Update TYPO3 database schema"
-      },
-      "mysql": {
-        "command": "ddev mysql",
-        "description": "Open MySQL CLI in DDEV container"
-      }
-    },
-    "build": {
-      "lint_php": {
-        "command": "ddev exec find . -name '*.php' -not -path './vendor/*' -exec php -l {} \\;",
-        "description": "Lint all PHP files"
-      },
-      "clear_cache": {
-        "command": "ddev exec vendor/bin/typo3 cache:flush",
-        "description": "Clear TYPO3 cache"
-      },
-      "composer_install": {
-        "command": "ddev composer install",
-        "description": "Install composer dependencies"
-      }
-    },
-    "ddev": {
-      "start": {
-        "command": "ddev start",
-        "description": "Start DDEV environment"
-      },
-      "stop": {
-        "command": "ddev stop",
-        "description": "Stop DDEV environment"
-      },
-      "restart": {
-        "command": "ddev restart",
-        "description": "Restart DDEV environment"
-      },
-      "ssh": {
-        "command": "ddev ssh",
-        "description": "SSH into DDEV web container"
-      },
-      "logs": {
-        "command": "ddev logs",
-        "description": "View DDEV logs"
-      }
-    },
-    "git": {
-      "status": {
-        "command": "git status",
-        "description": "Show git status"
-      },
-      "diff": {
-        "command": "git diff",
-        "description": "Show unstaged changes"
-      },
-      "log": {
-        "command": "git log --oneline -10",
-        "description": "Show last 10 commits"
-      }
-    }
-  },
-  "git": {
-    "main_branch": "master",
-    "current_branch": "acceptance-tests"
-  }
+"project": {
+	"name": "TYPO3 TCA API",
+	"description": "",
+	"type": "typo3-extension",
+	"framework": "TYPO3 CMS"
+},
+"context": {
+	"description": "This is a TYPO3 extension that provides an OpenAPI based on the TYPO3 TCA to facilitate interaction with database and configurations.",
+	"key_directories": {
+	  "Classes/Controller": "Backend controllers implementing record list logic",
+	  "Classes/Controller/Example": "Example controllers demonstrating usage",
+	  "Resources/Private/Templates": "Fluid templates for rendering views",
+	  "Resources/Private/Partials": "Reusable Fluid template partials for columns and UI elements",
+	  "Resources/Private/Language": "XLIFF language files for internationalization",
+	  "Resources/Public/JavaScript": "JavaScript modules for frontend functionality",
+	  "Resources/Public/Css": "Stylesheets for the extension",
+	  "Tests/Acceptance": "Codeception acceptance tests and fixtures"
+	},
+	"patterns": {
+	  "controllers": "Classes/Controller/**/*Controller.php",
+	  "templates": "Resources/Private/Templates/**/*.html",
+	  "partials": "Resources/Private/Partials/**/*.html",
+	  "languages": "Resources/Private/Language/**/*.xlf",
+	  "javascript": "Resources/Public/JavaScript/**/*.js",
+	  "tests": "Tests/**/*.php"
+	}
+},
+"conventions": {
+	"coding_standards": [
+	  "Follow TYPO3 coding guidelines (PSR-12)",
+	  "Use type declarations for all parameters and return types",
+	  "Document classes and methods with PHPDoc",
+	  "Use dependency injection for services"
+	],
+	"naming": {
+	  "controllers": "PascalCase with 'Controller' suffix",
+	  "actions": "camelCase with 'Action' suffix",
+	  "templates": "Match controller action names",
+	  "javascript_modules": "kebab-case with descriptive names"
+	},
+	"fluid_templates": [
+	  "Use layouts for consistent page structure",
+	  "Organize partials by functionality (Columns/, etc.)",
+	  "Use XLIFF for all translatable strings",
+	  "Follow TYPO3 ViewHelper conventions"
+	]
+},
+"technologies": {
+	"backend": ["PHP 8.2+", "TYPO3 13.4+"],
+	"frontend": ["Fluid templating", "Vanilla JavaScript", "CSS"],
+	"testing": ["Codeception", "Acceptance tests"],
+	"database": ["SQL fixtures for test data"]
+},
+"commands": {
+	"quality": {
+	  "phpstan": {
+		"command": "ddev exec vendor/bin/phpstan analyse",
+		"description": "Run PHPStan static analysis"
+	  },
+	  "php_cs_fixer": {
+		"command": "ddev exec vendor/bin/php-cs-fixer fix --dry-run --diff",
+		"description": "Check code style (dry-run)"
+	  },
+	  "php_cs_fixer_fix": {
+		"command": "ddev exec vendor/bin/php-cs-fixer fix",
+		"description": "Fix code style issues"
+	  },
+	  "rector": {
+		"command": "ddev exec vendor/bin/rector process --dry-run",
+		"description": "Check code with Rector (dry-run)"
+	  },
+	  "rector_fix": {
+		"command": "ddev exec vendor/bin/rector process",
+		"description": "Apply Rector fixes"
+	  }
+	},
+	"database": {
+	  "import_fixtures": {
+		"command": "ddev import-db --file=Tests/Fixtures/tx_news_domain_model_news.sql",
+		"description": "Import test fixtures to database"
+	  },
+	  "typo3_db_update": {
+		"command": "ddev exec vendor/bin/typo3 database:updateschema",
+		"description": "Update TYPO3 database schema"
+	  },
+	  "mysql": {
+		"command": "ddev mysql",
+		"description": "Open MySQL CLI in DDEV container"
+	  }
+	},
+	"build": {
+	  "lint_php": {
+		"command": "ddev exec find . -name '*.php' -not -path './vendor/*' -exec php -l {} \\;",
+		"description": "Lint all PHP files"
+	  },
+	  "clear_cache": {
+		"command": "ddev exec vendor/bin/typo3 cache:flush",
+		"description": "Clear TYPO3 cache"
+	  },
+	  "composer_install": {
+		"command": "ddev composer install",
+		"description": "Install composer dependencies"
+	  }
+	},
+	"ddev": {
+	  "start": {
+		"command": "ddev start",
+		"description": "Start DDEV environment"
+	  },
+	  "stop": {
+		"command": "ddev stop",
+		"description": "Stop DDEV environment"
+	  },
+	  "restart": {
+		"command": "ddev restart",
+		"description": "Restart DDEV environment"
+	  },
+	  "ssh": {
+		"command": "ddev ssh",
+		"description": "SSH into DDEV web container"
+	  },
+	  "logs": {
+		"command": "ddev logs",
+		"description": "View DDEV logs"
+	  }
+	},
+	"git": {
+	  "status": {
+		"command": "git status",
+		"description": "Show git status"
+	  },
+	  "diff": {
+		"command": "git diff",
+		"description": "Show unstaged changes"
+	  },
+	  "log": {
+		"command": "git log --oneline -10",
+		"description": "Show last 10 commits"
+	  }
+	}
+},
+"git": {
+	"main_branch": "master",
+	"current_branch": "acceptance-tests"
+}
 }
