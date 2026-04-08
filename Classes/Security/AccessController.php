@@ -14,6 +14,10 @@ class AccessController
     public function isAllowed(AccessRole|array $requiredRole, ServerRequestInterface $request): bool
     {
         if (is_array($requiredRole)) {
+            if ($requiredRole[0] instanceof AccessRole) {
+                return $this->hasFrontendUserInGroups($request, $requiredRole[1] ?? []);
+            }
+
             [$class, $method] = $requiredRole;
             return (bool)GeneralUtility::makeInstance($class)->$method($request);
         }
@@ -21,6 +25,7 @@ class AccessController
         return match ($requiredRole) {
             AccessRole::PUBLIC   => true,
             AccessRole::FE_USER  => $this->hasFrontendUser($request),
+            AccessRole::FE_GROUP => $this->hasFrontendUserInGroups($request, []),
             AccessRole::BE_USER  => $this->hasBackendUser(),
             AccessRole::BE_ADMIN => $this->isBackendAdmin(),
         };
@@ -31,6 +36,26 @@ class AccessController
         $feUser = $request->getAttribute('frontend.user');
 
         return $feUser !== null && !empty($feUser->user['uid']);
+    }
+
+    private function hasFrontendUserInGroups(ServerRequestInterface $request, array $allowedGroupIds): bool
+    {
+        if (!$this->hasFrontendUser($request)) {
+            return false;
+        }
+
+        $feUser = $request->getAttribute('frontend.user');
+        $userGroups = GeneralUtility::intExplode(',', (string)($feUser->user['usergroup'] ?? ''), true);
+
+        if ($userGroups === []) {
+            return false;
+        }
+
+        if ($allowedGroupIds === []) {
+            return true;
+        }
+
+        return array_intersect($userGroups, $allowedGroupIds) !== [];
     }
 
     private function hasBackendUser(): bool
