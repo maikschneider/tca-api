@@ -29,7 +29,7 @@ class GetItemHandler
         return $httpMethod === 'GET' && $operation === 'show';
     }
 
-    public function handle(ServerRequestInterface $request, array $config, int $uid): ResponseInterface
+    public function handle(ServerRequestInterface $request, array $config, int $uid, array $fields = []): ResponseInterface
     {
         $table = $config['general']['table'];
         $baseUrl = '/_api/' . $config['general']['resourceName'];
@@ -40,7 +40,7 @@ class GetItemHandler
                 ->withHeader('Content-Type', 'application/ld+json');
         }
 
-        $serialized = $this->serializer->serialize($row, $config, $baseUrl);
+        $serialized = $this->serializer->serialize($row, $config, $baseUrl, $fields);
 
         $event = new AfterOperationEvent('show', $serialized);
         $this->eventDispatcher->dispatch($event);
