@@ -6,9 +6,9 @@ use MaikSchneider\TcaApi\Enum\AccessRole;
 
 return [
     'general' => [
-        'table' => 'tx_myext_domain_model_tag',
-        'resourceName' => 'tags',
-        'resourceType' => 'Tag',
+        'table' => 'tx_myext_domain_model_color',
+        'resourceName' => 'colors',
+        'resourceType' => 'Color',
         'operations' => ['list', 'show'],
         'itemsPerPage' => 20,
     ],

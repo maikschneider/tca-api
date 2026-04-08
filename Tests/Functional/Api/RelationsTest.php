@@ -9,13 +9,10 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 /**
  * Functional tests for relation embedding (hasOne, manyToMany).
  *
- * RED phase: ResourceSerializer does not yet handle relation types.
- * All tests must fail until relation serialization is implemented.
- *
  * Fixture data:
- *   Article 1 → category_id=1 (Tech), tags=[1 (php), 2 (typo3)]
- *   Article 2 → category_id=2 (Science), tags=[3 (api)]
- *   Article 3 → category_id=0 (none), tags=[] (none)
+ *   Article 1 → color_id=1 (Red), categories=[1 (PHP), 2 (TYPO3)]
+ *   Article 2 → color_id=2 (Blue), categories=[3 (API)]
+ *   Article 3 → color_id=0 (none), categories=[] (none)
  */
 final class RelationsTest extends ApiFunctionalTestCase
 {
@@ -23,10 +20,10 @@ final class RelationsTest extends ApiFunctionalTestCase
     {
         parent::setUp();
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/pages.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/categories.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/tags.csv');
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/colors.csv');
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/sys_categories.csv');
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/articles.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/article_tag_mm.csv');
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/sys_category_record_mm.csv');
     }
 
     // ── hasOne ──────────────────────────────────────────────────────────────
@@ -36,8 +33,8 @@ final class RelationsTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/articles/1');
         $body = $this->decodeResponseBody($response);
 
-        self::assertArrayHasKey('category', $body);
-        self::assertIsArray($body['category']);
+        self::assertArrayHasKey('color', $body);
+        self::assertIsArray($body['color']);
     }
 
     public function testHasOneContainsAtId(): void
@@ -45,8 +42,8 @@ final class RelationsTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/articles/1');
         $body = $this->decodeResponseBody($response);
 
-        self::assertArrayHasKey('@id', $body['category']);
-        self::assertSame('/_api/categories/1', $body['category']['@id']);
+        self::assertArrayHasKey('@id', $body['color']);
+        self::assertSame('/_api/colors/1', $body['color']['@id']);
     }
 
     public function testHasOneContainsAtType(): void
@@ -54,7 +51,7 @@ final class RelationsTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/articles/1');
         $body = $this->decodeResponseBody($response);
 
-        self::assertSame('Category', $body['category']['@type']);
+        self::assertSame('Color', $body['color']['@type']);
     }
 
     public function testHasOneContainsUid(): void
@@ -62,7 +59,7 @@ final class RelationsTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/articles/1');
         $body = $this->decodeResponseBody($response);
 
-        self::assertSame(1, $body['category']['uid']);
+        self::assertSame(1, $body['color']['uid']);
     }
 
     public function testHasOneShallowEmbedDoesNotIncludeNameField(): void
@@ -70,37 +67,37 @@ final class RelationsTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/articles/1');
         $body = $this->decodeResponseBody($response);
 
-        self::assertArrayNotHasKey('name', $body['category']);
+        self::assertArrayNotHasKey('name', $body['color']);
     }
 
     public function testHasOneWithZeroForeignKeyReturnsNull(): void
     {
-        // Article 3 has category_id=0
+        // Article 3 has color_id=0
         $response = $this->executeApiRequest('/_api/articles/3');
         $body = $this->decodeResponseBody($response);
 
-        self::assertArrayHasKey('category', $body);
-        self::assertNull($body['category']);
+        self::assertArrayHasKey('color', $body);
+        self::assertNull($body['color']);
     }
 
-    // ── manyToMany ───────────────────────────────────────────────────────────
+    // ── manyToMany (sys_category) ────────────────────────────────────────────
 
     public function testManyToManyReturnsArray(): void
     {
         $response = $this->executeApiRequest('/_api/articles/1');
         $body = $this->decodeResponseBody($response);
 
-        self::assertArrayHasKey('tags', $body);
-        self::assertIsArray($body['tags']);
+        self::assertArrayHasKey('categories', $body);
+        self::assertIsArray($body['categories']);
     }
 
     public function testManyToManyReturnsCorrectCount(): void
     {
-        // Article 1 has 2 tags
+        // Article 1 has 2 categories
         $response = $this->executeApiRequest('/_api/articles/1');
         $body = $this->decodeResponseBody($response);
 
-        self::assertCount(2, $body['tags']);
+        self::assertCount(2, $body['categories']);
     }
 
     public function testManyToManyItemContainsAtId(): void
@@ -108,8 +105,8 @@ final class RelationsTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/articles/1');
         $body = $this->decodeResponseBody($response);
 
-        self::assertArrayHasKey('@id', $body['tags'][0]);
-        self::assertStringStartsWith('/_api/tags/', $body['tags'][0]['@id']);
+        self::assertArrayHasKey('@id', $body['categories'][0]);
+        self::assertStringStartsWith('/_api/sys-categories/', $body['categories'][0]['@id']);
     }
 
     public function testManyToManyItemContainsAtType(): void
@@ -117,7 +114,7 @@ final class RelationsTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/articles/1');
         $body = $this->decodeResponseBody($response);
 
-        self::assertSame('Tag', $body['tags'][0]['@type']);
+        self::assertSame('SysCategory', $body['categories'][0]['@type']);
     }
 
     public function testManyToManyItemContainsUid(): void
@@ -125,16 +122,16 @@ final class RelationsTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/articles/1');
         $body = $this->decodeResponseBody($response);
 
-        self::assertArrayHasKey('uid', $body['tags'][0]);
+        self::assertArrayHasKey('uid', $body['categories'][0]);
     }
 
     public function testManyToManyWithNoRelationsReturnsEmptyArray(): void
     {
-        // Article 3 has no tags
+        // Article 3 has no categories
         $response = $this->executeApiRequest('/_api/articles/3');
         $body = $this->decodeResponseBody($response);
 
-        self::assertArrayHasKey('tags', $body);
-        self::assertSame([], $body['tags']);
+        self::assertArrayHasKey('categories', $body);
+        self::assertSame([], $body['categories']);
     }
 }

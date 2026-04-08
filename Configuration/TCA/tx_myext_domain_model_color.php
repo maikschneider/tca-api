@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 return [
     'ctrl' => [
-        'title' => 'Article',
-        'label' => 'title',
+        'title' => 'Color',
+        'label' => 'name',
         'tstamp' => 'tstamp',
         'crdate' => 'crdate',
         'delete' => 'deleted',
@@ -19,7 +19,7 @@ return [
     ],
     'types' => [
         0 => [
-            'showitem' => 'title, color_id, categories, hidden',
+            'showitem' => 'name, hidden',
         ],
     ],
     'columns' => [
@@ -37,31 +37,13 @@ return [
                 ],
             ],
         ],
-        'title' => [
-            'label' => 'Title',
+        'name' => [
+            'label' => 'Name',
             'config' => [
                 'type' => 'input',
                 'size' => 50,
                 'max' => 255,
                 'eval' => 'trim',
-            ],
-        ],
-        'color_id' => [
-            'label' => 'Color',
-            'config' => [
-                'type' => 'select',
-                'renderType' => 'selectSingle',
-                'foreign_table' => 'tx_myext_domain_model_color',
-                'items' => [
-                    ['label' => '- none -', 'value' => 0],
-                ],
-                'default' => 0,
-            ],
-        ],
-        'categories' => [
-            'label' => 'Categories',
-            'config' => [
-                'type' => 'category',
             ],
         ],
     ],

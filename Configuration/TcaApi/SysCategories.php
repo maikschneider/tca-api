@@ -6,14 +6,14 @@ use MaikSchneider\TcaApi\Enum\AccessRole;
 
 return [
     'general' => [
-        'table' => 'tx_myext_domain_model_category',
-        'resourceName' => 'categories',
-        'resourceType' => 'Category',
+        'table' => 'sys_category',
+        'resourceName' => 'sys-categories',
+        'resourceType' => 'SysCategory',
         'operations' => ['list', 'show'],
         'itemsPerPage' => 20,
     ],
     'columns' => [
-        'name' => [
+        'title' => [
             'type' => 'string',
             'readable' => true,
             'writable' => false,

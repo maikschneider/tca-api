@@ -11,11 +11,11 @@ ApiRegistry::register(
 );
 
 ApiRegistry::register(
-    'categories',
-    require ExtensionManagementUtility::extPath('tca_api') . 'Configuration/TcaApi/Categories.php',
+    'colors',
+    require ExtensionManagementUtility::extPath('tca_api') . 'Configuration/TcaApi/Colors.php',
 );
 
 ApiRegistry::register(
-    'tags',
-    require ExtensionManagementUtility::extPath('tca_api') . 'Configuration/TcaApi/Tags.php',
+    'sys-categories',
+    require ExtensionManagementUtility::extPath('tca_api') . 'Configuration/TcaApi/SysCategories.php',
 );
