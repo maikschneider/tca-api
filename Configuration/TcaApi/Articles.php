@@ -36,16 +36,7 @@ return [
     'filters' => [
         'title'      => ['strategy' => 'exact'],
         'color_id'   => ['strategy' => 'exact'],
-        'categories' => [
-            'strategy'       => 'mm',
-            'mm_table'       => 'sys_category_record_mm',
-            'mm_local_key'   => 'uid_local',
-            'mm_foreign_key' => 'uid_foreign',
-            'mm_constraints' => [
-                'tablenames' => 'tx_myext_domain_model_article',
-                'fieldname'  => 'categories',
-            ],
-        ],
+        'categories' => ['strategy' => 'mm'],
     ],
     'order' => [
         'allowed' => ['title', 'uid'],

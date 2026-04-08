@@ -63,7 +63,11 @@ class GetCollectionHandler
         $safe = [];
         foreach ($requested as $column => $value) {
             if (isset($declared[$column])) {
-                $safe[$column] = array_merge($declared[$column], ['value' => $value]);
+                $safe[$column] = array_merge($declared[$column], [
+                    'value'   => $value,
+                    '_table'  => $config['general']['table'],
+                    '_column' => $column,
+                ]);
             }
         }
         return $safe;
