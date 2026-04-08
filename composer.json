@@ -1,104 +1,103 @@
 {
-	"name": "maikschneider/tca-api",
-	"description": "This package provides an API based on the TYPO3 TCA to facilitate interaction with database and configurations.",
-	"license": "GPL-2.0-or-later",
-	"type": "library",
-	"keywords": [
-		"typo3",
-		"typo3-cms-extension"
-	],
-	"authors": [
-		{
-			"name": "Maik Schneider",
-			"email": "maik.schneider@xima.de",
-			"role": "Developer"
-		}
-	],
-	"require": {
-		"php": "^8.2",
-		"typo3/cms-core": "^13.4 || ^14.0"
-	},
-	"require-dev": {
-		"armin/editorconfig-cli": "^2.1",
-		"bk2k/bootstrap-package": "^16.0",
-		"ergebnis/composer-normalize": "^2.45",
-		"friendsofphp/php-cs-fixer": "^3.12",
-		"georgringer/news": "^14.0",
-		"helmich/typo3-typoscript-lint": "^3.3",
-		"move-elevator/composer-translation-validator": "^1.3",
-		"phpstan/extension-installer": "^1.3",
-		"roave/security-advisories": "dev-latest",
-		"symfony/translation": "^7.2",
-		"typo3/cms-filelist": "^13.4 || ^14.0",
-		"typo3/cms-lowlevel": "^13.4 || ^14.0",
-		"typo3/cms-setup": "^13.4 || ^14.0",
-		"typo3/cms-workspaces": "^13.4 || ^14.0",
-		"typo3/testing-framework": "^9.5"
-	},
-	"autoload": {
-		"psr-4": {
-			"MaikSchneider\\TcaApi\\": "Classes"
-		}
-	},
-	"autoload-dev": {
-		"psr-4": {
-			"MaikSchneider\\TcaApi\\Tests\\": "Tests"
-		}
-	},
-	"config": {
-		"allow-plugins": {
-			"ergebnis/composer-normalize": true,
-			"move-elevator/composer-translation-validator": true,
-			"phpstan/extension-installer": true,
-			"typo3/class-alias-loader": true,
-			"typo3/cms-composer-installers": true
-		},
-		"lock": false,
-		"vendor-dir": "vendor"
-	},
-	"extra": {
-		"typo3/cms": {
-			"cms-package-dir": "{$vendor-dir}/typo3/cms",
-			"extension-key": "tca_api",
-			"web-dir": "public"
-		}
-	},
-	"scripts": {
-		"ci:composer:normalize": "@composer normalize --no-check-lock --dry-run",
-		"ci:editorconfig:lint": "ec --strict --git-only -n",
-		"ci:language:lint": "composer validate-translations Resources/Private/Language",
-		"ci:php:fixer": "php-cs-fixer --config=php-cs-fixer.php fix --dry-run --format=checkstyle > php-cs-fixer.xml || true",
-		"ci:php:lint": "find *.php . -name '*.php' ! -path './vendor/*'  ! -path './var/*' ! -path '*node_modules/*' -print0 | xargs -0 -n 1 -P 4 php -l",
-		"ci:php:stan": "phpstan --no-progress --error-format=checkstyle > phpstan.xml || true",
-		"ci:sca": [
-			"@ci:composer:normalize",
-			"@ci:editorconfig:lint",
-			"@ci:php:lint",
-			"@ci:php:fixer",
-			"@ci:php:stan",
-			"@ci:language:lint",
-			"@ci:typoscript:lint",
-			"@ci:yaml:lint"
-		],
-		"ci:typoscript:lint": "typoscript-lint --fail-on-warnings",
-		"ci:yaml:lint": "find ./ ! -path './vendor/*' ! -path '*/node_modules/*' \\( -name '*.yaml' -o -name '*.yml' \\) | xargs -r yaml-lint",
-		"composer:normalize": "@composer normalize --no-check-lock",
-		"editorconfig:lint": "ec --strict --fix --git-only -n",
-		"language:lint": "composer validate-translations Resources/Private/Language",
-		"php:fixer": "php-cs-fixer --config=php-cs-fixer.php fix",
-		"php:lint": "find *.php . -name '*.php' ! -path './vendor/*'  ! -path './var/*' ! -path '*node_modules/*' -print0 | xargs -0 -n 1 -P 4 php -l",
-		"php:stan": "phpstan --generate-baseline=phpstan-baseline.neon --allow-empty-baseline",
-		"sca": [
-			"@composer:normalize",
-			"@editorconfig:lint",
-			"@php:lint",
-			"@php:fixer",
-			"@php:stan",
-			"@language:lint",
-			"@typoscript:lint",
-			"@yaml:lint"
-		],
-		"typoscript:lint": "typoscript-lint",
-		"yaml:lint": "find ./ ! -path './vendor/*' ! -path '*/node_modules/*' \\( -name '*.yaml' -o -name '*.yml' \\) | xargs -r yaml-lint"
-	}
+    "name": "maikschneider/tca-api",
+    "description": "This package provides an API based on the TYPO3 TCA to facilitate interaction with database and configurations.",
+    "license": "GPL-2.0-or-later",
+    "type": "library",
+    "keywords": [
+        "typo3",
+        "typo3-cms-extension"
+    ],
+    "authors": [
+        {
+            "name": "Maik Schneider",
+            "email": "maik.schneider@xima.de",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "typo3/cms-core": "^13.4 || ^14.0"
+    },
+    "require-dev": {
+        "armin/editorconfig-cli": "^2.1",
+        "bk2k/bootstrap-package": "^16.0",
+        "ergebnis/composer-normalize": "^2.45",
+        "friendsofphp/php-cs-fixer": "^3.12",
+        "georgringer/news": "^14.0",
+        "helmich/typo3-typoscript-lint": "^3.3",
+        "move-elevator/composer-translation-validator": "^1.3",
+        "phpstan/extension-installer": "^1.3",
+        "symfony/translation": "^7.2",
+        "typo3/cms-filelist": "^13.4 || ^14.0",
+        "typo3/cms-lowlevel": "^13.4 || ^14.0",
+        "typo3/cms-setup": "^13.4 || ^14.0",
+        "typo3/cms-workspaces": "^13.4 || ^14.0",
+        "typo3/testing-framework": "^9.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "MaikSchneider\\TcaApi\\": "Classes"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "MaikSchneider\\TcaApi\\Tests\\": "Tests"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "ergebnis/composer-normalize": true,
+            "move-elevator/composer-translation-validator": true,
+            "phpstan/extension-installer": true,
+            "typo3/class-alias-loader": true,
+            "typo3/cms-composer-installers": true
+        },
+        "lock": false,
+        "vendor-dir": "vendor"
+    },
+    "extra": {
+        "typo3/cms": {
+            "cms-package-dir": "{$vendor-dir}/typo3/cms",
+            "extension-key": "tca_api",
+            "web-dir": "public"
+        }
+    },
+    "scripts": {
+        "ci:composer:normalize": "@composer normalize --no-check-lock --dry-run",
+        "ci:editorconfig:lint": "ec --strict --git-only -n",
+        "ci:language:lint": "composer validate-translations Resources/Private/Language",
+        "ci:php:fixer": "php-cs-fixer --config=php-cs-fixer.php fix --dry-run --format=checkstyle > php-cs-fixer.xml || true",
+        "ci:php:lint": "find *.php . -name '*.php' ! -path './vendor/*'  ! -path './var/*' ! -path '*node_modules/*' -print0 | xargs -0 -n 1 -P 4 php -l",
+        "ci:php:stan": "phpstan --no-progress --error-format=checkstyle > phpstan.xml || true",
+        "ci:sca": [
+            "@ci:composer:normalize",
+            "@ci:editorconfig:lint",
+            "@ci:php:lint",
+            "@ci:php:fixer",
+            "@ci:php:stan",
+            "@ci:language:lint",
+            "@ci:typoscript:lint",
+            "@ci:yaml:lint"
+        ],
+        "ci:typoscript:lint": "typoscript-lint --fail-on-warnings",
+        "ci:yaml:lint": "find ./ ! -path './vendor/*' ! -path '*/node_modules/*' \\( -name '*.yaml' -o -name '*.yml' \\) | xargs -r yaml-lint",
+        "composer:normalize": "@composer normalize --no-check-lock",
+        "editorconfig:lint": "ec --strict --fix --git-only -n",
+        "language:lint": "composer validate-translations Resources/Private/Language",
+        "php:fixer": "php-cs-fixer --config=php-cs-fixer.php fix",
+        "php:lint": "find *.php . -name '*.php' ! -path './vendor/*'  ! -path './var/*' ! -path '*node_modules/*' -print0 | xargs -0 -n 1 -P 4 php -l",
+        "php:stan": "phpstan --generate-baseline=phpstan-baseline.neon --allow-empty-baseline",
+        "sca": [
+            "@composer:normalize",
+            "@editorconfig:lint",
+            "@php:lint",
+            "@php:fixer",
+            "@php:stan",
+            "@language:lint",
+            "@typoscript:lint",
+            "@yaml:lint"
+        ],
+        "typoscript:lint": "typoscript-lint",
+        "yaml:lint": "find ./ ! -path './vendor/*' ! -path '*/node_modules/*' \\( -name '*.yaml' -o -name '*.yml' \\) | xargs -r yaml-lint"
+    }
 }
