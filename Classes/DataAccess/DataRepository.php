@@ -18,17 +18,17 @@ class DataRepository
     public function findById(string $table, int $uid, array $config): ?array
     {
         $qb = $this->connectionPool->getQueryBuilderForTable($table);
-        $row = $qb->select('*')
+        $qb->select('*')
             ->from($table)
             ->where(
                 $qb->expr()->eq('uid', $qb->createNamedParameter($uid)),
                 $qb->expr()->eq('deleted', 0),
                 $qb->expr()->eq('hidden', 0),
-            )
-            ->executeQuery()
-            ->fetchAssociative();
+            );
 
-        return $row ?: null;
+        $this->applyPidConstraint($qb, $config);
+
+        return $qb->executeQuery()->fetchAssociative() ?: null;
     }
 
     public function findCollection(string $table, array $constraints, int $limit, int $offset, array $order, array $config): array
@@ -40,6 +40,8 @@ class DataRepository
                 $qb->expr()->eq('deleted', 0),
                 $qb->expr()->eq('hidden', 0),
             );
+
+        $this->applyPidConstraint($qb, $config);
 
         foreach ($constraints as $column => $filter) {
             $this->applyFilterConstraint($qb, $column, $filter);
@@ -69,11 +71,38 @@ class DataRepository
                 $qb->expr()->eq('hidden', 0),
             );
 
+        $this->applyPidConstraint($qb, $config);
+
         foreach ($constraints as $column => $filter) {
             $this->applyFilterConstraint($qb, $column, $filter);
         }
 
         return (int)$qb->executeQuery()->fetchOne();
+    }
+
+    private function applyPidConstraint(\TYPO3\CMS\Core\Database\Query\QueryBuilder $qb, array $config): void
+    {
+        $pids = $this->resolvePids($config);
+        if ($pids !== []) {
+            $qb->andWhere($qb->expr()->in('pid', array_map(
+                fn (int $pid) => $qb->createNamedParameter($pid),
+                $pids,
+            )));
+        }
+    }
+
+    /**
+     * Normalises the 'storagePid' config value (int or int[]) to a flat int[].
+     * Returns [] when no storagePid is configured.
+     */
+    private function resolvePids(array $config): array
+    {
+        $raw = $config['general']['storagePid'] ?? null;
+        if ($raw === null) {
+            return [];
+        }
+
+        return array_map('intval', is_array($raw) ? $raw : [$raw]);
     }
 
     private function applyFilterConstraint(\TYPO3\CMS\Core\Database\Query\QueryBuilder $qb, string $column, array $filter): void

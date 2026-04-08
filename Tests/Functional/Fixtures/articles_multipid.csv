@@ -1,0 +1,5 @@
+"tx_myext_domain_model_article"
+,"uid","pid","title","color_id","hidden","deleted","tstamp","crdate"
+,100,42,"Pid42 Article A",0,0,0,1704067200,1704067200
+,101,42,"Pid42 Article B",0,0,0,1704067200,1704067200
+,102,99,"Pid99 Article",0,0,0,1704067200,1704067200
