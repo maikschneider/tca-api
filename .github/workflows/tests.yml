@@ -52,9 +52,9 @@ jobs:
       - name: Enable Xdebug
         run: ddev xdebug on
 
-      # Run tests
+      # Run tests with coverage
       - name: Run functional tests
-        run: ddev exec vendor/bin/phpunit --configuration phpunit.xml --coverage-clover coverage.xml
+        run: ddev exec XDEBUG_MODE=coverage vendor/bin/phpunit --configuration phpunit.xml --coverage-clover coverage.xml
 
       # Report coverage
       - name: Upload coverage reports to Codecov
