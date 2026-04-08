@@ -18,6 +18,16 @@ class ApiRegistry
         return self::$resources[$resourceName] ?? null;
     }
 
+    public static function getByTable(string $table): ?array
+    {
+        foreach (self::$resources as $config) {
+            if (($config['general']['table'] ?? '') === $table) {
+                return $config;
+            }
+        }
+        return null;
+    }
+
     public static function reset(): void
     {
         self::$resources = [];

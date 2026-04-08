@@ -25,27 +25,12 @@ return [
             ],
         ],
         'color_id' => [
-            'type' => 'hasOne',
             'readable' => true,
             'writable' => false,
-            'foreignTable' => 'tx_myext_domain_model_color',
-            'foreignResourceName' => 'colors',
-            'foreignResourceType' => 'Color',
         ],
         'categories' => [
-            'type' => 'manyToMany',
             'readable' => true,
             'writable' => false,
-            'foreignTable' => 'sys_category',
-            'foreignResourceName' => 'sys-categories',
-            'foreignResourceType' => 'SysCategory',
-            'mmTable' => 'sys_category_record_mm',
-            'mmLocalKey' => 'uid_foreign',
-            'mmForeignKey' => 'uid_local',
-            'mmConstraints' => [
-                'tablenames' => 'tx_myext_domain_model_article',
-                'fieldname' => 'categories',
-            ],
         ],
     ],
     'filters' => [
