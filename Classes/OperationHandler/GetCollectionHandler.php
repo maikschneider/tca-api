@@ -63,7 +63,7 @@ class GetCollectionHandler
         $safe = [];
         foreach ($requested as $column => $value) {
             if (isset($declared[$column])) {
-                $safe[$column] = ['value' => $value, 'strategy' => $declared[$column]['strategy'] ?? 'exact'];
+                $safe[$column] = array_merge($declared[$column], ['value' => $value]);
             }
         }
         return $safe;

@@ -79,6 +79,11 @@ class DataRepository
         $value = (string)$filter['value'];
         $strategy = $filter['strategy'] ?? 'exact';
 
+        if ($strategy === 'mm') {
+            $this->applyMmFilterConstraint($qb, $filter, $value);
+            return;
+        }
+
         match ($strategy) {
             'partial'    => $qb->andWhere($qb->expr()->like(
                 $column,
@@ -93,5 +98,28 @@ class DataRepository
                 $qb->createNamedParameter($value),
             )),
         };
+    }
+
+    private function applyMmFilterConstraint(
+        \TYPO3\CMS\Core\Database\Query\QueryBuilder $qb,
+        array $filter,
+        string $value,
+    ): void {
+        $mmTable       = $filter['mm_table'];
+        $mmLocalKey    = $filter['mm_local_key'];
+        $mmForeignKey  = $filter['mm_foreign_key'];
+
+        $parts = [sprintf('%s = %s', $qb->quoteIdentifier($mmLocalKey), $qb->createNamedParameter($value))];
+        foreach ($filter['mm_constraints'] ?? [] as $col => $val) {
+            $parts[] = sprintf('%s = %s', $qb->quoteIdentifier($col), $qb->createNamedParameter($val));
+        }
+
+        $subSql = sprintf(
+            'SELECT %s FROM %s WHERE %s',
+            $qb->quoteIdentifier($mmForeignKey),
+            $qb->quoteIdentifier($mmTable),
+            implode(' AND ', $parts),
+        );
+        $qb->andWhere($qb->expr()->in('uid', '(' . $subSql . ')'));
     }
 }
