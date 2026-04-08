@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        typo3-version: ["13.4"]
+        typo3-version: ["13.4", "14.0"]
         php-version: ["8.2", "8.3", "8.4"]
 
     steps:
@@ -42,7 +42,7 @@ jobs:
       - name: Install Composer dependencies
         run: |
           ddev composer config github-oauth.github.com ${{ secrets.GITHUB_TOKEN }}
-          ddev composer install --with=typo3/cms-core:"^${{ matrix.typo3-version }}"
+          ddev composer update --with=typo3/cms-core:"^${{ matrix.typo3-version }}"
 
       # Init TYPO3
       - name: Init TYPO3
