@@ -15,6 +15,34 @@ class DataRepository
     ) {
     }
 
+    public function findByIds(string $table, array $uids): array
+    {
+        if ($uids === []) {
+            return [];
+        }
+
+        $qb = $this->connectionPool->getQueryBuilderForTable($table);
+        $rows = $qb->select('*')
+            ->from($table)
+            ->where(
+                $qb->expr()->in('uid', array_map(
+                    fn (int $uid) => $qb->createNamedParameter($uid),
+                    $uids,
+                )),
+                $qb->expr()->eq('deleted', 0),
+                $qb->expr()->eq('hidden', 0),
+            )
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $indexed = [];
+        foreach ($rows as $row) {
+            $indexed[(int)$row['uid']] = $row;
+        }
+
+        return $indexed;
+    }
+
     public function findById(string $table, int $uid, array $config): ?array
     {
         $qb = $this->connectionPool->getQueryBuilderForTable($table);

@@ -58,6 +58,18 @@ return [
                 'default' => 0,
             ],
         ],
+        'parent_id' => [
+            'label' => 'Parent Article',
+            'config' => [
+                'type' => 'select',
+                'renderType' => 'selectSingle',
+                'foreign_table' => 'tx_myext_domain_model_article',
+                'items' => [
+                    ['label' => '- none -', 'value' => 0],
+                ],
+                'default' => 0,
+            ],
+        ],
         'categories' => [
             'label' => 'Categories',
             'config' => [
