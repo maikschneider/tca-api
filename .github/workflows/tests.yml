@@ -48,6 +48,17 @@ jobs:
       - name: Init TYPO3
         run: ddev init-typo3
 
-      # Run tests
+      # Enable Xdebug for code coverage
+      - name: Enable Xdebug
+        run: ddev xdebug on
+
+      # Run tests with coverage
       - name: Run functional tests
-        run: ddev exec vendor/bin/phpunit --configuration phpunit.xml
+        run: ddev exec XDEBUG_MODE=coverage vendor/bin/phpunit --configuration phpunit.xml --coverage-clover coverage.xml
+
+      # Report coverage
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5.5.4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml

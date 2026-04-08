@@ -6,6 +6,11 @@
     cacheDirectory=".phpunit.cache"
     colors="true"
 >
+    <source>
+        <include>
+            <directory>Classes</directory>
+        </include>
+    </source>
     <testsuites>
         <testsuite name="Functional">
             <directory>Tests/Functional</directory>
