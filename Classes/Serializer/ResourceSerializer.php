@@ -6,8 +6,12 @@ namespace MaikSchneider\TcaApi\Serializer;
 
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
+use MaikSchneider\TcaApi\Serializer\FileProcessing\FileProcessorInterface;
+use MaikSchneider\TcaApi\Serializer\FileProcessing\ImageProcessor;
 use TYPO3\CMS\Core\Domain\RecordFactory;
 use TYPO3\CMS\Core\Domain\RecordInterface;
+use TYPO3\CMS\Core\Resource\FileReference;
+use TYPO3\CMS\Core\Schema\Field\FileFieldType;
 use TYPO3\CMS\Core\Schema\Field\RelationalFieldTypeInterface;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -81,6 +85,33 @@ class ResourceSerializer
             }
 
             $field = $schema->getField($column);
+
+            if ($field instanceof FileFieldType) {
+                $value     = $record->get($column);
+                $processor = $this->resolveFileProcessor($columnConfig);
+
+                // type=file always has foreign_field set (by TcaPreparation), making RelationshipType=OneToMany
+                // and hasOne() always false. For single-file fields we check maxitems directly.
+                if (($field->getConfiguration()['maxitems'] ?? 0) === 1) {
+                    $first = null;
+                    if ($value instanceof \Traversable) {
+                        foreach ($value as $item) {
+                            $first = $item;
+                            break;
+                        }
+                    }
+                    $result[$column] = $first instanceof FileReference
+                        ? $processor->process($first, $columnConfig)
+                        : null;
+                } else {
+                    $items           = $value instanceof \Traversable ? iterator_to_array($value, false) : [];
+                    $result[$column] = array_map(
+                        fn (FileReference $ref) => $processor->process($ref, $columnConfig),
+                        $items,
+                    );
+                }
+                continue;
+            }
 
             if ($field instanceof RelationalFieldTypeInterface) {
                 if ($field->getRelationshipType()->hasOne()) {
@@ -243,6 +274,15 @@ class ResourceSerializer
         }
 
         return 0;
+    }
+
+    private function resolveFileProcessor(array $columnConfig): FileProcessorInterface
+    {
+        $class = $columnConfig['processor'] ?? null;
+
+        return $class !== null
+            ? GeneralUtility::makeInstance($class)
+            : GeneralUtility::makeInstance(ImageProcessor::class);
     }
 
     /**

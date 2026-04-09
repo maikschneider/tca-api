@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use MaikSchneider\TcaApi\Enum\AccessRole;
+use MaikSchneider\TcaApi\Serializer\FileProcessing\FileProcessor;
 
 return [
     'general' => [
@@ -31,6 +32,13 @@ return [
         'categories' => [
             'readable' => true,
             'writable' => true,
+        ],
+        'profile_photo' => [
+            'readable' => true,
+        ],
+        'downloads' => [
+            'readable'  => true,
+            'processor' => FileProcessor::class,
         ],
     ],
     'filters' => [

@@ -19,7 +19,7 @@ return [
     ],
     'types' => [
         0 => [
-            'showitem' => 'title, color_id, categories, hidden',
+            'showitem' => 'title, color_id, categories, profile_photo, downloads, hidden',
         ],
     ],
     'columns' => [
@@ -74,6 +74,21 @@ return [
             'label' => 'Categories',
             'config' => [
                 'type' => 'category',
+            ],
+        ],
+        'profile_photo' => [
+            'label'  => 'Profile Photo',
+            'config' => [
+                'type'     => 'file',
+                'maxitems' => 1,
+                'allowed'  => 'common-image-types',
+            ],
+        ],
+        'downloads' => [
+            'label'  => 'Downloads',
+            'config' => [
+                'type'    => 'file',
+                'allowed' => 'pdf,csv,xlsx,docx',
             ],
         ],
         'first_name' => [

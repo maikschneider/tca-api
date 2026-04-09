@@ -1,0 +1,5 @@
+"tx_myext_domain_model_article"
+,"uid","pid","title","color_id","profile_photo","downloads","hidden","deleted","tstamp","crdate"
+,70,1,"Article With Photo",0,1,0,0,0,1704067200,1704067200
+,71,1,"Article With Downloads",0,0,1,0,0,1704067200,1704067200
+,72,1,"Article No Files",0,0,0,0,0,1704067200,1704067200
