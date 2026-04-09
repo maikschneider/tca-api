@@ -130,10 +130,29 @@ class ResourceSerializer
                     );
                 } else {
                     $collection = $record->get($column);
-                    $result[$column] = array_map(
-                        fn (RecordInterface $item) => $this->buildShallowEmbed($item, $columnConfig),
-                        $collection instanceof \Traversable ? iterator_to_array($collection, false) : [],
-                    );
+                    $items = $collection instanceof \Traversable ? iterator_to_array($collection, false) : [];
+
+                    $effectiveDepth = $remainingDepth >= 0
+                        ? $remainingDepth
+                        : $this->resolveEmbedDepth($columnConfig);
+
+                    if ($effectiveDepth <= 0) {
+                        $result[$column] = array_map(
+                            fn (RecordInterface $item) => $this->buildShallowEmbed($item, $columnConfig),
+                            $items,
+                        );
+                    } else {
+                        $result[$column] = $this->serializeHasManyEmbedded(
+                            $columnConfig,
+                            $config,
+                            $field,
+                            $row,
+                            $items,
+                            $prefetched,
+                            $effectiveDepth,
+                            $visited,
+                        );
+                    }
                 }
             } else {
                 // When a processor is configured, pass the raw DB value so the processor
@@ -262,6 +281,72 @@ class ResourceSerializer
             $effectiveDepth - 1,
             $newVisited,
         );
+    }
+
+    /**
+     * Serialize a hasMany relation collection with optional deep embedding.
+     *
+     * Mirrors serializeHasOne: respects depth budget, cycle detection, and falls
+     * back to shallow stubs for unregistered tables or detected cycles.
+     */
+    private function serializeHasManyEmbedded(
+        array $columnConfig,
+        array $config,
+        RelationalFieldTypeInterface $fieldObj,
+        array $row,
+        array $items,
+        array $prefetched,
+        int $effectiveDepth,
+        array $visited,
+    ): array {
+        if ($items === []) {
+            return [];
+        }
+
+        $foreignTable = $fieldObj->getConfiguration()['foreign_table'] ?? null;
+        if ($foreignTable === null) {
+            return array_map(fn (RecordInterface $item) => $this->buildShallowEmbed($item, $columnConfig), $items);
+        }
+
+        $relatedConfig = $this->resolveRelatedConfig($foreignTable, $config);
+        if ($relatedConfig === null) {
+            return array_map(fn (RecordInterface $item) => $this->buildShallowEmbed($item, $columnConfig), $items);
+        }
+
+        $uids        = array_map(fn (RecordInterface $item) => $item->getUid(), $items);
+        $rowsIndexed = $this->dataRepository->findByIds($foreignTable, $uids);
+
+        $relatedBaseUrl = '/_api/' . $relatedConfig['general']['resourceName'];
+        $currentKey     = $config['general']['table'] . ':' . (int)$row['uid'];
+        $newVisited     = $visited + [$currentKey => true];
+
+        $result = [];
+        foreach ($items as $item) {
+            $itemUid  = $item->getUid();
+            $visitKey = $foreignTable . ':' . $itemUid;
+
+            if (isset($newVisited[$visitKey])) {
+                $result[] = $this->buildShallowEmbed($item, $columnConfig);
+                continue;
+            }
+
+            $relatedRow = $prefetched[$foreignTable][$itemUid] ?? $rowsIndexed[$itemUid] ?? null;
+            if ($relatedRow === null) {
+                continue;
+            }
+
+            $result[] = $this->serialize(
+                $relatedRow,
+                $relatedConfig,
+                $relatedBaseUrl,
+                [],
+                $prefetched,
+                $effectiveDepth - 1,
+                $newVisited,
+            );
+        }
+
+        return $result;
     }
 
     /**
