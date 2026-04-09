@@ -9,11 +9,14 @@ use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Serializer\FileProcessing\FileProcessorInterface;
 use MaikSchneider\TcaApi\Serializer\FileProcessing\ImageProcessor;
 use MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface;
+use TYPO3\CMS\Core\Context\Context;
+use TYPO3\CMS\Core\Domain\Persistence\RecordIdentityMap;
 use TYPO3\CMS\Core\Domain\RecordFactory;
 use TYPO3\CMS\Core\Domain\RecordInterface;
 use TYPO3\CMS\Core\Resource\FileReference;
 use TYPO3\CMS\Core\Schema\Field\FileFieldType;
 use TYPO3\CMS\Core\Schema\Field\RelationalFieldTypeInterface;
+use TYPO3\CMS\Core\Schema\TcaSchema;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -41,10 +44,15 @@ class ResourceSerializer
     /** @var array<class-string, ColumnProcessorInterface|FileProcessorInterface> */
     private array $processorCache = [];
 
+    /** @var array<string, TcaSchema> */
+    private array $schemaCache = [];
+
     public function __construct(
         private readonly RecordFactory $recordFactory,
         private readonly TcaSchemaFactory $schemaFactory,
         private readonly DataRepository $dataRepository,
+        private readonly Context $context,
+        private readonly RecordIdentityMap $identityMap,
     ) {
     }
 
@@ -66,8 +74,8 @@ class ResourceSerializer
         array $visited = [],
     ): array {
         $table = $config['general']['table'];
-        $record = $this->recordFactory->createResolvedRecordFromDatabaseRow($table, $row);
-        $schema = $this->schemaFactory->get($table);
+        $record = $this->recordFactory->createResolvedRecordFromDatabaseRow($table, $row, $this->context, $this->identityMap);
+        $schema = $this->schemaCache[$table] ??= $this->schemaFactory->get($table);
 
         $result = [
             '@type' => $config['general']['resourceType'],
