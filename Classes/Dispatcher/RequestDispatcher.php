@@ -89,8 +89,9 @@ class RequestDispatcher
     {
         $params = $request->getQueryParams();
         $page = max(1, (int)($params['page'] ?? 1));
+        $requestedItemsPerPage = max(1, (int)($params['itemsPerPage'] ?? $config['general']['itemsPerPage'] ?? 20));
         $maxItemsPerPage = (int)($config['general']['maxItemsPerPage'] ?? 100);
-        $itemsPerPage = min(max(1, (int)($params['itemsPerPage'] ?? $config['general']['itemsPerPage'] ?? 20)), $maxItemsPerPage);
+        $itemsPerPage = min($requestedItemsPerPage, $maxItemsPerPage);
         $filters = \is_array($params['filters'] ?? null) ? $params['filters'] : [];
         $order = \is_array($params['order'] ?? null) ? $params['order'] : [];
 
