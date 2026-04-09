@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\DataAccess;
 
+use Doctrine\DBAL\ParameterType;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 
@@ -135,18 +136,24 @@ class DataRepository
 
     private function applyFilterConstraint(\TYPO3\CMS\Core\Database\Query\QueryBuilder $qb, string $column, array $filter): void
     {
-        $value = (string)$filter['value'];
         $strategy = $filter['strategy'] ?? 'exact';
 
         if ($strategy === 'mm') {
-            $this->applyMmFilterConstraint($qb, $filter, $value);
+            $this->applyMmFilterConstraint($qb, $filter, (string)$filter['value']);
             return;
         }
 
         if ($strategy === 'search') {
-            $this->applySearchFilterConstraint($qb, $filter, $value);
+            $this->applySearchFilterConstraint($qb, $filter, (string)$filter['value']);
             return;
         }
+
+        if ($strategy === 'range') {
+            $this->applyRangeFilterConstraint($qb, $column, $filter['value']);
+            return;
+        }
+
+        $value = (string)$filter['value'];
 
         match ($strategy) {
             'partial'    => $qb->andWhere($qb->expr()->like(
@@ -162,6 +169,29 @@ class DataRepository
                 $qb->createNamedParameter($value),
             )),
         };
+    }
+
+    private function applyRangeFilterConstraint(
+        \TYPO3\CMS\Core\Database\Query\QueryBuilder $qb,
+        string $column,
+        mixed $operators,
+    ): void {
+        if (!\is_array($operators)) {
+            return;
+        }
+
+        $map = [
+            'gte' => fn (mixed $v) => $qb->expr()->gte($column, $qb->createNamedParameter((int)$v, ParameterType::INTEGER)),
+            'lte' => fn (mixed $v) => $qb->expr()->lte($column, $qb->createNamedParameter((int)$v, ParameterType::INTEGER)),
+            'gt'  => fn (mixed $v) => $qb->expr()->gt($column, $qb->createNamedParameter((int)$v, ParameterType::INTEGER)),
+            'lt'  => fn (mixed $v) => $qb->expr()->lt($column, $qb->createNamedParameter((int)$v, ParameterType::INTEGER)),
+        ];
+
+        foreach ($operators as $op => $value) {
+            if (isset($map[$op])) {
+                $qb->andWhere(($map[$op])($value));
+            }
+        }
     }
 
     private function applySearchFilterConstraint(
