@@ -7,6 +7,9 @@ services:
   MaikSchneider\TcaApi\:
     resource: '../Classes/*'
 
+  MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor:
+    public: true
+
   MaikSchneider\TcaApi\Testing\EventCollector:
     public: true
     tags:

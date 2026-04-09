@@ -107,5 +107,11 @@ return [
                 'max' => 255,
             ],
         ],
+        'article_url' => [
+            'label' => 'Article URL',
+            'config' => [
+                'type' => 'link',
+            ],
+        ],
     ],
 ];

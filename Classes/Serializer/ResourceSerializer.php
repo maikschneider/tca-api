@@ -8,6 +8,7 @@ use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Serializer\FileProcessing\FileProcessorInterface;
 use MaikSchneider\TcaApi\Serializer\FileProcessing\ImageProcessor;
+use MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface;
 use TYPO3\CMS\Core\Domain\RecordFactory;
 use TYPO3\CMS\Core\Domain\RecordInterface;
 use TYPO3\CMS\Core\Resource\FileReference;
@@ -135,13 +136,23 @@ class ResourceSerializer
                     );
                 }
             } else {
-                $result[$column] = $record->has($column) ? $record->get($column) : null;
+                // When a processor is configured, pass the raw DB value so the processor
+                // receives the stored string (e.g. t3://page?uid=1) rather than TYPO3's
+                // already-transformed representation (e.g. type=link becomes an array).
+                $rawValue = isset($columnConfig['processor'])
+                    ? ($row[$column] ?? null)
+                    : ($record->has($column) ? $record->get($column) : null);
+                $result[$column] = $this->applyColumnProcessor($rawValue, $columnConfig, $result, $row);
             }
         }
 
         foreach ($config['virtualProperties'] ?? [] as $name => $virtualProperty) {
-            [$class, $method] = $virtualProperty['callback'];
-            $result[$name] = GeneralUtility::makeInstance($class)->$method($result, $row);
+            if (isset($virtualProperty['processor'])) {
+                $result[$name] = $this->applyColumnProcessor(null, $virtualProperty, $result, $row);
+            } else {
+                [$class, $method] = $virtualProperty['callback'];
+                $result[$name] = GeneralUtility::makeInstance($class)->$method($result, $row);
+            }
         }
 
         return $result;
@@ -274,6 +285,19 @@ class ResourceSerializer
         }
 
         return 0;
+    }
+
+    private function applyColumnProcessor(mixed $value, array $columnConfig, array $serializedRow, array $rawRow): mixed
+    {
+        $class = $columnConfig['processor'] ?? null;
+        if ($class === null) {
+            return $value;
+        }
+
+        /** @var ColumnProcessorInterface $processor */
+        $processor = GeneralUtility::makeInstance($class);
+
+        return $processor->process($value, $columnConfig, ['serializedRow' => $serializedRow, 'rawRow' => $rawRow]);
     }
 
     private function resolveFileProcessor(array $columnConfig): FileProcessorInterface

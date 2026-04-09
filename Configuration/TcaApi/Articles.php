@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Serializer\FileProcessing\FileProcessor;
+use MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor;
 
 return [
     'general' => [
@@ -39,6 +40,10 @@ return [
         'downloads' => [
             'readable'  => true,
             'processor' => FileProcessor::class,
+        ],
+        'article_url' => [
+            'readable'  => true,
+            'processor' => TypoLinkProcessor::class,
         ],
     ],
     'filters' => [

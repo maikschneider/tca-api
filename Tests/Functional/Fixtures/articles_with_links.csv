@@ -1,0 +1,6 @@
+"tx_myext_domain_model_article"
+,"uid","pid","title","article_url","hidden","deleted","tstamp","crdate"
+,80,1,"External URL Article","https://example.com",0,0,1704067200,1704067200
+,81,1,"Page Link Article","t3://page?uid=1",0,0,1704067200,1704067200
+,82,1,"No URL Article","",0,0,1704067200,1704067200
+,83,1,"No Processor Article","https://example.com",0,0,1704067200,1704067200
