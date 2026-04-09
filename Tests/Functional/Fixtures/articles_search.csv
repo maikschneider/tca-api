@@ -1,0 +1,5 @@
+"tx_myext_domain_model_article"
+,"uid","pid","title","first_name","last_name","hidden","deleted","tstamp","crdate"
+,20,1,"Alice Record","Alice","Smith",0,0,1704067200,1704067200
+,21,1,"Bob Record","Bob","Alifonso",0,0,1704067200,1704067200
+,22,1,"Charlie Record","Charlie","Brown",0,0,1704067200,1704067200

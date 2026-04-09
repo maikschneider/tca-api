@@ -143,6 +143,11 @@ class DataRepository
             return;
         }
 
+        if ($strategy === 'search') {
+            $this->applySearchFilterConstraint($qb, $filter, $value);
+            return;
+        }
+
         match ($strategy) {
             'partial'    => $qb->andWhere($qb->expr()->like(
                 $column,
@@ -157,6 +162,31 @@ class DataRepository
                 $qb->createNamedParameter($value),
             )),
         };
+    }
+
+    private function applySearchFilterConstraint(
+        \TYPO3\CMS\Core\Database\Query\QueryBuilder $qb,
+        array $filter,
+        string $value,
+    ): void {
+        $columns = $filter['columns'] ?? [];
+        if ($columns === []) {
+            return;
+        }
+
+        $match   = $filter['match'] ?? 'partial';
+        $escaped = $qb->escapeLikeWildcards($value);
+        $pattern = match ($match) {
+            'word_start' => $escaped . '%',
+            default      => '%' . $escaped . '%',
+        };
+
+        $orParts = [];
+        foreach ($columns as $col) {
+            $orParts[] = $qb->expr()->like($col, $qb->createNamedParameter($pattern));
+        }
+
+        $qb->andWhere($qb->expr()->or(...$orParts));
     }
 
     private function applyMmFilterConstraint(
