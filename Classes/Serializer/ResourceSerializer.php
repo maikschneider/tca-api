@@ -10,6 +10,7 @@ use TYPO3\CMS\Core\Domain\RecordFactory;
 use TYPO3\CMS\Core\Domain\RecordInterface;
 use TYPO3\CMS\Core\Schema\Field\RelationalFieldTypeInterface;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Serializes a TCA domain record to a Hydra JSON-LD array.
@@ -105,6 +106,11 @@ class ResourceSerializer
             } else {
                 $result[$column] = $record->has($column) ? $record->get($column) : null;
             }
+        }
+
+        foreach ($config['virtualProperties'] ?? [] as $name => $virtualProperty) {
+            [$class, $method] = $virtualProperty['callback'];
+            $result[$name] = GeneralUtility::makeInstance($class)->$method($result, $row);
         }
 
         return $result;

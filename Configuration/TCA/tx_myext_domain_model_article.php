@@ -76,5 +76,21 @@ return [
                 'type' => 'category',
             ],
         ],
+        'first_name' => [
+            'label' => 'First Name',
+            'config' => [
+                'type' => 'input',
+                'size' => 50,
+                'max' => 255,
+            ],
+        ],
+        'last_name' => [
+            'label' => 'Last Name',
+            'config' => [
+                'type' => 'input',
+                'size' => 50,
+                'max' => 255,
+            ],
+        ],
     ],
 ];

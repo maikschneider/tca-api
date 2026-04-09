@@ -17,51 +17,51 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │  HTTP Request                                                       │
 └──────────────────────────┬──────────────────────────────────────────┘
-                           ▼
+                          ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │  TcaApiMiddleware  (PSR-15)                                         │
 │  Matches /_api/* path → dispatches to RequestDispatcher             │
 └──────────────────────────┬──────────────────────────────────────────┘
-                           ▼
+                          ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │  RequestDispatcher                                                  │
 │  Resolves resource from ApiRegistry → routes to OperationHandler    │
 │  Enforces operations whitelist + AccessController                   │
 │  Dispatches BeforeOperationEvent                                    │
 └──────────┬──────────────────────────────────┬────────────────────── ┘
-           ▼                                  ▼
+          ▼                                  ▼
 ┌─────────────────────┐            ┌──────────────────────────┐
 │  AccessController   │            │  OperationHandlers       │
 │  AccessRole enum +  │            │  GetCollectionHandler    │
 │  callable voters    │            │  GetItemHandler          │
 └─────────────────────┘            │  CreateHandler           │
-                                   │  UpdateHandler (PUT/PATCH)│
-                                   │  DeleteHandler           │
-                                   └──────────┬───────────────┘
+                                  │  UpdateHandler (PUT/PATCH)│
+                                  │  DeleteHandler           │
+                                  └──────────┬───────────────┘
                                               ▼
-                           ┌──────────────────────────────────┐
-                           │  DataRepository (reads)          │
-                           │  ConnectionPool → QueryBuilder   │
-                           │  Filters: exact, partial,        │
-                           │  word_start, mm (TCA-derived)    │
-                           └──────────┬───────────────────────┘
+                          ┌──────────────────────────────────┐
+                          │  DataRepository (reads)          │
+                          │  ConnectionPool → QueryBuilder   │
+                          │  Filters: exact, partial,        │
+                          │  word_start, mm (TCA-derived)    │
+                          └──────────┬───────────────────────┘
                                       │
-                           ┌──────────▼───────────────────────┐
-                           │  DataWriteService (writes)       │
-                           │  TYPO3 Core DataHandler          │
-                           └──────────┬───────────────────────┘
+                          ┌──────────▼───────────────────────┐
+                          │  DataWriteService (writes)       │
+                          │  TYPO3 Core DataHandler          │
+                          └──────────┬───────────────────────┘
                                       ▼
-                           ┌──────────────────────────────────┐
-                           │  ResourceSerializer              │
-                           │  RecordFactory + TcaSchemaFactory│
-                           │  DB row → Hydra JSON-LD array    │
-                           │  Shallow relation embeds only    │
-                           └──────────┬───────────────────────┘
+                          ┌──────────────────────────────────┐
+                          │  ResourceSerializer              │
+                          │  RecordFactory + TcaSchemaFactory│
+                          │  DB row → Hydra JSON-LD array    │
+                          │  Shallow relation embeds only    │
+                          └──────────┬───────────────────────┘
                                       ▼
-                           ┌──────────────────────────────────┐
-                           │  HydraResponseBuilder            │
-                           │  Hydra Collection / Item / Error │
-                           └──────────────────────────────────┘
+                          ┌──────────────────────────────────┐
+                          │  HydraResponseBuilder            │
+                          │  Hydra Collection / Item / Error │
+                          └──────────────────────────────────┘
 ```
 
 ### 1.2 Actual File Structure
@@ -161,20 +161,20 @@ tca_api/
 1. HTTP GET /_api/articles?page=1&filters[title]=foo&order[title]=asc
 2. TcaApiMiddleware::process() matches /_api/ prefix
 3. RequestDispatcher::dispatch($request)
-   a. Parses path segments → resourceName + optional uid
-   b. ApiRegistry::get($resourceName) → $config
-   c. Determines operation from HTTP method + uid presence
-   d. Enforces operations whitelist from config
-   e. AccessController::isAllowed($requiredRole, $request)
-   f. Dispatches BeforeOperationEvent
-   g. Parses ?fields[] for sparse fieldsets
+  a. Parses path segments → resourceName + optional uid
+  b. ApiRegistry::get($resourceName) → $config
+  c. Determines operation from HTTP method + uid presence
+  d. Enforces operations whitelist from config
+  e. AccessController::isAllowed($requiredRole, $request)
+  f. Dispatches BeforeOperationEvent
+  g. Parses ?fields[] for sparse fieldsets
 4. GetCollectionHandler::handle(...)
-   a. resolveFilters() → validates against declared filters
-   b. resolveOrder() → validates against allowed sort columns
-   c. DataRepository::count() → $total
-   d. DataRepository::findCollection() → $rows (with filter + pagination + order)
-   e. ResourceSerializer::serializeCollection() → JSON-LD arrays
-   f. Dispatches AfterOperationEvent (data can be mutated)
+  a. resolveFilters() → validates against declared filters
+  b. resolveOrder() → validates against allowed sort columns
+  c. DataRepository::count() → $total
+  d. DataRepository::findCollection() → $rows (with filter + pagination + order)
+  e. ResourceSerializer::serializeCollection() → JSON-LD arrays
+  f. Dispatches AfterOperationEvent (data can be mutated)
 5. HydraResponseBuilder::buildCollection() → Hydra JSON-LD response
 ```
 
