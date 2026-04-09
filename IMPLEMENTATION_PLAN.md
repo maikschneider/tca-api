@@ -4,8 +4,8 @@
 **Namespace:** `MaikSchneider\TcaApi`
 **Target:** TYPO3 v13.4+ / v14+, PHP 8.2+, PSR-7/PSR-15
 
-> **Last updated:** 2026-04-08
-> **State:** Alpha (0.1.0) — core CRUD, filtering, pagination, sorting, events, validation, access control all working with 17 functional tests.
+> **Last updated:** 2026-04-09
+> **State:** Alpha (0.1.0) — core CRUD, filtering (exact, partial, word_start, mm, search, range), pagination, sorting, events, validation, access control, virtual properties, image/FAL processing, typolink resolution, nested depth control all working with 24 functional tests.
 
 ---
 
@@ -101,7 +101,11 @@ tca_api/
 │   │   └── DataWriteService.php      ← DataHandler wrapper
 │   ├── Serializer/
 │   │   ├── ResourceSerializer.php    ← RecordFactory-based serialization
-│   │   └── HydraResponseBuilder.php  ← JSON-LD response assembly
+│   │   ├── HydraResponseBuilder.php  ← JSON-LD response assembly
+│   │   ├── FileProcessing/
+│   │   │   └── ImageProcessor.php    ← FAL image processing
+│   │   └── Processing/
+│   │       └── TypoLinkProcessor.php ← Typolink URL resolution
 │   ├── Security/
 │   │   └── AccessController.php      ← Role enum + callable evaluation
 │   ├── Enum/
@@ -131,14 +135,21 @@ tca_api/
             ├── CollectionPaginationTest.php
             ├── CollectionSortingTest.php
             ├── EventsTest.php
+            ├── FileSerializationTest.php
             ├── FilterByRelationTest.php
             ├── FilterMmTcaDerivedTest.php
             ├── FrontendGroupAccessTest.php
             ├── GetItemApiTest.php
             ├── OperationsEnforcementTest.php
+            ├── RangeFilterTest.php
+            ├── RelationEmbedTest.php
             ├── RelationsTest.php
+            ├── SearchFilterTest.php
             ├── SparseFieldsetsTest.php
+            ├── StoragePidTest.php
+            ├── TypoLinkProcessorTest.php
             ├── ValidationTest.php
+            ├── VirtualPropertiesTest.php
             ├── WriteOperationsTest.php
             └── WriteRelationsTest.php
 ```
@@ -207,6 +218,13 @@ tca_api/
 | **Write MM relations** | `WriteRelationsTest` | `ColumnFilterTrait` |
 | **PSR-14 events** (Before/AfterOperation, Before/AfterWrite) | `EventsTest` | `Event/` classes |
 | **Hydra JSON-LD format** | All tests | `HydraResponseBuilder` |
+| **Storage PID constraint** (`WHERE pid IN (...)`) | `StoragePidTest` | `DataRepository::applyPidConstraint` |
+| **Multi-field search filter** (`?filters[search]=Alice`) | `SearchFilterTest` | `DataRepository::applySearchFilterConstraint` |
+| **Range filter** (`?filters[col][gte]=100`) | `RangeFilterTest` | `DataRepository::applyRangeFilterConstraint` |
+| **Virtual / computed properties** | `VirtualPropertiesTest` | `ResourceSerializer` (virtualProperties config) |
+| **Image / FAL processing** | `FileSerializationTest` | `ImageProcessor` |
+| **Typolink resolution** | `TypoLinkProcessorTest` | `TypoLinkProcessor` |
+| **Nested relation depth control** | `RelationEmbedTest` | `ResourceSerializer` (embed depth + visited guard) |
 
 ### ❌ Not Yet Implemented
 
@@ -214,14 +232,7 @@ These features are identified in `TODO_MISSING_FEATURES.md` and are required for
 
 | # | Feature | Priority | Blocking? | Description |
 |---|---|---|---|---|
-| **1** | **Storage PID constraint** | 🔴 HIGH | YES | `WHERE pid IN (...)` — without this, all records are returned regardless of page tree |
-| **2** | **Virtual / computed properties** | 🔴 HIGH | — | Callback-based fields like `displayName`, `url`, `previewImage` |
 | **3** | **Serialization groups** | 🟠 MEDIUM | — | Per-operation field visibility (collection vs. item) |
-| **4** | **Multi-field search filter** | 🔴 HIGH | — | `?search=Alice` searching across multiple columns with OR logic |
-| **5** | **Range filter** | 🟢 LOW | — | `?col[gte]=100&col[lte]=200` operators |
-| **6** | **Image / FAL processing** | 🔴 HIGH | — | Process `sys_file_reference` with width/crop instructions |
-| **7** | **Typolink resolution** | 🟠 MEDIUM | — | Generate frontend URLs from page UIDs |
-| **8** | **Nested relation depth control** | 🟢 LOW | — | `maxDepth` to prevent infinite recursion on self-references |
 | **9** | **Object-level security** | 🟠 MEDIUM | — | PATCH only if `object.uid == currentUserId` |
 | **10** | **Custom route patterns** | 🟠 MEDIUM | — | `/user/current` style non-CRUD operations |
 | **11** | **Maximum items per page** | 🟢 LOW | — | Cap `itemsPerPage` to prevent unbounded queries |
@@ -236,15 +247,23 @@ Each task below follows **test-driven development**: write the failing test firs
 
 ---
 
-### Phase 1 — Critical Blockers
+### ✅ Completed Tasks
 
-#### Task 1.1: Storage PID Constraint
-**Priority:** 🔴 HIGH — Without this, all `fe_users` (or any table) are returned regardless of page tree location.
+The following tasks have been implemented and tested:
 
-> **Prompt:**
-> Add support for a `storagePid` key in the `general` section of the resource config. When set (single int or array of ints), both `findById`, `findCollection`, and `count` in `DataRepository` must add `WHERE pid IN (...)` constraints. Write a functional test `StoragePidTest` that registers a resource with `'storagePid' => 42`, inserts records on pid 42 and pid 99, and asserts that only pid 42 records appear in `GET /_api/{resource}` and that `GET /_api/{resource}/{uid}` returns 404 for a record on pid 99. Follow existing test patterns in `Tests/Functional/Api/`.
+| Task | Feature | Test |
+|---|---|---|
+| 1.1 | Storage PID Constraint | `StoragePidTest` |
+| 2.1 | Multi-Field Search Filter | `SearchFilterTest` |
+| 2.2 | Range Filter | `RangeFilterTest` |
+| 3.2 | Virtual / Computed Properties | `VirtualPropertiesTest` |
+| 4.1 | Image / FAL Reference Processing | `FileSerializationTest` |
+| 4.2 | Typolink Resolution | `TypoLinkProcessorTest` |
+| 5.3 | Nested Relation Depth Control | `RelationEmbedTest` |
 
 ---
+
+### Remaining Tasks
 
 #### Task 1.2: Inline Relation Field Selection
 **Priority:** 🔴 HIGH — Related records currently only expose `{@id, @type, uid}`.
@@ -262,39 +281,11 @@ Each task below follows **test-driven development**: write the failing test firs
 
 ---
 
-### Phase 2 — Search & Filter Enhancements
-
-#### Task 2.1: Multi-Field Search Filter
-**Priority:** 🔴 HIGH — Frontend uses `?search=Alice` to search across first_name + last_name.
-
-> **Prompt:**
-> Add a new filter strategy `search` that accepts a custom parameter name and searches across multiple columns with OR + partial matching. Config example: `'search' => ['strategy' => 'search', 'columns' => ['first_name', 'last_name'], 'match' => 'partial']`. In `DataRepository`, when strategy is `search`, build an OR expression: `(first_name LIKE %val% OR last_name LIKE %val%)`. Write a functional test `SearchFilterTest` that registers a resource with a `search` filter on two columns, inserts test records, and asserts `?filters[search]=Ali` returns matching records while non-matching records are excluded.
-
----
-
-#### Task 2.2: Range Filter
-**Priority:** 🟢 LOW
-
-> **Prompt:**
-> Add a new filter strategy `range` that supports `gte`, `lte`, `gt`, `lt` sub-operators. Config: `'dkfz_id' => ['strategy' => 'range']`. The filter value comes as `?filters[dkfz_id][gte]=100&filters[dkfz_id][lte]=200`. In `DataRepository::applyFilterConstraint`, when strategy is `range`, the value is an array of operators. Build AND constraints for each operator. Write a functional test `RangeFilterTest` that inserts records with varying integer values, applies range filters, and asserts correct result sets for `gte`, `lte`, `gt`, `lt`, and combinations.
-
----
-
-### Phase 3 — Serialization Enhancements
-
 #### Task 3.1: Serialization Groups (Per-Operation Field Visibility)
 **Priority:** 🟠 MEDIUM
 
 > **Prompt:**
 > Add support for per-operation field visibility via a `readableIn` key on each column config. When set (e.g. `'readableIn' => ['list']` or `'readableIn' => ['show']`), the field is only included in responses for that operation. When `readableIn` is not set, the field appears in all operations (current behavior). Pass the current operation name (`list` or `show`) through to `ResourceSerializer::serialize` and filter columns accordingly. Write a functional test `SerializationGroupsTest` that configures some fields as list-only and others as show-only, and asserts the correct fields appear in collection vs. item responses.
-
----
-
-#### Task 3.2: Virtual / Computed Properties
-**Priority:** 🔴 HIGH
-
-> **Prompt:**
-> Add support for a `virtualProperties` key in the resource config. Each virtual property defines a `name` and a `callback` (callable array `[ClassName::class, 'methodName']`). The callback receives the serialized row array and the full raw database row, and returns a computed value. `ResourceSerializer::serialize` appends virtual properties after serializing all real columns. Write a functional test `VirtualPropertiesTest` that configures a virtual property `displayName` with a test callback that concatenates `last_name, first_name`, inserts a record, and asserts `GET /_api/{resource}/{id}` includes the computed `displayName` field.
 
 ---
 
@@ -305,26 +296,6 @@ Each task below follows **test-driven development**: write the failing test firs
 > Add support for an `excludeUids` key on relational column configs. When set (e.g. `'excludeUids' => [1, 287]`), `ResourceSerializer::buildShallowEmbed` (or its caller) filters out related records whose uid is in the exclude list before serialization. Write a functional test `RelationFilteringTest` that configures a many-to-many relation with `excludeUids`, creates related records including excluded ones, and asserts the API response omits the excluded UIDs.
 
 ---
-
-### Phase 4 — File & URL Processing
-
-#### Task 4.1: Image / FAL Reference Processing
-**Priority:** 🔴 HIGH
-
-> **Prompt:**
-> Add support for image processing on `sys_file_reference` columns. Add a column config key `processing` (e.g. `'processing' => ['width' => 600, 'cropVariant' => 'square']`). When `ResourceSerializer` encounters a relational field whose foreign table is `sys_file_reference`, it should use TYPO3's `ImageService` or `ProcessedFile` API to generate a processed image URL instead of a shallow embed. Write a functional test `ImageProcessingTest` that configures an image column with processing instructions, creates a record with a `sys_file_reference`, and asserts the API response contains a processed image URL (or at minimum a public URL string rather than a relation object).
-
----
-
-#### Task 4.2: Typolink Resolution
-**Priority:** 🟠 MEDIUM
-
-> **Prompt:**
-> Add support for a column type or virtual property mechanism that resolves TYPO3 typolinks. This can be implemented as a virtual property whose callback uses `ContentObjectRenderer::typoLink_URL()`. Write a functional test `TypolinkResolutionTest` that configures a virtual property `url` with a callback that generates a URL from a page UID, and asserts the serialized output contains a resolved URL string. If `ContentObjectRenderer` is unavailable in test context, verify the callback mechanism works and the property appears in the output.
-
----
-
-### Phase 5 — Advanced Security & Routing
 
 #### Task 5.1: Object-Level Security for PATCH
 **Priority:** 🟠 MEDIUM
@@ -342,15 +313,7 @@ Each task below follows **test-driven development**: write the failing test firs
 
 ---
 
-#### Task 5.3: Nested Relation Depth Control
-**Priority:** 🟢 LOW
-
-> **Prompt:**
-> Add support for a `maxDepth` key on relational column configs to prevent infinite recursion on self-referencing relations (e.g. `fe_users.representative` → `fe_users`). When `maxDepth` is reached, serialize the relation as a minimal identity stub `{@id, @type, uid}` even if `inlineFields` is configured. Write a functional test `NestedDepthControlTest` that configures a self-referencing relation with `maxDepth: 1`, creates a chain of related records, and asserts the response stops embedding at the configured depth.
-
----
-
-### Phase 6 — Polish
+### Phase — Polish
 
 #### Task 6.1: Hydra `hydra:search` IRI Template
 **Priority:** 🟢 LOW
@@ -379,7 +342,7 @@ return [
         'operations'      => ['list', 'show', 'create', ...],  // ✅ Implemented
         'itemsPerPage'    => 20,                                // ✅ Implemented
         'defaultPid'      => 1,                                 // ✅ Implemented (writes)
-        'storagePid'      => 42,          // ❌ TODO Task 1.1
+        'storagePid'      => 42,          // ✅ Implemented (Task 1.1)
         'maxItemsPerPage' => 100,         // ❌ TODO Task 1.3
     ],
 
@@ -397,23 +360,23 @@ return [
             'resourceName' => 'committees', // ✅ Implemented
             'inlineFields' => ['name'],   // ❌ TODO Task 1.2
             'excludeUids'  => [1, 287],   // ❌ TODO Task 3.3
-            'maxDepth'     => 1,          // ❌ TODO Task 5.3
+            'maxDepth'     => 1,          // ✅ Implemented (Task 5.3)
         ],
         'image' => [
             'readable'   => true,         // ✅ Implemented
-            'processing' => ['width' => 600, 'cropVariant' => 'square'],  // ❌ TODO Task 4.1
+            'processing' => ['width' => 600, 'cropVariant' => 'square'],  // ✅ Implemented (Task 4.1)
         ],
     ],
 
     'filters' => [
         'title'  => ['strategy' => 'exact'],       // ✅ Implemented
         'name'   => ['strategy' => 'partial'],     // ✅ Implemented
-        'search' => [                               // ❌ TODO Task 2.1
+        'search' => [                               // ✅ Implemented (Task 2.1)
             'strategy' => 'search',
             'columns'  => ['first_name', 'last_name'],
             'match'    => 'partial',
         ],
-        'dkfz_id' => ['strategy' => 'range'],      // ❌ TODO Task 2.2
+        'dkfz_id' => ['strategy' => 'range'],      // ✅ Implemented (Task 2.2)
         'categories' => ['strategy' => 'mm', ...],  // ✅ Implemented
     ],
 
@@ -429,7 +392,7 @@ return [
         // Object-level context for voters:          // ❌ TODO Task 5.1
     ],
 
-    'virtualProperties' => [                         // ❌ TODO Task 3.2
+    'virtualProperties' => [                         // ✅ Implemented (Task 3.2)
         [
             'name'     => 'displayName',
             'callback' => [UserVirtualProps::class, 'displayName'],
