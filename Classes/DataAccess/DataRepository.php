@@ -29,9 +29,7 @@ class DataRepository
                 $qb->expr()->in('uid', array_map(
                     fn (int $uid) => $qb->createNamedParameter($uid),
                     $uids,
-                )),
-                $qb->expr()->eq('deleted', 0),
-                $qb->expr()->eq('hidden', 0),
+                ))
             )
             ->executeQuery()
             ->fetchAllAssociative();
@@ -50,9 +48,7 @@ class DataRepository
         $qb->select('*')
             ->from($table)
             ->where(
-                $qb->expr()->eq('uid', $qb->createNamedParameter($uid)),
-                $qb->expr()->eq('deleted', 0),
-                $qb->expr()->eq('hidden', 0),
+                $qb->expr()->eq('uid', $qb->createNamedParameter($uid))
             );
 
         $this->applyPidConstraint($qb, $config);
@@ -64,11 +60,7 @@ class DataRepository
     {
         $qb = $this->connectionPool->getQueryBuilderForTable($table);
         $qb->select('*')
-            ->from($table)
-            ->where(
-                $qb->expr()->eq('deleted', 0),
-                $qb->expr()->eq('hidden', 0),
-            );
+            ->from($table);
 
         $this->applyPidConstraint($qb, $config);
 
@@ -94,11 +86,7 @@ class DataRepository
     {
         $qb = $this->connectionPool->getQueryBuilderForTable($table);
         $qb->count('uid')
-            ->from($table)
-            ->where(
-                $qb->expr()->eq('deleted', 0),
-                $qb->expr()->eq('hidden', 0),
-            );
+            ->from($table);
 
         $this->applyPidConstraint($qb, $config);
 
