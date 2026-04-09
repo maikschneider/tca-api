@@ -19,3 +19,8 @@ ApiRegistry::register(
     'sys-categories',
     require ExtensionManagementUtility::extPath('tca_api') . 'Configuration/TcaApi/SysCategories.php',
 );
+
+ApiRegistry::register(
+    'news',
+    require ExtensionManagementUtility::extPath('tca_api') . 'Configuration/TcaApi/News.php',
+);
