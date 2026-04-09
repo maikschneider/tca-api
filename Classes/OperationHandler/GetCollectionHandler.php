@@ -46,8 +46,15 @@ class GetCollectionHandler
         $safeFilters = $this->resolveFilters($filters, $config);
         $safeOrder = $this->resolveOrder($order, $config);
 
-        $total = $this->dataRepository->count($table, $safeFilters, $config);
         $rows = $this->dataRepository->findCollection($table, $safeFilters, $itemsPerPage, $offset, $safeOrder, $config);
+
+        // When the number of returned rows is less than the limit, we know the
+        // exact total without a separate COUNT query: offset + actual row count.
+        $rowCount = \count($rows);
+        $total = ($rowCount < $itemsPerPage)
+            ? $offset + $rowCount
+            : $this->dataRepository->count($table, $safeFilters, $config);
+
         $prefetched = $this->prefetchEmbeds($rows, $config);
         $members = $this->serializer->serializeCollection($rows, $config, $baseUrl, $fields, $prefetched);
 

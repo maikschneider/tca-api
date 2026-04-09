@@ -30,18 +30,24 @@ class HydraResponseBuilder
             'hydra:view' => $this->buildView($collectionId, $page, $itemsPerPage, $totalItems),
         ];
 
+        $json = json_encode($body, JSON_THROW_ON_ERROR);
+
         $response = $this->responseFactory->createResponse(200)
-            ->withHeader('Content-Type', 'application/ld+json');
-        $response->getBody()->write(json_encode($body, JSON_THROW_ON_ERROR));
+            ->withHeader('Content-Type', 'application/ld+json')
+            ->withHeader('ETag', '"' . hash('xxh3', $json) . '"');
+        $response->getBody()->write($json);
 
         return $response;
     }
 
     public function buildItem(array $data): ResponseInterface
     {
+        $json = json_encode($data, JSON_THROW_ON_ERROR);
+
         $response = $this->responseFactory->createResponse(200)
-            ->withHeader('Content-Type', 'application/ld+json');
-        $response->getBody()->write(json_encode($data, JSON_THROW_ON_ERROR));
+            ->withHeader('Content-Type', 'application/ld+json')
+            ->withHeader('ETag', '"' . hash('xxh3', $json) . '"');
+        $response->getBody()->write($json);
 
         return $response;
     }

@@ -10,6 +10,9 @@ use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 
 class DataRepository
 {
+    /** @var array<string, array> Memoized MM config keyed by "table:column" */
+    private array $mmConfigCache = [];
+
     public function __construct(
         private readonly ConnectionPool $connectionPool,
         private readonly TcaSchemaFactory $schemaFactory,
@@ -238,6 +241,14 @@ class DataRepository
     {
         $table  = $filter['_table'];
         $column = $filter['_column'];
+        $cacheKey = $table . ':' . $column;
+
+        if (isset($this->mmConfigCache[$cacheKey])) {
+            return array_merge($this->mmConfigCache[$cacheKey], [
+                'value' => $filter['value'],
+            ]);
+        }
+
         $schema = $this->schemaFactory->get($table);
 
         if (!$schema->hasField($column)) {
@@ -258,13 +269,18 @@ class DataRepository
         // In that case uid_local holds the related UID and uid_foreign holds the record UID — reversed from standard MM.
         $hasOppositeField = isset($config['MM_opposite_field']);
 
-        return [
-            'value'          => $filter['value'],
+        $derived = [
             'strategy'       => $filter['strategy'] ?? 'mm',
             'mm_table'       => $mmTable,
             'mm_local_key'   => $hasOppositeField ? 'uid_local' : 'uid_foreign',
             'mm_foreign_key' => $hasOppositeField ? 'uid_foreign' : 'uid_local',
             'mm_constraints' => $config['MM_match_fields'] ?? [],
         ];
+
+        $this->mmConfigCache[$cacheKey] = $derived;
+
+        return array_merge($derived, [
+            'value' => $filter['value'],
+        ]);
     }
 }

@@ -38,6 +38,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 class ResourceSerializer
 {
+    /** @var array<class-string, ColumnProcessorInterface|FileProcessorInterface> */
+    private array $processorCache = [];
+
     public function __construct(
         private readonly RecordFactory $recordFactory,
         private readonly TcaSchemaFactory $schemaFactory,
@@ -295,18 +298,16 @@ class ResourceSerializer
         }
 
         /** @var ColumnProcessorInterface $processor */
-        $processor = GeneralUtility::makeInstance($class);
+        $processor = $this->processorCache[$class] ??= GeneralUtility::makeInstance($class);
 
         return $processor->process($value, $columnConfig, ['serializedRow' => $serializedRow, 'rawRow' => $rawRow]);
     }
 
     private function resolveFileProcessor(array $columnConfig): FileProcessorInterface
     {
-        $class = $columnConfig['processor'] ?? null;
+        $class = $columnConfig['processor'] ?? ImageProcessor::class;
 
-        return $class !== null
-            ? GeneralUtility::makeInstance($class)
-            : GeneralUtility::makeInstance(ImageProcessor::class);
+        return $this->processorCache[$class] ??= GeneralUtility::makeInstance($class);
     }
 
     /**
