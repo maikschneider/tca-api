@@ -259,60 +259,6 @@ services:
           event: MaikSchneider\TcaApi\Event\AfterOperationEvent
 ```
 
-## API response examples
-
-### Collection (GET `/_api/articles?page=1&itemsPerPage=2`)
-
-```json
-{
-    "@context": "http://www.w3.org/ns/hydra/context.jsonld",
-    "@type": "hydra:Collection",
-    "@id": "/_api/articles",
-    "hydra:totalItems": 5,
-    "hydra:member": [
-        {
-            "@id": "/_api/articles/1",
-            "@type": "Article",
-            "uid": 1,
-            "title": "First Article"
-        }
-    ],
-    "hydra:view": {
-        "@type": "hydra:PartialCollectionView",
-        "hydra:first": "/_api/articles?page=1&itemsPerPage=2",
-        "hydra:next": "/_api/articles?page=2&itemsPerPage=2",
-        "hydra:last": "/_api/articles?page=3&itemsPerPage=2"
-    }
-}
-```
-
-### Single item (GET `/_api/articles/1`)
-
-```json
-{
-    "@id": "/_api/articles/1",
-    "@type": "Article",
-    "uid": 1,
-    "title": "First Article",
-    "color": {
-        "@id": "/_api/colors/1",
-        "@type": "Color",
-        "uid": 1
-    }
-}
-```
-
-### Access denied (403)
-
-```json
-{
-    "@context": "http://www.w3.org/ns/hydra/context.jsonld",
-    "@type": "hydra:Error",
-    "hydra:title": "Access Denied",
-    "hydra:description": "Insufficient permissions for operation: delete"
-}
-```
-
 ## Development
 
 ### Static analysis & linting
