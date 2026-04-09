@@ -113,5 +113,11 @@ return [
                 'type' => 'link',
             ],
         ],
+        'fe_user_id' => [
+            'label' => 'Owner (FE User)',
+            'config' => [
+                'type' => 'number',
+            ],
+        ],
     ],
 ];

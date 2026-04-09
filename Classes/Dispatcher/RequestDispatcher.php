@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Dispatcher;
 
+use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Event\BeforeOperationEvent;
 use MaikSchneider\TcaApi\OperationHandler\CreateHandler;
@@ -31,6 +32,7 @@ class RequestDispatcher
         private readonly AccessController $accessController,
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly EventDispatcherInterface $eventDispatcher,
+        private readonly DataRepository $dataRepository,
     ) {
     }
 
@@ -66,8 +68,16 @@ class RequestDispatcher
             return $this->methodNotAllowed($operation);
         }
 
+        $existingRecord = [];
+        if ($uid !== null && ($operation === 'update' || $operation === 'delete')) {
+            $existingRecord = $this->dataRepository->findById($config['general']['table'], $uid, $config) ?? [];
+            if ($existingRecord === []) {
+                return $this->notFound();
+            }
+        }
+
         $requiredRole = $config['security'][$operation] ?? AccessRole::PUBLIC;
-        if (!$this->accessController->isAllowed($requiredRole, $request)) {
+        if (!$this->accessController->isAllowed($requiredRole, $request, $existingRecord)) {
             return $this->forbidden($operation);
         }
 

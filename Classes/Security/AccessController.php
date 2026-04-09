@@ -11,7 +11,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 class AccessController
 {
-    public function isAllowed(AccessRole|array $requiredRole, ServerRequestInterface $request): bool
+    public function isAllowed(AccessRole|array $requiredRole, ServerRequestInterface $request, array $record = []): bool
     {
         if (is_array($requiredRole)) {
             if ($requiredRole[0] instanceof AccessRole) {
@@ -19,7 +19,7 @@ class AccessController
             }
 
             [$class, $method] = $requiredRole;
-            return (bool)GeneralUtility::makeInstance($class)->$method($request);
+            return (bool)GeneralUtility::makeInstance($class)->$method($request, $record);
         }
 
         return match ($requiredRole) {
