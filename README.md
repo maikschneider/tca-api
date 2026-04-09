@@ -153,6 +153,7 @@ Access to both endpoints is controlled by the `tca_api.openApiExposed` and `tca_
 | `type`          | Set to `'userinfo'` to create a [userinfo endpoint](#userinfo-endpoint) |
 | `operations`    | Array of enabled operations: `list`, `show`, `create`, `update`, `delete` |
 | `itemsPerPage`  | Default page size for list operations            |
+| `maxItemsPerPage` | Upper limit for `itemsPerPage`; when set, the requested page size is clamped to this value. No limit when omitted |
 | `defaultPid`    | Page ID for newly created records                |
 
 ### Column visibility
@@ -496,7 +497,7 @@ Before the handler loop, the dispatcher sets the following attributes on the PSR
 | `tca_api.operation` | `string` | Resolved operation name |
 | `tca_api.fields` | `array` | `?fields[]=…` sparse-fieldset param |
 | `tca_api.page` | `int` | Pagination page (≥ 1) |
-| `tca_api.items_per_page` | `int` | Items per page |
+| `tca_api.items_per_page` | `int` | Items per page (clamped to `maxItemsPerPage` when configured) |
 | `tca_api.filters` | `array` | Raw `?filters[…]=…` params |
 | `tca_api.order` | `array` | Raw `?order[…]=asc\|desc` params |
 | `tca_api.partial` | `bool` | `true` for PATCH (partial update) |

@@ -169,13 +169,18 @@ final class RequestDispatcher
     {
         $params = $request->getQueryParams();
         $defaultItemsPerPage = (int)$siteSettings->get('tca_api.defaultItemsPerPage', self::DEFAULT_ITEMS_PER_PAGE);
+        $itemsPerPage = (int)($params['itemsPerPage'] ?? $config['general']['itemsPerPage'] ?? $defaultItemsPerPage);
+        $maxItemsPerPage = $config['general']['maxItemsPerPage'] ?? null;
+        if ($maxItemsPerPage !== null) {
+            $itemsPerPage = min($itemsPerPage, (int)$maxItemsPerPage);
+        }
 
         return $request
             ->withAttribute('tca_api.uid', $uid)
             ->withAttribute('tca_api.operation', $operation)
             ->withAttribute('tca_api.fields', \is_array($params['fields'] ?? null) ? $params['fields'] : [])
             ->withAttribute('tca_api.page', max(1, (int)($params['page'] ?? 1)))
-            ->withAttribute('tca_api.items_per_page', (int)($params['itemsPerPage'] ?? $config['general']['itemsPerPage'] ?? $defaultItemsPerPage))
+            ->withAttribute('tca_api.items_per_page', $itemsPerPage)
             ->withAttribute('tca_api.filters', \is_array($params['filters'] ?? null) ? $params['filters'] : [])
             ->withAttribute('tca_api.order', \is_array($params['order'] ?? null) ? $params['order'] : [])
             ->withAttribute('tca_api.partial', $method === 'PATCH');
