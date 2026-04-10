@@ -118,9 +118,9 @@ final class TypoLinkProcessorTest extends ApiFunctionalTestCase
         $body = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
-        // Without processor, TYPO3's RecordFieldTransformer converts type=link to a structured array
-        self::assertIsArray($body['article_url']);
-        self::assertArrayHasKey('url', $body['article_url']);
+        // Without processor, the raw stored value is returned directly
+        self::assertIsString($body['article_url']);
+        self::assertSame('https://example.com', $body['article_url']);
     }
 
     // ── Virtual property with processor key ──────────────────────────────────

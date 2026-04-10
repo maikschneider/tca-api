@@ -9,9 +9,7 @@ use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Serializer\FileProcessing\FileProcessorInterface;
 use MaikSchneider\TcaApi\Serializer\FileProcessing\ImageProcessor;
 use MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface;
-use TYPO3\CMS\Core\Domain\RecordFactory;
-use TYPO3\CMS\Core\Domain\RecordInterface;
-use TYPO3\CMS\Core\Resource\FileReference;
+use TYPO3\CMS\Core\Resource\FileRepository;
 use TYPO3\CMS\Core\Schema\Field\FileFieldType;
 use TYPO3\CMS\Core\Schema\Field\RelationalFieldTypeInterface;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
@@ -20,28 +18,21 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 /**
  * Serializes a TCA domain record to a Hydra JSON-LD array.
  *
- * Relation resolution is delegated to RecordFactory::createResolvedRecordFromDatabaseRow(),
- * which uses TYPO3's RecordFieldTransformer to lazily resolve any TCA-defined relation into
- * typed Record objects. The Schema API (TcaSchemaFactory) is used to introspect field types
- * and relationship cardinality — no direct TCA array access.
+ * All data is read directly from raw DB rows — no RecordFactory, no RecordInterface.
+ * The Schema API (TcaSchemaFactory) is used to introspect field types and relationship
+ * cardinality. File references are resolved via FileRepository::findByRelation().
  *
  * Embed config (per column):
  *   'embed' => true              — embed full related record at depth 1
  *   'embed' => ['depth' => N]   — embed N levels deep
  *   (no 'embed' key)            — return shallow stub {@ id, @type, uid}  [default]
- *
- * The 'embed' approach supersedes the older 'inlineFields' pattern. Use 'embed' to include
- * full related records inline. 'inlineFields' is deprecated and should not be used in new configs.
- *
- * Note: RecordFactory and the Schema API are marked @internal in TYPO3 core.
- * They are used here intentionally as the canonical v13 record/schema layer.
  */
 class ResourceSerializer
 {
     public function __construct(
-        private readonly RecordFactory $recordFactory,
         private readonly TcaSchemaFactory $schemaFactory,
         private readonly DataRepository $dataRepository,
+        private readonly FileRepository $fileRepository,
     ) {
     }
 
@@ -63,13 +54,13 @@ class ResourceSerializer
         array $visited = [],
     ): array {
         $table = $config['general']['table'];
-        $record = $this->recordFactory->createResolvedRecordFromDatabaseRow($table, $row);
+        $uid   = (int)$row['uid'];
         $schema = $this->schemaFactory->get($table);
 
         $result = [
             '@type' => $config['general']['resourceType'],
-            '@id'   => $baseUrl . '/' . $record->getUid(),
-            'uid'   => $record->getUid(),
+            '@id'   => $baseUrl . '/' . $uid,
+            'uid'   => $uid,
         ];
 
         foreach ($config['columns'] as $column => $columnConfig) {
@@ -88,27 +79,19 @@ class ResourceSerializer
             $field = $schema->getField($column);
 
             if ($field instanceof FileFieldType) {
-                $value     = $record->get($column);
                 $processor = $this->resolveFileProcessor($columnConfig);
+                $fileRefs  = $this->fileRepository->findByRelation($table, $column, $uid);
 
                 // type=file always has foreign_field set (by TcaPreparation), making RelationshipType=OneToMany
                 // and hasOne() always false. For single-file fields we check maxitems directly.
                 if (($field->getConfiguration()['maxitems'] ?? 0) === 1) {
-                    $first = null;
-                    if ($value instanceof \Traversable) {
-                        foreach ($value as $item) {
-                            $first = $item;
-                            break;
-                        }
-                    }
-                    $result[$column] = $first instanceof FileReference
-                        ? $processor->process($first, $columnConfig)
+                    $result[$column] = isset($fileRefs[0])
+                        ? $processor->process($fileRefs[0], $columnConfig)
                         : null;
                 } else {
-                    $items           = $value instanceof \Traversable ? iterator_to_array($value, false) : [];
                     $result[$column] = array_map(
-                        fn (FileReference $ref) => $processor->process($ref, $columnConfig),
-                        $items,
+                        fn ($ref) => $processor->process($ref, $columnConfig),
+                        $fileRefs,
                     );
                 }
                 continue;
@@ -122,64 +105,38 @@ class ResourceSerializer
                         $columnConfig,
                         $config,
                         $row,
-                        $record,
                         $field,
                         $preloaded,
                         $remainingDepth,
                         $visited,
                     );
                 } else {
-                    $parentUid   = (int)$row['uid'];
-                    $relatedRows = $preloaded['hasMany'][$column][$parentUid] ?? null;
+                    $relatedRows = $preloaded['hasMany'][$column][$uid] ?? $this->fetchHasManyRows($field, $row);
 
                     $effectiveDepth = $remainingDepth >= 0
                         ? $remainingDepth
                         : $this->resolveEmbedDepth($columnConfig);
 
-                    if ($relatedRows !== null) {
-                        $result[$column] = $relatedRows !== []
-                            ? $this->serializeHasManyFromRows(
-                                $columnConfig,
-                                $config,
-                                $field,
-                                $row,
-                                $relatedRows,
-                                $preloaded,
-                                $effectiveDepth,
-                                $visited,
-                            )
-                            : [];
-                    } else {
-                        $collection = $record->get($column);
-                        $items = $collection instanceof \Traversable ? iterator_to_array($collection, false) : [];
-
-                        if ($effectiveDepth <= 0) {
-                            $result[$column] = array_map(
-                                fn (RecordInterface $item) => $this->buildShallowEmbed($item, $columnConfig),
-                                $items,
-                            );
-                        } else {
-                            $result[$column] = $this->serializeHasManyEmbedded(
-                                $columnConfig,
-                                $config,
-                                $field,
-                                $row,
-                                $items,
-                                $preloaded,
-                                $effectiveDepth,
-                                $visited,
-                            );
-                        }
-                    }
+                    $result[$column] = $relatedRows !== []
+                        ? $this->serializeHasManyFromRows(
+                            $columnConfig,
+                            $config,
+                            $field,
+                            $row,
+                            $relatedRows,
+                            $preloaded,
+                            $effectiveDepth,
+                            $visited,
+                        )
+                        : [];
                 }
             } else {
-                // When a processor is configured, pass the raw DB value so the processor
-                // receives the stored string (e.g. t3://page?uid=1) rather than TYPO3's
-                // already-transformed representation (e.g. type=link becomes an array).
-                $rawValue = isset($columnConfig['processor'])
-                    ? ($row[$column] ?? null)
-                    : ($record->has($column) ? $record->get($column) : null);
-                $result[$column] = $this->applyColumnProcessor($rawValue, $columnConfig, $result, $row);
+                $result[$column] = $this->applyColumnProcessor(
+                    $row[$column] ?? null,
+                    $columnConfig,
+                    $result,
+                    $row,
+                );
             }
         }
 
@@ -209,21 +166,6 @@ class ResourceSerializer
     }
 
     /**
-     * Shallow stub: {@ id, @type, uid} — for relations without embed config.
-     * Superseded by 'embed' config for full record embedding (replaces deprecated inlineFields pattern).
-     */
-    private function buildShallowEmbed(RecordInterface $record, array $columnConfig): array
-    {
-        $relatedConfig = ApiRegistry::getByTable($record->getMainType());
-
-        return [
-            '@id'   => '/_api/' . ($columnConfig['resourceName'] ?? $relatedConfig['general']['resourceName'] ?? $record->getMainType()) . '/' . $record->getUid(),
-            '@type' => $columnConfig['resourceType'] ?? $relatedConfig['general']['resourceType'] ?? $record->getMainType(),
-            'uid'   => $record->getUid(),
-        ];
-    }
-
-    /**
      * Serialize a hasOne relational field, with optional deep embedding.
      *
      * $remainingDepth == -1  → top level: resolve embed depth from $columnConfig
@@ -234,7 +176,6 @@ class ResourceSerializer
         array $columnConfig,
         array $config,
         array $row,
-        RecordInterface $record,
         RelationalFieldTypeInterface $fieldObj,
         array $preloaded,
         int $remainingDepth,
@@ -255,27 +196,17 @@ class ResourceSerializer
         // definitions (e.g. parent_id with embed:true on an article resource) are preserved
         // through recursive calls instead of falling back to a different ApiRegistry entry.
         $relatedConfig = $this->resolveRelatedConfig($foreignTable, $config);
+        $resourceName  = $columnConfig['resourceName'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceName'] : $foreignTable);
+        $resourceType  = $columnConfig['resourceType'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceType'] : $foreignTable);
 
         if ($effectiveDepth <= 0) {
-            $resourceName = $columnConfig['resourceName'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceName'] : $foreignTable);
-            $resourceType = $columnConfig['resourceType'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceType'] : $foreignTable);
-            return ['@id' => '/_api/' . $resourceName . '/' . $fkValue, '@type' => $resourceType, 'uid' => $fkValue];
+            return $this->buildStub($resourceName, $resourceType, $fkValue);
         }
 
         $visitKey = $foreignTable . ':' . $fkValue;
 
         if (isset($visited[$visitKey]) || $relatedConfig === null) {
-            // Cycle detected or unregistered table: return stub
-            if ($relatedConfig !== null) {
-                return [
-                    '@id'   => '/_api/' . $relatedConfig['general']['resourceName'] . '/' . $fkValue,
-                    '@type' => $relatedConfig['general']['resourceType'],
-                    'uid'   => $fkValue,
-                ];
-            }
-
-            $related = $record->get($column);
-            return ($related instanceof RecordInterface) ? $this->buildShallowEmbed($related, $columnConfig) : null;
+            return $this->buildStub($resourceName, $resourceType, $fkValue);
         }
 
         // Get or fetch the related row
@@ -302,76 +233,10 @@ class ResourceSerializer
     }
 
     /**
-     * Serialize a hasMany relation collection with optional deep embedding.
+     * Fast path: serialize a hasMany relation from raw rows (preloaded or freshly fetched).
      *
-     * Mirrors serializeHasOne: respects depth budget, cycle detection, and falls
-     * back to shallow stubs for unregistered tables or detected cycles.
-     */
-    private function serializeHasManyEmbedded(
-        array $columnConfig,
-        array $config,
-        RelationalFieldTypeInterface $fieldObj,
-        array $row,
-        array $items,
-        array $preloaded,
-        int $effectiveDepth,
-        array $visited,
-    ): array {
-        if ($items === []) {
-            return [];
-        }
-
-        $foreignTable = $fieldObj->getConfiguration()['foreign_table'] ?? null;
-        if ($foreignTable === null) {
-            return array_map(fn (RecordInterface $item) => $this->buildShallowEmbed($item, $columnConfig), $items);
-        }
-
-        $relatedConfig = $this->resolveRelatedConfig($foreignTable, $config);
-        if ($relatedConfig === null) {
-            return array_map(fn (RecordInterface $item) => $this->buildShallowEmbed($item, $columnConfig), $items);
-        }
-
-        $uids        = array_map(fn (RecordInterface $item) => $item->getUid(), $items);
-        $rowsIndexed = $this->dataRepository->findByIds($foreignTable, $uids);
-
-        $relatedBaseUrl = '/_api/' . $relatedConfig['general']['resourceName'];
-        $currentKey     = $config['general']['table'] . ':' . (int)$row['uid'];
-        $newVisited     = $visited + [$currentKey => true];
-
-        $result = [];
-        foreach ($items as $item) {
-            $itemUid  = $item->getUid();
-            $visitKey = $foreignTable . ':' . $itemUid;
-
-            if (isset($newVisited[$visitKey])) {
-                $result[] = $this->buildShallowEmbed($item, $columnConfig);
-                continue;
-            }
-
-            $relatedRow = $preloaded['hasOne'][$foreignTable][$itemUid] ?? $rowsIndexed[$itemUid] ?? null;
-            if ($relatedRow === null) {
-                continue;
-            }
-
-            $result[] = $this->serialize(
-                $relatedRow,
-                $relatedConfig,
-                $relatedBaseUrl,
-                [],
-                $preloaded,
-                $effectiveDepth - 1,
-                $newVisited,
-            );
-        }
-
-        return $result;
-    }
-
-    /**
-     * Fast path: serialize a hasMany relation from pre-loaded raw rows (no DB queries).
-     *
-     * Mirrors serializeHasManyEmbedded but operates on array[] instead of RecordInterface[].
      * Handles depth=0 (shallow stubs) and depth>0 (recursive full embed).
+     * Cycle detection uses the parent row's uid.
      */
     private function serializeHasManyFromRows(
         array $columnConfig,
@@ -400,11 +265,7 @@ class ResourceSerializer
             ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceType'] : $foreignTable);
 
         if ($effectiveDepth <= 0 || $relatedConfig === null) {
-            return array_map(fn (array $r) => [
-                '@id'   => '/_api/' . $resourceName . '/' . (int)$r['uid'],
-                '@type' => $resourceType,
-                'uid'   => (int)$r['uid'],
-            ], $relatedRows);
+            return array_map(fn (array $r) => $this->buildStub($resourceName, $resourceType, (int)$r['uid']), $relatedRows);
         }
 
         $relatedBaseUrl = '/_api/' . $relatedConfig['general']['resourceName'];
@@ -417,11 +278,7 @@ class ResourceSerializer
             $visitKey = $foreignTable . ':' . $itemUid;
 
             if (isset($newVisited[$visitKey])) {
-                $result[] = [
-                    '@id'   => '/_api/' . $relatedConfig['general']['resourceName'] . '/' . $itemUid,
-                    '@type' => $relatedConfig['general']['resourceType'],
-                    'uid'   => $itemUid,
-                ];
+                $result[] = $this->buildStub($resourceName, $resourceType, $itemUid);
                 continue;
             }
 
@@ -437,6 +294,51 @@ class ResourceSerializer
         }
 
         return $result;
+    }
+
+    /**
+     * Fetch hasMany related rows directly from the DB for a single parent row.
+     * Used as the slow path when a column was not bulk-preloaded by EmbedPreloader.
+     */
+    private function fetchHasManyRows(RelationalFieldTypeInterface $fieldObj, array $row): array
+    {
+        $fieldConfig  = $fieldObj->getConfiguration();
+        $foreignTable = $fieldConfig['foreign_table'] ?? null;
+        if ($foreignTable === null) {
+            return [];
+        }
+
+        $parentUid = (int)$row['uid'];
+        $mmTable   = $fieldConfig['MM'] ?? null;
+
+        if ($mmTable !== null) {
+            $hasOppositeField = isset($fieldConfig['MM_opposite_field']);
+            $grouped = $this->dataRepository->findHasManyByMM(
+                $foreignTable,
+                [$parentUid],
+                $mmTable,
+                $hasOppositeField ? 'uid_foreign' : 'uid_local',
+                $hasOppositeField ? 'uid_local'  : 'uid_foreign',
+                $fieldConfig['MM_match_fields'] ?? [],
+            );
+            return $grouped[$parentUid] ?? [];
+        }
+
+        if (isset($fieldConfig['foreign_field'])) {
+            $grouped = $this->dataRepository->findHasManyByForeignField(
+                $foreignTable,
+                $fieldConfig['foreign_field'],
+                [$parentUid],
+            );
+            return $grouped[$parentUid] ?? [];
+        }
+
+        return [];
+    }
+
+    private function buildStub(string $resourceName, string $resourceType, int $uid): array
+    {
+        return ['@id' => '/_api/' . $resourceName . '/' . $uid, '@type' => $resourceType, 'uid' => $uid];
     }
 
     /**
