@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\DataAccess;
 
+use MaikSchneider\TcaApi\Utility\UidListParser;
 use TYPO3\CMS\Core\Schema\Field\FileFieldType;
 use TYPO3\CMS\Core\Schema\Field\RelationalFieldTypeInterface;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
@@ -108,6 +109,29 @@ class EmbedPreloader
                         $fieldConfig['foreign_field'],
                         $parentUids,
                     );
+                } else {
+                    // UID list stored in parent row's own column (no MM, no foreign_field).
+                    // Bulk-fetch all referenced UIDs in one query, then group by parent.
+                    $allUids      = [];
+                    $parentUidMap = [];
+
+                    foreach ($rows as $row) {
+                        $parentUid = (int)$row['uid'];
+                        $uids      = UidListParser::parse((string)($row[$column] ?? ''));
+
+                        $parentUidMap[$parentUid] = $uids;
+                        foreach ($uids as $uid) {
+                            $allUids[$uid] = true;
+                        }
+                    }
+
+                    $fetched = $allUids !== []
+                        ? $this->dataRepository->findByIds($foreignTable, array_keys($allUids))
+                        : [];
+
+                    foreach ($parentUidMap as $parentUid => $uids) {
+                        $preloaded['hasMany'][$column][$parentUid] = UidListParser::mapToRows($uids, $fetched);
+                    }
                 }
             }
         }

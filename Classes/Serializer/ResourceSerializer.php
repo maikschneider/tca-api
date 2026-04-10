@@ -6,6 +6,7 @@ namespace MaikSchneider\TcaApi\Serializer;
 
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
+use MaikSchneider\TcaApi\Utility\UidListParser;
 use MaikSchneider\TcaApi\Serializer\FileProcessing\FileProcessorInterface;
 use MaikSchneider\TcaApi\Serializer\FileProcessing\ImageProcessor;
 use MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface;
@@ -111,7 +112,7 @@ class ResourceSerializer
                         $visited,
                     );
                 } else {
-                    $relatedRows = $preloaded['hasMany'][$column][$uid] ?? $this->fetchHasManyRows($field, $row);
+                    $relatedRows = $preloaded['hasMany'][$column][$uid] ?? $this->fetchHasManyRows($column, $field, $row);
 
                     $effectiveDepth = $remainingDepth >= 0
                         ? $remainingDepth
@@ -300,7 +301,7 @@ class ResourceSerializer
      * Fetch hasMany related rows directly from the DB for a single parent row.
      * Used as the slow path when a column was not bulk-preloaded by EmbedPreloader.
      */
-    private function fetchHasManyRows(RelationalFieldTypeInterface $fieldObj, array $row): array
+    private function fetchHasManyRows(string $column, RelationalFieldTypeInterface $fieldObj, array $row): array
     {
         $fieldConfig  = $fieldObj->getConfiguration();
         $foreignTable = $fieldConfig['foreign_table'] ?? null;
@@ -333,7 +334,15 @@ class ResourceSerializer
             return $grouped[$parentUid] ?? [];
         }
 
-        return [];
+        // UID list stored in parent row's own column (no MM, no foreign_field).
+        $uids = UidListParser::parse((string)($row[$column] ?? ''));
+        if ($uids === []) {
+            return [];
+        }
+
+        $indexed = $this->dataRepository->findByIds($foreignTable, $uids);
+
+        return UidListParser::mapToRows($uids, $indexed);
     }
 
     private function buildStub(string $resourceName, string $resourceType, int $uid): array

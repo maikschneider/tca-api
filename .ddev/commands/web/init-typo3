@@ -14,7 +14,6 @@ readonly dbCredentials="-h${dbHost} -u${dbUser} -p${dbPassword}"
 readonly fixturePath="/var/www/html/Tests/Fixtures"
 readonly functionalFixturePath="/var/www/html/Tests/Functional/Fixtures"
 readonly typo3Binary="/var/www/html/vendor/bin/typo3"
-readonly typo3MainSitePath="/var/www/html/config/sites/main"
 
 function _progress() {
     printf "%s... " "$1"
