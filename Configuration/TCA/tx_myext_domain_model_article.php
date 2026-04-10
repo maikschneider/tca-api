@@ -19,7 +19,7 @@ return [
     ],
     'types' => [
         0 => [
-            'showitem' => 'title, color_id, categories, profile_photo, downloads, hidden',
+            'showitem' => 'title, color_id, parent_id, categories, profile_photo, downloads, first_name, last_name, article_url, fe_user_id, hidden',
         ],
     ],
     'columns' => [

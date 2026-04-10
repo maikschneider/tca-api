@@ -12,10 +12,10 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 /**
  * Functional tests for TypoLinkProcessor and ColumnProcessorInterface integration.
  * Fixture data:
- *   Article 80 → article_url = https://example.com  (external URL)
- *   Article 81 → article_url = t3://page?uid=1      (page link)
- *   Article 82 → article_url = ''                   (empty)
- *   Article 83 → article_url = https://example.com  (title column only, no processor)
+ *   Article 110 → article_url = https://example.com  (external URL)
+ *   Article 111 → article_url = t3://page?uid=1      (page link)
+ *   Article 112 → article_url = ''                   (empty)
+ *   Article 113 → article_url = https://example.com  (title column only, no processor)
  */
 final class TypoLinkProcessorTest extends ApiFunctionalTestCase
 {
@@ -66,7 +66,7 @@ final class TypoLinkProcessorTest extends ApiFunctionalTestCase
     {
         ApiRegistry::register('link-articles', self::BASE_CONFIG);
 
-        $response = $this->executeApiRequest('/_api/link-articles/80');
+        $response = $this->executeApiRequest('/_api/link-articles/110');
         $body = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -80,7 +80,7 @@ final class TypoLinkProcessorTest extends ApiFunctionalTestCase
     {
         ApiRegistry::register('link-articles', self::BASE_CONFIG);
 
-        $response = $this->executeApiRequest('/_api/link-articles/81');
+        $response = $this->executeApiRequest('/_api/link-articles/111');
         $body = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -95,7 +95,7 @@ final class TypoLinkProcessorTest extends ApiFunctionalTestCase
     {
         ApiRegistry::register('link-articles', self::BASE_CONFIG);
 
-        $response = $this->executeApiRequest('/_api/link-articles/82');
+        $response = $this->executeApiRequest('/_api/link-articles/112');
         $body = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -114,7 +114,7 @@ final class TypoLinkProcessorTest extends ApiFunctionalTestCase
             ],
         ]));
 
-        $response = $this->executeApiRequest('/_api/link-articles/80');
+        $response = $this->executeApiRequest('/_api/link-articles/110');
         $body = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -135,7 +135,7 @@ final class TypoLinkProcessorTest extends ApiFunctionalTestCase
             ],
         ]));
 
-        $response = $this->executeApiRequest('/_api/link-articles/80');
+        $response = $this->executeApiRequest('/_api/link-articles/110');
         $body = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());

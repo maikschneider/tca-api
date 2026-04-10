@@ -12,6 +12,7 @@ readonly dbPassword="db"
 readonly dbName="db"
 readonly dbCredentials="-h${dbHost} -u${dbUser} -p${dbPassword}"
 readonly fixturePath="/var/www/html/Tests/Fixtures"
+readonly functionalFixturePath="/var/www/html/Tests/Functional/Fixtures"
 readonly typo3Binary="/var/www/html/vendor/bin/typo3"
 readonly typo3MainSitePath="/var/www/html/config/sites/main"
 
@@ -37,9 +38,6 @@ export TYPO3_DB_PASSWORD="$dbPassword"
 export TYPO3_DB_PORT=3306
 export TYPO3_DB_HOST="$dbHost"
 export TYPO3_DB_DBNAME="$dbName"
-export TYPO3_SETUP_ADMIN_EMAIL=admin@example.com
-export TYPO3_SETUP_ADMIN_USERNAME=admin
-export TYPO3_SETUP_ADMIN_PASSWORD=Passw0rd!
 export TYPO3_SERVER_TYPE=apache
 export TYPO3_PROJECT_NAME="EXT:tca_api"
 
@@ -48,10 +46,30 @@ _progress "Setting up TYPO3 installation"
     "$typo3Binary" setup --no-interaction --force --quiet
 _done
 
-# Import DB fixtures
-for file in "$fixturePath"/*.sql; do
-    _progress "Importing DB fixture \"$(basename "$file")\""
-    mysql $dbCredentials "$dbName" < "$file"
+# Import functional CSV fixtures
+for file in "$functionalFixturePath"/*.csv; do
+    _progress "Importing functional CSV fixture \"$(basename "$file")\""
+    python3 - "$file" <<'PYEOF' | mysql $dbCredentials "$dbName"
+import csv, sys
+
+with open(sys.argv[1], newline='') as f:
+    rows = list(csv.reader(f))
+
+table   = rows[0][0].strip('"')
+columns = rows[1][1:]
+data    = [r[1:] for r in rows[2:] if len(r) > 1 and any(v.strip() for v in r[1:])]
+
+if not data:
+    sys.exit(0)
+
+col_str = ', '.join('`{}`'.format(c) for c in columns)
+for row in data:
+    vals = ', '.join(
+        "'{}'".format(v.replace("'", "''"))
+        for v in row
+    )
+    print('INSERT INTO `{}` ({}) VALUES ({});'.format(table, col_str, vals))
+PYEOF
     _done
 done
 
