@@ -97,6 +97,85 @@ class DataRepository
         return (int)$qb->executeQuery()->fetchOne();
     }
 
+    /**
+     * Bulk-fetch hasMany related records via an MM intermediate table.
+     * Returns [parentUid => [rows]] preserving MM sorting order.
+     */
+    public function findHasManyByMM(
+        string $foreignTable,
+        array $parentUids,
+        string $mmTable,
+        string $mmParentKey,
+        string $mmForeignKey,
+        array $mmConstraints = [],
+    ): array {
+        if ($parentUids === []) {
+            return [];
+        }
+
+        $qb = $this->connectionPool->getQueryBuilderForTable($foreignTable);
+        $qb->select('f.*', 'mm.' . $mmParentKey . ' AS __parent_uid')
+            ->from($foreignTable, 'f')
+            ->join(
+                'f',
+                $mmTable,
+                'mm',
+                $qb->expr()->eq('f.uid', $qb->quoteIdentifier('mm.' . $mmForeignKey)),
+            )
+            ->where($qb->expr()->in(
+                'mm.' . $mmParentKey,
+                array_map(fn (int $uid) => $qb->createNamedParameter($uid), $parentUids),
+            ))
+            ->addOrderBy('mm.sorting');
+
+        foreach ($mmConstraints as $col => $val) {
+            $qb->andWhere($qb->expr()->eq('mm.' . $col, $qb->createNamedParameter($val)));
+        }
+
+        $rows = $qb->executeQuery()->fetchAllAssociative();
+
+        $grouped = [];
+        foreach ($rows as $row) {
+            $parentUid = (int)$row['__parent_uid'];
+            unset($row['__parent_uid']);
+            $grouped[$parentUid][] = $row;
+        }
+
+        return $grouped;
+    }
+
+    /**
+     * Bulk-fetch hasMany related records via a back-pointer (foreign_field) on the child table.
+     * Returns [parentUid => [rows]] ordered by the child table's default sorting.
+     */
+    public function findHasManyByForeignField(
+        string $foreignTable,
+        string $foreignField,
+        array $parentUids,
+    ): array {
+        if ($parentUids === []) {
+            return [];
+        }
+
+        $qb = $this->connectionPool->getQueryBuilderForTable($foreignTable);
+        $rows = $qb->select('*')
+            ->from($foreignTable)
+            ->where($qb->expr()->in(
+                $foreignField,
+                array_map(fn (int $uid) => $qb->createNamedParameter($uid), $parentUids),
+            ))
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $grouped = [];
+        foreach ($rows as $row) {
+            $parentUid = (int)$row[$foreignField];
+            $grouped[$parentUid][] = $row;
+        }
+
+        return $grouped;
+    }
+
     private function applyPidConstraint(\TYPO3\CMS\Core\Database\Query\QueryBuilder $qb, array $config): void
     {
         $pids = $this->resolvePids($config);

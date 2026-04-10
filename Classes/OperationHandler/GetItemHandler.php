@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\OperationHandler;
 
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
+use MaikSchneider\TcaApi\DataAccess\EmbedPreloader;
 use MaikSchneider\TcaApi\Event\AfterOperationEvent;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
@@ -21,6 +22,7 @@ class GetItemHandler
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly ResponseFactoryInterface $responseFactory,
         private readonly EventDispatcherInterface $eventDispatcher,
+        private readonly EmbedPreloader $embedPreloader,
     ) {
     }
 
@@ -40,7 +42,8 @@ class GetItemHandler
                 ->withHeader('Content-Type', 'application/ld+json');
         }
 
-        $serialized = $this->serializer->serialize($row, $config, $baseUrl, $fields);
+        $preloaded = $this->embedPreloader->preload([$row], $config);
+        $serialized = $this->serializer->serialize($row, $config, $baseUrl, $fields, $preloaded);
 
         $event = new AfterOperationEvent('show', $serialized);
         $this->eventDispatcher->dispatch($event);

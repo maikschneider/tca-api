@@ -48,7 +48,7 @@ class ResourceSerializer
     /**
      * Serialize a single raw DB row.
      *
-     * @param array $prefetched  [foreignTable => [uid => row]] pre-fetched related records
+     * @param array $preloaded   ['hasOne' => [foreignTable => [uid => row]], 'hasMany' => [column => [parentUid => [rows]]]]
      * @param int   $remainingDepth  -1 = top level (use per-column embed config);
      *                               ≥0 = recursive budget from parent embed
      * @param array $visited     ['table:uid' => true] cycle-prevention guard
@@ -58,7 +58,7 @@ class ResourceSerializer
         array $config,
         string $baseUrl,
         array $fields = [],
-        array $prefetched = [],
+        array $preloaded = [],
         int $remainingDepth = -1,
         array $visited = [],
     ): array {
@@ -124,34 +124,52 @@ class ResourceSerializer
                         $row,
                         $record,
                         $field,
-                        $prefetched,
+                        $preloaded,
                         $remainingDepth,
                         $visited,
                     );
                 } else {
-                    $collection = $record->get($column);
-                    $items = $collection instanceof \Traversable ? iterator_to_array($collection, false) : [];
+                    $parentUid   = (int)$row['uid'];
+                    $relatedRows = $preloaded['hasMany'][$column][$parentUid] ?? null;
 
                     $effectiveDepth = $remainingDepth >= 0
                         ? $remainingDepth
                         : $this->resolveEmbedDepth($columnConfig);
 
-                    if ($effectiveDepth <= 0) {
-                        $result[$column] = array_map(
-                            fn (RecordInterface $item) => $this->buildShallowEmbed($item, $columnConfig),
-                            $items,
-                        );
+                    if ($relatedRows !== null) {
+                        $result[$column] = $relatedRows !== []
+                            ? $this->serializeHasManyFromRows(
+                                $columnConfig,
+                                $config,
+                                $field,
+                                $row,
+                                $relatedRows,
+                                $preloaded,
+                                $effectiveDepth,
+                                $visited,
+                            )
+                            : [];
                     } else {
-                        $result[$column] = $this->serializeHasManyEmbedded(
-                            $columnConfig,
-                            $config,
-                            $field,
-                            $row,
-                            $items,
-                            $prefetched,
-                            $effectiveDepth,
-                            $visited,
-                        );
+                        $collection = $record->get($column);
+                        $items = $collection instanceof \Traversable ? iterator_to_array($collection, false) : [];
+
+                        if ($effectiveDepth <= 0) {
+                            $result[$column] = array_map(
+                                fn (RecordInterface $item) => $this->buildShallowEmbed($item, $columnConfig),
+                                $items,
+                            );
+                        } else {
+                            $result[$column] = $this->serializeHasManyEmbedded(
+                                $columnConfig,
+                                $config,
+                                $field,
+                                $row,
+                                $items,
+                                $preloaded,
+                                $effectiveDepth,
+                                $visited,
+                            );
+                        }
                     }
                 }
             } else {
@@ -182,10 +200,10 @@ class ResourceSerializer
         array $config,
         string $baseUrl,
         array $fields = [],
-        array $prefetched = [],
+        array $preloaded = [],
     ): array {
         return array_map(
-            fn (array $row) => $this->serialize($row, $config, $baseUrl, $fields, $prefetched),
+            fn (array $row) => $this->serialize($row, $config, $baseUrl, $fields, $preloaded),
             $rows,
         );
     }
@@ -218,7 +236,7 @@ class ResourceSerializer
         array $row,
         RecordInterface $record,
         RelationalFieldTypeInterface $fieldObj,
-        array $prefetched,
+        array $preloaded,
         int $remainingDepth,
         array $visited,
     ): mixed {
@@ -261,7 +279,7 @@ class ResourceSerializer
         }
 
         // Get or fetch the related row
-        $relatedRow = $prefetched[$foreignTable][$fkValue]
+        $relatedRow = $preloaded['hasOne'][$foreignTable][$fkValue]
             ?? $this->dataRepository->findById($foreignTable, $fkValue, []);
 
         if ($relatedRow === null) {
@@ -277,7 +295,7 @@ class ResourceSerializer
             $relatedConfig,
             $relatedBaseUrl,
             [],
-            $prefetched,
+            $preloaded,
             $effectiveDepth - 1,
             $newVisited,
         );
@@ -295,7 +313,7 @@ class ResourceSerializer
         RelationalFieldTypeInterface $fieldObj,
         array $row,
         array $items,
-        array $prefetched,
+        array $preloaded,
         int $effectiveDepth,
         array $visited,
     ): array {
@@ -330,7 +348,7 @@ class ResourceSerializer
                 continue;
             }
 
-            $relatedRow = $prefetched[$foreignTable][$itemUid] ?? $rowsIndexed[$itemUid] ?? null;
+            $relatedRow = $preloaded['hasOne'][$foreignTable][$itemUid] ?? $rowsIndexed[$itemUid] ?? null;
             if ($relatedRow === null) {
                 continue;
             }
@@ -340,7 +358,79 @@ class ResourceSerializer
                 $relatedConfig,
                 $relatedBaseUrl,
                 [],
-                $prefetched,
+                $preloaded,
+                $effectiveDepth - 1,
+                $newVisited,
+            );
+        }
+
+        return $result;
+    }
+
+    /**
+     * Fast path: serialize a hasMany relation from pre-loaded raw rows (no DB queries).
+     *
+     * Mirrors serializeHasManyEmbedded but operates on array[] instead of RecordInterface[].
+     * Handles depth=0 (shallow stubs) and depth>0 (recursive full embed).
+     */
+    private function serializeHasManyFromRows(
+        array $columnConfig,
+        array $config,
+        RelationalFieldTypeInterface $fieldObj,
+        array $row,
+        array $relatedRows,
+        array $preloaded,
+        int $effectiveDepth,
+        array $visited,
+    ): array {
+        if ($relatedRows === []) {
+            return [];
+        }
+
+        $foreignTable = $fieldObj->getConfiguration()['foreign_table'] ?? null;
+        if ($foreignTable === null) {
+            return [];
+        }
+
+        $relatedConfig = $this->resolveRelatedConfig($foreignTable, $config);
+
+        $resourceName = $columnConfig['resourceName']
+            ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceName'] : $foreignTable);
+        $resourceType = $columnConfig['resourceType']
+            ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceType'] : $foreignTable);
+
+        if ($effectiveDepth <= 0 || $relatedConfig === null) {
+            return array_map(fn (array $r) => [
+                '@id'   => '/_api/' . $resourceName . '/' . (int)$r['uid'],
+                '@type' => $resourceType,
+                'uid'   => (int)$r['uid'],
+            ], $relatedRows);
+        }
+
+        $relatedBaseUrl = '/_api/' . $relatedConfig['general']['resourceName'];
+        $currentKey     = $config['general']['table'] . ':' . (int)$row['uid'];
+        $newVisited     = $visited + [$currentKey => true];
+
+        $result = [];
+        foreach ($relatedRows as $relatedRow) {
+            $itemUid  = (int)$relatedRow['uid'];
+            $visitKey = $foreignTable . ':' . $itemUid;
+
+            if (isset($newVisited[$visitKey])) {
+                $result[] = [
+                    '@id'   => '/_api/' . $relatedConfig['general']['resourceName'] . '/' . $itemUid,
+                    '@type' => $relatedConfig['general']['resourceType'],
+                    'uid'   => $itemUid,
+                ];
+                continue;
+            }
+
+            $result[] = $this->serialize(
+                $relatedRow,
+                $relatedConfig,
+                $relatedBaseUrl,
+                [],
+                $preloaded,
                 $effectiveDepth - 1,
                 $newVisited,
             );

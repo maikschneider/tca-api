@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\OperationHandler;
 
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
+use MaikSchneider\TcaApi\DataAccess\EmbedPreloader;
 use MaikSchneider\TcaApi\Event\AfterOperationEvent;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
-use TYPO3\CMS\Core\Schema\Field\RelationalFieldTypeInterface;
-use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 
 class GetCollectionHandler
 {
@@ -21,7 +20,7 @@ class GetCollectionHandler
         private readonly ResourceSerializer $serializer,
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly EventDispatcherInterface $eventDispatcher,
-        private readonly TcaSchemaFactory $schemaFactory,
+        private readonly EmbedPreloader $embedPreloader,
     ) {
     }
 
@@ -48,8 +47,8 @@ class GetCollectionHandler
 
         $total = $this->dataRepository->count($table, $safeFilters, $config);
         $rows = $this->dataRepository->findCollection($table, $safeFilters, $itemsPerPage, $offset, $safeOrder, $config);
-        $prefetched = $this->prefetchEmbeds($rows, $config);
-        $members = $this->serializer->serializeCollection($rows, $config, $baseUrl, $fields, $prefetched);
+        $preloaded = $this->embedPreloader->preload($rows, $config);
+        $members = $this->serializer->serializeCollection($rows, $config, $baseUrl, $fields, $preloaded);
 
         $event = new AfterOperationEvent('list', $members);
         $this->eventDispatcher->dispatch($event);
@@ -60,52 +59,6 @@ class GetCollectionHandler
     public function getPriority(): int
     {
         return 10;
-    }
-
-    /**
-     * Bulk-fetch related records for all embed-configured hasOne columns.
-     * Returns [foreignTable => [uid => row]] keyed map for N+1-free serialization.
-     */
-    private function prefetchEmbeds(array $rows, array $config): array
-    {
-        $table = $config['general']['table'];
-        $schema = $this->schemaFactory->get($table);
-        $byTable = [];
-
-        foreach ($config['columns'] as $column => $columnConfig) {
-            $embed = $columnConfig['embed'] ?? null;
-            if ($embed === null || $embed === false) {
-                continue;
-            }
-
-            if (!$schema->hasField($column)) {
-                continue;
-            }
-
-            $field = $schema->getField($column);
-            if (!($field instanceof RelationalFieldTypeInterface) || !$field->getRelationshipType()->hasOne()) {
-                continue;
-            }
-
-            $foreignTable = $field->getConfiguration()['foreign_table'] ?? null;
-            if ($foreignTable === null) {
-                continue;
-            }
-
-            foreach ($rows as $row) {
-                $fk = (int)($row[$column] ?? 0);
-                if ($fk > 0) {
-                    $byTable[$foreignTable][$fk] = true;
-                }
-            }
-        }
-
-        $prefetched = [];
-        foreach ($byTable as $foreignTable => $fkSet) {
-            $prefetched[$foreignTable] = $this->dataRepository->findByIds($foreignTable, array_keys($fkSet));
-        }
-
-        return $prefetched;
     }
 
     private function resolveFilters(array $requested, array $config): array
