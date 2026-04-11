@@ -100,12 +100,12 @@ class ResourceSerializer
             $result[$column] = $this->serializeHasManyField($column, $columnConfig, $config, $row, $field, $preloaded, $remainingDepth, $visited);
         }
 
-        foreach ($config['virtualProperties'] ?? [] as $name => $virtualProperty) {
-            if (isset($virtualProperty['processor'])) {
-                $result[$name] = $this->applyColumnProcessor(null, $virtualProperty, $result, $row);
+        foreach ($config['virtualProperties'] ?? [] as $virtualPropertyName => $virtualPropertyConfig) {
+            if (isset($virtualPropertyConfig['processor'])) {
+                $result[$virtualPropertyName] = $this->applyColumnProcessor(null, $virtualPropertyConfig, $result, $row);
             } else {
-                [$class, $method] = $virtualProperty['callback'];
-                $result[$name]    = GeneralUtility::makeInstance($class)->$method($result, $row);
+                [$class, $method] = $virtualPropertyConfig['callback'];
+                $result[$virtualPropertyName] = GeneralUtility::makeInstance($class)->$method($result, $row);
             }
         }
 
