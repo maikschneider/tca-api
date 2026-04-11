@@ -15,18 +15,18 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
  *   - Multiple allowed tables: prefixed list "tablename_uid", e.g. "pages_1,sys_file_3"
  *
  * Fixtures (articles_group.csv + colors.csv):
- *   Article 70 → related_colors="1,2",  related_items="tx_myext_domain_model_article_71,tx_myext_domain_model_color_1"
- *   Article 71 → related_colors="1",    related_items=""
- *   Article 72 → related_colors="",     related_items=""
- *   Article 73 → related_colors="",     related_items="tx_myext_domain_model_color_2"
+ *   Article 200 → related_colors="1,2",  related_items="tx_myext_domain_model_article_201,tx_myext_domain_model_color_1"
+ *   Article 201 → related_colors="1",    related_items=""
+ *   Article 202 → related_colors="",     related_items=""
+ *   Article 203 → related_colors="",     related_items="tx_myext_domain_model_color_2"
  *
  *   Color uid=1 → Red
  *   Color uid=2 → Blue
  *
  * Fixtures (articles_group_mm.csv + tx_myext_article_colors_mm.csv + colors.csv):
- *   Article 74 → related_colors_mm_grp=2 (count), MM: colors 1,2
- *   Article 75 → related_colors_mm_grp=1 (count), MM: color 1
- *   Article 76 → related_colors_mm_grp=0 (count), MM: —
+ *   Article 204 → related_colors_mm_grp=2 (count), MM: colors 1,2
+ *   Article 205 → related_colors_mm_grp=1 (count), MM: color 1
+ *   Article 206 → related_colors_mm_grp=0 (count), MM: —
  */
 final class GroupFieldEmbedTest extends ApiFunctionalTestCase
 {
@@ -86,7 +86,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
         $this->registerColorResource();
         $this->registerArticleResource();
 
-        $response = $this->executeApiRequest('/_api/grp-articles/70');
+        $response = $this->executeApiRequest('/_api/grp-articles/200');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -107,7 +107,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
             'related_colors' => ['readable' => true, 'embed' => true],
         ]);
 
-        $response = $this->executeApiRequest('/_api/grp-articles/70');
+        $response = $this->executeApiRequest('/_api/grp-articles/200');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -126,7 +126,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
             'related_colors' => ['readable' => true, 'embed' => true],
         ]);
 
-        $response = $this->executeApiRequest('/_api/grp-articles/71');
+        $response = $this->executeApiRequest('/_api/grp-articles/201');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -141,8 +141,8 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
             'related_colors' => ['readable' => true, 'embed' => true],
         ]);
 
-        // Article 72 has related_colors=""
-        $response = $this->executeApiRequest('/_api/grp-articles/72');
+        // Article 202 has related_colors=""
+        $response = $this->executeApiRequest('/_api/grp-articles/202');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -156,7 +156,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
             'related_colors' => ['readable' => true, 'embed' => true],
         ]);
 
-        $response = $this->executeApiRequest('/_api/grp-articles/71');
+        $response = $this->executeApiRequest('/_api/grp-articles/201');
         $body     = $this->decodeResponseBody($response);
 
         $color = $body['related_colors'][0];
@@ -180,9 +180,9 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
 
         $members = array_column($body['hydra:member'], null, 'uid');
 
-        self::assertCount(2, $members[70]['related_colors']);
-        self::assertCount(1, $members[71]['related_colors']);
-        self::assertSame([], $members[72]['related_colors']);
+        self::assertCount(2, $members[200]['related_colors']);
+        self::assertCount(1, $members[201]['related_colors']);
+        self::assertSame([], $members[202]['related_colors']);
     }
 
     // ── Multi-table group ─────────────────────────────────────────────────────
@@ -192,8 +192,8 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
         $this->registerColorResource();
         $this->registerArticleResource();
 
-        // Article 70: related_items="tx_myext_domain_model_article_71,tx_myext_domain_model_color_1"
-        $response = $this->executeApiRequest('/_api/grp-articles/70');
+        // Article 200: related_items="tx_myext_domain_model_article_201,tx_myext_domain_model_color_1"
+        $response = $this->executeApiRequest('/_api/grp-articles/200');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -209,7 +209,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
 
         $uids  = array_column($body['related_items'], 'uid');
         $types = array_column($body['related_items'], '@type');
-        self::assertContains(71, $uids);
+        self::assertContains(201, $uids);
         self::assertContains(1, $uids);
         self::assertContains('Article', $types);
         self::assertContains('Color', $types);
@@ -220,8 +220,8 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
         $this->registerColorResource();
         $this->registerArticleResource();
 
-        // Article 71 has related_items=""
-        $response = $this->executeApiRequest('/_api/grp-articles/71');
+        // Article 201 has related_items=""
+        $response = $this->executeApiRequest('/_api/grp-articles/201');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -233,8 +233,8 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
         $this->registerColorResource();
         $this->registerArticleResource();
 
-        // Article 73: related_items="tx_myext_domain_model_color_2"
-        $response = $this->executeApiRequest('/_api/grp-articles/73');
+        // Article 203: related_items="tx_myext_domain_model_color_2"
+        $response = $this->executeApiRequest('/_api/grp-articles/203');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -256,7 +256,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
                 'itemsPerPage' => 20,
             ],
             'columns' => array_merge([
-                'title'               => ['readable' => true],
+                'title'                 => ['readable' => true],
                 'related_colors_mm_grp' => ['readable' => true],
             ], $columnOverrides),
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
@@ -268,7 +268,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
         $this->registerColorResource();
         $this->registerMmArticleResource();
 
-        $response = $this->executeApiRequest('/_api/grp-mm-articles/74');
+        $response = $this->executeApiRequest('/_api/grp-mm-articles/204');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -287,7 +287,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
             'related_colors_mm_grp' => ['readable' => true, 'embed' => true],
         ]);
 
-        $response = $this->executeApiRequest('/_api/grp-mm-articles/74');
+        $response = $this->executeApiRequest('/_api/grp-mm-articles/204');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -305,7 +305,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
             'related_colors_mm_grp' => ['readable' => true, 'embed' => true],
         ]);
 
-        $response = $this->executeApiRequest('/_api/grp-mm-articles/75');
+        $response = $this->executeApiRequest('/_api/grp-mm-articles/205');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -320,7 +320,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
             'related_colors_mm_grp' => ['readable' => true, 'embed' => true],
         ]);
 
-        $response = $this->executeApiRequest('/_api/grp-mm-articles/76');
+        $response = $this->executeApiRequest('/_api/grp-mm-articles/206');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -339,8 +339,8 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
 
         $members = array_column($body['hydra:member'], null, 'uid');
 
-        self::assertCount(2, $members[74]['related_colors_mm_grp']);
-        self::assertCount(1, $members[75]['related_colors_mm_grp']);
-        self::assertSame([], $members[76]['related_colors_mm_grp']);
+        self::assertCount(2, $members[204]['related_colors_mm_grp']);
+        self::assertCount(1, $members[205]['related_colors_mm_grp']);
+        self::assertSame([], $members[206]['related_colors_mm_grp']);
     }
 }
