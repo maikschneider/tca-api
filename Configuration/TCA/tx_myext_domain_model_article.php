@@ -19,7 +19,7 @@ return [
     ],
     'types' => [
         0 => [
-            'showitem' => 'title, color_id, parent_id, categories, profile_photo, downloads, first_name, last_name, article_url, fe_user_id, hidden',
+            'showitem' => 'title, color_id, parent_id, categories, profile_photo, downloads, first_name, last_name, article_url, fe_user_id, related_colors, related_items, hidden',
         ],
     ],
     'columns' => [
@@ -117,6 +117,22 @@ return [
             'label' => 'Owner (FE User)',
             'config' => [
                 'type' => 'number',
+            ],
+        ],
+        'related_colors' => [
+            'label' => 'Related Colors (group, single table)',
+            'config' => [
+                'type' => 'group',
+                'allowed' => 'tx_myext_domain_model_color',
+                'size' => 5,
+            ],
+        ],
+        'related_items' => [
+            'label' => 'Related Items (group, multi-table)',
+            'config' => [
+                'type' => 'group',
+                'allowed' => 'tx_myext_domain_model_article,tx_myext_domain_model_color',
+                'size' => 5,
             ],
         ],
     ],

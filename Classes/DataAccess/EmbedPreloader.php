@@ -6,8 +6,10 @@ namespace MaikSchneider\TcaApi\DataAccess;
 
 use MaikSchneider\TcaApi\Utility\UidListParser;
 use TYPO3\CMS\Core\Schema\Field\FileFieldType;
+use TYPO3\CMS\Core\Schema\Field\GroupFieldType;
 use TYPO3\CMS\Core\Schema\Field\RelationalFieldTypeInterface;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Bulk-preloads all related rows for embed-configured columns in a fixed number of DB queries.
@@ -68,7 +70,20 @@ class EmbedPreloader
                 continue;
             }
 
-            $fieldConfig  = $field->getConfiguration();
+            $fieldConfig = $field->getConfiguration();
+
+            // type=group: preload single-table groups like a UID list; skip multi-table (slow path).
+            if ($field instanceof GroupFieldType) {
+                $allowedTables = GeneralUtility::trimExplode(',', $fieldConfig['allowed'] ?? '', true);
+                if (count($allowedTables) !== 1) {
+                    continue; // multi-table group: use per-row slow path
+                }
+
+                $foreignTable = $allowedTables[0];
+                $preloaded['hasMany'][$column] = $this->preloadUidListHasMany($column, $foreignTable, $rows);
+                continue;
+            }
+
             $foreignTable = $fieldConfig['foreign_table'] ?? null;
             if ($foreignTable === null) {
                 continue;
@@ -112,26 +127,7 @@ class EmbedPreloader
                 } else {
                     // UID list stored in parent row's own column (no MM, no foreign_field).
                     // Bulk-fetch all referenced UIDs in one query, then group by parent.
-                    $allUids      = [];
-                    $parentUidMap = [];
-
-                    foreach ($rows as $row) {
-                        $parentUid = (int)$row['uid'];
-                        $uids      = UidListParser::parse((string)($row[$column] ?? ''));
-
-                        $parentUidMap[$parentUid] = $uids;
-                        foreach ($uids as $uid) {
-                            $allUids[$uid] = true;
-                        }
-                    }
-
-                    $fetched = $allUids !== []
-                        ? $this->dataRepository->findByIds($foreignTable, array_keys($allUids))
-                        : [];
-
-                    foreach ($parentUidMap as $parentUid => $uids) {
-                        $preloaded['hasMany'][$column][$parentUid] = UidListParser::mapToRows($uids, $fetched);
-                    }
+                    $preloaded['hasMany'][$column] = $this->preloadUidListHasMany($column, $foreignTable, $rows);
                 }
             }
         }
@@ -141,5 +137,36 @@ class EmbedPreloader
         }
 
         return $preloaded;
+    }
+
+    /**
+     * Bulk-fetch a UID-list hasMany column (UIDs stored comma-separated in the parent row).
+     * Returns [parentUid => [rows]] preserving the stored UID order.
+     */
+    private function preloadUidListHasMany(string $column, string $foreignTable, array $rows): array
+    {
+        $allUids      = [];
+        $parentUidMap = [];
+
+        foreach ($rows as $row) {
+            $parentUid = (int)$row['uid'];
+            $uids      = UidListParser::parse((string)($row[$column] ?? ''));
+
+            $parentUidMap[$parentUid] = $uids;
+            foreach ($uids as $uid) {
+                $allUids[$uid] = true;
+            }
+        }
+
+        $fetched = $allUids !== []
+            ? $this->dataRepository->findByIds($foreignTable, array_keys($allUids))
+            : [];
+
+        $result = [];
+        foreach ($parentUidMap as $parentUid => $uids) {
+            $result[$parentUid] = UidListParser::mapToRows($uids, $fetched);
+        }
+
+        return $result;
     }
 }

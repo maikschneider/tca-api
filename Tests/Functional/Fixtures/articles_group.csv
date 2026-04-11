@@ -1,0 +1,6 @@
+"tx_myext_domain_model_article"
+,"uid","pid","title","color_id","parent_id","hidden","deleted","tstamp","crdate","related_colors","related_items"
+,70,1,"Group Article A",0,0,0,0,1704067200,1704067200,"1,2","tx_myext_domain_model_article_71,tx_myext_domain_model_color_1"
+,71,1,"Group Article B",0,0,0,0,1704067200,1704067200,"1",""
+,72,1,"Group Article C",0,0,0,0,1704067200,1704067200,"",""
+,73,1,"Group Article D",0,0,0,0,1704067200,1704067200,"","tx_myext_domain_model_color_2"
