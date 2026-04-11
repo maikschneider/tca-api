@@ -11,6 +11,7 @@ use MaikSchneider\TcaApi\OperationHandler\CreateHandler;
 use MaikSchneider\TcaApi\OperationHandler\DeleteHandler;
 use MaikSchneider\TcaApi\OperationHandler\GetCollectionHandler;
 use MaikSchneider\TcaApi\OperationHandler\GetItemHandler;
+use MaikSchneider\TcaApi\OperationHandler\GetUserInfoHandler;
 use MaikSchneider\TcaApi\OperationHandler\UpdateHandler;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Security\AccessController;
@@ -29,6 +30,7 @@ class RequestDispatcher
         private readonly CreateHandler $createHandler,
         private readonly UpdateHandler $updateHandler,
         private readonly DeleteHandler $deleteHandler,
+        private readonly GetUserInfoHandler $userinfoHandler,
         private readonly AccessController $accessController,
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly EventDispatcherInterface $eventDispatcher,
@@ -48,6 +50,19 @@ class RequestDispatcher
         $config = ApiRegistry::get($resourceName);
         if ($config === null) {
             return $this->notFound();
+        }
+
+        if (($config['general']['type'] ?? '') === 'userinfo') {
+            if ($method !== 'GET') {
+                return $this->methodNotAllowed();
+            }
+            $feUserAttr = $request->getAttribute('frontend.user');
+            if ($feUserAttr === null || empty($feUserAttr->user['uid'])) {
+                return $this->forbidden('userinfo');
+            }
+            $this->eventDispatcher->dispatch(new BeforeOperationEvent('userinfo', $request, $config));
+            $fields = \is_array($request->getQueryParams()['fields'] ?? null) ? $request->getQueryParams()['fields'] : [];
+            return $this->userinfoHandler->handle($request, $config, $fields);
         }
 
         $operation = match ($method) {

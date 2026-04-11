@@ -18,7 +18,8 @@ TCA API is a TYPO3 extension that exposes database tables as **Hydra JSON-LD** r
 - **Pagination** — Offset-based pagination with Hydra `PartialCollectionView` links
 - **Validation** — Required, maxLength, minLength, and regex validators with structured 422 error responses
 - **Access control** — Per-operation roles: `PUBLIC`, `FE_USER`, `BE_USER`, `BE_ADMIN`, or custom callables
-- **Relation handling** — Automatic shallow embedding of hasOne and manyToMany relations
+- **Relation handling** — Shallow stubs or fully embedded related records (configurable depth)
+- **Userinfo endpoint** — Expose the authenticated FE user's own record at a configurable URL
 - **PSR-14 events** — Hook into the request lifecycle with Before/AfterOperation and Before/AfterWrite events
 - **TYPO3 DataHandler** — Write operations use TYPO3's DataHandler for safe, consistent data manipulation
 
@@ -122,6 +123,7 @@ DELETE /_api/articles/1            → Delete item
 | `table`         | TYPO3 database table name                        |
 | `resourceName`  | URL slug used in `/_api/{resourceName}`           |
 | `resourceType`  | JSON-LD `@type` value                            |
+| `type`          | Set to `'userinfo'` to create a [userinfo endpoint](#userinfo-endpoint) |
 | `operations`    | Array of enabled operations: `list`, `show`, `create`, `update`, `delete` |
 | `itemsPerPage`  | Default page size for list operations            |
 | `defaultPid`    | Page ID for newly created records                |
@@ -136,6 +138,7 @@ Each column key maps to a database column:
 | `readable`     | Include in API responses                            |
 | `writable`     | Accept in create/update requests                    |
 | `required`     | Require on POST/PUT (skipped on PATCH if absent)    |
+| `embed`        | `true` or `['depth' => N]` — inline related records instead of shallow stubs |
 | `resourceName` | Override related resource name for relation columns |
 | `validators`   | Array of validation rules (see [Validation](#validation)) |
 
@@ -222,20 +225,81 @@ Validation failures return **422 Unprocessable Entity**:
 
 ## Relations
 
-Relations are resolved automatically from the TCA schema:
+Relations are resolved automatically from the TCA schema. The default is a **shallow stub** containing only `@id`, `@type`, and `uid`:
 
-- **hasOne** — A column like `color_id` is embedded as a shallow object (the `_id` suffix is stripped in the response):
 ```json
 "color": { "@id": "/_api/colors/1", "@type": "Color", "uid": 1 }
 ```
-- **manyToMany** — Resolved via MM tables and embedded as arrays:
+
+### Embedding related records
+
+Add `'embed' => true` to a column to inline the full related record instead of a stub:
+
+```php
+'columns' => [
+    'color_id'   => ['readable' => true, 'embed' => true],
+    'categories' => ['readable' => true, 'embed' => true],
+],
+```
+
+Response with embedded data:
+
 ```json
+"color": {
+    "@id": "/_api/colors/1", "@type": "Color", "uid": 1,
+    "name": "Red", "hex": "#ff0000"
+},
 "categories": [
-    {"@id": "/_api/sys-categories/1", "@type": "SysCategory", "uid": 1}
+    { "@id": "/_api/sys-categories/5", "@type": "SysCategory", "uid": 5, "title": "News" }
 ]
 ```
 
-Related objects are **shallow**: they contain only `@id`, `@type`, and `uid`. Follow the `@id` link to fetch full details.
+Control recursion depth with `'embed' => ['depth' => 2]`. The default depth is 1.
+
+The related resource must be registered in the `ApiRegistry` for embedding to work.
+
+### Supported relation types
+
+| TCA type             | Storage format                        | Embedding |
+|----------------------|---------------------------------------|-----------|
+| `select` / `group`   | UID list (`1,2,3`) — single table     | Yes       |
+| `select` / `group`   | Prefixed list (`table_uid`) — multi-table | Stubs only |
+| `inline` / `select`  | `foreign_field` back-reference        | Yes       |
+| Any + `MM`           | Intermediate MM table                 | Yes       |
+| `type=group` + `MM`  | Column holds count, relations in MM   | Yes       |
+
+## Userinfo endpoint
+
+A userinfo endpoint exposes the **currently authenticated FE user's own record** without requiring a UID in the URL. Set `'type' => 'userinfo'` in the `general` section:
+
+```php
+ApiRegistry::register('me', [
+    'general' => [
+        'type'         => 'userinfo',
+        'table'        => 'fe_users',
+        'resourceName' => 'me',
+        'resourceType' => 'FeUser',
+    ],
+    'columns' => [
+        'username'   => ['readable' => true],
+        'email'      => ['readable' => true],
+        'name'       => ['readable' => true],
+        'first_name' => ['readable' => true],
+        'last_name'  => ['readable' => true],
+    ],
+]);
+```
+
+```
+GET /_api/me   → Returns the record of the logged-in FE user
+```
+
+**Behaviour:**
+
+- Only `GET` is allowed — write operations are not supported on userinfo endpoints.
+- Returns **403** if no FE user is authenticated.
+- All column features work as normal: `embed`, `virtualProperties`, column processors.
+- The `security` and `operations` keys are ignored — access is always tied to FE user authentication.
 
 ## Events
 
