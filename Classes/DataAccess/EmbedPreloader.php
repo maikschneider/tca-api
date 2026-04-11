@@ -16,9 +16,12 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *
  * Returns a unified map:
  *   [
- *     'hasOne'  => [foreignTable => [uid => row]],
- *     'hasMany' => [column => [parentUid => [row, ...]]],
+ *     'rows'      => [foreignTable => [uid => row]],
+ *     'relations' => [column => [parentUid => [uid, ...]]],
  *   ]
+ *
+ * `rows` is a flat pool of all fetched rows — both hasOne and hasMany resolve from it.
+ * `relations` stores the ordered UID mapping per parent for hasMany columns.
  *
  * This eliminates N+1 queries during serialization: ResourceSerializer reads from this map
  * instead of issuing per-row queries.
@@ -33,7 +36,7 @@ class EmbedPreloader
 
     public function preload(array $rows, array $config): array
     {
-        $preloaded = ['hasOne' => [], 'hasMany' => []];
+        $preloaded = ['rows' => [], 'relations' => []];
 
         if ($rows === []) {
             return $preloaded;
@@ -42,9 +45,14 @@ class EmbedPreloader
         $table  = $config['general']['table'];
         $schema = $this->schemaFactory->get($table);
 
-        // Collect hasOne FK UIDs across all columns before querying, so multiple columns
-        // pointing to the same foreignTable are combined into one findByIds call.
-        $hasOneUidsByTable = [];
+        // Collect UIDs for all UID-based fetches (hasOne FKs + UID-list hasMany + group UID-list).
+        // Multiple columns pointing to the same foreignTable are combined into one findByIds call.
+        $uidsByTable = [];
+
+        $parentUids = array_values(array_filter(
+            array_unique(array_map(fn (array $row) => (int)($row['uid'] ?? 0), $rows)),
+            fn (int $uid) => $uid > 0,
+        ));
 
         foreach ($config['columns'] as $column => $columnConfig) {
             if (!($columnConfig['readable'] ?? false)) {
@@ -76,31 +84,16 @@ class EmbedPreloader
             if ($field instanceof GroupFieldType) {
                 $allowedTables = GeneralUtility::trimExplode(',', $fieldConfig['allowed'] ?? '', true);
                 if (count($allowedTables) !== 1) {
-                    continue; // multi-table group: use per-row slow path
+                    continue;
                 }
 
                 $foreignTable = $allowedTables[0];
                 $mmTable      = $fieldConfig['MM'] ?? null;
 
                 if ($mmTable !== null) {
-                    $parentUids = array_values(array_filter(
-                        array_unique(array_map(fn (array $row) => (int)($row['uid'] ?? 0), $rows)),
-                        fn (int $uid) => $uid > 0,
-                    ));
-
-                    if ($parentUids !== []) {
-                        $hasOppositeField = isset($fieldConfig['MM_opposite_field']);
-                        $preloaded['hasMany'][$column] = $this->dataRepository->findHasManyByMM(
-                            $foreignTable,
-                            $parentUids,
-                            $mmTable,
-                            $hasOppositeField ? 'uid_foreign' : 'uid_local',
-                            $hasOppositeField ? 'uid_local'  : 'uid_foreign',
-                            $fieldConfig['MM_match_fields'] ?? [],
-                        );
-                    }
+                    $this->preloadMm($preloaded, $column, $foreignTable, $fieldConfig, $parentUids);
                 } else {
-                    $preloaded['hasMany'][$column] = $this->preloadUidListHasMany($column, $foreignTable, $rows);
+                    $this->collectUidListRelations($preloaded, $uidsByTable, $column, $foreignTable, $rows);
                 }
                 continue;
             }
@@ -114,15 +107,10 @@ class EmbedPreloader
                 foreach ($rows as $row) {
                     $fk = (int)($row[$column] ?? 0);
                     if ($fk > 0) {
-                        $hasOneUidsByTable[$foreignTable][$fk] = true;
+                        $uidsByTable[$foreignTable][$fk] = true;
                     }
                 }
             } else {
-                $parentUids = array_values(array_filter(
-                    array_unique(array_map(fn (array $row) => (int)($row['uid'] ?? 0), $rows)),
-                    fn (int $uid) => $uid > 0,
-                ));
-
                 if ($parentUids === []) {
                     continue;
                 }
@@ -130,64 +118,81 @@ class EmbedPreloader
                 $mmTable = $fieldConfig['MM'] ?? null;
 
                 if ($mmTable !== null) {
-                    $hasOppositeField = isset($fieldConfig['MM_opposite_field']);
-                    $preloaded['hasMany'][$column] = $this->dataRepository->findHasManyByMM(
-                        $foreignTable,
-                        $parentUids,
-                        $mmTable,
-                        $hasOppositeField ? 'uid_foreign' : 'uid_local',
-                        $hasOppositeField ? 'uid_local'  : 'uid_foreign',
-                        $fieldConfig['MM_match_fields'] ?? [],
-                    );
+                    $this->preloadMm($preloaded, $column, $foreignTable, $fieldConfig, $parentUids);
                 } elseif (isset($fieldConfig['foreign_field'])) {
-                    $preloaded['hasMany'][$column] = $this->dataRepository->findHasManyByForeignField(
-                        $foreignTable,
-                        $fieldConfig['foreign_field'],
-                        $parentUids,
-                    );
+                    $this->preloadForeignField($preloaded, $column, $foreignTable, $fieldConfig['foreign_field'], $parentUids);
                 } else {
-                    // UID list stored in parent row's own column (no MM, no foreign_field).
-                    // Bulk-fetch all referenced UIDs in one query, then group by parent.
-                    $preloaded['hasMany'][$column] = $this->preloadUidListHasMany($column, $foreignTable, $rows);
+                    $this->collectUidListRelations($preloaded, $uidsByTable, $column, $foreignTable, $rows);
                 }
             }
         }
 
-        foreach ($hasOneUidsByTable as $foreignTable => $uidSet) {
-            $preloaded['hasOne'][$foreignTable] = $this->dataRepository->findByIds($foreignTable, array_keys($uidSet));
+        // Single findByIds per foreignTable — covers hasOne FKs + UID-list hasMany + group UID-list.
+        foreach ($uidsByTable as $foreignTable => $uidSet) {
+            $fetched = $this->dataRepository->findByIds($foreignTable, array_keys($uidSet));
+            $preloaded['rows'][$foreignTable] = ($preloaded['rows'][$foreignTable] ?? []) + $fetched;
         }
 
         return $preloaded;
     }
 
     /**
-     * Bulk-fetch a UID-list hasMany column (UIDs stored comma-separated in the parent row).
-     * Returns [parentUid => [rows]] preserving the stored UID order.
+     * Preload a hasMany MM relation: fetch rows via JOIN, store in pool + relations.
      */
-    private function preloadUidListHasMany(string $column, string $foreignTable, array $rows): array
+    private function preloadMm(array &$preloaded, string $column, string $foreignTable, array $fieldConfig, array $parentUids): void
     {
-        $allUids      = [];
-        $parentUidMap = [];
+        $mmTable          = $fieldConfig['MM'];
+        $hasOppositeField = isset($fieldConfig['MM_opposite_field']);
 
+        $grouped = $this->dataRepository->findHasManyByMM(
+            $foreignTable,
+            $parentUids,
+            $mmTable,
+            $hasOppositeField ? 'uid_foreign' : 'uid_local',
+            $hasOppositeField ? 'uid_local'  : 'uid_foreign',
+            $fieldConfig['MM_match_fields'] ?? [],
+        );
+
+        foreach ($grouped as $parentUid => $childRows) {
+            $preloaded['relations'][$column][$parentUid] = array_map(fn (array $r) => (int)$r['uid'], $childRows);
+            foreach ($childRows as $childRow) {
+                $preloaded['rows'][$foreignTable][(int)$childRow['uid']] = $childRow;
+            }
+        }
+    }
+
+    /**
+     * Preload a hasMany foreignField relation: fetch rows, store in pool + relations.
+     */
+    private function preloadForeignField(array &$preloaded, string $column, string $foreignTable, string $foreignField, array $parentUids): void
+    {
+        $grouped = $this->dataRepository->findHasManyByForeignField(
+            $foreignTable,
+            $foreignField,
+            $parentUids,
+        );
+
+        foreach ($grouped as $parentUid => $childRows) {
+            $preloaded['relations'][$column][$parentUid] = array_map(fn (array $r) => (int)$r['uid'], $childRows);
+            foreach ($childRows as $childRow) {
+                $preloaded['rows'][$foreignTable][(int)$childRow['uid']] = $childRow;
+            }
+        }
+    }
+
+    /**
+     * Collect UID-list hasMany UIDs for deferred bulk fetch, and store parent→child UID mappings.
+     */
+    private function collectUidListRelations(array &$preloaded, array &$uidsByTable, string $column, string $foreignTable, array $rows): void
+    {
         foreach ($rows as $row) {
             $parentUid = (int)$row['uid'];
             $uids      = UidListParser::parse((string)($row[$column] ?? ''));
 
-            $parentUidMap[$parentUid] = $uids;
+            $preloaded['relations'][$column][$parentUid] = $uids;
             foreach ($uids as $uid) {
-                $allUids[$uid] = true;
+                $uidsByTable[$foreignTable][$uid] = true;
             }
         }
-
-        $fetched = $allUids !== []
-            ? $this->dataRepository->findByIds($foreignTable, array_keys($allUids))
-            : [];
-
-        $result = [];
-        foreach ($parentUidMap as $parentUid => $uids) {
-            $result[$parentUid] = UidListParser::mapToRows($uids, $fetched);
-        }
-
-        return $result;
     }
 }

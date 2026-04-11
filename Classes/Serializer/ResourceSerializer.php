@@ -41,7 +41,7 @@ class ResourceSerializer
     /**
      * Serialize a single raw DB row.
      *
-     * @param array $preloaded   ['hasOne' => [foreignTable => [uid => row]], 'hasMany' => [column => [parentUid => [rows]]]]
+     * @param array $preloaded   ['rows' => [foreignTable => [uid => row]], 'relations' => [column => [parentUid => [uid, ...]]]]
      * @param int   $remainingDepth  -1 = top level (use per-column embed config);
      *                               ≥0 = recursive budget from parent embed
      * @param array $visited     ['table:uid' => true] cycle-prevention guard
@@ -131,7 +131,7 @@ class ResourceSerializer
                     } else {
                         $foreignTable = $field->getConfiguration()['foreign_table'] ?? null;
                         $relatedRows  = $foreignTable !== null
-                            ? ($preloaded['hasMany'][$column][$uid] ?? $this->fetchHasManyRows($column, $field, $row))
+                            ? $this->resolveHasManyRows($column, $foreignTable, $uid, $row, $field, $preloaded)
                             : [];
 
                         $result[$column] = $relatedRows !== []
@@ -228,8 +228,10 @@ class ResourceSerializer
         }
 
         // Get or fetch the related row
-        $relatedRow = $preloaded['hasOne'][$foreignTable][$fkValue]
-            ?? $this->dataRepository->findById($foreignTable, $fkValue, []);
+        $relatedRow = $preloaded['rows'][$foreignTable][$fkValue] ?? null;
+        if ($relatedRow === null) {
+            $relatedRow = $this->dataRepository->findById($foreignTable, $fkValue, []);
+        }
 
         if ($relatedRow === null) {
             return null;
@@ -310,6 +312,19 @@ class ResourceSerializer
     }
 
     /**
+     * Resolve hasMany related rows from the preloaded pool, falling back to a direct DB fetch.
+     */
+    private function resolveHasManyRows(string $column, string $foreignTable, int $parentUid, array $row, RelationalFieldTypeInterface $field, array $preloaded): array
+    {
+        if (isset($preloaded['relations'][$column])) {
+            $relatedUids = $preloaded['relations'][$column][$parentUid] ?? [];
+            return UidListParser::mapToRows($relatedUids, $preloaded['rows'][$foreignTable] ?? []);
+        }
+
+        return $this->fetchHasManyRows($column, $field, $row);
+    }
+
+    /**
      * Fetch hasMany related rows directly from the DB for a single parent row.
      * Used as the slow path when a column was not bulk-preloaded by EmbedPreloader.
      */
@@ -383,8 +398,9 @@ class ResourceSerializer
             $uid          = (int)$row['uid'];
             $mmTable      = $fieldConfig['MM'] ?? null;
 
-            if (isset($preloaded['hasMany'][$column][$uid])) {
-                $relatedRows = $preloaded['hasMany'][$column][$uid];
+            if (isset($preloaded['relations'][$column])) {
+                $relatedUids = $preloaded['relations'][$column][$uid] ?? [];
+                $relatedRows = UidListParser::mapToRows($relatedUids, $preloaded['rows'][$foreignTable] ?? []);
             } elseif ($mmTable !== null) {
                 $hasOppositeField = isset($fieldConfig['MM_opposite_field']);
                 $grouped = $this->dataRepository->findHasManyByMM(
