@@ -80,7 +80,28 @@ class EmbedPreloader
                 }
 
                 $foreignTable = $allowedTables[0];
-                $preloaded['hasMany'][$column] = $this->preloadUidListHasMany($column, $foreignTable, $rows);
+                $mmTable      = $fieldConfig['MM'] ?? null;
+
+                if ($mmTable !== null) {
+                    $parentUids = array_values(array_filter(
+                        array_unique(array_map(fn (array $row) => (int)($row['uid'] ?? 0), $rows)),
+                        fn (int $uid) => $uid > 0,
+                    ));
+
+                    if ($parentUids !== []) {
+                        $hasOppositeField = isset($fieldConfig['MM_opposite_field']);
+                        $preloaded['hasMany'][$column] = $this->dataRepository->findHasManyByMM(
+                            $foreignTable,
+                            $parentUids,
+                            $mmTable,
+                            $hasOppositeField ? 'uid_foreign' : 'uid_local',
+                            $hasOppositeField ? 'uid_local'  : 'uid_foreign',
+                            $fieldConfig['MM_match_fields'] ?? [],
+                        );
+                    }
+                } else {
+                    $preloaded['hasMany'][$column] = $this->preloadUidListHasMany($column, $foreignTable, $rows);
+                }
                 continue;
             }
 

@@ -135,5 +135,14 @@ return [
                 'size' => 5,
             ],
         ],
+        'related_colors_mm_grp' => [
+            'label' => 'Related Colors (group, MM)',
+            'config' => [
+                'type' => 'group',
+                'allowed' => 'tx_myext_domain_model_color',
+                'MM' => 'tx_myext_article_colors_mm',
+                'size' => 5,
+            ],
+        ],
     ],
 ];

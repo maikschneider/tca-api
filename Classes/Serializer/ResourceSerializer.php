@@ -381,9 +381,21 @@ class ResourceSerializer
         if (count($allowedTables) === 1) {
             $foreignTable = $allowedTables[0];
             $uid          = (int)$row['uid'];
+            $mmTable      = $fieldConfig['MM'] ?? null;
 
             if (isset($preloaded['hasMany'][$column][$uid])) {
                 $relatedRows = $preloaded['hasMany'][$column][$uid];
+            } elseif ($mmTable !== null) {
+                $hasOppositeField = isset($fieldConfig['MM_opposite_field']);
+                $grouped = $this->dataRepository->findHasManyByMM(
+                    $foreignTable,
+                    [$uid],
+                    $mmTable,
+                    $hasOppositeField ? 'uid_foreign' : 'uid_local',
+                    $hasOppositeField ? 'uid_local'  : 'uid_foreign',
+                    $fieldConfig['MM_match_fields'] ?? [],
+                );
+                $relatedRows = $grouped[$uid] ?? [];
             } else {
                 $uids        = UidListParser::parse((string)($row[$column] ?? ''));
                 $relatedRows = $uids !== []

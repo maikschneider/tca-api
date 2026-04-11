@@ -22,6 +22,11 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
  *
  *   Color uid=1 → Red
  *   Color uid=2 → Blue
+ *
+ * Fixtures (articles_group_mm.csv + tx_myext_article_colors_mm.csv + colors.csv):
+ *   Article 74 → related_colors_mm_grp=2 (count), MM: colors 1,2
+ *   Article 75 → related_colors_mm_grp=1 (count), MM: color 1
+ *   Article 76 → related_colors_mm_grp=0 (count), MM: —
  */
 final class GroupFieldEmbedTest extends ApiFunctionalTestCase
 {
@@ -34,6 +39,8 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/pages.csv');
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/colors.csv');
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/articles_group.csv');
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/articles_group_mm.csv');
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/tx_myext_article_colors_mm.csv');
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -234,5 +241,106 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
         self::assertCount(1, $body['related_items']);
         self::assertSame(2, $body['related_items'][0]['uid']);
         self::assertSame('Color', $body['related_items'][0]['@type']);
+    }
+
+    // ── Group with MM table ───────────────────────────────────────────────────
+
+    private function registerMmArticleResource(array $columnOverrides = []): void
+    {
+        ApiRegistry::register('grp-mm-articles', [
+            'general' => [
+                'table'        => self::ARTICLE_TABLE,
+                'resourceName' => 'grp-mm-articles',
+                'resourceType' => 'Article',
+                'operations'   => ['list', 'show'],
+                'itemsPerPage' => 20,
+            ],
+            'columns' => array_merge([
+                'title'               => ['readable' => true],
+                'related_colors_mm_grp' => ['readable' => true],
+            ], $columnOverrides),
+            'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
+        ]);
+    }
+
+    public function testGroupMmFieldWithoutEmbedReturnsStubs(): void
+    {
+        $this->registerColorResource();
+        $this->registerMmArticleResource();
+
+        $response = $this->executeApiRequest('/_api/grp-mm-articles/74');
+        $body     = $this->decodeResponseBody($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertIsArray($body['related_colors_mm_grp']);
+        self::assertCount(2, $body['related_colors_mm_grp']);
+        self::assertArrayHasKey('@id', $body['related_colors_mm_grp'][0]);
+        self::assertArrayHasKey('@type', $body['related_colors_mm_grp'][0]);
+        self::assertArrayHasKey('uid', $body['related_colors_mm_grp'][0]);
+        self::assertArrayNotHasKey('name', $body['related_colors_mm_grp'][0]);
+    }
+
+    public function testGroupMmFieldWithEmbedReturnsTwoColors(): void
+    {
+        $this->registerColorResource();
+        $this->registerMmArticleResource([
+            'related_colors_mm_grp' => ['readable' => true, 'embed' => true],
+        ]);
+
+        $response = $this->executeApiRequest('/_api/grp-mm-articles/74');
+        $body     = $this->decodeResponseBody($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertCount(2, $body['related_colors_mm_grp']);
+
+        $names = array_column($body['related_colors_mm_grp'], 'name');
+        self::assertContains('Red', $names);
+        self::assertContains('Blue', $names);
+    }
+
+    public function testGroupMmFieldWithEmbedReturnsOneColor(): void
+    {
+        $this->registerColorResource();
+        $this->registerMmArticleResource([
+            'related_colors_mm_grp' => ['readable' => true, 'embed' => true],
+        ]);
+
+        $response = $this->executeApiRequest('/_api/grp-mm-articles/75');
+        $body     = $this->decodeResponseBody($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertCount(1, $body['related_colors_mm_grp']);
+        self::assertSame('Red', $body['related_colors_mm_grp'][0]['name']);
+    }
+
+    public function testGroupMmFieldEmptyReturnsEmptyArray(): void
+    {
+        $this->registerColorResource();
+        $this->registerMmArticleResource([
+            'related_colors_mm_grp' => ['readable' => true, 'embed' => true],
+        ]);
+
+        $response = $this->executeApiRequest('/_api/grp-mm-articles/76');
+        $body     = $this->decodeResponseBody($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame([], $body['related_colors_mm_grp']);
+    }
+
+    public function testGroupMmFieldCollectionPreloadWorks(): void
+    {
+        $this->registerColorResource();
+        $this->registerMmArticleResource([
+            'related_colors_mm_grp' => ['readable' => true, 'embed' => true],
+        ]);
+
+        $response = $this->executeApiRequest('/_api/grp-mm-articles');
+        $body     = $this->decodeResponseBody($response);
+
+        $members = array_column($body['hydra:member'], null, 'uid');
+
+        self::assertCount(2, $members[74]['related_colors_mm_grp']);
+        self::assertCount(1, $members[75]['related_colors_mm_grp']);
+        self::assertSame([], $members[76]['related_colors_mm_grp']);
     }
 }
