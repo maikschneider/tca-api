@@ -28,6 +28,11 @@ class ApiRegistry
         return null;
     }
 
+    public static function getAll(): array
+    {
+        return self::$resources;
+    }
+
     public static function reset(): void
     {
         self::$resources = [];

@@ -7,6 +7,7 @@ namespace MaikSchneider\TcaApi\Dispatcher;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Event\BeforeOperationEvent;
+use MaikSchneider\TcaApi\OpenApi\OpenApiBuilder;
 use MaikSchneider\TcaApi\OperationHandler\CreateHandler;
 use MaikSchneider\TcaApi\OperationHandler\DeleteHandler;
 use MaikSchneider\TcaApi\OperationHandler\GetCollectionHandler;
@@ -33,6 +34,7 @@ class RequestDispatcher
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly DataRepository $dataRepository,
+        private readonly OpenApiBuilder $openApiBuilder,
     ) {
     }
 
@@ -44,6 +46,10 @@ class RequestDispatcher
 
         $resourceName = $segments[0] ?? '';
         $uid = isset($segments[1]) && $segments[1] !== '' ? (int)$segments[1] : null;
+
+        if ($resourceName === 'openapi.json' && $method === 'GET') {
+            return $this->serveOpenApiSpec();
+        }
 
         $config = ApiRegistry::get($resourceName);
         if ($config === null) {
@@ -104,6 +110,15 @@ class RequestDispatcher
         $order = \is_array($params['order'] ?? null) ? $params['order'] : [];
 
         return $this->collectionHandler->handle($request, $config, $page, $itemsPerPage, $filters, $order, $fields);
+    }
+
+    private function serveOpenApiSpec(): ResponseInterface
+    {
+        $spec = $this->openApiBuilder->build();
+        $response = $this->responseFactory->createResponse(200)
+            ->withHeader('Content-Type', 'application/json');
+        $response->getBody()->write((string)json_encode($spec, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        return $response;
     }
 
     private function notFound(): ResponseInterface
