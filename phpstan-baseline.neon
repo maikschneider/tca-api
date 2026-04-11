@@ -9,5 +9,5 @@ parameters:
 		-
 			message: '#^Call to an undefined method TYPO3\\CMS\\Core\\Schema\\Field\\RelationalFieldTypeInterface\:\:getConfiguration\(\)\.$#'
 			identifier: method.notFound
-			count: 2
+			count: 3
 			path: Classes/Serializer/ResourceSerializer.php
