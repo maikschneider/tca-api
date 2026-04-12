@@ -20,7 +20,7 @@ final class DataWriteService
     {
         $adminUser = $this->makeAdminUser();
         return $this->withGlobalBackendUser($adminUser, function () use ($table, $data, $adminUser) {
-            $dataMap = [$table => ['NEW_1' => $data]];
+            $dataMap = $this->buildDataMap($table, 'NEW_1', $data);
             $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
             $dataHandler->start($dataMap, [], $adminUser);
             $dataHandler->process_datamap();
@@ -37,7 +37,7 @@ final class DataWriteService
     {
         $adminUser = $this->makeAdminUser();
         $this->withGlobalBackendUser($adminUser, function () use ($table, $uid, $data, $adminUser) {
-            $dataMap = [$table => [$uid => $data]];
+            $dataMap = $this->buildDataMap($table, (string)$uid, $data);
             $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
             $dataHandler->start($dataMap, [], $adminUser);
             $dataHandler->process_datamap();
@@ -89,5 +89,132 @@ final class DataWriteService
         $user->workspace = 0;
         $user->initializeUserSessionManager();
         return $user;
+    }
+
+    private function buildDataMap(string $table, string $recordId, array $data): array
+    {
+        $dataMap = [$table => [$recordId => []]];
+        $newRecordCounter = 0;
+
+        foreach ($data as $field => $value) {
+            if (!\is_array($value)) {
+                $dataMap[$table][$recordId][$field] = $value;
+                continue;
+            }
+
+            $normalization = $this->normalizeRelationValue($table, $field, $value, $newRecordCounter);
+            if ($normalization === null) {
+                $dataMap[$table][$recordId][$field] = $value;
+                continue;
+            }
+
+            $relationValue = $normalization['tokens'];
+            if ($relationValue !== []) {
+                $dataMap[$table][$recordId][$field] = $this->isSingleValueRelation($table, $field)
+                    ? $relationValue[0]
+                    : implode(',', $relationValue);
+            } else {
+                $dataMap[$table][$recordId][$field] = '';
+            }
+
+            foreach ($normalization['newRecords'] as $newRecord) {
+                $dataMap[$newRecord['table']][$newRecord['id']] = $newRecord['data'];
+            }
+        }
+
+        return $dataMap;
+    }
+
+    /**
+     * @param int $newRecordCounter
+     * @return array{tokens: list<int|string>, newRecords: list<array{table: string, id: string, data: array}>}|null
+     */
+    private function normalizeRelationValue(string $table, string $field, array $value, int &$newRecordCounter): ?array
+    {
+        if (!array_is_list($value)) {
+            return null;
+        }
+
+        $foreignTable = $this->resolveForeignTable($table, $field);
+        if ($foreignTable === null) {
+            return null;
+        }
+
+        $tokens = [];
+        $newRecords = [];
+
+        foreach ($value as $item) {
+            if (is_numeric($item)) {
+                $tokens[] = (int)$item;
+                continue;
+            }
+
+            if (!\is_array($item)) {
+                continue;
+            }
+
+            if (isset($item['uid']) && is_numeric($item['uid'])) {
+                $tokens[] = (int)$item['uid'];
+                continue;
+            }
+
+            $newRecordCounter++;
+            $newId = 'NEW_REL_' . $newRecordCounter;
+            $tokens[] = $newId;
+
+            $newRecordData = $item;
+            unset($newRecordData['uid']);
+            $newRecordData['pid'] = (int)($newRecordData['pid'] ?? 0);
+
+            $newRecords[] = [
+                'table' => $foreignTable,
+                'id' => $newId,
+                'data' => $newRecordData,
+            ];
+        }
+
+        return [
+            'tokens' => $tokens,
+            'newRecords' => $newRecords,
+        ];
+    }
+
+    private function resolveForeignTable(string $table, string $field): ?string
+    {
+        $fieldConfig = $GLOBALS['TCA'][$table]['columns'][$field]['config'] ?? null;
+        if (!\is_array($fieldConfig)) {
+            return null;
+        }
+
+        if (($fieldConfig['type'] ?? null) === 'category') {
+            return 'sys_category';
+        }
+
+        if (($fieldConfig['type'] ?? null) === 'group') {
+            $allowed = GeneralUtility::trimExplode(',', (string)($fieldConfig['allowed'] ?? ''), true);
+            return count($allowed) === 1 ? $allowed[0] : null;
+        }
+
+        $foreignTable = $fieldConfig['foreign_table'] ?? null;
+        return \is_string($foreignTable) ? $foreignTable : null;
+    }
+
+    private function isSingleValueRelation(string $table, string $field): bool
+    {
+        $fieldConfig = $GLOBALS['TCA'][$table]['columns'][$field]['config'] ?? null;
+        if (!\is_array($fieldConfig)) {
+            return false;
+        }
+
+        if (($fieldConfig['type'] ?? null) === 'category') {
+            return false;
+        }
+
+        if (isset($fieldConfig['maxitems'])) {
+            return (int)$fieldConfig['maxitems'] <= 1;
+        }
+
+        return ($fieldConfig['renderType'] ?? null) === 'selectSingle'
+            || ($fieldConfig['type'] ?? null) === 'inline';
     }
 }

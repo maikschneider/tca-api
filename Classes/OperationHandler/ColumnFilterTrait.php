@@ -18,9 +18,28 @@ trait ColumnFilterTrait
         foreach ($config['columns'] as $column => $columnConfig) {
             if (($columnConfig['writable'] ?? false) && \array_key_exists($column, $body)) {
                 $value = $body[$column];
-                $result[$column] = \is_array($value) ? implode(',', $value) : $value;
+                if (\is_array($value) && $this->isScalarList($value)) {
+                    $result[$column] = implode(',', $value);
+                    continue;
+                }
+                $result[$column] = $value;
             }
         }
         return $result;
+    }
+
+    private function isScalarList(array $value): bool
+    {
+        if (!array_is_list($value)) {
+            return false;
+        }
+
+        foreach ($value as $item) {
+            if (!\is_scalar($item) && $item !== null) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

@@ -147,4 +147,51 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         self::assertCount(1, $body['categories']);
         self::assertSame(2, $body['categories'][0]['uid']);
     }
+
+    public function testPostWithCategoryCreatePayloadCreatesAndAssignsCategory(): void
+    {
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
+            'title' => 'Article With New Category',
+            'categories' => [
+                ['title' => 'Created By Post'],
+            ],
+        ]);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertCount(1, $body['categories']);
+        self::assertGreaterThan(3, $body['categories'][0]['uid']);
+    }
+
+    public function testPutWithCategoryCreatePayloadCanMixNewAndExistingRelations(): void
+    {
+        $response = $this->executeApiWriteRequestAs('PUT', '/_api/articles/3', 1, [
+            'title' => 'Third Article',
+            'categories' => [
+                2,
+                ['title' => 'Created By Put'],
+            ],
+        ]);
+        $body = $this->decodeResponseBody($response);
+
+        $uids = array_column($body['categories'], 'uid');
+        self::assertContains(2, $uids);
+        self::assertCount(2, $uids);
+        self::assertGreaterThan(3, max($uids));
+    }
+
+    public function testPatchWithCategoryCreatePayloadCanMixNewAndExistingRelations(): void
+    {
+        $response = $this->executeApiWriteRequestAs('PATCH', '/_api/articles/3', 1, [
+            'categories' => [
+                1,
+                ['title' => 'Created By Patch'],
+            ],
+        ]);
+        $body = $this->decodeResponseBody($response);
+
+        $uids = array_column($body['categories'], 'uid');
+        self::assertContains(1, $uids);
+        self::assertCount(2, $uids);
+        self::assertGreaterThan(3, max($uids));
+    }
 }
