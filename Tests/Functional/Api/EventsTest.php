@@ -172,7 +172,7 @@ final class EventsTest extends ApiFunctionalTestCase
 
     public function testBeforeWriteEventFiresOnDelete(): void
     {
-        $this->executeApiWriteRequestAsBackendAdmin('DELETE', '/_api/articles/3', 1);
+        $this->executeApiWriteRequestAsBackendUser('DELETE', '/_api/articles/3', 1);
 
         $events = EventCollector::getByClass(BeforeWriteEvent::class);
         self::assertCount(1, $events);
@@ -180,7 +180,7 @@ final class EventsTest extends ApiFunctionalTestCase
 
     public function testBeforeWriteEventCarriesDeleteOperation(): void
     {
-        $this->executeApiWriteRequestAsBackendAdmin('DELETE', '/_api/articles/3', 1);
+        $this->executeApiWriteRequestAsBackendUser('DELETE', '/_api/articles/3', 1);
 
         $events = EventCollector::getByClass(BeforeWriteEvent::class);
         self::assertNotEmpty($events, 'No BeforeWriteEvent was dispatched.');
@@ -226,7 +226,7 @@ final class EventsTest extends ApiFunctionalTestCase
 
     public function testAfterWriteEventFiresOnDelete(): void
     {
-        $this->executeApiWriteRequestAsBackendAdmin('DELETE', '/_api/articles/3', 1);
+        $this->executeApiWriteRequestAsBackendUser('DELETE', '/_api/articles/3', 1);
 
         $events = EventCollector::getByClass(AfterWriteEvent::class);
         self::assertCount(1, $events);

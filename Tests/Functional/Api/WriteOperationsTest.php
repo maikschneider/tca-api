@@ -114,14 +114,14 @@ final class WriteOperationsTest extends ApiFunctionalTestCase
 
     public function testDeleteReturns204(): void
     {
-        $response = $this->executeApiWriteRequestAsBackendAdmin('DELETE', '/_api/articles/3', 1);
+        $response = $this->executeApiWriteRequestAsBackendUser('DELETE', '/_api/articles/3', 1);
 
         self::assertSame(204, $response->getStatusCode());
     }
 
     public function testDeletedRecordIsNoLongerReachable(): void
     {
-        $this->executeApiWriteRequestAsBackendAdmin('DELETE', '/_api/articles/3', 1);
+        $this->executeApiWriteRequestAsBackendUser('DELETE', '/_api/articles/3', 1);
 
         $response = $this->executeApiRequest('/_api/articles/3');
 
@@ -130,7 +130,7 @@ final class WriteOperationsTest extends ApiFunctionalTestCase
 
     public function testDeletedRecordIsExcludedFromCollection(): void
     {
-        $this->executeApiWriteRequestAsBackendAdmin('DELETE', '/_api/articles/3', 1);
+        $this->executeApiWriteRequestAsBackendUser('DELETE', '/_api/articles/3', 1);
 
         $response = $this->executeApiRequest('/_api/articles');
         $body = $this->decodeResponseBody($response);
@@ -140,7 +140,7 @@ final class WriteOperationsTest extends ApiFunctionalTestCase
 
     public function testDeleteReturns404ForMissingRecord(): void
     {
-        $response = $this->executeApiWriteRequestAsBackendAdmin('DELETE', '/_api/articles/999', 1);
+        $response = $this->executeApiWriteRequestAsBackendUser('DELETE', '/_api/articles/999', 1);
 
         self::assertSame(404, $response->getStatusCode());
     }

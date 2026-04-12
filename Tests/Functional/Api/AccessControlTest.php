@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api;
 
+use MaikSchneider\TcaApi\Enum\AccessRole;
+use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -18,6 +20,50 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
  */
 final class AccessControlTest extends ApiFunctionalTestCase
 {
+    private const BE_USER_CONFIG = [
+        'general' => [
+            'table'        => 'tx_myext_domain_model_article',
+            'resourceName' => 'be-articles',
+            'resourceType' => 'Article',
+            'operations'   => ['list', 'show', 'create', 'update', 'delete'],
+            'itemsPerPage' => 20,
+        ],
+        'columns' => [
+            'title' => [
+                'type'     => 'string',
+                'readable' => true,
+                'writable' => true,
+                'required' => false,
+            ],
+        ],
+        'order' => [
+            'allowed' => ['uid'],
+            'default' => ['uid' => 'asc'],
+        ],
+    ];
+
+    private const FE_GROUP_CONFIG = [
+        'general' => [
+            'table'        => 'tx_myext_domain_model_article',
+            'resourceName' => 'group-articles',
+            'resourceType' => 'Article',
+            'operations'   => ['list', 'show', 'create', 'update', 'delete'],
+            'itemsPerPage' => 20,
+        ],
+        'columns' => [
+            'title' => [
+                'type'     => 'string',
+                'readable' => true,
+                'writable' => true,
+                'required' => false,
+            ],
+        ],
+        'order' => [
+            'allowed' => ['uid'],
+            'default' => ['uid' => 'asc'],
+        ],
+    ];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -116,9 +162,273 @@ final class AccessControlTest extends ApiFunctionalTestCase
 
     public function testDeleteSucceedsWithBeAdmin(): void
     {
-        $response = $this->executeApiWriteRequestAsBackendAdmin('DELETE', '/_api/articles/1', 1);
+        $response = $this->executeApiWriteRequestAsBackendUser('DELETE', '/_api/articles/1', 1);
 
         self::assertSame(204, $response->getStatusCode());
+    }
+
+    // ── BE_ADMIN denies non-admin backend user ────────────────────────────────
+
+    public function testDeleteReturns403WithNonAdminBackendUser(): void
+    {
+        $response = $this->executeApiWriteRequestAsBackendUser('DELETE', '/_api/articles/1', 2);
+
+        self::assertSame(403, $response->getStatusCode());
+    }
+
+    // ── BE_USER — requires any authenticated backend user ─────────────────────
+
+    public function testBeUserRoleDeniesWithoutAuth(): void
+    {
+        ApiRegistry::register('be-articles', array_merge(self::BE_USER_CONFIG, [
+            'security' => [
+                'list'   => AccessRole::PUBLIC,
+                'show'   => AccessRole::BE_USER,
+                'create' => AccessRole::BE_USER,
+                'update' => AccessRole::BE_USER,
+                'delete' => AccessRole::BE_USER,
+            ],
+        ]));
+
+        $response = $this->executeApiRequest('/_api/be-articles/1');
+
+        self::assertSame(403, $response->getStatusCode());
+    }
+
+    public function testBeUserRoleDeniesWithFeUserOnly(): void
+    {
+        ApiRegistry::register('be-articles', array_merge(self::BE_USER_CONFIG, [
+            'security' => [
+                'show' => AccessRole::BE_USER,
+            ],
+        ]));
+
+        $response = $this->executeApiRequestAs('/_api/be-articles/1', 1);
+
+        self::assertSame(403, $response->getStatusCode());
+    }
+
+    public function testBeUserRoleGrantsAccessToNonAdminBackendUser(): void
+    {
+        ApiRegistry::register('be-articles', array_merge(self::BE_USER_CONFIG, [
+            'security' => [
+                'show' => AccessRole::BE_USER,
+            ],
+        ]));
+
+        $response = $this->executeApiRequestAsBackendUser('/_api/be-articles/1', 2);
+
+        self::assertSame(200, $response->getStatusCode());
+    }
+
+    public function testBeUserRoleGrantsAccessToAdminBackendUser(): void
+    {
+        ApiRegistry::register('be-articles', array_merge(self::BE_USER_CONFIG, [
+            'security' => [
+                'show' => AccessRole::BE_USER,
+            ],
+        ]));
+
+        $response = $this->executeApiRequestAsBackendUser('/_api/be-articles/1', 1);
+
+        self::assertSame(200, $response->getStatusCode());
+    }
+
+    public function testBeUserRoleCreateDeniedWithoutAuth(): void
+    {
+        ApiRegistry::register('be-articles', array_merge(self::BE_USER_CONFIG, [
+            'security' => [
+                'create' => AccessRole::BE_USER,
+            ],
+        ]));
+
+        $response = $this->executeApiWriteRequest('POST', '/_api/be-articles', ['title' => 'Unauthorized']);
+
+        self::assertSame(403, $response->getStatusCode());
+    }
+
+    public function testBeUserRoleCreateSucceedsWithBackendUser(): void
+    {
+        ApiRegistry::register('be-articles', array_merge(self::BE_USER_CONFIG, [
+            'security' => [
+                'create' => AccessRole::BE_USER,
+            ],
+        ]));
+
+        $response = $this->executeApiWriteRequestAsBackendUser('POST', '/_api/be-articles', 2, ['title' => 'BE Created']);
+
+        self::assertSame(201, $response->getStatusCode());
+    }
+
+    public function testBeUserRoleUpdateSucceedsWithBackendUser(): void
+    {
+        ApiRegistry::register('be-articles', array_merge(self::BE_USER_CONFIG, [
+            'security' => [
+                'update' => AccessRole::BE_USER,
+            ],
+        ]));
+
+        $response = $this->executeApiWriteRequestAsBackendUser('PUT', '/_api/be-articles/1', 2, ['title' => 'BE Updated']);
+
+        self::assertSame(200, $response->getStatusCode());
+    }
+
+    public function testBeUserRoleDeleteSucceedsWithBackendUser(): void
+    {
+        ApiRegistry::register('be-articles', array_merge(self::BE_USER_CONFIG, [
+            'security' => [
+                'delete' => AccessRole::BE_USER,
+            ],
+        ]));
+
+        $response = $this->executeApiWriteRequestAsBackendUser('DELETE', '/_api/be-articles/1', 2);
+
+        self::assertSame(204, $response->getStatusCode());
+    }
+
+    // ── FE_GROUP — requires FE user with at least one group ───────────────────
+
+    public function testFeGroupRoleDeniesWithoutAuth(): void
+    {
+        ApiRegistry::register('group-articles', array_merge(self::FE_GROUP_CONFIG, [
+            'security' => [
+                'show' => AccessRole::FE_GROUP,
+            ],
+        ]));
+
+        $response = $this->executeApiRequest('/_api/group-articles/1');
+
+        self::assertSame(403, $response->getStatusCode());
+    }
+
+    public function testFeGroupRoleDeniesFeUserWithoutGroup(): void
+    {
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_users_with_groups.csv');
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_groups.csv');
+
+        ApiRegistry::register('group-articles', array_merge(self::FE_GROUP_CONFIG, [
+            'security' => [
+                'show' => AccessRole::FE_GROUP,
+            ],
+        ]));
+
+        // fe_user uid=23 has empty usergroup
+        $response = $this->executeApiRequestAs('/_api/group-articles/1', 23);
+
+        self::assertSame(403, $response->getStatusCode());
+    }
+
+    public function testFeGroupRoleGrantsFeUserWithGroup(): void
+    {
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_users_with_groups.csv');
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_groups.csv');
+
+        ApiRegistry::register('group-articles', array_merge(self::FE_GROUP_CONFIG, [
+            'security' => [
+                'show' => AccessRole::FE_GROUP,
+            ],
+        ]));
+
+        // fe_user uid=20 has usergroup=1
+        $response = $this->executeApiRequestAs('/_api/group-articles/1', 20);
+
+        self::assertSame(200, $response->getStatusCode());
+    }
+
+    public function testFeGroupRoleGrantsFeUserWithMultipleGroups(): void
+    {
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_users_with_groups.csv');
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_groups.csv');
+
+        ApiRegistry::register('group-articles', array_merge(self::FE_GROUP_CONFIG, [
+            'security' => [
+                'show' => AccessRole::FE_GROUP,
+            ],
+        ]));
+
+        // fe_user uid=22 has usergroup=1,2
+        $response = $this->executeApiRequestAs('/_api/group-articles/1', 22);
+
+        self::assertSame(200, $response->getStatusCode());
+    }
+
+    // ── FE_GROUP with specific group IDs (array syntax) ───────────────────────
+
+    public function testFeGroupWithSpecificIdsGrantsMatchingGroup(): void
+    {
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_users_with_groups.csv');
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_groups.csv');
+
+        ApiRegistry::register('group-articles', array_merge(self::FE_GROUP_CONFIG, [
+            'security' => [
+                'show' => [AccessRole::FE_GROUP, [1]],
+            ],
+        ]));
+
+        // fe_user uid=20 has usergroup=1
+        $response = $this->executeApiRequestAs('/_api/group-articles/1', 20);
+
+        self::assertSame(200, $response->getStatusCode());
+    }
+
+    public function testFeGroupWithSpecificIdsDeniesNonMatchingGroup(): void
+    {
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_users_with_groups.csv');
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_groups.csv');
+
+        ApiRegistry::register('group-articles', array_merge(self::FE_GROUP_CONFIG, [
+            'security' => [
+                'show' => [AccessRole::FE_GROUP, [3]],
+            ],
+        ]));
+
+        // fe_user uid=20 has usergroup=1 — group 3 not matched
+        $response = $this->executeApiRequestAs('/_api/group-articles/1', 20);
+
+        self::assertSame(403, $response->getStatusCode());
+    }
+
+    public function testFeGroupWithSpecificIdsDeniesWithoutAuth(): void
+    {
+        ApiRegistry::register('group-articles', array_merge(self::FE_GROUP_CONFIG, [
+            'security' => [
+                'show' => [AccessRole::FE_GROUP, [1]],
+            ],
+        ]));
+
+        $response = $this->executeApiRequest('/_api/group-articles/1');
+
+        self::assertSame(403, $response->getStatusCode());
+    }
+
+    public function testFeGroupWriteOperationDeniesWithoutAuth(): void
+    {
+        ApiRegistry::register('group-articles', array_merge(self::FE_GROUP_CONFIG, [
+            'security' => [
+                'create' => AccessRole::FE_GROUP,
+            ],
+        ]));
+
+        $response = $this->executeApiWriteRequest('POST', '/_api/group-articles', ['title' => 'Unauthorized']);
+
+        self::assertSame(403, $response->getStatusCode());
+    }
+
+    public function testFeGroupWriteOperationGrantsFeUserWithGroup(): void
+    {
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_users_with_groups.csv');
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_groups.csv');
+
+        ApiRegistry::register('group-articles', array_merge(self::FE_GROUP_CONFIG, [
+            'security' => [
+                'create' => AccessRole::FE_GROUP,
+            ],
+        ]));
+
+        // fe_user uid=20 has usergroup=1
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/group-articles', 20, ['title' => 'Group Created']);
+
+        self::assertSame(201, $response->getStatusCode());
     }
 
     // ── 403 response body structure ───────────────────────────────────────────

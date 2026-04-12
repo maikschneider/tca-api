@@ -76,9 +76,9 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
     }
 
     /**
-     * Execute a write request as a backend admin user.
+     * Execute a write request as a backend user.
      */
-    protected function executeApiWriteRequestAsBackendAdmin(string $method, string $path, int $beUserId, array $data = []): ResponseInterface
+    protected function executeApiWriteRequestAsBackendUser(string $method, string $path, int $beUserId, array $data = []): ResponseInterface
     {
         $uri = 'http://localhost' . $path;
 
@@ -93,6 +93,22 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
                 ->withMethod($method)
                 ->withAddedHeader('Content-Type', 'application/json')
                 ->withBody($body),
+            (new InternalRequestContext())->withBackendUserId($beUserId),
+        );
+    }
+
+    /**
+     * Execute a GET request as a backend user.
+     */
+    protected function executeApiRequestAsBackendUser(string $path, int $beUserId, array $queryParams = []): ResponseInterface
+    {
+        $uri = 'http://localhost' . $path;
+        if ($queryParams !== []) {
+            $uri .= '?' . http_build_query($queryParams);
+        }
+
+        return $this->executeFrontendSubRequest(
+            new InternalRequest($uri),
             (new InternalRequestContext())->withBackendUserId($beUserId),
         );
     }
