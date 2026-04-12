@@ -26,111 +26,61 @@ final class RelationsTest extends ApiFunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/sys_category_record_mm.csv');
     }
 
-    // ── hasOne ──────────────────────────────────────────────────────────────
+    // ── Article 1: hasOne + manyToMany relations present ───────────────────
 
-    public function testHasOneReturnsObjectNotScalar(): void
+    public function testArticleWithRelationsHasCorrectStructure(): void
     {
         $response = $this->executeApiRequest('/_api/articles/1');
         $body = $this->decodeResponseBody($response);
 
+        // ── hasOne: color is an embedded object ─────────────────────────
         self::assertArrayHasKey('color', $body);
         self::assertIsArray($body['color']);
-    }
 
-    public function testHasOneContainsAtId(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles/1');
-        $body = $this->decodeResponseBody($response);
-
+        // hasOne: contains @id
         self::assertArrayHasKey('@id', $body['color']);
         self::assertSame('/_api/colors/1', $body['color']['@id']);
-    }
 
-    public function testHasOneContainsAtType(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles/1');
-        $body = $this->decodeResponseBody($response);
-
+        // hasOne: contains @type
         self::assertSame('Color', $body['color']['@type']);
-    }
 
-    public function testHasOneContainsUid(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles/1');
-        $body = $this->decodeResponseBody($response);
-
+        // hasOne: contains uid
         self::assertSame(1, $body['color']['uid']);
-    }
 
-    public function testHasOneShallowEmbedDoesNotIncludeNameField(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles/1');
-        $body = $this->decodeResponseBody($response);
-
+        // hasOne: shallow embed does not include name field
         self::assertArrayNotHasKey('name', $body['color']);
-    }
 
-    public function testHasOneWithZeroForeignKeyReturnsNull(): void
-    {
-        // Article 3 has color_id=0
-        $response = $this->executeApiRequest('/_api/articles/3');
-        $body = $this->decodeResponseBody($response);
-
-        self::assertArrayHasKey('color', $body);
-        self::assertNull($body['color']);
-    }
-
-    // ── manyToMany (sys_category) ────────────────────────────────────────────
-
-    public function testManyToManyReturnsArray(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles/1');
-        $body = $this->decodeResponseBody($response);
-
+        // ── manyToMany: categories is an array of embedded objects ──────
         self::assertArrayHasKey('categories', $body);
         self::assertIsArray($body['categories']);
-    }
 
-    public function testManyToManyReturnsCorrectCount(): void
-    {
-        // Article 1 has 2 categories
-        $response = $this->executeApiRequest('/_api/articles/1');
-        $body = $this->decodeResponseBody($response);
-
+        // manyToMany: correct count (Article 1 has 2 categories)
         self::assertCount(2, $body['categories']);
-    }
 
-    public function testManyToManyItemContainsAtId(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles/1');
-        $body = $this->decodeResponseBody($response);
-
+        // manyToMany: item contains @id
         self::assertArrayHasKey('@id', $body['categories'][0]);
         self::assertStringStartsWith('/_api/sys-categories/', $body['categories'][0]['@id']);
-    }
 
-    public function testManyToManyItemContainsAtType(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles/1');
-        $body = $this->decodeResponseBody($response);
-
+        // manyToMany: item contains @type
         self::assertSame('SysCategory', $body['categories'][0]['@type']);
-    }
 
-    public function testManyToManyItemContainsUid(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles/1');
-        $body = $this->decodeResponseBody($response);
-
+        // manyToMany: item contains uid
         self::assertArrayHasKey('uid', $body['categories'][0]);
     }
 
-    public function testManyToManyWithNoRelationsReturnsEmptyArray(): void
+    // ── Article 3: no relations ─────────────────────────────────────────────
+
+    public function testArticleWithoutRelationsHasNullAndEmptyValues(): void
     {
-        // Article 3 has no categories
+        // Article 3 has color_id=0 and no categories
         $response = $this->executeApiRequest('/_api/articles/3');
         $body = $this->decodeResponseBody($response);
 
+        // ── hasOne: zero foreign key returns null ───────────────────────
+        self::assertArrayHasKey('color', $body);
+        self::assertNull($body['color']);
+
+        // ── manyToMany: no relations returns empty array ────────────────
         self::assertArrayHasKey('categories', $body);
         self::assertSame([], $body['categories']);
     }
