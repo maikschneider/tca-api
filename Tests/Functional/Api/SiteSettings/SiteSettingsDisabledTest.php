@@ -12,7 +12,7 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 final class SiteSettingsDisabledTest extends ApiFunctionalTestCase
 {
     protected array $pathsToLinkInTestInstance = [
-        'typo3conf/ext/tca_api/Tests/Functional/Fixtures/Sites_Disabled' => 'config/sites',
+        'typo3conf/ext/tca_api/Tests/Functional/Fixtures/Sites_Disabled' => 'typo3conf/sites',
     ];
 
     protected function setUp(): void

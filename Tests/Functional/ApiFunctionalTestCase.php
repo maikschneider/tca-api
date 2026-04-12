@@ -16,12 +16,8 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
         'tca_api',
     ];
 
-    protected array $additionalFoldersToCreate = [
-        'config',
-    ];
-
     protected array $pathsToLinkInTestInstance = [
-        'typo3conf/ext/tca_api/Tests/Functional/Fixtures/Sites' => 'config/sites',
+        'typo3conf/ext/tca_api/Tests/Functional/Fixtures/Sites' => 'typo3conf/sites',
     ];
 
     /**

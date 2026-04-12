@@ -15,7 +15,7 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 final class SiteSettingsNoApiPrefixTest extends ApiFunctionalTestCase
 {
     protected array $pathsToLinkInTestInstance = [
-        'typo3conf/ext/tca_api/Tests/Functional/Fixtures/Sites_NoApiPrefix' => 'config/sites',
+        'typo3conf/ext/tca_api/Tests/Functional/Fixtures/Sites_NoApiPrefix' => 'typo3conf/sites',
     ];
 
     protected function setUp(): void
