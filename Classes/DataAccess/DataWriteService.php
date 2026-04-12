@@ -177,9 +177,8 @@ final class DataWriteService
             $tokens[] = $newId;
 
             $newRecordData = $item;
-            unset($newRecordData['uid']);
             if (!isset($newRecordData['pid']) || !is_numeric($newRecordData['pid'])) {
-                $newRecordData['pid'] = $this->resolveDefaultPidForNewRelatedRecord($foreignTable, $parentPid);
+                $newRecordData['pid'] = $this->resolveDefaultPidForNewRelatedRecord($parentPid);
             } else {
                 $newRecordData['pid'] = (int)$newRecordData['pid'];
             }
@@ -235,15 +234,10 @@ final class DataWriteService
         return ($fieldConfig['renderType'] ?? null) === 'selectSingle';
     }
 
-    private function resolveDefaultPidForNewRelatedRecord(string $foreignTable, int $parentPid): int
+    private function resolveDefaultPidForNewRelatedRecord(int $parentPid): int
     {
         if ($parentPid > 0) {
             return $parentPid;
-        }
-
-        $rootLevel = (int)($GLOBALS['TCA'][$foreignTable]['ctrl']['rootLevel'] ?? 0);
-        if ($rootLevel !== 0) {
-            return 0;
         }
 
         return 0;
