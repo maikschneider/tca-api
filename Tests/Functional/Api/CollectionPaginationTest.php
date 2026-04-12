@@ -20,54 +20,26 @@ final class CollectionPaginationTest extends ApiFunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/articles.csv');
     }
 
-    public function testItemsPerPageLimitsMemberCount(): void
+    public function testFirstPageReturnsCorrectHydraView(): void
     {
         $response = $this->executeApiRequest('/_api/articles', ['itemsPerPage' => 2]);
         $body = $this->decodeResponseBody($response);
 
         self::assertCount(2, $body['hydra:member']);
-    }
-
-    public function testTotalItemsIsUnaffectedByItemsPerPage(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles', ['itemsPerPage' => 2]);
-        $body = $this->decodeResponseBody($response);
-
         self::assertSame(3, $body['hydra:totalItems']);
+        self::assertArrayHasKey('hydra:view', $body);
+        self::assertSame('hydra:PartialCollectionView', $body['hydra:view']['@type']);
+        self::assertArrayHasKey('hydra:next', $body['hydra:view']);
+        self::assertNotNull($body['hydra:view']['hydra:next']);
     }
 
-    public function testPageTwoReturnsRemainingItems(): void
+    public function testLastPageReturnsRemainingItemsWithoutNextLink(): void
     {
         $response = $this->executeApiRequest('/_api/articles', ['page' => 2, 'itemsPerPage' => 2]);
         $body = $this->decodeResponseBody($response);
 
         self::assertCount(1, $body['hydra:member']);
         self::assertSame('Third Article', $body['hydra:member'][0]['title']);
-    }
-
-    public function testHydraViewIsPresentOnPagedResponse(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles', ['itemsPerPage' => 2]);
-        $body = $this->decodeResponseBody($response);
-
-        self::assertArrayHasKey('hydra:view', $body);
-        self::assertSame('hydra:PartialCollectionView', $body['hydra:view']['@type']);
-    }
-
-    public function testHydraViewContainsNextLink(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles', ['page' => 1, 'itemsPerPage' => 2]);
-        $body = $this->decodeResponseBody($response);
-
-        self::assertArrayHasKey('hydra:next', $body['hydra:view']);
-        self::assertNotNull($body['hydra:view']['hydra:next']);
-    }
-
-    public function testHydraViewHasNoNextLinkOnLastPage(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles', ['page' => 2, 'itemsPerPage' => 2]);
-        $body = $this->decodeResponseBody($response);
-
         self::assertNull($body['hydra:view']['hydra:next'] ?? null);
     }
 }

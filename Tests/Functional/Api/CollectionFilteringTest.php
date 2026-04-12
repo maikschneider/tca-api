@@ -23,20 +23,13 @@ final class CollectionFilteringTest extends ApiFunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/articles.csv');
     }
 
-    public function testFilterByExactTitleReturnsSingleMember(): void
+    public function testFilterByExactTitleReturnsCorrectResult(): void
     {
         $response = $this->executeApiRequest('/_api/articles', ['filters' => ['title' => 'First Article']]);
         $body = $this->decodeResponseBody($response);
 
         self::assertCount(1, $body['hydra:member']);
         self::assertSame('First Article', $body['hydra:member'][0]['title']);
-    }
-
-    public function testFilterByExactTitleUpdatesTotalItems(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles', ['filters' => ['title' => 'First Article']]);
-        $body = $this->decodeResponseBody($response);
-
         self::assertSame(1, $body['hydra:totalItems']);
     }
 

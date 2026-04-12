@@ -65,7 +65,7 @@ final class SparseFieldsetsTest extends ApiFunctionalTestCase
 
     // ── Single field restricts output ─────────────────────────────────────────
 
-    public function testSingleFieldRestrictsColumns(): void
+    public function testSingleFieldRestrictsColumnsButKeepsInvariants(): void
     {
         $response = $this->executeApiRequest('/_api/articles/1', ['fields' => ['title']]);
         $body = $this->decodeResponseBody($response);
@@ -73,33 +73,10 @@ final class SparseFieldsetsTest extends ApiFunctionalTestCase
         self::assertArrayHasKey('title', $body);
         self::assertArrayNotHasKey('color', $body);
         self::assertArrayNotHasKey('categories', $body);
-    }
-
-    // ── JSON-LD invariants always present ─────────────────────────────────────
-
-    public function testAtTypeAlwaysPresentRegardlessOfFields(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles/1', ['fields' => ['title']]);
-        $body = $this->decodeResponseBody($response);
-
         self::assertArrayHasKey('@type', $body);
         self::assertSame('Article', $body['@type']);
-    }
-
-    public function testAtIdAlwaysPresentRegardlessOfFields(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles/1', ['fields' => ['title']]);
-        $body = $this->decodeResponseBody($response);
-
         self::assertArrayHasKey('@id', $body);
         self::assertSame('/_api/articles/1', $body['@id']);
-    }
-
-    public function testUidAlwaysPresentRegardlessOfFields(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles/1', ['fields' => ['title']]);
-        $body = $this->decodeResponseBody($response);
-
         self::assertArrayHasKey('uid', $body);
         self::assertSame(1, $body['uid']);
     }

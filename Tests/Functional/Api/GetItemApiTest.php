@@ -20,28 +20,16 @@ final class GetItemApiTest extends ApiFunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/articles.csv');
     }
 
-    public function testGetItemReturns200(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles/1');
-
-        self::assertSame(200, $response->getStatusCode());
-    }
-
-    public function testGetItemReturnsJsonLdContentType(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles/1');
-
-        self::assertStringContainsString(
-            'application/ld+json',
-            $response->getHeaderLine('Content-Type'),
-        );
-    }
-
-    public function testGetItemReturnsCorrectData(): void
+    public function testGetItemReturnsValidResource(): void
     {
         $response = $this->executeApiRequest('/_api/articles/1');
         $body = $this->decodeResponseBody($response);
 
+        self::assertSame(200, $response->getStatusCode());
+        self::assertStringContainsString(
+            'application/ld+json',
+            $response->getHeaderLine('Content-Type'),
+        );
         self::assertSame('Article', $body['@type']);
         self::assertSame(1, $body['uid']);
         self::assertSame('First Article', $body['title']);
