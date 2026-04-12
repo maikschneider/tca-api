@@ -95,6 +95,7 @@ final class DataWriteService
     {
         $dataMap = [$table => [$recordId => []]];
         $newRecordCounter = 0;
+        $parentPid = isset($data['pid']) && is_numeric($data['pid']) ? (int)$data['pid'] : 0;
 
         foreach ($data as $field => $value) {
             if (!\is_array($value)) {
@@ -102,7 +103,7 @@ final class DataWriteService
                 continue;
             }
 
-            $normalization = $this->normalizeRelationValue($table, $field, $value, $newRecordCounter);
+            $normalization = $this->normalizeRelationValue($table, $field, $value, $newRecordCounter, $parentPid);
             if ($normalization === null) {
                 $dataMap[$table][$recordId][$field] = $value;
                 continue;
@@ -129,8 +130,13 @@ final class DataWriteService
      * @param int $newRecordCounter
      * @return array{tokens: list<int|string>, newRecords: list<array{table: string, id: string, data: array}>}|null
      */
-    private function normalizeRelationValue(string $table, string $field, array $value, int &$newRecordCounter): ?array
-    {
+    private function normalizeRelationValue(
+        string $table,
+        string $field,
+        array $value,
+        int &$newRecordCounter,
+        int $parentPid,
+    ): ?array {
         if (!array_is_list($value)) {
             return null;
         }
@@ -164,7 +170,11 @@ final class DataWriteService
 
             $newRecordData = $item;
             unset($newRecordData['uid']);
-            $newRecordData['pid'] = (int)($newRecordData['pid'] ?? 0);
+            if (!isset($newRecordData['pid']) || !is_numeric($newRecordData['pid'])) {
+                $newRecordData['pid'] = $this->resolveDefaultPidForNewRelatedRecord($foreignTable, $parentPid);
+            } else {
+                $newRecordData['pid'] = (int)$newRecordData['pid'];
+            }
 
             $newRecords[] = [
                 'table' => $foreignTable,
@@ -211,9 +221,23 @@ final class DataWriteService
         }
 
         if (isset($fieldConfig['maxitems'])) {
-            return (int)$fieldConfig['maxitems'] <= 1;
+            return (int)$fieldConfig['maxitems'] === 1;
         }
 
         return ($fieldConfig['renderType'] ?? null) === 'selectSingle';
+    }
+
+    private function resolveDefaultPidForNewRelatedRecord(string $foreignTable, int $parentPid): int
+    {
+        if ($parentPid > 0) {
+            return $parentPid;
+        }
+
+        $rootLevel = (int)($GLOBALS['TCA'][$foreignTable]['ctrl']['rootLevel'] ?? 0);
+        if ($rootLevel !== 0) {
+            return 0;
+        }
+
+        return 1;
     }
 }
