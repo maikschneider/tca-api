@@ -27,38 +27,17 @@ final class ValidationTest extends ApiFunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_users.csv');
     }
 
-    // ── 422 response structure ────────────────────────────────────────────────
+    // ── 422 response structure (POST empty body) ───────────────────────────
 
-    public function test422ResponseBodyHasViolationsKey(): void
+    public function testPostWithMissingRequiredFieldReturns422WithViolations(): void
     {
         $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, []);
         $body = $this->decodeResponseBody($response);
 
         self::assertSame(422, $response->getStatusCode());
         self::assertArrayHasKey('violations', $body);
-    }
-
-    public function test422ViolationHasPropertyPath(): void
-    {
-        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, []);
-        $body = $this->decodeResponseBody($response);
-
         self::assertSame('title', $body['violations'][0]['propertyPath']);
-    }
-
-    public function test422ViolationHasMessage(): void
-    {
-        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, []);
-        $body = $this->decodeResponseBody($response);
-
         self::assertNotEmpty($body['violations'][0]['message']);
-    }
-
-    public function test422HydraTitleIndicatesValidationFailed(): void
-    {
-        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, []);
-        $body = $this->decodeResponseBody($response);
-
         self::assertSame('Validation Failed', $body['hydra:title']);
     }
 
@@ -69,8 +48,10 @@ final class ValidationTest extends ApiFunctionalTestCase
         $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
             'title' => str_repeat('a', 21),
         ]);
+        $body = $this->decodeResponseBody($response);
 
         self::assertSame(422, $response->getStatusCode());
+        self::assertSame('title', $body['violations'][0]['propertyPath']);
     }
 
     public function testPostReturns201WhenTitleWithinMaxLength(): void
@@ -82,16 +63,6 @@ final class ValidationTest extends ApiFunctionalTestCase
         self::assertSame(201, $response->getStatusCode());
     }
 
-    public function testMaxLengthViolationIdentifiesProperty(): void
-    {
-        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
-            'title' => str_repeat('a', 21),
-        ]);
-        $body = $this->decodeResponseBody($response);
-
-        self::assertSame('title', $body['violations'][0]['propertyPath']);
-    }
-
     // ── PUT validates with the same rules ────────────────────────────────────
 
     public function testPutReturns422WhenTitleExceedsMaxLength(): void
@@ -99,17 +70,9 @@ final class ValidationTest extends ApiFunctionalTestCase
         $response = $this->executeApiWriteRequestAs('PUT', '/_api/articles/1', 1, [
             'title' => str_repeat('a', 21),
         ]);
-
-        self::assertSame(422, $response->getStatusCode());
-    }
-
-    public function testPutViolationHasPropertyPath(): void
-    {
-        $response = $this->executeApiWriteRequestAs('PUT', '/_api/articles/1', 1, [
-            'title' => str_repeat('a', 21),
-        ]);
         $body = $this->decodeResponseBody($response);
 
+        self::assertSame(422, $response->getStatusCode());
         self::assertSame('title', $body['violations'][0]['propertyPath']);
     }
 
@@ -131,17 +94,9 @@ final class ValidationTest extends ApiFunctionalTestCase
         $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
             'title' => 'ab',
         ]);
-
-        self::assertSame(422, $response->getStatusCode());
-    }
-
-    public function testMinLengthViolationHasMinLengthCode(): void
-    {
-        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
-            'title' => 'ab',
-        ]);
         $body = $this->decodeResponseBody($response);
 
+        self::assertSame(422, $response->getStatusCode());
         $codes = array_column($body['violations'], 'code');
         self::assertContains('MIN_LENGTH', $codes);
     }
@@ -162,17 +117,9 @@ final class ValidationTest extends ApiFunctionalTestCase
         $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
             'title' => 'Invalid!!',
         ]);
-
-        self::assertSame(422, $response->getStatusCode());
-    }
-
-    public function testRegexViolationHasRegexCode(): void
-    {
-        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
-            'title' => 'Invalid!!',
-        ]);
         $body = $this->decodeResponseBody($response);
 
+        self::assertSame(422, $response->getStatusCode());
         $codes = array_column($body['violations'], 'code');
         self::assertContains('REGEX', $codes);
     }
