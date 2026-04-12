@@ -12,7 +12,6 @@ return [
         'resourceName' => 'articles',
         'resourceType' => 'Article',
         'operations' => ['list', 'show', 'create', 'update', 'delete'],
-        'itemsPerPage' => 20,
     ],
     'columns' => [
         'title' => [
