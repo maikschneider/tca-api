@@ -9,11 +9,10 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use TYPO3\CMS\Core\Site\Entity\Site;
 
 class TcaApiMiddleware implements MiddlewareInterface
 {
-    private const API_PREFIX = '/_api/';
-
     public function __construct(
         private readonly RequestDispatcher $dispatcher,
     ) {
@@ -21,12 +20,32 @@ class TcaApiMiddleware implements MiddlewareInterface
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        $path = $request->getUri()->getPath();
+        $site = $request->getAttribute('site');
+        $settings = $site instanceof Site ? $site->getSettings() : null;
 
-        if (!str_starts_with($path, self::API_PREFIX)) {
+        if ($settings === null || !$settings->has('tca_api.apiPrefix')) {
             return $handler->handle($request);
         }
 
-        return $this->dispatcher->dispatch($request);
+        if (!$settings->get('tca_api.enabled', true)) {
+            return $handler->handle($request);
+        }
+
+        $apiPrefix = rtrim('/' . ltrim((string)$settings->get('tca_api.apiPrefix'), '/'), '/') . '/';
+
+        if (!str_starts_with($request->getUri()->getPath(), $apiPrefix)) {
+            return $handler->handle($request);
+        }
+
+        $response = $this->dispatcher->dispatch($request, $settings);
+
+        if ($settings->get('tca_api.corsEnabled', false)) {
+            $response = $response
+                ->withHeader('Access-Control-Allow-Origin', (string)$settings->get('tca_api.corsOrigin', '*'))
+                ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
+                ->withHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        }
+
+        return $response;
     }
 }

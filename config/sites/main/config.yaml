@@ -1,4 +1,6 @@
 base: /
+dependencies:
+  - maikschneider/tca-api
 languages:
   -
     title: English

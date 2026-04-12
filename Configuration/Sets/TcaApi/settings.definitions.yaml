@@ -1,0 +1,69 @@
+categories:
+
+  TcaApi:
+    label: 'TCA API'
+
+  TcaApi.general:
+    label: 'General'
+    parent: TcaApi
+
+  TcaApi.cors:
+    label: 'CORS'
+    parent: TcaApi
+
+settings:
+
+  tca_api.enabled:
+    label: 'Enable API'
+    description: 'Enable or disable the TCA API for this site.'
+    category: TcaApi.general
+    type: bool
+    default: true
+
+  tca_api.apiPrefix:
+    label: 'API Prefix'
+    description: 'URL path prefix for all API endpoints. Must start and end with a slash. Required — the API is inactive until this is set.'
+    category: TcaApi.general
+    type: string
+
+  tca_api.openApiExposed:
+    label: 'Expose OpenAPI Spec'
+    description: 'Expose the OpenAPI JSON specification at {apiPrefix}openapi.json.'
+    category: TcaApi.general
+    type: bool
+    default: true
+
+  tca_api.defaultItemsPerPage:
+    label: 'Default Items Per Page'
+    description: 'Default number of items returned per page in collection responses.'
+    category: TcaApi.general
+    type: int
+    default: 20
+
+  tca_api.allowedResources:
+    label: 'Allowed Resources'
+    description: 'Comma-separated list of resource names exposed on this site. Leave empty to allow all registered resources.'
+    category: TcaApi.general
+    type: string
+    default: ''
+
+  tca_api.debugMode:
+    label: 'Debug Mode'
+    description: 'Return verbose error details in API responses. Disable on production sites.'
+    category: TcaApi.general
+    type: bool
+    default: false
+
+  tca_api.corsEnabled:
+    label: 'Enable CORS'
+    description: 'Add CORS headers to API responses.'
+    category: TcaApi.cors
+    type: bool
+    default: false
+
+  tca_api.corsOrigin:
+    label: 'Allowed Origin'
+    description: 'Value for the Access-Control-Allow-Origin header. Use * to allow all origins.'
+    category: TcaApi.cors
+    type: string
+    default: '*'
