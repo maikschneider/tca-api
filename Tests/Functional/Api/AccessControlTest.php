@@ -91,18 +91,16 @@ final class AccessControlTest extends ApiFunctionalTestCase
 
     // ── Create requires FE_USER ───────────────────────────────────────────────
 
-    public function testCreateReturns403WithoutAuth(): void
+    public function testCreateWithoutAuthReturns403WithHydraError(): void
     {
         $response = $this->executeApiWriteRequest('POST', '/_api/articles', ['title' => 'Unauthorized']);
+        $body = $this->decodeResponseBody($response);
 
         self::assertSame(403, $response->getStatusCode());
-    }
-
-    public function testCreateReturns403ResponseHasJsonLdContentType(): void
-    {
-        $response = $this->executeApiWriteRequest('POST', '/_api/articles', ['title' => 'Unauthorized']);
-
         self::assertStringContainsString('application/ld+json', $response->getHeaderLine('Content-Type'));
+        self::assertSame('hydra:Error', $body['@type']);
+        self::assertSame('Access Denied', $body['hydra:title']);
+        self::assertStringContainsString('create', $body['hydra:description']);
     }
 
     public function testCreateSucceedsWithFeUser(): void
@@ -429,31 +427,5 @@ final class AccessControlTest extends ApiFunctionalTestCase
         $response = $this->executeApiWriteRequestAs('POST', '/_api/group-articles', 20, ['title' => 'Group Created']);
 
         self::assertSame(201, $response->getStatusCode());
-    }
-
-    // ── 403 response body structure ───────────────────────────────────────────
-
-    public function testForbiddenResponseBodyIsHydraError(): void
-    {
-        $response = $this->executeApiWriteRequest('POST', '/_api/articles', ['title' => 'Test']);
-        $body = $this->decodeResponseBody($response);
-
-        self::assertSame('hydra:Error', $body['@type']);
-    }
-
-    public function testForbiddenBodyHasAccessDeniedTitle(): void
-    {
-        $response = $this->executeApiWriteRequest('POST', '/_api/articles', ['title' => 'Test']);
-        $body = $this->decodeResponseBody($response);
-
-        self::assertSame('Access Denied', $body['hydra:title']);
-    }
-
-    public function testForbiddenBodyDescriptionMentionsOperation(): void
-    {
-        $response = $this->executeApiWriteRequest('POST', '/_api/articles', ['title' => 'Test']);
-        $body = $this->decodeResponseBody($response);
-
-        self::assertStringContainsString('create', $body['hydra:description']);
     }
 }
