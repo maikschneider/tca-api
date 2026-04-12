@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MaikSchneider\TcaApi\Tests\Functional\Api;
+namespace MaikSchneider\TcaApi\Tests\Functional\Api\SiteSettings;
 
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
@@ -21,23 +21,16 @@ final class SiteSettingsNoApiPrefixTest extends ApiFunctionalTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/pages.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/articles.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles.csv');
     }
 
-    public function testApiPathPassesThroughWithNoApiPrefixConfigured(): void
+    public function testApiPassesThroughWithNoApiPrefixConfigured(): void
     {
         $response = $this->executeApiRequest('/_api/articles');
 
         // Middleware passes through — TYPO3 returns 404 (no page at /_api/).
         self::assertSame(404, $response->getStatusCode());
-    }
-
-    public function testResponseIsNotApiResponseWithNoApiPrefixConfigured(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles');
-        $body = (string)$response->getBody();
-
-        self::assertStringNotContainsString('hydra:Collection', $body);
+        self::assertStringNotContainsString('hydra:Collection', (string)$response->getBody());
     }
 }

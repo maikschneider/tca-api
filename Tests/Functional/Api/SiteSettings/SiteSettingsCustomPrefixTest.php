@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MaikSchneider\TcaApi\Tests\Functional\Api;
+namespace MaikSchneider\TcaApi\Tests\Functional\Api\SiteSettings;
 
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
@@ -20,22 +20,16 @@ final class SiteSettingsCustomPrefixTest extends ApiFunctionalTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/pages.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/articles.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles.csv');
     }
 
-    public function testCustomPrefixRoutesToApi(): void
-    {
-        $response = $this->executeApiRequest('/custom-api/articles');
-
-        self::assertSame(200, $response->getStatusCode());
-    }
-
-    public function testCustomPrefixReturnsHydraCollection(): void
+    public function testCustomPrefixRoutesToApiAndReturnsHydraCollection(): void
     {
         $response = $this->executeApiRequest('/custom-api/articles');
         $body = $this->decodeResponseBody($response);
 
+        self::assertSame(200, $response->getStatusCode());
         self::assertSame('hydra:Collection', $body['@type']);
     }
 

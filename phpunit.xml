@@ -30,6 +30,9 @@
         <testsuite name="Write">
             <directory>Tests/Functional/Api/Write</directory>
         </testsuite>
+        <testsuite name="SiteSettings">
+            <directory>Tests/Functional/Api/SiteSettings</directory>
+        </testsuite>
     </testsuites>
     <php>
         <!-- Database connection for DDEV environment -->

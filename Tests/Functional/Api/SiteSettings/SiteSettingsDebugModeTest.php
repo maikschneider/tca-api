@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MaikSchneider\TcaApi\Tests\Functional\Api;
+namespace MaikSchneider\TcaApi\Tests\Functional\Api\SiteSettings;
 
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
@@ -23,24 +23,16 @@ final class SiteSettingsDebugModeTest extends ApiFunctionalTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/pages.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
     }
 
-    public function testDebugModeExposesForbiddenOperationInBody(): void
+    public function testDebugModeExposesVerboseErrorInBody(): void
     {
         $response = $this->executeApiWriteRequest('POST', '/_api/articles', ['title' => 'Test']);
+        $body = $this->decodeResponseBody($response);
 
         self::assertSame(403, $response->getStatusCode());
-
-        $body = $this->decodeResponseBody($response);
         self::assertStringContainsString('create', $body['hydra:description'] ?? '');
-    }
-
-    public function testDebugModeBodyDoesNotContainGenericAccessDenied(): void
-    {
-        $response = $this->executeApiWriteRequest('POST', '/_api/articles', ['title' => 'Test']);
-        $body = $this->decodeResponseBody($response);
-
         self::assertStringNotContainsString('Access Denied', $body['hydra:description'] ?? '');
     }
 }

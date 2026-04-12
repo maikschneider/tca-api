@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MaikSchneider\TcaApi\Tests\Functional\Api;
+namespace MaikSchneider\TcaApi\Tests\Functional\Api\SiteSettings;
 
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
@@ -16,15 +16,16 @@ final class SiteSettingsTest extends ApiFunctionalTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/pages.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/articles.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles.csv');
     }
 
-    public function testApiActiveWhenApiPrefixConfigured(): void
+    public function testApiActiveWithNoCorsHeadersByDefault(): void
     {
         $response = $this->executeApiRequest('/_api/articles');
 
         self::assertSame(200, $response->getStatusCode());
+        self::assertSame('', $response->getHeaderLine('Access-Control-Allow-Origin'));
     }
 
     public function testOpenApiSpecExposedByDefault(): void
@@ -32,12 +33,5 @@ final class SiteSettingsTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/openapi.json');
 
         self::assertSame(200, $response->getStatusCode());
-    }
-
-    public function testNoCorsHeadersByDefault(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles');
-
-        self::assertSame('', $response->getHeaderLine('Access-Control-Allow-Origin'));
     }
 }

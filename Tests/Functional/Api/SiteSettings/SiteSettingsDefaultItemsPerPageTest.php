@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MaikSchneider\TcaApi\Tests\Functional\Api;
+namespace MaikSchneider\TcaApi\Tests\Functional\Api\SiteSettings;
 
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
@@ -22,23 +22,16 @@ final class SiteSettingsDefaultItemsPerPageTest extends ApiFunctionalTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/pages.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/articles.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles.csv');
     }
 
-    public function testDefaultItemsPerPageLimitsCollectionWithoutQueryParam(): void
+    public function testDefaultItemsPerPageLimitsCollectionButKeepsTotalItems(): void
     {
         $response = $this->executeApiRequest('/_api/articles');
         $body = $this->decodeResponseBody($response);
 
         self::assertCount(2, $body['hydra:member']);
-    }
-
-    public function testTotalItemsStillReflectsFullCount(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles');
-        $body = $this->decodeResponseBody($response);
-
         self::assertSame(3, $body['hydra:totalItems']);
     }
 
