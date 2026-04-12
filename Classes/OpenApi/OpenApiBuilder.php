@@ -347,7 +347,7 @@ class OpenApiBuilder
             }
         }
 
-        $schema = ['type' => 'object', 'properties' => $properties];
+        $schema = ['type' => 'object', 'properties' => $properties === [] ? new \stdClass() : $properties];
         if ($required !== []) {
             $schema['required'] = $required;
         }

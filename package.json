@@ -1,0 +1,7 @@
+{
+  "name": "tca-api",
+  "private": true,
+  "devDependencies": {
+    "@stoplight/spectral-cli": "^6"
+  }
+}

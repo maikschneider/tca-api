@@ -1,0 +1,11 @@
+extends:
+  - "@stoplight/spectral-rulesets/dist/oas/index.js"
+
+# Disable style/best-practice rules that are not relevant for a library spec
+rules:
+  oas3-api-servers: off
+  info-contact: off
+  info-description: off
+  operation-description: off
+  operation-tags: off
+  oas3-unused-component: off
