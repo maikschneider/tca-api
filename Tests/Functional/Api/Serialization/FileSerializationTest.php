@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MaikSchneider\TcaApi\Tests\Functional\Api;
+namespace MaikSchneider\TcaApi\Tests\Functional\Api\Serialization;
 
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
@@ -22,10 +22,10 @@ final class FileSerializationTest extends ApiFunctionalTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/pages.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/articles_with_files.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/sys_file.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/sys_file_reference.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles_with_files.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/sys_file.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/sys_file_reference.csv');
     }
 
     // ── profile_photo (hasOne, ImageProcessor) ───────────────────────────────

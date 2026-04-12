@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MaikSchneider\TcaApi\Tests\Functional\Api;
+namespace MaikSchneider\TcaApi\Tests\Functional\Api\Security;
 
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
@@ -67,10 +67,10 @@ final class AccessControlTest extends ApiFunctionalTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/pages.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/articles.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_users.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/be_users.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_users.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/be_users.csv');
     }
 
     // ── PUBLIC endpoints — accessible without auth ────────────────────────────
@@ -301,8 +301,8 @@ final class AccessControlTest extends ApiFunctionalTestCase
 
     public function testFeGroupRoleDeniesFeUserWithoutGroup(): void
     {
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_users_with_groups.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_groups.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_users_with_groups.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_groups.csv');
 
         ApiRegistry::register('group-articles', array_merge(self::FE_GROUP_CONFIG, [
             'security' => [
@@ -318,8 +318,8 @@ final class AccessControlTest extends ApiFunctionalTestCase
 
     public function testFeGroupRoleGrantsFeUserWithGroup(): void
     {
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_users_with_groups.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_groups.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_users_with_groups.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_groups.csv');
 
         ApiRegistry::register('group-articles', array_merge(self::FE_GROUP_CONFIG, [
             'security' => [
@@ -335,8 +335,8 @@ final class AccessControlTest extends ApiFunctionalTestCase
 
     public function testFeGroupRoleGrantsFeUserWithMultipleGroups(): void
     {
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_users_with_groups.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_groups.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_users_with_groups.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_groups.csv');
 
         ApiRegistry::register('group-articles', array_merge(self::FE_GROUP_CONFIG, [
             'security' => [
@@ -354,8 +354,8 @@ final class AccessControlTest extends ApiFunctionalTestCase
 
     public function testFeGroupWithSpecificIdsGrantsMatchingGroup(): void
     {
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_users_with_groups.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_groups.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_users_with_groups.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_groups.csv');
 
         ApiRegistry::register('group-articles', array_merge(self::FE_GROUP_CONFIG, [
             'security' => [
@@ -371,8 +371,8 @@ final class AccessControlTest extends ApiFunctionalTestCase
 
     public function testFeGroupWithSpecificIdsDeniesNonMatchingGroup(): void
     {
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_users_with_groups.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_groups.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_users_with_groups.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_groups.csv');
 
         ApiRegistry::register('group-articles', array_merge(self::FE_GROUP_CONFIG, [
             'security' => [
@@ -414,8 +414,8 @@ final class AccessControlTest extends ApiFunctionalTestCase
 
     public function testFeGroupWriteOperationGrantsFeUserWithGroup(): void
     {
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_users_with_groups.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_groups.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_users_with_groups.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_groups.csv');
 
         ApiRegistry::register('group-articles', array_merge(self::FE_GROUP_CONFIG, [
             'security' => [

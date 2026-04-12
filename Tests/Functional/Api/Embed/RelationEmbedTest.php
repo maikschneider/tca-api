@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MaikSchneider\TcaApi\Tests\Functional\Api;
+namespace MaikSchneider\TcaApi\Tests\Functional\Api\Embed;
 
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
@@ -36,9 +36,9 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/pages.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/colors.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/articles_embed.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/colors.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles_embed.csv');
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

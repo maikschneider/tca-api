@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MaikSchneider\TcaApi\Tests\Functional\Api;
+namespace MaikSchneider\TcaApi\Tests\Functional\Api\Serialization;
 
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
@@ -33,11 +33,11 @@ final class SparseFieldsetsTest extends ApiFunctionalTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/pages.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/colors.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/sys_categories.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/articles.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/sys_category_record_mm.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/colors.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/sys_categories.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/sys_category_record_mm.csv');
     }
 
     // ── Baseline: no fields param returns all readable columns ────────────────

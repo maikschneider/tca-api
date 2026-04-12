@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MaikSchneider\TcaApi\Tests\Functional\Api;
+namespace MaikSchneider\TcaApi\Tests\Functional\Api\Security;
 
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
@@ -53,10 +53,10 @@ final class FrontendGroupAccessTest extends ApiFunctionalTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/pages.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/articles.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_groups.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_users_with_groups.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_groups.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_users_with_groups.csv');
     }
 
     // ── Specific group restriction ────────────────────────────────────────────

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MaikSchneider\TcaApi\Tests\Functional\Api;
+namespace MaikSchneider\TcaApi\Tests\Functional\Api\Embed;
 
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
@@ -36,11 +36,11 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/pages.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/colors.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/articles_group.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/articles_group_mm.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/tx_myext_article_colors_mm.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/colors.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles_group.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles_group_mm.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/tx_myext_article_colors_mm.csv');
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

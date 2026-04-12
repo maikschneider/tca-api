@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MaikSchneider\TcaApi\Tests\Functional\Api;
+namespace MaikSchneider\TcaApi\Tests\Functional\Api\Security;
 
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
@@ -51,9 +51,9 @@ final class ObjectLevelSecurityTest extends ApiFunctionalTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/pages.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_users.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/articles_owned.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_users.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles_owned.csv');
     }
 
     // ── PATCH: owner (fe_user 1) is allowed ──────────────────────────────────

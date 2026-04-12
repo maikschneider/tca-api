@@ -15,6 +15,21 @@
         <testsuite name="Functional">
             <directory>Tests/Functional</directory>
         </testsuite>
+        <testsuite name="Collection">
+            <directory>Tests/Functional/Api/Collection</directory>
+        </testsuite>
+        <testsuite name="Security">
+            <directory>Tests/Functional/Api/Security</directory>
+        </testsuite>
+        <testsuite name="Embed">
+            <directory>Tests/Functional/Api/Embed</directory>
+        </testsuite>
+        <testsuite name="Serialization">
+            <directory>Tests/Functional/Api/Serialization</directory>
+        </testsuite>
+        <testsuite name="Write">
+            <directory>Tests/Functional/Api/Write</directory>
+        </testsuite>
     </testsuites>
     <php>
         <!-- Database connection for DDEV environment -->
