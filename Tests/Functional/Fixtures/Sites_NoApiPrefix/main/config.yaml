@@ -16,3 +16,6 @@ languages:
     languageId: 0
 rootPageId: 1
 websiteTitle: ''
+settings:
+  tca_api:
+    apiPrefix: ''
