@@ -214,7 +214,6 @@ final class DataWriteService
             return (int)$fieldConfig['maxitems'] <= 1;
         }
 
-        return ($fieldConfig['renderType'] ?? null) === 'selectSingle'
-            || ($fieldConfig['type'] ?? null) === 'inline';
+        return ($fieldConfig['renderType'] ?? null) === 'selectSingle';
     }
 }
