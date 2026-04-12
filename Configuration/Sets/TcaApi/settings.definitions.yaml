@@ -25,6 +25,7 @@ settings:
     description: 'URL path prefix for all API endpoints. Must start and end with a slash. Required — the API is inactive until this is set.'
     category: TcaApi.general
     type: string
+    default: '/_api/'
 
   tca_api.openApiExposed:
     label: 'Expose OpenAPI Spec'
