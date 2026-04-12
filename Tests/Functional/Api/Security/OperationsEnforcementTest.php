@@ -153,6 +153,4 @@ final class OperationsEnforcementTest extends ApiFunctionalTestCase
 
         self::assertSame(405, $response->getStatusCode());
     }
-
-
 }

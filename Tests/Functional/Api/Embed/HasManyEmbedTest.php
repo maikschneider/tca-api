@@ -183,6 +183,4 @@ final class HasManyEmbedTest extends ApiFunctionalTestCase
         // Depth 1 means full record — title should be present
         self::assertArrayHasKey('title', $body['categories'][0]);
     }
-
-
 }

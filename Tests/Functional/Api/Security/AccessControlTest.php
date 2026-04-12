@@ -427,5 +427,4 @@ final class AccessControlTest extends ApiFunctionalTestCase
 
         self::assertSame(201, $response->getStatusCode());
     }
-
 }
