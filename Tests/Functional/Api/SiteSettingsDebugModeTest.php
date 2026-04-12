@@ -17,7 +17,7 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 final class SiteSettingsDebugModeTest extends ApiFunctionalTestCase
 {
     protected array $pathsToLinkInTestInstance = [
-        'typo3conf/ext/tca_api/Tests/Functional/Fixtures/Sites_Debug' => 'config/sites',
+        'typo3conf/ext/tca_api/Tests/Functional/Fixtures/Sites_Debug' => 'typo3conf/sites',
     ];
 
     protected function setUp(): void

@@ -12,7 +12,7 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 final class SiteSettingsOpenApiHiddenTest extends ApiFunctionalTestCase
 {
     protected array $pathsToLinkInTestInstance = [
-        'typo3conf/ext/tca_api/Tests/Functional/Fixtures/Sites_OpenApiHidden' => 'config/sites',
+        'typo3conf/ext/tca_api/Tests/Functional/Fixtures/Sites_OpenApiHidden' => 'typo3conf/sites',
     ];
 
     protected function setUp(): void
