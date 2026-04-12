@@ -22,77 +22,40 @@ final class ArticleApiTest extends ApiFunctionalTestCase
     }
 
     /**
-     * Phase 9 target: the first test to go green.
-     * The endpoint must respond with HTTP 200.
+     * A single request to /_api/articles must return a valid Hydra collection
+     * with correct status, content type, structure, item count, field values,
+     * and hidden-record exclusion.
      */
-    public function testApiEndpointReturns200(): void
+    public function testCollectionEndpointReturnsValidHydraResponse(): void
     {
         $response = $this->executeApiRequest('/_api/articles');
 
+        // HTTP status
         self::assertSame(200, $response->getStatusCode());
-    }
 
-    /**
-     * Response must carry the correct JSON-LD content type.
-     */
-    public function testApiEndpointReturnsJsonLdContentType(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles');
-
+        // Content type
         self::assertStringContainsString(
             'application/ld+json',
             $response->getHeaderLine('Content-Type'),
         );
-    }
 
-    /**
-     * Response must be a Hydra Collection with the correct structure.
-     */
-    public function testCollectionResponseIsHydraCollection(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles');
         $body = $this->decodeResponseBody($response);
 
+        // Hydra collection structure
         self::assertSame('hydra:Collection', $body['@type']);
         self::assertArrayHasKey('hydra:member', $body);
         self::assertArrayHasKey('hydra:totalItems', $body);
-    }
 
-    /**
-     * The collection must contain all 3 seeded articles.
-     */
-    public function testCollectionContainsAllArticles(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles');
-        $body = $this->decodeResponseBody($response);
-
+        // Item count
         self::assertSame(3, $body['hydra:totalItems']);
         self::assertCount(3, $body['hydra:member']);
-    }
 
-    /**
-     * Each member must expose the `title` field as configured.
-     */
-    public function testCollectionMembersHaveTitleField(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles');
-        $body = $this->decodeResponseBody($response);
-
+        // First member title field
         $firstMember = $body['hydra:member'][0];
         self::assertArrayHasKey('title', $firstMember);
         self::assertSame('First Article', $firstMember['title']);
-    }
 
-    /**
-     * Records with hidden=1 must not appear in the collection.
-     */
-    public function testHiddenArticlesExcludedFromCollection(): void
-    {
-        $response = $this->executeApiRequest('/_api/articles');
-        $body = $this->decodeResponseBody($response);
-
-        self::assertSame(3, $body['hydra:totalItems']);
-
+        // Hidden records excluded
         $titles = array_column($body['hydra:member'], 'title');
         self::assertNotContains('Hidden Article', $titles);
     }

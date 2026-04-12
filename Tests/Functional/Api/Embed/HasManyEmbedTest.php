@@ -1,0 +1,188 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MaikSchneider\TcaApi\Tests\Functional\Api\Embed;
+
+use MaikSchneider\TcaApi\Registry\ApiRegistry;
+use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
+
+/**
+ * Functional tests for hasMany relation embedding via 'embed' column config.
+ *
+ * Without 'embed', hasMany relations return shallow stubs [{@id, @type, uid}] (unchanged).
+ * With 'embed' => true, each related record is serialized in full at depth 1.
+ * With 'embed' => ['depth' => N], embedding respects the depth budget.
+ *
+ * Fixture data (from articles.csv + sys_categories.csv + sys_category_record_mm.csv):
+ *   Article 1 → categories [1 (PHP), 2 (TYPO3)]
+ *   Article 2 → categories [3 (API)]
+ *   Article 3 → categories [] (none)
+ */
+final class HasManyEmbedTest extends ApiFunctionalTestCase
+{
+    private const ARTICLE_TABLE  = 'tx_myext_domain_model_article';
+    private const CATEGORY_TABLE = 'sys_category';
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/colors.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/sys_categories.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/sys_category_record_mm.csv');
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private function registerCategoryResource(): void
+    {
+        ApiRegistry::register('hm-categories', [
+            'general' => [
+                'table'        => self::CATEGORY_TABLE,
+                'resourceName' => 'hm-categories',
+                'resourceType' => 'Category',
+                'operations'   => ['list', 'show'],
+                'itemsPerPage' => 20,
+            ],
+            'columns' => [
+                'title' => ['readable' => true],
+            ],
+            'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
+        ]);
+    }
+
+    private function registerArticleResource(array $columnOverrides = []): void
+    {
+        ApiRegistry::register('hm-articles', [
+            'general' => [
+                'table'        => self::ARTICLE_TABLE,
+                'resourceName' => 'hm-articles',
+                'resourceType' => 'Article',
+                'operations'   => ['list', 'show'],
+                'itemsPerPage' => 20,
+            ],
+            'columns' => array_merge([
+                'title'      => ['readable' => true],
+                'categories' => ['readable' => true],
+            ], $columnOverrides),
+            'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
+        ]);
+    }
+
+    // ── Without embed: stubs ──────────────────────────────────────────────────
+
+    public function testHasManyWithoutEmbedReturnsStubsWithoutTitle(): void
+    {
+        $this->registerCategoryResource();
+        $this->registerArticleResource();
+
+        $response = $this->executeApiRequest('/_api/hm-articles/1');
+        $body     = $this->decodeResponseBody($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertIsArray($body['categories']);
+        self::assertCount(2, $body['categories']);
+        self::assertArrayHasKey('@id', $body['categories'][0]);
+        self::assertArrayHasKey('@type', $body['categories'][0]);
+        self::assertArrayHasKey('uid', $body['categories'][0]);
+        self::assertArrayNotHasKey('title', $body['categories'][0]);
+        foreach ($body['categories'] as $stub) {
+            self::assertArrayNotHasKey('title', $stub);
+        }
+    }
+
+    // ── With embed: full records ───────────────────────────────────────────────
+
+    public function testHasManyWithEmbedReturnsFullRecordsWithJsonLdFields(): void
+    {
+        $this->registerCategoryResource();
+        $this->registerArticleResource([
+            'categories' => ['readable' => true, 'embed' => true],
+        ]);
+
+        $response = $this->executeApiRequest('/_api/hm-articles/1');
+        $body     = $this->decodeResponseBody($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertIsArray($body['categories']);
+        self::assertCount(2, $body['categories']);
+
+        $titles = array_column($body['categories'], 'title');
+        self::assertContains('PHP', $titles);
+        self::assertContains('TYPO3', $titles);
+
+        $cat = $body['categories'][0];
+        self::assertArrayHasKey('@id', $cat);
+        self::assertArrayHasKey('@type', $cat);
+        self::assertArrayHasKey('uid', $cat);
+        self::assertSame('SysCategory', $cat['@type']);
+        self::assertStringStartsWith('/_api/', $cat['@id']);
+    }
+
+    // ── Empty collection ──────────────────────────────────────────────────────
+
+    public function testHasManyEmptyCollectionReturnsEmptyArray(): void
+    {
+        $this->registerCategoryResource();
+        $this->registerArticleResource([
+            'categories' => ['readable' => true, 'embed' => true],
+        ]);
+
+        // Article 3 has no categories
+        $response = $this->executeApiRequest('/_api/hm-articles/3');
+        $body     = $this->decodeResponseBody($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame([], $body['categories']);
+    }
+
+    // ── Collection endpoint ───────────────────────────────────────────────────
+
+    public function testHasManyCollectionEmbedWorksForAllMembers(): void
+    {
+        $this->registerCategoryResource();
+        $this->registerArticleResource([
+            'categories' => ['readable' => true, 'embed' => true],
+        ]);
+
+        $response = $this->executeApiRequest('/_api/hm-articles');
+        $body     = $this->decodeResponseBody($response);
+
+        $members = array_column($body['hydra:member'], null, 'uid');
+
+        // Article 1 has 2 categories
+        self::assertCount(2, $members[1]['categories']);
+        $titles1 = array_column($members[1]['categories'], 'title');
+        self::assertContains('PHP', $titles1);
+        self::assertContains('TYPO3', $titles1);
+
+        // Article 2 has 1 category
+        self::assertCount(1, $members[2]['categories']);
+        self::assertSame('API', $members[2]['categories'][0]['title']);
+
+        // Article 3 has 0 categories
+        self::assertSame([], $members[3]['categories']);
+    }
+
+    // ── Depth budget ──────────────────────────────────────────────────────────
+
+    public function testHasManyDepthArrayConfig(): void
+    {
+        $this->registerCategoryResource();
+        $this->registerArticleResource([
+            'categories' => ['readable' => true, 'embed' => ['depth' => 1]],
+        ]);
+
+        $response = $this->executeApiRequest('/_api/hm-articles/1');
+        $body     = $this->decodeResponseBody($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertCount(2, $body['categories']);
+        // Depth 1 means full record — title should be present
+        self::assertArrayHasKey('title', $body['categories'][0]);
+    }
+
+
+}
