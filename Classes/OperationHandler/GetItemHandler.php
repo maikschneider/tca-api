@@ -13,8 +13,10 @@ use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 
-class GetItemHandler
+#[Autoconfigure(public: true)]
+class GetItemHandler implements OperationHandlerInterface
 {
     public function __construct(
         private readonly DataRepository $dataRepository,
@@ -26,14 +28,27 @@ class GetItemHandler
     ) {
     }
 
-    public function supports(string $httpMethod, string $operation): bool
+    public function supports(ServerRequestInterface $request, string $operation, array $config): bool
     {
-        return $httpMethod === 'GET' && $operation === 'show';
+        return $operation === 'show';
     }
 
-    public function handle(ServerRequestInterface $request, array $config, int $uid, array $fields = []): ResponseInterface
+    public function handle(ServerRequestInterface $request, array $config): ResponseInterface
     {
-        $table = $config['general']['table'];
+        $uid    = (int)$request->getAttribute('tca_api.uid');
+        $fields = (array)$request->getAttribute('tca_api.fields', []);
+
+        return $this->doHandle($request, $config, $uid, $fields);
+    }
+
+    public function getPriority(): int
+    {
+        return 10;
+    }
+
+    private function doHandle(ServerRequestInterface $request, array $config, int $uid, array $fields): ResponseInterface
+    {
+        $table   = $config['general']['table'];
         $baseUrl = '/_api/' . $config['general']['resourceName'];
 
         $row = $this->dataRepository->findById($table, $uid, $config);
@@ -42,17 +57,12 @@ class GetItemHandler
                 ->withHeader('Content-Type', 'application/ld+json');
         }
 
-        $preloaded = $this->embedPreloader->preload([$row], $config);
+        $preloaded  = $this->embedPreloader->preload([$row], $config);
         $serialized = $this->serializer->serialize($row, $config, $baseUrl, $fields, $preloaded);
 
         $event = new AfterOperationEvent('show', $serialized);
         $this->eventDispatcher->dispatch($event);
 
         return $this->hydraResponseBuilder->buildItem($event->getData());
-    }
-
-    public function getPriority(): int
-    {
-        return 10;
     }
 }

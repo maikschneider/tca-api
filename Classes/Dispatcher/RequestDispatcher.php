@@ -8,13 +8,8 @@ use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Event\BeforeOperationEvent;
 use MaikSchneider\TcaApi\OpenApi\OpenApiBuilder;
-use MaikSchneider\TcaApi\OperationHandler\CreateHandler;
-use MaikSchneider\TcaApi\OperationHandler\DeleteHandler;
-use MaikSchneider\TcaApi\OperationHandler\GetCollectionHandler;
-use MaikSchneider\TcaApi\OperationHandler\GetItemHandler;
-use MaikSchneider\TcaApi\OperationHandler\GetUserInfoHandler;
-use MaikSchneider\TcaApi\OperationHandler\UpdateHandler;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
+use MaikSchneider\TcaApi\Registry\HandlerRegistry;
 use MaikSchneider\TcaApi\Security\AccessController;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -26,12 +21,6 @@ class RequestDispatcher
 {
     public function __construct(
         private readonly ResponseFactoryInterface $responseFactory,
-        private readonly GetCollectionHandler $collectionHandler,
-        private readonly GetItemHandler $itemHandler,
-        private readonly CreateHandler $createHandler,
-        private readonly UpdateHandler $updateHandler,
-        private readonly DeleteHandler $deleteHandler,
-        private readonly GetUserInfoHandler $userinfoHandler,
         private readonly AccessController $accessController,
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly EventDispatcherInterface $eventDispatcher,
@@ -42,59 +31,91 @@ class RequestDispatcher
 
     public function dispatch(ServerRequestInterface $request): ResponseInterface
     {
-        $method = strtoupper($request->getMethod());
-        $path = $request->getUri()->getPath();
-        $segments = explode('/', trim(substr($path, \strlen('/_api')), '/'));
+        $method   = strtoupper($request->getMethod());
+        $segments = explode('/', trim(substr($request->getUri()->getPath(), \strlen('/_api')), '/'));
+        $resource = $segments[0] ?? '';
+        $uid      = isset($segments[1]) && $segments[1] !== '' ? (int)$segments[1] : null;
 
-        $resourceName = $segments[0] ?? '';
-        $uid = isset($segments[1]) && $segments[1] !== '' ? (int)$segments[1] : null;
-
-        if ($resourceName === 'openapi.json' && $method === 'GET') {
+        if ($resource === 'openapi.json' && $method === 'GET') {
             return $this->serveOpenApiSpec();
         }
 
-        $config = ApiRegistry::get($resourceName);
+        $config = ApiRegistry::get($resource);
         if ($config === null) {
             return $this->notFound();
         }
 
-        if (($config['general']['type'] ?? '') === 'userinfo') {
-            if ($method !== 'GET') {
-                return $this->methodNotAllowed();
-            }
-            $feUserAttr = $request->getAttribute('frontend.user');
-            if ($feUserAttr === null || empty($feUserAttr->user['uid'])) {
-                return $this->forbidden('userinfo');
-            }
-            $this->eventDispatcher->dispatch(new BeforeOperationEvent('userinfo', $request, $config));
-            $fields = \is_array($request->getQueryParams()['fields'] ?? null) ? $request->getQueryParams()['fields'] : [];
-            return $this->userinfoHandler->handle($request, $config, $fields);
-        }
-
-        $operation = match ($method) {
-            'GET'    => $uid !== null ? 'show' : 'list',
-            'POST'   => $uid === null ? 'create' : null,
-            'PUT'    => $uid !== null ? 'update' : null,
-            'PATCH'  => $uid !== null ? 'update' : null,
-            'DELETE' => $uid !== null ? 'delete' : null,
-            default  => null,
-        };
-
+        $operation = $this->resolveOperation($method, $uid, $config);
         if ($operation === null) {
             return $this->methodNotAllowed();
         }
 
-        $allowedOps = $config['general']['operations'] ?? [];
-        if (!\in_array($operation, $allowedOps, true)) {
-            return $this->methodNotAllowed($operation);
+        if ($operation !== 'userinfo') {
+            $allowedOps = $config['general']['operations'] ?? [];
+            if (!\in_array($operation, $allowedOps, true)) {
+                return $this->methodNotAllowed($operation);
+            }
         }
 
-        $existingRecord = [];
-        if ($uid !== null && ($operation === 'update' || $operation === 'delete')) {
-            $existingRecord = $this->dataRepository->findById($config['general']['table'], $uid, $config) ?? [];
-            if ($existingRecord === []) {
-                return $this->notFound();
+        $existingRecord = $this->resolveExistingRecord($operation, $uid, $config);
+        if ($existingRecord === false) {
+            return $this->notFound();
+        }
+
+        $accessError = $this->checkAccess($operation, $request, $config, $existingRecord);
+        if ($accessError !== null) {
+            return $accessError;
+        }
+
+        $this->eventDispatcher->dispatch(new BeforeOperationEvent($operation, $request, $config));
+
+        $request = $this->withRequestAttributes($request, $method, $uid, $operation, $config);
+
+        foreach (HandlerRegistry::getHandlers() as $handler) {
+            if ($handler->supports($request, $operation, $config)) {
+                return $handler->handle($request, $config);
             }
+        }
+
+        return $this->methodNotAllowed($operation);
+    }
+
+    private function resolveOperation(string $method, ?int $uid, array $config): ?string
+    {
+        if (($config['general']['type'] ?? '') === 'userinfo') {
+            return $method === 'GET' ? 'userinfo' : null;
+        }
+
+        return match ($method) {
+            'GET'         => $uid !== null ? 'show' : 'list',
+            'POST'        => $uid === null ? 'create' : null,
+            'PUT', 'PATCH' => $uid !== null ? 'update' : null,
+            'DELETE'      => $uid !== null ? 'delete' : null,
+            default       => null,
+        };
+    }
+
+    /**
+     * Returns the existing record for update/delete, an empty array when no lookup is needed,
+     * or false when the record does not exist (→ 404).
+     */
+    private function resolveExistingRecord(string $operation, ?int $uid, array $config): array|false
+    {
+        if ($uid === null || !\in_array($operation, ['update', 'delete'], true)) {
+            return [];
+        }
+
+        return $this->dataRepository->findById($config['general']['table'], $uid, $config) ?? false;
+    }
+
+    private function checkAccess(string $operation, ServerRequestInterface $request, array $config, array $existingRecord): ?ResponseInterface
+    {
+        if ($operation === 'userinfo') {
+            $feUser = $request->getAttribute('frontend.user');
+            if ($feUser === null || empty($feUser->user['uid'])) {
+                return $this->forbidden('userinfo');
+            }
+            return null;
         }
 
         $requiredRole = $config['security'][$operation] ?? AccessRole::PUBLIC;
@@ -102,34 +123,27 @@ class RequestDispatcher
             return $this->forbidden($operation);
         }
 
-        $this->eventDispatcher->dispatch(new BeforeOperationEvent($operation, $request, $config));
-
-        $params = $request->getQueryParams();
-        $fields = \is_array($params['fields'] ?? null) ? $params['fields'] : [];
-
-        return match ($operation) {
-            'list'   => $this->handleCollection($request, $config, $fields),
-            'show'   => $this->itemHandler->handle($request, $config, $uid, $fields),
-            'create' => $this->createHandler->handle($request, $config),
-            'update' => $this->updateHandler->handle($request, $config, $uid, $method === 'PATCH'),
-            'delete' => $this->deleteHandler->handle($request, $config, $uid),
-        };
+        return null;
     }
 
-    private function handleCollection(ServerRequestInterface $request, array $config, array $fields): ResponseInterface
+    private function withRequestAttributes(ServerRequestInterface $request, string $method, ?int $uid, string $operation, array $config): ServerRequestInterface
     {
         $params = $request->getQueryParams();
-        $page = max(1, (int)($params['page'] ?? 1));
-        $itemsPerPage = max(1, (int)($params['itemsPerPage'] ?? $config['general']['itemsPerPage'] ?? 20));
-        $filters = \is_array($params['filters'] ?? null) ? $params['filters'] : [];
-        $order = \is_array($params['order'] ?? null) ? $params['order'] : [];
 
-        return $this->collectionHandler->handle($request, $config, $page, $itemsPerPage, $filters, $order, $fields);
+        return $request
+            ->withAttribute('tca_api.uid', $uid)
+            ->withAttribute('tca_api.operation', $operation)
+            ->withAttribute('tca_api.fields', \is_array($params['fields'] ?? null) ? $params['fields'] : [])
+            ->withAttribute('tca_api.page', max(1, (int)($params['page'] ?? 1)))
+            ->withAttribute('tca_api.items_per_page', max(1, (int)($params['itemsPerPage'] ?? $config['general']['itemsPerPage'] ?? 20)))
+            ->withAttribute('tca_api.filters', \is_array($params['filters'] ?? null) ? $params['filters'] : [])
+            ->withAttribute('tca_api.order', \is_array($params['order'] ?? null) ? $params['order'] : [])
+            ->withAttribute('tca_api.partial', $method === 'PATCH');
     }
 
     private function serveOpenApiSpec(): ResponseInterface
     {
-        $spec = $this->openApiBuilder->build();
+        $spec     = $this->openApiBuilder->build();
         $response = $this->responseFactory->createResponse(200)
             ->withHeader('Content-Type', 'application/json');
         $response->getBody()->write((string)json_encode($spec, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));

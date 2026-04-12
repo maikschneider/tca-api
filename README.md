@@ -22,6 +22,7 @@ TCA API is a TYPO3 extension that exposes database tables as **Hydra JSON-LD** r
 - **Userinfo endpoint** — Expose the authenticated FE user's own record at a configurable URL
 - **PSR-14 events** — Hook into the request lifecycle with Before/AfterOperation and Before/AfterWrite events
 - **TYPO3 DataHandler** — Write operations use TYPO3's DataHandler for safe, consistent data manipulation
+- **Extensible handler pipeline** — Register custom operation handlers or override built-in ones from any extension
 
 ## Requirements
 
@@ -322,6 +323,87 @@ services:
           identifier: 'my-extension/enrich-article'
           event: MaikSchneider\TcaApi\Event\AfterOperationEvent
 ```
+
+## Custom operation handlers
+
+The dispatcher routes each request through a **handler pipeline** — a prioritised list of objects that implement `OperationHandlerInterface`. Built-in handlers cover `list`, `show`, `create`, `update`, `delete`, and `userinfo`. Third-party extensions can add new operation types or replace built-in behaviour by registering their own handlers.
+
+### Interface
+
+```php
+use MaikSchneider\TcaApi\OperationHandler\OperationHandlerInterface;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+
+interface OperationHandlerInterface
+{
+    public function supports(ServerRequestInterface $request, string $operation, array $config): bool;
+    public function handle(ServerRequestInterface $request, array $config): ResponseInterface;
+    public function getPriority(): int;
+}
+```
+
+### Request attributes
+
+Before the handler loop, the dispatcher sets the following attributes on the PSR-7 request:
+
+| Attribute | Type | Description |
+|---|---|---|
+| `tca_api.uid` | `int\|null` | UID from the URL segment |
+| `tca_api.operation` | `string` | Resolved operation name |
+| `tca_api.fields` | `array` | `?fields[]=…` sparse-fieldset param |
+| `tca_api.page` | `int` | Pagination page (≥ 1) |
+| `tca_api.items_per_page` | `int` | Items per page |
+| `tca_api.filters` | `array` | Raw `?filters[…]=…` params |
+| `tca_api.order` | `array` | Raw `?order[…]=asc\|desc` params |
+| `tca_api.partial` | `bool` | `true` for PATCH (partial update) |
+
+### Writing a custom handler
+
+```php
+use MaikSchneider\TcaApi\OperationHandler\OperationHandlerInterface;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
+
+#[Autoconfigure(public: true)]
+class PublishHandler implements OperationHandlerInterface
+{
+    public function supports(ServerRequestInterface $request, string $operation, array $config): bool
+    {
+        return $operation === 'publish'
+            && ($config['general']['table'] ?? '') === 'tx_myext_domain_model_article';
+    }
+
+    public function handle(ServerRequestInterface $request, array $config): ResponseInterface
+    {
+        $uid = (int)$request->getAttribute('tca_api.uid');
+        // … publish logic …
+    }
+
+    public function getPriority(): int
+    {
+        return 10;
+    }
+}
+```
+
+### Registering handlers
+
+Register handlers in your extension's `ext_localconf.php`. The dispatcher iterates handlers **highest priority first** and dispatches to the first match, so setting a higher priority than the built-in `10` overrides a built-in handler for a given operation.
+
+```php
+use MaikSchneider\TcaApi\Registry\HandlerRegistry;
+use My\Extension\OperationHandler\PublishHandler;
+
+// New operation type — priority 10 (default)
+HandlerRegistry::register(PublishHandler::class);
+
+// Override a built-in handler — checked before the built-in (priority 20 > 10)
+HandlerRegistry::register(MyCustomShowHandler::class, priority: 20);
+```
+
+The `HandlerRegistry` uses TYPO3's DI container via `GeneralUtility::makeInstance()`, so constructor dependencies are injected automatically. The `#[Autoconfigure(public: true)]` attribute on the class is required for the container to expose the service.
 
 ## Development
 

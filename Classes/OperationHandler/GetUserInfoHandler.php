@@ -13,6 +13,7 @@ use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 
 /**
  * Handles GET /_api/{userinfo-resource} — returns the authenticated FE user as a JSON-LD item.
@@ -20,7 +21,8 @@ use Psr\Http\Message\ServerRequestInterface;
  * The UID is read from the authenticated frontend user in the request, not from the URL.
  * Access control is enforced by the dispatcher before this handler is called.
  */
-class GetUserInfoHandler
+#[Autoconfigure(public: true)]
+class GetUserInfoHandler implements OperationHandlerInterface
 {
     public function __construct(
         private readonly DataRepository $dataRepository,
@@ -32,7 +34,24 @@ class GetUserInfoHandler
     ) {
     }
 
-    public function handle(ServerRequestInterface $request, array $config, array $fields = []): ResponseInterface
+    public function supports(ServerRequestInterface $request, string $operation, array $config): bool
+    {
+        return $operation === 'userinfo';
+    }
+
+    public function handle(ServerRequestInterface $request, array $config): ResponseInterface
+    {
+        $fields = (array)$request->getAttribute('tca_api.fields', []);
+
+        return $this->doHandle($request, $config, $fields);
+    }
+
+    public function getPriority(): int
+    {
+        return 10;
+    }
+
+    private function doHandle(ServerRequestInterface $request, array $config, array $fields): ResponseInterface
     {
         $feUser = $request->getAttribute('frontend.user');
         $uid    = (int)($feUser->user['uid'] ?? 0);

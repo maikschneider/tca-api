@@ -14,10 +14,13 @@ use MaikSchneider\TcaApi\Validation\FieldValidator;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 
-class CreateHandler
+#[Autoconfigure(public: true)]
+class CreateHandler implements OperationHandlerInterface
 {
     use ColumnFilterTrait;
+
     public function __construct(
         private readonly DataWriteService $writeService,
         private readonly DataRepository $dataRepository,
@@ -28,9 +31,14 @@ class CreateHandler
     ) {
     }
 
+    public function supports(ServerRequestInterface $request, string $operation, array $config): bool
+    {
+        return $operation === 'create';
+    }
+
     public function handle(ServerRequestInterface $request, array $config): ResponseInterface
     {
-        $raw = (string)$request->getBody();
+        $raw  = (string)$request->getBody();
         $body = $raw !== '' ? (json_decode($raw, true, 512, JSON_THROW_ON_ERROR) ?? []) : [];
 
         $violations = $this->fieldValidator->validate($body, $config);
@@ -38,10 +46,10 @@ class CreateHandler
             return $this->hydraResponseBuilder->buildValidationError($violations);
         }
 
-        $data = $this->filterWritableColumns($body, $config);
+        $data        = $this->filterWritableColumns($body, $config);
         $data['pid'] = $config['general']['defaultPid'] ?? 1;
 
-        $table = $config['general']['table'];
+        $table       = $config['general']['table'];
         $beforeEvent = new BeforeWriteEvent($table, 'create', $data);
         $this->eventDispatcher->dispatch($beforeEvent);
         $data = $beforeEvent->getData();
@@ -50,12 +58,16 @@ class CreateHandler
         $this->eventDispatcher->dispatch(new AfterWriteEvent($table, 'create', $uid));
         $row = $this->dataRepository->findById($table, $uid, $config);
 
-        $baseUrl = '/_api/' . $config['general']['resourceName'];
-
+        $baseUrl  = '/_api/' . $config['general']['resourceName'];
         $location = $baseUrl . '/' . $uid;
 
         return $this->hydraResponseBuilder->buildItem(
             $this->serializer->serialize($row, $config, $baseUrl),
         )->withStatus(201)->withHeader('Location', $location);
+    }
+
+    public function getPriority(): int
+    {
+        return 10;
     }
 }

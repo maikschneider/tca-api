@@ -12,8 +12,10 @@ use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 
-class DeleteHandler
+#[Autoconfigure(public: true)]
+class DeleteHandler implements OperationHandlerInterface
 {
     public function __construct(
         private readonly DataWriteService $writeService,
@@ -23,7 +25,24 @@ class DeleteHandler
     ) {
     }
 
-    public function handle(ServerRequestInterface $request, array $config, int $uid): ResponseInterface
+    public function supports(ServerRequestInterface $request, string $operation, array $config): bool
+    {
+        return $operation === 'delete';
+    }
+
+    public function handle(ServerRequestInterface $request, array $config): ResponseInterface
+    {
+        $uid = (int)$request->getAttribute('tca_api.uid');
+
+        return $this->doHandle($config, $uid);
+    }
+
+    public function getPriority(): int
+    {
+        return 10;
+    }
+
+    private function doHandle(array $config, int $uid): ResponseInterface
     {
         $table = $config['general']['table'];
 

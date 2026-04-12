@@ -12,8 +12,10 @@ use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 
-class GetCollectionHandler
+#[Autoconfigure(public: true)]
+class GetCollectionHandler implements OperationHandlerInterface
 {
     public function __construct(
         private readonly DataRepository $dataRepository,
@@ -24,12 +26,28 @@ class GetCollectionHandler
     ) {
     }
 
-    public function supports(string $httpMethod, string $operation): bool
+    public function supports(ServerRequestInterface $request, string $operation, array $config): bool
     {
-        return $httpMethod === 'GET' && $operation === 'list';
+        return $operation === 'list';
     }
 
-    public function handle(
+    public function handle(ServerRequestInterface $request, array $config): ResponseInterface
+    {
+        $page         = (int)$request->getAttribute('tca_api.page', 1);
+        $itemsPerPage = (int)$request->getAttribute('tca_api.items_per_page', 20);
+        $filters      = (array)$request->getAttribute('tca_api.filters', []);
+        $order        = (array)$request->getAttribute('tca_api.order', []);
+        $fields       = (array)$request->getAttribute('tca_api.fields', []);
+
+        return $this->doHandle($request, $config, $page, $itemsPerPage, $filters, $order, $fields);
+    }
+
+    public function getPriority(): int
+    {
+        return 10;
+    }
+
+    private function doHandle(
         ServerRequestInterface $request,
         array $config,
         int $page,
@@ -38,17 +56,17 @@ class GetCollectionHandler
         array $order = [],
         array $fields = [],
     ): ResponseInterface {
-        $table = $config['general']['table'];
+        $table   = $config['general']['table'];
         $baseUrl = '/_api/' . $config['general']['resourceName'];
-        $offset = ($page - 1) * $itemsPerPage;
+        $offset  = ($page - 1) * $itemsPerPage;
 
         $safeFilters = $this->resolveFilters($filters, $config);
-        $safeOrder = $this->resolveOrder($order, $config);
+        $safeOrder   = $this->resolveOrder($order, $config);
 
-        $total = $this->dataRepository->count($table, $safeFilters, $config);
-        $rows = $this->dataRepository->findCollection($table, $safeFilters, $itemsPerPage, $offset, $safeOrder, $config);
+        $total     = $this->dataRepository->count($table, $safeFilters, $config);
+        $rows      = $this->dataRepository->findCollection($table, $safeFilters, $itemsPerPage, $offset, $safeOrder, $config);
         $preloaded = $this->embedPreloader->preload($rows, $config);
-        $members = $this->serializer->serializeCollection($rows, $config, $baseUrl, $fields, $preloaded);
+        $members   = $this->serializer->serializeCollection($rows, $config, $baseUrl, $fields, $preloaded);
 
         $event = new AfterOperationEvent('list', $members);
         $this->eventDispatcher->dispatch($event);
@@ -56,15 +74,10 @@ class GetCollectionHandler
         return $this->hydraResponseBuilder->buildCollection($event->getData(), $total, $baseUrl, $page, $itemsPerPage);
     }
 
-    public function getPriority(): int
-    {
-        return 10;
-    }
-
     private function resolveFilters(array $requested, array $config): array
     {
         $declared = $config['filters'] ?? [];
-        $safe = [];
+        $safe     = [];
         foreach ($requested as $column => $value) {
             if (isset($declared[$column])) {
                 $safe[$column] = array_merge($declared[$column], [
