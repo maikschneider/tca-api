@@ -1,7 +1,13 @@
 {
 	"name": "tca-api",
 	"private": true,
+	"dependencies": {
+		"swagger-ui-dist": "^5"
+	},
 	"devDependencies": {
 		"@stoplight/spectral-cli": "^6"
+	},
+	"scripts": {
+		"build": "mkdir -p Resources/Public/SwaggerUI && cp node_modules/swagger-ui-dist/swagger-ui.css node_modules/swagger-ui-dist/swagger-ui-bundle.js node_modules/swagger-ui-dist/swagger-ui-standalone-preset.js Resources/Public/SwaggerUI/"
 	}
 }

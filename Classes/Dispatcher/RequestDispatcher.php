@@ -18,18 +18,20 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Core\Site\Entity\SiteSettings;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
+use TYPO3\CMS\Core\Utility\PathUtility;
 
 class RequestDispatcher
 {
     private const DEFAULT_ITEMS_PER_PAGE = 20;
+    private const RESOURCE_OPENAPI = 'openapi.json';
+    private const RESOURCE_SWAGGER_UI = 'swagger-ui';
 
     public function __construct(
         private readonly ResponseFactoryInterface $responseFactory,
         private readonly AccessController $accessController,
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly EventDispatcherInterface $eventDispatcher,
-        private readonly DataRepository $dataRepository,
-        private readonly OpenApiBuilder $openApiBuilder,
+        private readonly DataRepository $dataRepository
     ) {
     }
 
@@ -41,16 +43,30 @@ class RequestDispatcher
         $resource      = $segments[0] ?? '';
         $uid           = isset($segments[1]) && $segments[1] !== '' ? (int)$segments[1] : null;
 
-        if ($resource === 'openapi.json') {
+        if ($resource === self::RESOURCE_OPENAPI) {
             if ($method !== 'GET') {
                 return $this->methodNotAllowed();
             }
 
-            if (!$siteSettings->get('tca_api.openApiExposed', true)) {
+            $role = AccessRole::tryFrom((string)$siteSettings->get('tca_api.openApiExposed', 'PUBLIC'));
+            if ($role === null || !$this->accessController->isAllowed($role, $request)) {
                 return $this->notFound();
             }
 
-            return $this->serveOpenApiSpec();
+            return $this->serveOpenApiSpec($siteSettings);
+        }
+
+        if ($resource === self::RESOURCE_SWAGGER_UI) {
+            if ($method !== 'GET') {
+                return $this->methodNotAllowed();
+            }
+
+            $role = AccessRole::tryFrom((string)$siteSettings->get('tca_api.swaggerUiEnabled', 'NONE'));
+            if ($role === null || !$this->accessController->isAllowed($role, $request)) {
+                return $this->notFound();
+            }
+
+            return $this->serveSwaggerUi($prefixWithout);
         }
 
         if (!$this->isResourceAllowed($resource, $siteSettings)) {
@@ -165,12 +181,54 @@ class RequestDispatcher
             ->withAttribute('tca_api.partial', $method === 'PATCH');
     }
 
-    private function serveOpenApiSpec(): ResponseInterface
+    private function serveOpenApiSpec(SiteSettings $siteSettings): ResponseInterface
     {
-        $spec     = $this->openApiBuilder->build();
+        $openApiBuilder = new OpenApiBuilder($siteSettings);
+        $spec     = $openApiBuilder->build();
         $response = $this->responseFactory->createResponse(200)
             ->withHeader('Content-Type', 'application/json');
         $response->getBody()->write((string)json_encode($spec, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        return $response;
+    }
+
+    private function serveSwaggerUi(string $apiPrefixWithout): ResponseInterface
+    {
+        $openApiUrl = json_encode($apiPrefixWithout . '/openapi.json');
+        $cssUrl     = PathUtility::getPublicResourceWebPath('EXT:tca_api/Resources/Public/SwaggerUI/swagger-ui.css');
+        $jsUrl      = PathUtility::getPublicResourceWebPath('EXT:tca_api/Resources/Public/SwaggerUI/swagger-ui-bundle.js');
+
+        $html = <<<HTML
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>API Documentation</title>
+                <link rel="stylesheet" href="{$cssUrl}">
+                <style>
+                    body { margin: 0; }
+                    .swagger-ui .topbar { display: none; }
+                </style>
+            </head>
+            <body>
+            <div id="swagger-ui"></div>
+            <script src="{$jsUrl}"></script>
+            <script>
+                SwaggerUIBundle({
+                    url: {$openApiUrl},
+                    dom_id: '#swagger-ui',
+                    presets: [SwaggerUIBundle.presets.apis],
+                    layout: 'BaseLayout',
+                    deepLinking: true
+                });
+            </script>
+            </body>
+            </html>
+            HTML;
+
+        $response = $this->responseFactory->createResponse(200)
+            ->withHeader('Content-Type', 'text/html; charset=utf-8');
+        $response->getBody()->write($html);
         return $response;
     }
 

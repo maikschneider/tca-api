@@ -6,21 +6,27 @@ namespace MaikSchneider\TcaApi\OpenApi;
 
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
+use TYPO3\CMS\Core\Site\Entity\SiteSettings;
 
-class OpenApiBuilder
+readonly class OpenApiBuilder
 {
-    private const API_PREFIX = '/_api';
+    public function __construct(private SiteSettings $settings)
+    {
+    }
 
     public function build(): array
     {
         $resources = ApiRegistry::getAll();
 
+        $info = [
+            'title' => $this->settings->get('tca_api.apiSpecTitle'),
+            'version' => $this->settings->get('tca_api.apiSpecVersion'),
+            'description' => $this->settings->get('tca_api.apiSpecDescription'),
+        ];
+
         $spec = [
             'openapi' => '3.1.0',
-            'info' => [
-                'title' => 'TCA API',
-                'version' => '1.0.0',
-            ],
+            'info' => $info,
             'paths' => $this->buildPaths($resources),
             'components' => [
                 'schemas' => $this->buildSchemas($resources),
@@ -36,8 +42,8 @@ class OpenApiBuilder
 
         foreach ($resources as $resourceName => $config) {
             $operations = $config['general']['operations'] ?? [];
-            $collectionPath = self::API_PREFIX . '/' . $resourceName;
-            $itemPath = self::API_PREFIX . '/' . $resourceName . '/{uid}';
+            $collectionPath = $this->settings->get('tca_api.apiPrefix') . $resourceName;
+            $itemPath = $this->settings->get('tca_api.apiPrefix') . $resourceName . '/{uid}';
             $resourceType = $config['general']['resourceType'] ?? $resourceName;
 
             $collectionItem = [];

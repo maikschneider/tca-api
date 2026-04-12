@@ -7,6 +7,10 @@ categories:
     label: 'General'
     parent: TcaApi
 
+  TcaApi.apiSpec:
+    label: 'API Spec'
+    parent: TcaApi
+
   TcaApi.cors:
     label: 'CORS'
     parent: TcaApi
@@ -26,13 +30,6 @@ settings:
     category: TcaApi.general
     type: string
     default: '/_api/'
-
-  tca_api.openApiExposed:
-    label: 'Expose OpenAPI Spec'
-    description: 'Expose the OpenAPI JSON specification at {apiPrefix}openapi.json.'
-    category: TcaApi.general
-    type: bool
-    default: true
 
   tca_api.defaultItemsPerPage:
     label: 'Default Items Per Page'
@@ -54,6 +51,53 @@ settings:
     category: TcaApi.general
     type: bool
     default: false
+
+  tca_api.openApiExposed:
+    label: 'OpenAPI Spec Access'
+    description: 'Who may access the OpenAPI JSON spec at {apiPrefix}openapi.json.'
+    category: TcaApi.apiSpec
+    type: string
+    enum:
+      PUBLIC: 'Public (everyone)'
+      FE_USER: 'Frontend users'
+      BE_USER: 'Backend users'
+      BE_ADMIN: 'Backend admins'
+      NONE: 'Disabled'
+    default: 'PUBLIC'
+
+  tca_api.apiSpecTitle:
+    label: 'API Title'
+    description: 'Title shown in the OpenAPI spec info block and Swagger UI header. Defaults to "TCA API".'
+    category: TcaApi.apiSpec
+    type: string
+    default: 'TCA API'
+
+  tca_api.apiSpecDescription:
+    label: 'API Description'
+    description: 'Short description shown in the OpenAPI spec info block and Swagger UI.'
+    category: TcaApi.apiSpec
+    type: string
+    default: ''
+
+  tca_api.apiSpecVersion:
+    label: 'API Version'
+    description: 'Version string for the OpenAPI spec info block. Defaults to "1.0.0".'
+    category: TcaApi.apiSpec
+    type: string
+    default: '1.0.0'
+
+  tca_api.swaggerUiEnabled:
+    label: 'Swagger UI Access'
+    description: 'Who may access the interactive Swagger UI at {apiPrefix}swagger-ui.'
+    category: TcaApi.apiSpec
+    type: string
+    enum:
+      PUBLIC: 'Public (everyone)'
+      FE_USER: 'Frontend users'
+      BE_USER: 'Backend users'
+      BE_ADMIN: 'Backend admins'
+      NONE: 'Disabled'
+    default: 'NONE'
 
   tca_api.corsEnabled:
     label: 'Enable CORS'
