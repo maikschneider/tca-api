@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Loader;
 
+use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Finder\Finder;
 use TYPO3\CMS\Core\Cache\Frontend\PhpFrontend;
 use TYPO3\CMS\Core\Package\Cache\PackageDependentCacheIdentifier;
-use TYPO3\CMS\Core\Package\PackageManager;
 
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
+use TYPO3\CMS\Core\Package\PackageManager;
 
 #[Autoconfigure(public: true)]
 final readonly class ApiDefinitionLoader
@@ -20,7 +20,8 @@ final readonly class ApiDefinitionLoader
         private PackageManager $packageManager,
         #[Autowire(service: 'cache.core')]
         private PhpFrontend $cache,
-    ) {}
+    ) {
+    }
 
     public function load(): void
     {
