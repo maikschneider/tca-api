@@ -158,14 +158,14 @@ final class DataWriteService
 
             if (!\is_array($item)) {
                 throw new \InvalidArgumentException(
-                    sprintf('Invalid relation item for %s.%s: expected numeric UID or array payload, got %s.', $table, $field, get_debug_type($item)),
+                    sprintf('Invalid relation item for %s.%s: expected numeric UID or array payload for a new related record, got %s.', $table, $field, get_debug_type($item)),
                 );
             }
 
             if (isset($item['uid'])) {
                 if (!is_numeric($item['uid'])) {
                     throw new \InvalidArgumentException(
-                        sprintf('Invalid relation uid for %s.%s: expected numeric uid.', $table, $field),
+                        sprintf('Invalid relation UID for %s.%s: expected numeric UID.', $table, $field),
                     );
                 }
                 $tokens[] = (int)$item['uid'];
@@ -178,7 +178,7 @@ final class DataWriteService
 
             $newRecordData = $item;
             if (!isset($newRecordData['pid']) || !is_numeric($newRecordData['pid'])) {
-                $newRecordData['pid'] = max(0, $parentPid);
+                $newRecordData['pid'] = $parentPid >= 0 ? $parentPid : 0;
             } else {
                 $newRecordData['pid'] = (int)$newRecordData['pid'];
             }
