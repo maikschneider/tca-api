@@ -20,6 +20,7 @@ TCA API is a TYPO3 extension that exposes database tables as **Hydra JSON-LD** r
 - **Access control** — Per-operation roles: `PUBLIC`, `FE_USER`, `BE_USER`, `BE_ADMIN`, or custom callables
 - **Relation handling** — Shallow stubs or fully embedded related records (configurable depth)
 - **Userinfo endpoint** — Expose the authenticated FE user's own record at a configurable URL
+- **OpenAPI + Swagger UI** — Auto-generated OpenAPI 3.0 spec and interactive Swagger UI served directly from the API prefix
 - **PSR-14 events** — Hook into the request lifecycle with Before/AfterOperation and Before/AfterWrite events
 - **TYPO3 DataHandler** — Write operations use TYPO3's DataHandler for safe, consistent data manipulation
 - **Extensible handler pipeline** — Register custom operation handlers or override built-in ones from any extension
@@ -37,23 +38,37 @@ TCA API is a TYPO3 extension that exposes database tables as **Hydra JSON-LD** r
 composer require maikschneider/tca-api
 ```
 
-## Quick start
+## Site set
 
-### 1. Register a resource
+The extension ships a TYPO3 **site set** (`maikschneider/tca-api`). Add it to your site's `config/sites/<site>/config.yaml`:
 
-In your extension's `ext_localconf.php`:
-
-```php
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
-use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
-
-ApiRegistry::register(
-    'articles',
-    require ExtensionManagementUtility::extPath('my_extension') . 'Configuration/TcaApi/Articles.php',
-);
+```yaml
+dependencies:
+  - maikschneider/tca-api
 ```
 
-### 2. Create the resource configuration
+This exposes the following site settings, configurable per site in the TYPO3 backend under **Site Management → Sites → Settings**:
+
+| Setting | Default | Description |
+|---|---|---|
+| `tca_api.enabled` | `true` | Enable or disable the API for this site |
+| `tca_api.apiPrefix` | `/_api/` | URL prefix for all API endpoints |
+| `tca_api.defaultItemsPerPage` | `20` | Default page size for collection responses |
+| `tca_api.allowedResources` | *(empty — all)* | Comma-separated list of resource names to expose; empty allows all |
+| `tca_api.debugMode` | `false` | Return verbose error details in responses |
+| `tca_api.openApiExposed` | `PUBLIC` | Who may access the OpenAPI spec (`PUBLIC`, `FE_USER`, `BE_USER`, `BE_ADMIN`, `NONE`) |
+| `tca_api.apiSpecTitle` | `TCA API` | Title shown in the OpenAPI spec and Swagger UI |
+| `tca_api.apiSpecDescription` | *(empty)* | Description shown in the OpenAPI spec and Swagger UI |
+| `tca_api.apiSpecVersion` | `1.0.0` | Version string in the OpenAPI spec info block |
+| `tca_api.swaggerUiEnabled` | `PUBLIC` | Who may access the Swagger UI (`PUBLIC`, `FE_USER`, `BE_USER`, `BE_ADMIN`, `NONE`) |
+| `tca_api.corsEnabled` | `false` | Add CORS headers to API responses |
+| `tca_api.corsOrigin` | `*` | Value for `Access-Control-Allow-Origin` |
+
+## Quick start
+
+### 1. Create the resource configuration
+
+Place a PHP file in `Configuration/TcaApi/` inside any active TYPO3 extension. **No manual registration is needed** — the extension auto-discovers all `*.php` files from every active package's `Configuration/TcaApi/` directory at boot time and caches the result.
 
 Create `Configuration/TcaApi/Articles.php` in your extension:
 
@@ -102,7 +117,7 @@ return [
 ];
 ```
 
-### 3. Use the API
+### 2. Use the API
 
 All resources are served under the `/_api/` prefix:
 
@@ -114,6 +129,17 @@ PUT    /_api/articles/1            → Full update
 PATCH  /_api/articles/1            → Partial update
 DELETE /_api/articles/1            → Delete item
 ```
+
+## OpenAPI spec & Swagger UI
+
+The extension generates a live **OpenAPI 3.0 JSON spec** from the registered resources and exposes two additional endpoints:
+
+| Endpoint | Description |
+|---|---|
+| `{apiPrefix}openapi.json` | Machine-readable OpenAPI spec (e.g. `/_api/openapi.json`) |
+| `{apiPrefix}swagger-ui` | Interactive Swagger UI (e.g. `/_api/swagger-ui`) |
+
+Access to both endpoints is controlled by the `tca_api.openApiExposed` and `tca_api.swaggerUiEnabled` site settings respectively. Both default to `PUBLIC`.
 
 ## Configuration reference
 
