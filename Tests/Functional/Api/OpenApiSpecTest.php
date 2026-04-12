@@ -41,4 +41,10 @@ final class OpenApiSpecTest extends ApiFunctionalTestCase
 
         self::assertSame(0, $exitCode, "Spectral validation failed:\n" . implode("\n", $output));
     }
+
+    public function testPostToOpenApiReturns405(): void
+    {
+        $response = $this->executeApiWriteRequest('POST', '/_api/openapi.json');
+        self::assertSame(405, $response->getStatusCode());
+    }
 }
