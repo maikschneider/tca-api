@@ -189,7 +189,7 @@ final class FrontendGroupAccessTest extends ApiFunctionalTestCase
 
     // ── 403 response format ───────────────────────────────────────────────────
 
-    public function test403ResponseHasJsonLdContentType(): void
+    public function test403ResponseFormatIsHydraError(): void
     {
         ApiRegistry::register(self::RESOURCE, array_merge(self::BASE_CONFIG, [
             'security' => ['show' => [AccessRole::FE_GROUP, [1]]],
@@ -200,21 +200,8 @@ final class FrontendGroupAccessTest extends ApiFunctionalTestCase
             (new InternalRequestContext())->withFrontendUserId(21), // group 2, not group 1
         );
 
-        self::assertStringContainsString('application/ld+json', $response->getHeaderLine('Content-Type'));
-    }
-
-    public function test403ResponseBodyIsHydraError(): void
-    {
-        ApiRegistry::register(self::RESOURCE, array_merge(self::BASE_CONFIG, [
-            'security' => ['show' => [AccessRole::FE_GROUP, [1]]],
-        ]));
-
-        $response = $this->executeFrontendSubRequest(
-            new InternalRequest('http://localhost/_api/' . self::RESOURCE . '/1'),
-            (new InternalRequestContext())->withFrontendUserId(21),
-        );
-
         $body = $this->decodeResponseBody($response);
+        self::assertStringContainsString('application/ld+json', $response->getHeaderLine('Content-Type'));
         self::assertSame('hydra:Error', $body['@type']);
     }
 }

@@ -83,11 +83,15 @@ final class OperationsEnforcementTest extends ApiFunctionalTestCase
 
     // ── Read-only resource: disabled write operations → 405 ───────────────────
 
-    public function testReadOnlyReturns405ForPost(): void
+    public function testReadOnlyReturns405ForPostWithHydraError(): void
     {
         $response = $this->executeApiWriteRequest('POST', '/_api/' . self::READONLY, ['title' => 'Test']);
+        $body = $this->decodeResponseBody($response);
 
         self::assertSame(405, $response->getStatusCode());
+        self::assertStringContainsString('application/ld+json', $response->getHeaderLine('Content-Type'));
+        self::assertSame('hydra:Error', $body['@type']);
+        self::assertStringContainsString('create', $body['hydra:description']);
     }
 
     public function testReadOnlyReturns405ForPut(): void
@@ -150,28 +154,5 @@ final class OperationsEnforcementTest extends ApiFunctionalTestCase
         self::assertSame(405, $response->getStatusCode());
     }
 
-    // ── 405 response body format ──────────────────────────────────────────────
 
-    public function testDisabledOperationResponseHasJsonLdContentType(): void
-    {
-        $response = $this->executeApiWriteRequest('POST', '/_api/' . self::READONLY, ['title' => 'Test']);
-
-        self::assertStringContainsString('application/ld+json', $response->getHeaderLine('Content-Type'));
-    }
-
-    public function testDisabledOperationResponseBodyIsHydraError(): void
-    {
-        $response = $this->executeApiWriteRequest('POST', '/_api/' . self::READONLY, ['title' => 'Test']);
-        $body = $this->decodeResponseBody($response);
-
-        self::assertSame('hydra:Error', $body['@type']);
-    }
-
-    public function testDisabledOperationResponseBodyMentionsOperation(): void
-    {
-        $response = $this->executeApiWriteRequest('POST', '/_api/' . self::READONLY, ['title' => 'Test']);
-        $body = $this->decodeResponseBody($response);
-
-        self::assertStringContainsString('create', $body['hydra:description']);
-    }
 }

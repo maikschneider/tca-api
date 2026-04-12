@@ -73,7 +73,7 @@ final class HasManyEmbedTest extends ApiFunctionalTestCase
 
     // ── Without embed: stubs ──────────────────────────────────────────────────
 
-    public function testHasManyWithoutEmbedConfigReturnsStubs(): void
+    public function testHasManyWithoutEmbedReturnsStubsWithoutTitle(): void
     {
         $this->registerCategoryResource();
         $this->registerArticleResource();
@@ -88,11 +88,14 @@ final class HasManyEmbedTest extends ApiFunctionalTestCase
         self::assertArrayHasKey('@type', $body['categories'][0]);
         self::assertArrayHasKey('uid', $body['categories'][0]);
         self::assertArrayNotHasKey('title', $body['categories'][0]);
+        foreach ($body['categories'] as $stub) {
+            self::assertArrayNotHasKey('title', $stub);
+        }
     }
 
     // ── With embed: full records ───────────────────────────────────────────────
 
-    public function testHasManyWithEmbedConfigReturnsFullRecords(): void
+    public function testHasManyWithEmbedReturnsFullRecordsWithJsonLdFields(): void
     {
         $this->registerCategoryResource();
         $this->registerArticleResource([
@@ -109,23 +112,11 @@ final class HasManyEmbedTest extends ApiFunctionalTestCase
         $titles = array_column($body['categories'], 'title');
         self::assertContains('PHP', $titles);
         self::assertContains('TYPO3', $titles);
-    }
-
-    public function testHasManyEmbeddedItemsHaveJsonLdFields(): void
-    {
-        $this->registerCategoryResource();
-        $this->registerArticleResource([
-            'categories' => ['readable' => true, 'embed' => true],
-        ]);
-
-        $response = $this->executeApiRequest('/_api/hm-articles/1');
-        $body     = $this->decodeResponseBody($response);
 
         $cat = $body['categories'][0];
         self::assertArrayHasKey('@id', $cat);
         self::assertArrayHasKey('@type', $cat);
         self::assertArrayHasKey('uid', $cat);
-        // resourceType comes from the globally registered sys-categories config
         self::assertSame('SysCategory', $cat['@type']);
         self::assertStringStartsWith('/_api/', $cat['@id']);
     }
@@ -193,20 +184,5 @@ final class HasManyEmbedTest extends ApiFunctionalTestCase
         self::assertArrayHasKey('title', $body['categories'][0]);
     }
 
-    // ── Embed: title only present when embed is configured ────────────────────
 
-    public function testHasManyStubsDoNotContainTitle(): void
-    {
-        $this->registerCategoryResource();
-        $this->registerArticleResource(); // no embed — stubs only
-
-        $response = $this->executeApiRequest('/_api/hm-articles/1');
-        $body     = $this->decodeResponseBody($response);
-
-        self::assertSame(200, $response->getStatusCode());
-        // Without embed, categories are stubs — no readable fields like title
-        foreach ($body['categories'] as $stub) {
-            self::assertArrayNotHasKey('title', $stub);
-        }
-    }
 }
