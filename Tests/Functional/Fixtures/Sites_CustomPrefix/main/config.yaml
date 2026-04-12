@@ -16,11 +16,5 @@ rootPageId: 1
 websiteTitle: ''
 settings:
   tca_api:
-    apiPrefix: '/_api/'
+    apiPrefix: '/custom-api/'
     enabled: true
-    openApiExposed: true
-    defaultItemsPerPage: 20
-    allowedResources: ''
-    debugMode: false
-    corsEnabled: false
-    corsOrigin: '*'
