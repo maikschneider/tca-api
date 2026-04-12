@@ -36,199 +36,102 @@ final class EventsTest extends ApiFunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/be_users.csv');
     }
 
-    // ── BeforeOperationEvent ──────────────────────────────────────────────────
+    // ── GET /_api/articles (list) ────────────────────────────────────────────
 
-    public function testBeforeOperationEventFiresOnList(): void
+    public function testEventsOnList(): void
     {
         $this->executeApiRequest('/_api/articles');
 
-        $events = EventCollector::getByClass(BeforeOperationEvent::class);
-        self::assertCount(1, $events);
+        // BeforeOperationEvent fires and carries 'list' operation
+        $beforeOps = EventCollector::getByClass(BeforeOperationEvent::class);
+        self::assertCount(1, $beforeOps);
+        self::assertNotEmpty($beforeOps, 'No BeforeOperationEvent was dispatched.');
+        self::assertSame('list', $beforeOps[0]->getOperation());
+
+        // AfterOperationEvent fires and carries 'list' operation
+        $afterOps = EventCollector::getByClass(AfterOperationEvent::class);
+        self::assertCount(1, $afterOps);
+        self::assertNotEmpty($afterOps, 'No AfterOperationEvent was dispatched.');
+        self::assertSame('list', $afterOps[0]->getOperation());
     }
 
-    public function testBeforeOperationEventCarriesListOperation(): void
-    {
-        $this->executeApiRequest('/_api/articles');
+    // ── GET /_api/articles/1 (show) ──────────────────────────────────────────
 
-        $events = EventCollector::getByClass(BeforeOperationEvent::class);
-        self::assertNotEmpty($events, 'No BeforeOperationEvent was dispatched.');
-        self::assertSame('list', $events[0]->getOperation());
-    }
-
-    public function testBeforeOperationEventFiresOnShow(): void
+    public function testEventsOnShow(): void
     {
         $this->executeApiRequest('/_api/articles/1');
 
-        $events = EventCollector::getByClass(BeforeOperationEvent::class);
-        self::assertCount(1, $events);
+        // BeforeOperationEvent fires and carries 'show' operation
+        $beforeOps = EventCollector::getByClass(BeforeOperationEvent::class);
+        self::assertCount(1, $beforeOps);
+        self::assertNotEmpty($beforeOps, 'No BeforeOperationEvent was dispatched.');
+        self::assertSame('show', $beforeOps[0]->getOperation());
+
+        // AfterOperationEvent fires
+        $afterOps = EventCollector::getByClass(AfterOperationEvent::class);
+        self::assertCount(1, $afterOps);
     }
 
-    public function testBeforeOperationEventCarriesShowOperation(): void
+    // ── POST /_api/articles (create) ─────────────────────────────────────────
+
+    public function testEventsOnCreate(): void
     {
-        $this->executeApiRequest('/_api/articles/1');
-
-        $events = EventCollector::getByClass(BeforeOperationEvent::class);
-        self::assertNotEmpty($events, 'No BeforeOperationEvent was dispatched.');
-        self::assertSame('show', $events[0]->getOperation());
-    }
-
-    public function testBeforeOperationEventFiresOnCreate(): void
-    {
-        $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, ['title' => 'New']);
-
-        $events = EventCollector::getByClass(BeforeOperationEvent::class);
-        self::assertCount(1, $events);
-    }
-
-    public function testBeforeOperationEventCarriesCreateOperation(): void
-    {
-        $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, ['title' => 'New']);
-
-        $events = EventCollector::getByClass(BeforeOperationEvent::class);
-        self::assertNotEmpty($events, 'No BeforeOperationEvent was dispatched.');
-        self::assertSame('create', $events[0]->getOperation());
-    }
-
-    // ── AfterOperationEvent ───────────────────────────────────────────────────
-
-    public function testAfterOperationEventFiresOnList(): void
-    {
-        $this->executeApiRequest('/_api/articles');
-
-        $events = EventCollector::getByClass(AfterOperationEvent::class);
-        self::assertCount(1, $events);
-    }
-
-    public function testAfterOperationEventCarriesListOperation(): void
-    {
-        $this->executeApiRequest('/_api/articles');
-
-        $events = EventCollector::getByClass(AfterOperationEvent::class);
-        self::assertNotEmpty($events, 'No AfterOperationEvent was dispatched.');
-        self::assertSame('list', $events[0]->getOperation());
-    }
-
-    public function testAfterOperationEventFiresOnShow(): void
-    {
-        $this->executeApiRequest('/_api/articles/1');
-
-        $events = EventCollector::getByClass(AfterOperationEvent::class);
-        self::assertCount(1, $events);
-    }
-
-    // ── BeforeWriteEvent ──────────────────────────────────────────────────────
-
-    public function testBeforeWriteEventFiresOnCreate(): void
-    {
-        $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, ['title' => 'New']);
-
-        $events = EventCollector::getByClass(BeforeWriteEvent::class);
-        self::assertCount(1, $events);
-    }
-
-    public function testBeforeWriteEventCarriesCreateOperation(): void
-    {
-        $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, ['title' => 'New']);
-
-        $events = EventCollector::getByClass(BeforeWriteEvent::class);
-        self::assertNotEmpty($events, 'No BeforeWriteEvent was dispatched.');
-        self::assertSame('create', $events[0]->getOperation());
-    }
-
-    public function testBeforeWriteEventCarriesTableName(): void
-    {
-        $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, ['title' => 'New']);
-
-        $events = EventCollector::getByClass(BeforeWriteEvent::class);
-        self::assertNotEmpty($events, 'No BeforeWriteEvent was dispatched.');
-        self::assertSame('tx_myext_domain_model_article', $events[0]->getTable());
-    }
-
-    public function testBeforeWriteEventCarriesInputData(): void
-    {
-        $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, ['title' => 'Event Data Test']);
-
-        $events = EventCollector::getByClass(BeforeWriteEvent::class);
-        self::assertNotEmpty($events, 'No BeforeWriteEvent was dispatched.');
-        self::assertSame('Event Data Test', $events[0]->getData()['title']);
-    }
-
-    public function testBeforeWriteEventFiresOnUpdate(): void
-    {
-        $this->executeApiWriteRequestAs('PUT', '/_api/articles/1', 1, ['title' => 'Updated']);
-
-        $events = EventCollector::getByClass(BeforeWriteEvent::class);
-        self::assertCount(1, $events);
-    }
-
-    public function testBeforeWriteEventCarriesUpdateOperation(): void
-    {
-        $this->executeApiWriteRequestAs('PUT', '/_api/articles/1', 1, ['title' => 'Updated']);
-
-        $events = EventCollector::getByClass(BeforeWriteEvent::class);
-        self::assertNotEmpty($events, 'No BeforeWriteEvent was dispatched.');
-        self::assertSame('update', $events[0]->getOperation());
-    }
-
-    public function testBeforeWriteEventFiresOnDelete(): void
-    {
-        $this->executeApiWriteRequestAsBackendUser('DELETE', '/_api/articles/3', 1);
-
-        $events = EventCollector::getByClass(BeforeWriteEvent::class);
-        self::assertCount(1, $events);
-    }
-
-    public function testBeforeWriteEventCarriesDeleteOperation(): void
-    {
-        $this->executeApiWriteRequestAsBackendUser('DELETE', '/_api/articles/3', 1);
-
-        $events = EventCollector::getByClass(BeforeWriteEvent::class);
-        self::assertNotEmpty($events, 'No BeforeWriteEvent was dispatched.');
-        self::assertSame('delete', $events[0]->getOperation());
-    }
-
-    // ── AfterWriteEvent ───────────────────────────────────────────────────────
-
-    public function testAfterWriteEventFiresOnCreate(): void
-    {
-        $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, ['title' => 'New']);
-
-        $events = EventCollector::getByClass(AfterWriteEvent::class);
-        self::assertCount(1, $events);
-    }
-
-    public function testAfterWriteEventCarriesCreateOperation(): void
-    {
-        $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, ['title' => 'New']);
-
-        $events = EventCollector::getByClass(AfterWriteEvent::class);
-        self::assertNotEmpty($events, 'No AfterWriteEvent was dispatched.');
-        self::assertSame('create', $events[0]->getOperation());
-    }
-
-    public function testAfterWriteEventCarriesNewUid(): void
-    {
-        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, ['title' => 'New']);
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, ['title' => 'Event Data Test']);
         $body = $this->decodeResponseBody($response);
 
-        $events = EventCollector::getByClass(AfterWriteEvent::class);
-        self::assertNotEmpty($events, 'No AfterWriteEvent was dispatched.');
-        self::assertSame($body['uid'], $events[0]->getUid());
+        // BeforeOperationEvent fires and carries 'create' operation
+        $beforeOps = EventCollector::getByClass(BeforeOperationEvent::class);
+        self::assertCount(1, $beforeOps);
+        self::assertNotEmpty($beforeOps, 'No BeforeOperationEvent was dispatched.');
+        self::assertSame('create', $beforeOps[0]->getOperation());
+
+        // BeforeWriteEvent fires, carries 'create' operation, table name, and input data
+        $beforeWrites = EventCollector::getByClass(BeforeWriteEvent::class);
+        self::assertCount(1, $beforeWrites);
+        self::assertNotEmpty($beforeWrites, 'No BeforeWriteEvent was dispatched.');
+        self::assertSame('create', $beforeWrites[0]->getOperation());
+        self::assertSame('tx_myext_domain_model_article', $beforeWrites[0]->getTable());
+        self::assertSame('Event Data Test', $beforeWrites[0]->getData()['title']);
+
+        // AfterWriteEvent fires, carries 'create' operation and new UID
+        $afterWrites = EventCollector::getByClass(AfterWriteEvent::class);
+        self::assertCount(1, $afterWrites);
+        self::assertNotEmpty($afterWrites, 'No AfterWriteEvent was dispatched.');
+        self::assertSame('create', $afterWrites[0]->getOperation());
+        self::assertSame($body['uid'], $afterWrites[0]->getUid());
     }
 
-    public function testAfterWriteEventFiresOnUpdate(): void
+    // ── PUT /_api/articles/1 (update) ────────────────────────────────────────
+
+    public function testEventsOnUpdate(): void
     {
         $this->executeApiWriteRequestAs('PUT', '/_api/articles/1', 1, ['title' => 'Updated']);
 
-        $events = EventCollector::getByClass(AfterWriteEvent::class);
-        self::assertCount(1, $events);
+        // BeforeWriteEvent fires and carries 'update' operation
+        $beforeWrites = EventCollector::getByClass(BeforeWriteEvent::class);
+        self::assertCount(1, $beforeWrites);
+        self::assertNotEmpty($beforeWrites, 'No BeforeWriteEvent was dispatched.');
+        self::assertSame('update', $beforeWrites[0]->getOperation());
+
+        // AfterWriteEvent fires
+        $afterWrites = EventCollector::getByClass(AfterWriteEvent::class);
+        self::assertCount(1, $afterWrites);
     }
 
-    public function testAfterWriteEventFiresOnDelete(): void
+    // ── DELETE /_api/articles/3 (delete) ─────────────────────────────────────
+
+    public function testEventsOnDelete(): void
     {
         $this->executeApiWriteRequestAsBackendUser('DELETE', '/_api/articles/3', 1);
 
-        $events = EventCollector::getByClass(AfterWriteEvent::class);
-        self::assertCount(1, $events);
+        // BeforeWriteEvent fires and carries 'delete' operation
+        $beforeWrites = EventCollector::getByClass(BeforeWriteEvent::class);
+        self::assertCount(1, $beforeWrites);
+        self::assertNotEmpty($beforeWrites, 'No BeforeWriteEvent was dispatched.');
+        self::assertSame('delete', $beforeWrites[0]->getOperation());
+
+        // AfterWriteEvent fires
+        $afterWrites = EventCollector::getByClass(AfterWriteEvent::class);
+        self::assertCount(1, $afterWrites);
     }
 }
