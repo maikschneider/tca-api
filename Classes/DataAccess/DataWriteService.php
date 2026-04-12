@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\DataAccess;
 
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -95,7 +96,7 @@ final class DataWriteService
     {
         $dataMap = [$table => [$recordId => []]];
         $newRecordCounter = 0;
-        $parentPid = isset($data['pid']) && is_numeric($data['pid']) ? (int)$data['pid'] : 0;
+        $parentPid = $this->resolveParentPid($table, $recordId, $data);
 
         foreach ($data as $field => $value) {
             if (!\is_array($value)) {
@@ -156,10 +157,17 @@ final class DataWriteService
             }
 
             if (!\is_array($item)) {
-                continue;
+                throw new \InvalidArgumentException(
+                    sprintf('Invalid relation item for %s.%s: expected uid or object, got %s.', $table, $field, get_debug_type($item)),
+                );
             }
 
-            if (isset($item['uid']) && is_numeric($item['uid'])) {
+            if (isset($item['uid'])) {
+                if (!is_numeric($item['uid'])) {
+                    throw new \InvalidArgumentException(
+                        sprintf('Invalid relation uid for %s.%s: expected numeric uid.', $table, $field),
+                    );
+                }
                 $tokens[] = (int)$item['uid'];
                 continue;
             }
@@ -238,6 +246,26 @@ final class DataWriteService
             return 0;
         }
 
-        return 1;
+        return 0;
+    }
+
+    private function resolveParentPid(string $table, string $recordId, array $data): int
+    {
+        if (isset($data['pid']) && is_numeric($data['pid'])) {
+            return (int)$data['pid'];
+        }
+
+        if (!is_numeric($recordId)) {
+            return 0;
+        }
+
+        $qb = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable($table);
+        $pid = $qb->select('pid')
+            ->from($table)
+            ->where($qb->expr()->eq('uid', $qb->createNamedParameter((int)$recordId)))
+            ->executeQuery()
+            ->fetchOne();
+
+        return is_numeric($pid) ? (int)$pid : 0;
     }
 }
