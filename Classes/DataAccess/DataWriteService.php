@@ -158,7 +158,7 @@ final class DataWriteService
 
             if (!\is_array($item)) {
                 throw new \InvalidArgumentException(
-                    sprintf('Invalid relation item for %s.%s: expected uid or object, got %s.', $table, $field, get_debug_type($item)),
+                    sprintf('Invalid relation item for %s.%s: expected numeric UID or array payload, got %s.', $table, $field, get_debug_type($item)),
                 );
             }
 
@@ -178,7 +178,7 @@ final class DataWriteService
 
             $newRecordData = $item;
             if (!isset($newRecordData['pid']) || !is_numeric($newRecordData['pid'])) {
-                $newRecordData['pid'] = $this->resolveDefaultPidForNewRelatedRecord($parentPid);
+                $newRecordData['pid'] = max(0, $parentPid);
             } else {
                 $newRecordData['pid'] = (int)$newRecordData['pid'];
             }
@@ -232,15 +232,6 @@ final class DataWriteService
         }
 
         return ($fieldConfig['renderType'] ?? null) === 'selectSingle';
-    }
-
-    private function resolveDefaultPidForNewRelatedRecord(int $parentPid): int
-    {
-        if ($parentPid > 0) {
-            return $parentPid;
-        }
-
-        return 0;
     }
 
     private function resolveParentPid(string $table, string $recordId, array $data): int

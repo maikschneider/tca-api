@@ -21,6 +21,8 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
  */
 final class WriteRelationsTest extends ApiFunctionalTestCase
 {
+    private const INITIAL_CATEGORY_UID_MAX = 3;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -159,7 +161,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         $body = $this->decodeResponseBody($response);
 
         self::assertCount(1, $body['categories']);
-        self::assertGreaterThan(3, $body['categories'][0]['uid']);
+        self::assertGreaterThan(self::INITIAL_CATEGORY_UID_MAX, $body['categories'][0]['uid']);
     }
 
     public function testPutWithCategoryCreatePayloadCanMixNewAndExistingRelations(): void
@@ -176,7 +178,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         $uids = array_column($body['categories'], 'uid');
         self::assertContains(2, $uids);
         self::assertCount(2, $uids);
-        self::assertGreaterThan(3, max($uids));
+        self::assertGreaterThan(self::INITIAL_CATEGORY_UID_MAX, max($uids));
     }
 
     public function testPatchWithCategoryCreatePayloadCanMixNewAndExistingRelations(): void
@@ -192,6 +194,6 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         $uids = array_column($body['categories'], 'uid');
         self::assertContains(1, $uids);
         self::assertCount(2, $uids);
-        self::assertGreaterThan(3, max($uids));
+        self::assertGreaterThan(self::INITIAL_CATEGORY_UID_MAX, max($uids));
     }
 }
