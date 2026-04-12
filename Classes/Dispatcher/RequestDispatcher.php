@@ -159,7 +159,7 @@ class RequestDispatcher
             ->withAttribute('tca_api.operation', $operation)
             ->withAttribute('tca_api.fields', \is_array($params['fields'] ?? null) ? $params['fields'] : [])
             ->withAttribute('tca_api.page', max(1, (int)($params['page'] ?? 1)))
-            ->withAttribute('tca_api.items_per_page', max(1, (int)($params['itemsPerPage'] ?? $config['general']['itemsPerPage'] ?? $defaultItemsPerPage)))
+            ->withAttribute('tca_api.items_per_page', (int)($params['itemsPerPage'] ?? $config['general']['itemsPerPage'] ?? $defaultItemsPerPage))
             ->withAttribute('tca_api.filters', \is_array($params['filters'] ?? null) ? $params['filters'] : [])
             ->withAttribute('tca_api.order', \is_array($params['order'] ?? null) ? $params['order'] : [])
             ->withAttribute('tca_api.partial', $method === 'PATCH');

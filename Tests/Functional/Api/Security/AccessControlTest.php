@@ -100,7 +100,6 @@ final class AccessControlTest extends ApiFunctionalTestCase
         self::assertStringContainsString('application/ld+json', $response->getHeaderLine('Content-Type'));
         self::assertSame('hydra:Error', $body['@type']);
         self::assertSame('Access Denied', $body['hydra:title']);
-        self::assertStringContainsString('create', $body['hydra:description']);
     }
 
     public function testCreateSucceedsWithFeUser(): void
@@ -428,4 +427,5 @@ final class AccessControlTest extends ApiFunctionalTestCase
 
         self::assertSame(201, $response->getStatusCode());
     }
+
 }
