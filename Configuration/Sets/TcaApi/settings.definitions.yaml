@@ -97,7 +97,7 @@ settings:
       BE_USER: 'Backend users'
       BE_ADMIN: 'Backend admins'
       NONE: 'Disabled'
-    default: 'NONE'
+    default: 'PUBLIC'
 
   tca_api.corsEnabled:
     label: 'Enable CORS'

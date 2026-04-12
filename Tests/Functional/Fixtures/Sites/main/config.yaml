@@ -1,4 +1,6 @@
 base: 'http://localhost/'
+dependencies:
+  - maikschneider/tca-api
 languages:
   -
     title: English
@@ -14,13 +16,3 @@ languages:
     languageId: 0
 rootPageId: 1
 websiteTitle: ''
-settings:
-  tca_api:
-    apiPrefix: '/_api/'
-    enabled: true
-    openApiExposed: true
-    defaultItemsPerPage: 20
-    allowedResources: ''
-    debugMode: false
-    corsEnabled: false
-    corsOrigin: '*'

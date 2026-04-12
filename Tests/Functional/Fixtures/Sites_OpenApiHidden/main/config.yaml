@@ -1,4 +1,6 @@
 base: 'http://localhost/'
+dependencies:
+  - maikschneider/tca-api
 languages:
   -
     title: English
@@ -18,4 +20,4 @@ settings:
   tca_api:
     apiPrefix: '/_api/'
     enabled: true
-    openApiExposed: false
+    openApiExposed: NONE

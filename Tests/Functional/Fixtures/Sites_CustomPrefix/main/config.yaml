@@ -1,4 +1,6 @@
 base: 'http://localhost/'
+dependencies:
+  - maikschneider/tca-api
 languages:
   -
     title: English
