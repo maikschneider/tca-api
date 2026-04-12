@@ -11,7 +11,6 @@ return [
         'resourceType' => 'FileUpload',
         'type' => 'fileUpload',
         'operations' => ['create'],
-        'storageUid' => 1,
     ],
     'columns' => [
         'name' => [

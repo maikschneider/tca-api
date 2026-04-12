@@ -39,7 +39,10 @@ final readonly class FileUploadService
 
     private function sanitizeFilename(string $filename): string
     {
-        $basename = basename($filename);
+        $basename = basename(str_replace("\0", '', $filename));
+        $basename = trim($basename);
+        $basename = (string)(preg_replace('/[^\pL\pN._-]+/u', '_', $basename) ?? '');
+        $basename = ltrim($basename, '.');
 
         if ($basename === '' || $basename === '.' || $basename === '..') {
             return 'upload.bin';
@@ -48,4 +51,3 @@ final readonly class FileUploadService
         return $basename;
     }
 }
-

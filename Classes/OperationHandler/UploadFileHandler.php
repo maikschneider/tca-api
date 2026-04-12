@@ -10,6 +10,8 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UploadedFileInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
+use TYPO3\CMS\Core\Log\LogManager;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 #[Autoconfigure(public: true)]
 final class UploadFileHandler implements OperationHandlerInterface
@@ -41,7 +43,10 @@ final class UploadFileHandler implements OperationHandlerInterface
             $targetFolder = isset($config['general']['targetFolder']) ? (string)$config['general']['targetFolder'] : null;
             $file = $this->fileUploadService->upload($uploadedFile, $storageUid, $targetFolder);
         } catch (\Throwable $exception) {
-            return $this->hydraResponseBuilder->buildError(500, $exception->getMessage(), 'Upload Failed');
+            GeneralUtility::makeInstance(LogManager::class)
+                ->getLogger(__CLASS__)
+                ->error('File upload failed', ['exception' => $exception]);
+            return $this->hydraResponseBuilder->buildError(500, 'File upload failed.', 'Upload Failed');
         }
 
         $resourceName = (string)($config['general']['resourceName'] ?? 'files');
@@ -98,4 +103,3 @@ final class UploadFileHandler implements OperationHandlerInterface
         };
     }
 }
-
