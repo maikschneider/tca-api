@@ -22,22 +22,14 @@ final class WriteOperationsTest extends ApiFunctionalTestCase
 
     // ── POST ─────────────────────────────────────────────────────────────────
 
-    public function testPostReturns201(): void
-    {
-        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
-            'title' => 'New Article',
-        ]);
-
-        self::assertSame(201, $response->getStatusCode());
-    }
-
-    public function testPostResponseContainsCreatedResource(): void
+    public function testPostCreatesResourceAndReturns201(): void
     {
         $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
             'title' => 'New Article',
         ]);
         $body = $this->decodeResponseBody($response);
 
+        self::assertSame(201, $response->getStatusCode());
         self::assertSame('Article', $body['@type']);
         self::assertSame('New Article', $body['title']);
         self::assertArrayHasKey('uid', $body);
@@ -147,22 +139,14 @@ final class WriteOperationsTest extends ApiFunctionalTestCase
 
     // ── Location header on POST ───────────────────────────────────────────────
 
-    public function testPostResponseHasLocationHeader(): void
+    public function testPostResponseHasCorrectLocationHeader(): void
     {
         $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
             'title' => 'New Article',
         ]);
-
-        self::assertTrue($response->hasHeader('Location'));
-    }
-
-    public function testPostLocationHeaderPointsToCreatedResource(): void
-    {
-        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
-            'title' => 'Located Article',
-        ]);
         $body = $this->decodeResponseBody($response);
 
+        self::assertTrue($response->hasHeader('Location'));
         self::assertSame('/_api/articles/' . $body['uid'], $response->getHeaderLine('Location'));
     }
 
