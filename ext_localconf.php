@@ -8,12 +8,14 @@ use MaikSchneider\TcaApi\OperationHandler\DeleteHandler;
 use MaikSchneider\TcaApi\OperationHandler\GetCollectionHandler;
 use MaikSchneider\TcaApi\OperationHandler\GetItemHandler;
 use MaikSchneider\TcaApi\OperationHandler\GetUserInfoHandler;
+use MaikSchneider\TcaApi\OperationHandler\UploadFileHandler;
 use MaikSchneider\TcaApi\OperationHandler\UpdateHandler;
 use MaikSchneider\TcaApi\Registry\HandlerRegistry;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 HandlerRegistry::register(GetItemHandler::class);
 HandlerRegistry::register(GetCollectionHandler::class);
+HandlerRegistry::register(UploadFileHandler::class, 20);
 HandlerRegistry::register(CreateHandler::class);
 HandlerRegistry::register(UpdateHandler::class);
 HandlerRegistry::register(DeleteHandler::class);

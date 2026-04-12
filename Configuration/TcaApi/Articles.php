@@ -35,9 +35,11 @@ return [
         ],
         'profile_photo' => [
             'readable' => true,
+            'writable' => true,
         ],
         'downloads' => [
             'readable'  => true,
+            'writable'  => true,
             'processor' => FileProcessor::class,
         ],
         'article_url' => [

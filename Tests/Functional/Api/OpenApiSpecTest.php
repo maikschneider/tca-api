@@ -47,4 +47,14 @@ final class OpenApiSpecTest extends ApiFunctionalTestCase
         $response = $this->executeApiWriteRequest('POST', '/_api/openapi.json');
         self::assertSame(405, $response->getStatusCode());
     }
+
+    public function testFilesUploadOperationUsesMultipartFormData(): void
+    {
+        $response = $this->executeApiRequest('/_api/openapi.json');
+        $spec = $this->decodeResponseBody($response);
+
+        self::assertArrayHasKey('/_api/files', $spec['paths']);
+        self::assertArrayHasKey('post', $spec['paths']['/_api/files']);
+        self::assertArrayHasKey('multipart/form-data', $spec['paths']['/_api/files']['post']['requestBody']['content']);
+    }
 }

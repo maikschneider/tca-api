@@ -295,6 +295,15 @@ The related resource must be registered in the `ApiRegistry` for embedding to wo
 | Any + `MM`           | Intermediate MM table                 | Yes       |
 | `type=group` + `MM`  | Column holds count, relations in MM   | Yes       |
 
+## File upload endpoint
+
+TCA API now provides a dedicated upload resource at `POST /_api/files` (multipart/form-data).
+
+- Request field: `file` (binary upload)
+- Response: uploaded FAL file metadata including `uid`
+
+Use the returned `uid` in follow-up create/update requests for writable `type=file` columns (for example `profile_photo` or `downloads`) so TYPO3 can create `sys_file_reference` relations on write.
+
 ## Userinfo endpoint
 
 A userinfo endpoint exposes the **currently authenticated FE user's own record** without requiring a UID in the URL. Set `'type' => 'userinfo'` in the `general` section:

@@ -150,6 +150,9 @@ readonly class OpenApiBuilder
     private function buildCreateOperation(string $resourceName, string $resourceType, array $config): array
     {
         $accessRole = $this->accessRoleValue($config['security']['create'] ?? null);
+        if (($config['general']['type'] ?? '') === 'fileUpload') {
+            return $this->buildFileUploadCreateOperation($resourceName, $resourceType, $accessRole);
+        }
 
         return [
             'summary' => 'Create ' . $resourceType,
@@ -184,6 +187,48 @@ readonly class OpenApiBuilder
                         ],
                     ],
                 ],
+            ],
+        ];
+    }
+
+    private function buildFileUploadCreateOperation(string $resourceName, string $resourceType, string $accessRole): array
+    {
+        return [
+            'summary' => 'Upload file',
+            'operationId' => 'upload' . $this->toPascalCase($resourceName),
+            'x-typo3-access-role' => $accessRole,
+            'requestBody' => [
+                'required' => true,
+                'content' => [
+                    'multipart/form-data' => [
+                        'schema' => [
+                            'type' => 'object',
+                            'required' => ['file'],
+                            'properties' => [
+                                'file' => [
+                                    'type' => 'string',
+                                    'format' => 'binary',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            'responses' => [
+                '201' => [
+                    'description' => 'Uploaded',
+                    'headers' => [
+                        'Location' => ['description' => 'URL of uploaded file resource', 'schema' => ['type' => 'string']],
+                    ],
+                    'content' => [
+                        'application/ld+json' => [
+                            'schema' => ['$ref' => '#/components/schemas/' . $resourceType . 'Read'],
+                        ],
+                    ],
+                ],
+                '400' => ['description' => 'Invalid upload request'],
+                '403' => ['description' => 'Forbidden'],
+                '500' => ['description' => 'Upload failed'],
             ],
         ];
     }

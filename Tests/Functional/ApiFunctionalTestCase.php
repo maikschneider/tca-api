@@ -6,6 +6,7 @@ namespace MaikSchneider\TcaApi\Tests\Functional;
 
 use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Core\Http\Stream;
+use TYPO3\CMS\Core\Http\UploadedFile;
 use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequest;
 use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequestContext;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
@@ -67,6 +68,35 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
                 ->withMethod($method)
                 ->withAddedHeader('Content-Type', 'application/json')
                 ->withBody($body),
+            (new InternalRequestContext())->withFrontendUserId($feUserId),
+        );
+    }
+
+    protected function executeApiUploadRequestAs(
+        string $path,
+        int $feUserId,
+        string $clientFilename,
+        string $contents,
+        string $mediaType = 'application/octet-stream',
+    ): ResponseInterface {
+        $uri = 'http://localhost' . $path;
+
+        $stream = new Stream('php://temp', 'rw');
+        $stream->write($contents);
+        $stream->rewind();
+
+        $uploadedFile = new UploadedFile(
+            $stream,
+            strlen($contents),
+            \UPLOAD_ERR_OK,
+            $clientFilename,
+            $mediaType,
+        );
+
+        return $this->executeFrontendSubRequest(
+            (new InternalRequest($uri))
+                ->withMethod('POST')
+                ->withUploadedFiles(['file' => $uploadedFile]),
             (new InternalRequestContext())->withFrontendUserId($feUserId),
         );
     }
