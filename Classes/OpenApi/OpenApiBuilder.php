@@ -78,13 +78,21 @@ class OpenApiBuilder
         return $role instanceof AccessRole ? $role->value : 'PUBLIC';
     }
 
+    /**
+     * Convert a kebab-case resource name to PascalCase for use in operationId.
+     */
+    private function toPascalCase(string $resourceName): string
+    {
+        return str_replace(' ', '', ucwords(str_replace('-', ' ', $resourceName)));
+    }
+
     private function buildListOperation(string $resourceName, string $resourceType, array $config): array
     {
         $accessRole = $this->accessRoleValue($config['security']['list'] ?? null);
 
         return [
             'summary' => 'List ' . $resourceType . ' collection',
-            'operationId' => 'list' . $resourceType,
+            'operationId' => 'list' . $this->toPascalCase($resourceName),
             'x-typo3-access-role' => $accessRole,
             'parameters' => $this->buildQueryParams($resourceName, $config),
             'responses' => [
@@ -107,7 +115,7 @@ class OpenApiBuilder
 
         return [
             'summary' => 'Get single ' . $resourceType,
-            'operationId' => 'show' . $resourceType,
+            'operationId' => 'show' . $this->toPascalCase($resourceName),
             'x-typo3-access-role' => $accessRole,
             'parameters' => [
                 [
@@ -139,7 +147,7 @@ class OpenApiBuilder
 
         return [
             'summary' => 'Create ' . $resourceType,
-            'operationId' => 'create' . $resourceType,
+            'operationId' => 'create' . $this->toPascalCase($resourceName),
             'x-typo3-access-role' => $accessRole,
             'requestBody' => [
                 'required' => true,
@@ -181,7 +189,7 @@ class OpenApiBuilder
 
         return [
             'summary' => $method . ' ' . $resourceType,
-            'operationId' => ($partial ? 'patch' : 'update') . $resourceType,
+            'operationId' => ($partial ? 'patch' : 'update') . $this->toPascalCase($resourceName),
             'x-typo3-access-role' => $accessRole,
             'requestBody' => [
                 'required' => true,
@@ -220,7 +228,7 @@ class OpenApiBuilder
 
         return [
             'summary' => 'Delete resource',
-            'operationId' => 'delete' . ($config['general']['resourceType'] ?? $resourceName),
+            'operationId' => 'delete' . $this->toPascalCase($resourceName),
             'x-typo3-access-role' => $accessRole,
             'responses' => [
                 '204' => ['description' => 'Deleted'],
