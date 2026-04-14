@@ -118,4 +118,16 @@ final class DefaultModeTest extends ApiFunctionalTestCase
         self::assertArrayHasKey('name', $body);
         self::assertSame('Blue', $body['name']);
     }
+
+    public function testGroupsModeWithEmptyGroupsHidesColumns(): void
+    {
+        $response = $this->executeApiRequest('/_api/colors-empty-groups/1');
+
+        self::assertSame(200, $response->getStatusCode());
+
+        $body = $this->decodeResponseBody($response);
+        self::assertSame(1, $body['uid']);
+        self::assertArrayNotHasKey('name', $body);
+        self::assertArrayNotHasKey('hex', $body);
+    }
 }
