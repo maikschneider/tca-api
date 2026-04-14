@@ -6,6 +6,7 @@ namespace MaikSchneider\TcaApi\OpenApi;
 
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
+use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use TYPO3\CMS\Core\Site\Entity\SiteSettings;
 
 readonly class OpenApiBuilder
@@ -332,11 +333,21 @@ readonly class OpenApiBuilder
             'uid' => ['type' => 'integer'],
         ];
 
-        foreach ($config['columns'] ?? [] as $column => $columnConfig) {
-            if (!($columnConfig['readable'] ?? false)) {
-                continue;
+        $table      = $config['general']['table'];
+        $isExplicit = TcaColumnDiscovery::isExplicitMode($config);
+
+        if (!$isExplicit) {
+            foreach (TcaColumnDiscovery::getExposableColumnNames($table) as $column) {
+                $columnConfig = ($config['columns'] ?? [])[$column] ?? [];
+                $properties[$column] = $this->buildPropertySchema($columnConfig);
             }
-            $properties[$column] = $this->buildPropertySchema($columnConfig);
+        } else {
+            foreach ($config['columns'] ?? [] as $column => $columnConfig) {
+                if (!TcaColumnDiscovery::isColumnReadable($columnConfig)) {
+                    continue;
+                }
+                $properties[$column] = $this->buildPropertySchema($columnConfig);
+            }
         }
 
         return ['type' => 'object', 'properties' => $properties];
@@ -345,19 +356,34 @@ readonly class OpenApiBuilder
     private function buildWriteSchema(array $config): array
     {
         $properties = [];
-        $required = [];
+        $required   = [];
+        $table      = $config['general']['table'];
+        $isExplicit = TcaColumnDiscovery::isExplicitMode($config);
 
-        foreach ($config['columns'] ?? [] as $column => $columnConfig) {
-            if (!($columnConfig['writable'] ?? false)) {
-                continue;
+        if (!$isExplicit) {
+            foreach (TcaColumnDiscovery::getExposableColumnNames($table) as $column) {
+                $columnConfig = $config['columns'][$column] ?? [];
+                $propSchema   = $this->buildPropertySchema($columnConfig);
+                $propSchema   = array_merge($propSchema, $this->mapValidators($columnConfig['validators'] ?? []));
+                $properties[$column] = $propSchema;
+
+                if ($columnConfig['required'] ?? false) {
+                    $required[] = $column;
+                }
             }
+        } else {
+            foreach ($config['columns'] ?? [] as $column => $columnConfig) {
+                if (!TcaColumnDiscovery::isColumnWritable($columnConfig)) {
+                    continue;
+                }
 
-            $propSchema = $this->buildPropertySchema($columnConfig);
-            $propSchema = array_merge($propSchema, $this->mapValidators($columnConfig['validators'] ?? []));
-            $properties[$column] = $propSchema;
+                $propSchema = $this->buildPropertySchema($columnConfig);
+                $propSchema = array_merge($propSchema, $this->mapValidators($columnConfig['validators'] ?? []));
+                $properties[$column] = $propSchema;
 
-            if ($columnConfig['required'] ?? false) {
-                $required[] = $column;
+                if ($columnConfig['required'] ?? false) {
+                    $required[] = $column;
+                }
             }
         }
 

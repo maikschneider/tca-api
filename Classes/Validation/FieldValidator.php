@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Validation;
 
+use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
+
 class FieldValidator
 {
     /**
@@ -18,8 +20,28 @@ class FieldValidator
     {
         $violations = [];
 
+        if (!TcaColumnDiscovery::isExplicitMode($config)) {
+            // Default mode: only run declared validators — no required-check unless configured
+            foreach ($config['columns'] ?? [] as $column => $columnConfig) {
+                $provided = \array_key_exists($column, $body);
+                if ($partial && !$provided) {
+                    continue;
+                }
+                if ($provided) {
+                    foreach ($columnConfig['validators'] ?? [] as $validatorConfig) {
+                        $violation = $this->applyValidator($validatorConfig, $column, $body[$column]);
+                        if ($violation !== null) {
+                            $violations[] = $violation;
+                        }
+                    }
+                }
+            }
+            return $violations;
+        }
+
+        // Explicit mode
         foreach ($config['columns'] as $column => $columnConfig) {
-            if (!($columnConfig['writable'] ?? false)) {
+            if (!TcaColumnDiscovery::isColumnWritable($columnConfig)) {
                 continue;
             }
 

@@ -46,5 +46,14 @@ return [
                 'eval' => 'trim',
             ],
         ],
+        'hex' => [
+            'label' => 'Hex Code',
+            'config' => [
+                'type' => 'input',
+                'size' => 10,
+                'max' => 7,
+                'eval' => 'trim',
+            ],
+        ],
     ],
 ];

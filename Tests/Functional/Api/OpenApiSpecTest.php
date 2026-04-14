@@ -47,4 +47,32 @@ final class OpenApiSpecTest extends ApiFunctionalTestCase
         $response = $this->executeApiWriteRequest('POST', '/_api/openapi.json');
         self::assertSame(405, $response->getStatusCode());
     }
+
+    public function testArticleSchemasReflectGroupsAndValidators(): void
+    {
+        $response = $this->executeApiRequest('/_api/openapi.json');
+        self::assertSame(200, $response->getStatusCode());
+
+        $body = $this->decodeResponseBody($response);
+        $schemas = $body['components']['schemas'];
+
+        $articleWriteProperties = $schemas['ArticleWrite']['properties'];
+        $articleReadProperties = $schemas['ArticleRead']['properties'];
+
+        self::assertArrayHasKey('title', $articleWriteProperties);
+        self::assertSame(20, $articleWriteProperties['title']['maxLength']);
+        self::assertSame(3, $articleWriteProperties['title']['minLength']);
+        self::assertSame('^[\w\s]+$', $articleWriteProperties['title']['pattern']);
+        self::assertContains('title', $schemas['ArticleWrite']['required']);
+
+        self::assertArrayHasKey('color_id', $articleWriteProperties);
+        self::assertArrayHasKey('categories', $articleWriteProperties);
+        self::assertArrayNotHasKey('profile_photo', $articleWriteProperties);
+        self::assertArrayNotHasKey('downloads', $articleWriteProperties);
+        self::assertArrayNotHasKey('article_url', $articleWriteProperties);
+
+        self::assertArrayHasKey('profile_photo', $articleReadProperties);
+        self::assertArrayHasKey('downloads', $articleReadProperties);
+        self::assertArrayHasKey('article_url', $articleReadProperties);
+    }
 }

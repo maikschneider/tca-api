@@ -25,9 +25,9 @@ final class VirtualPropertiesTest extends ApiFunctionalTestCase
             'itemsPerPage' => 20,
         ],
         'columns' => [
-            'title' => ['readable' => true],
-            'first_name' => ['readable' => true],
-            'last_name' => ['readable' => true],
+            'title' => ['groups' => ['list', 'show']],
+            'first_name' => ['groups' => ['list', 'show']],
+            'last_name' => ['groups' => ['list', 'show']],
         ],
         'order' => [
             'allowed' => ['uid'],

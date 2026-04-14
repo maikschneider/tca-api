@@ -46,7 +46,7 @@ final class UidListHasManyEmbedTest extends ApiFunctionalTestCase
                 'itemsPerPage' => 20,
             ],
             'columns' => [
-                'title' => ['readable' => true],
+                'title' => ['groups' => ['list', 'show']],
             ],
             'order'    => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
             'security' => [
@@ -67,8 +67,8 @@ final class UidListHasManyEmbedTest extends ApiFunctionalTestCase
                 'itemsPerPage' => 20,
             ],
             'columns' => array_merge([
-                'username'  => ['readable' => true],
-                'usergroup' => ['readable' => true],
+                'username'  => ['groups' => ['list', 'show']],
+                'usergroup' => ['groups' => ['list', 'show']],
             ], $columnOverrides),
             'order'    => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
             'security' => [
@@ -103,7 +103,7 @@ final class UidListHasManyEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerFeGroupResource();
         $this->registerFeUserResource([
-            'usergroup' => ['readable' => true, 'embed' => true],
+            'usergroup' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         $response = $this->executeApiRequest('/_api/uidlist-fe-users/22');
@@ -122,7 +122,7 @@ final class UidListHasManyEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerFeGroupResource();
         $this->registerFeUserResource([
-            'usergroup' => ['readable' => true, 'embed' => true],
+            'usergroup' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         $response = $this->executeApiRequest('/_api/uidlist-fe-users/20');
@@ -138,7 +138,7 @@ final class UidListHasManyEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerFeGroupResource();
         $this->registerFeUserResource([
-            'usergroup' => ['readable' => true, 'embed' => true],
+            'usergroup' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         // uid=23 has usergroup=""
@@ -153,7 +153,7 @@ final class UidListHasManyEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerFeGroupResource();
         $this->registerFeUserResource([
-            'usergroup' => ['readable' => true, 'embed' => true],
+            'usergroup' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         $response = $this->executeApiRequest('/_api/uidlist-fe-users/22');
@@ -173,7 +173,7 @@ final class UidListHasManyEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerFeGroupResource();
         $this->registerFeUserResource([
-            'usergroup' => ['readable' => true, 'embed' => true],
+            'usergroup' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         $response = $this->executeApiRequest('/_api/uidlist-fe-users');

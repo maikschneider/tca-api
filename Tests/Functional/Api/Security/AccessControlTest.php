@@ -31,8 +31,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
         'columns' => [
             'title' => [
                 'type'     => 'string',
-                'readable' => true,
-                'writable' => true,
+                'groups'   => ['list', 'show', 'create', 'update'],
                 'required' => false,
             ],
         ],
@@ -53,8 +52,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
         'columns' => [
             'title' => [
                 'type'     => 'string',
-                'readable' => true,
-                'writable' => true,
+                'groups'   => ['list', 'show', 'create', 'update'],
                 'required' => false,
             ],
         ],

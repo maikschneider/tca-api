@@ -31,7 +31,7 @@ final class UserInfoTest extends ApiFunctionalTestCase
                 'resourceType' => 'FeUser',
             ],
             'columns' => array_merge([
-                'username' => ['readable' => true],
+                'username' => ['groups' => ['list', 'show']],
             ], $columnOverrides),
         ]);
     }

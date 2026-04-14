@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\DataAccess;
 
+use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use MaikSchneider\TcaApi\Utility\UidListParser;
 use TYPO3\CMS\Core\Schema\Field\FileFieldType;
 use TYPO3\CMS\Core\Schema\Field\GroupFieldType;
@@ -55,12 +56,12 @@ class EmbedPreloader
         ));
 
         foreach ($config['columns'] as $column => $columnConfig) {
-            if (!($columnConfig['readable'] ?? false)) {
+            $embed = $columnConfig['embed'] ?? null;
+            if ($embed === null || $embed === false) {
                 continue;
             }
 
-            $embed = $columnConfig['embed'] ?? null;
-            if ($embed === null || $embed === false) {
+            if (TcaColumnDiscovery::isExplicitMode($config) && !TcaColumnDiscovery::isColumnReadable($columnConfig)) {
                 continue;
             }
 

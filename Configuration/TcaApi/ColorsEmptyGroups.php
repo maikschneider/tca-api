@@ -6,17 +6,14 @@ use MaikSchneider\TcaApi\Enum\AccessRole;
 
 return [
     'general' => [
-        'table' => 'sys_category',
-        'resourceName' => 'sys-categories',
-        'resourceType' => 'SysCategory',
-        'operations' => ['list', 'show'],
+        'table'        => 'tx_myext_domain_model_color',
+        'resourceName' => 'colors-empty-groups',
+        'resourceType' => 'ColorEmptyGroups',
+        'operations'   => ['list', 'show'],
         'itemsPerPage' => 20,
     ],
     'columns' => [
-        'title' => [
-            'type' => 'string',
-            'groups' => ['list', 'show'],
-        ],
+        'name' => ['groups' => []],
     ],
     'security' => [
         'list' => AccessRole::PUBLIC,

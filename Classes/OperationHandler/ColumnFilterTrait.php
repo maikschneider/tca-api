@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\OperationHandler;
 
+use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
+
 /**
  * Filters and normalizes writable column values for TYPO3 DataHandler.
  *
@@ -15,8 +17,25 @@ trait ColumnFilterTrait
     private function filterWritableColumns(array $body, array $config): array
     {
         $result = [];
+
+        if (!TcaColumnDiscovery::isExplicitMode($config)) {
+            // Default mode: accept all exposable TCA columns present in the body
+            foreach (TcaColumnDiscovery::getExposableColumnNames($config['general']['table']) as $column) {
+                if (\array_key_exists($column, $body)) {
+                    $value = $body[$column];
+                    $result[$column] = \is_array($value) ? implode(',', $value) : $value;
+                }
+            }
+            return $result;
+        }
+
+        // Explicit mode
         foreach ($config['columns'] as $column => $columnConfig) {
-            if (($columnConfig['writable'] ?? false) && \array_key_exists($column, $body)) {
+            if (!TcaColumnDiscovery::isColumnWritable($columnConfig)) {
+                continue;
+            }
+
+            if (\array_key_exists($column, $body)) {
                 $value = $body[$column];
                 if (\is_array($value) && $this->isScalarList($value)) {
                     $result[$column] = implode(',', $value);
@@ -25,6 +44,7 @@ trait ColumnFilterTrait
                 $result[$column] = $value;
             }
         }
+
         return $result;
     }
 

@@ -51,7 +51,7 @@ final class FilterMmTcaDerivedTest extends ApiFunctionalTestCase
                 'itemsPerPage' => 20,
             ],
             'columns' => [
-                'title' => ['readable' => true],
+                'title' => ['groups' => ['list', 'show']],
             ],
             'filters' => [
                 'categories' => ['strategy' => 'mm'],
@@ -128,7 +128,7 @@ final class FilterMmTcaDerivedTest extends ApiFunctionalTestCase
                 'operations'   => ['list'],
                 'itemsPerPage' => 20,
             ],
-            'columns' => ['title' => ['readable' => true]],
+            'columns' => ['title' => ['groups' => ['list', 'show']]],
             'filters' => [
                 'categories' => ['strategy' => 'mm'],
             ],

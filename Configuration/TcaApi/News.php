@@ -14,8 +14,7 @@ return [
     ],
     'columns' => [
         'title' => [
-            'readable' => true,
-            'writable' => true,
+            'groups' => ['list', 'show', 'create', 'update'],
             'required' => true,
             'validators' => [
                 ['type' => 'maxLength', 'max' => 20],
@@ -24,11 +23,10 @@ return [
             ],
         ],
         'bodytext' => [
-            'readable' => true,
-            'writable' => true,
+            'groups' => ['list', 'show', 'create', 'update'],
         ],
         'fal_media' => [
-            'readable' => true,
+            'groups' => ['list', 'show'],
         ],
     ],
     'filters' => [
