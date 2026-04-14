@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\DataAccess;
 
-use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -17,6 +17,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 final class DataWriteService
 {
+    /** @var array<string, array<string, mixed>|null> TCA column config cache, keyed by "table.field" */
+    private array $fieldConfigCache = [];
+
     public function create(string $table, array $data): int
     {
         $adminUser = $this->makeAdminUser();
@@ -96,7 +99,13 @@ final class DataWriteService
     {
         $dataMap = [$table => [$recordId => []]];
         $newRecordCounter = 0;
-        $parentPid = $this->resolveParentPid($table, $recordId, $data);
+
+        // Resolved lazily — only when an inline new-record payload is actually encountered.
+        // Avoids an unconditional DB query on every UPDATE that has no inline creates.
+        $resolvedPid = null;
+        $getParentPid = function () use ($table, $recordId, $data, &$resolvedPid): int {
+            return $resolvedPid ??= $this->resolveParentPid($table, $recordId, $data);
+        };
 
         foreach ($data as $field => $value) {
             if (!\is_array($value)) {
@@ -104,7 +113,7 @@ final class DataWriteService
                 continue;
             }
 
-            $normalization = $this->normalizeRelationValue($table, $field, $value, $newRecordCounter, $parentPid);
+            $normalization = $this->normalizeRelationValue($table, $field, $value, $newRecordCounter, $getParentPid);
             if ($normalization === null) {
                 $dataMap[$table][$recordId][$field] = $value;
                 continue;
@@ -128,7 +137,7 @@ final class DataWriteService
     }
 
     /**
-     * @param int $newRecordCounter
+     * @param \Closure(): int $getParentPid  Lazy resolver — called at most once, only when an inline new-record is found
      * @return array{tokens: list<int|string>, newRecords: list<array{table: string, id: string, data: array}>}|null
      */
     private function normalizeRelationValue(
@@ -136,7 +145,7 @@ final class DataWriteService
         string $field,
         array $value,
         int &$newRecordCounter,
-        int $parentPid,
+        \Closure $getParentPid,
     ): ?array {
         if (!array_is_list($value)) {
             return null;
@@ -178,7 +187,7 @@ final class DataWriteService
 
             $newRecordData = $item;
             if (!isset($newRecordData['pid']) || !is_numeric($newRecordData['pid'])) {
-                $newRecordData['pid'] = $parentPid >= 0 ? $parentPid : 0;
+                $newRecordData['pid'] = $getParentPid();
             } else {
                 $newRecordData['pid'] = (int)$newRecordData['pid'];
             }
@@ -198,8 +207,8 @@ final class DataWriteService
 
     private function resolveForeignTable(string $table, string $field): ?string
     {
-        $fieldConfig = $GLOBALS['TCA'][$table]['columns'][$field]['config'] ?? null;
-        if (!\is_array($fieldConfig)) {
+        $fieldConfig = $this->getFieldConfig($table, $field);
+        if ($fieldConfig === null) {
             return null;
         }
 
@@ -218,8 +227,8 @@ final class DataWriteService
 
     private function isSingleValueRelation(string $table, string $field): bool
     {
-        $fieldConfig = $GLOBALS['TCA'][$table]['columns'][$field]['config'] ?? null;
-        if (!\is_array($fieldConfig)) {
+        $fieldConfig = $this->getFieldConfig($table, $field);
+        if ($fieldConfig === null) {
             return false;
         }
 
@@ -232,6 +241,23 @@ final class DataWriteService
         }
 
         return ($fieldConfig['renderType'] ?? null) === 'selectSingle';
+    }
+
+    /**
+     * Returns the TCA column config array for $table.$field, cached per instance.
+     * Eliminates repeated $GLOBALS['TCA'] traversals when multiple methods inspect the same field.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function getFieldConfig(string $table, string $field): ?array
+    {
+        $key = $table . '.' . $field;
+        if (!\array_key_exists($key, $this->fieldConfigCache)) {
+            $config = $GLOBALS['TCA'][$table]['columns'][$field]['config'] ?? null;
+            $this->fieldConfigCache[$key] = \is_array($config) ? $config : null;
+        }
+
+        return $this->fieldConfigCache[$key];
     }
 
     private function resolveParentPid(string $table, string $recordId, array $data): int
