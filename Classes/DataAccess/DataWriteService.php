@@ -43,7 +43,7 @@ final class DataWriteService
             $dataHandler->process_datamap();
 
             if ($dataHandler->errorLog) {
-                throw new \RuntimeException(implode(', ', $dataHandler->errorLog));
+                throw new \RuntimeException('DataHandler update failed: ' . implode(', ', $dataHandler->errorLog));
             }
         });
     }
@@ -58,7 +58,7 @@ final class DataWriteService
             $dataHandler->process_cmdmap();
 
             if ($dataHandler->errorLog) {
-                throw new \RuntimeException(implode(', ', $dataHandler->errorLog));
+                throw new \RuntimeException('DataHandler delete failed: ' . implode(', ', $dataHandler->errorLog));
             }
         });
     }
