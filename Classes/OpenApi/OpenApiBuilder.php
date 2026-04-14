@@ -338,7 +338,7 @@ readonly class OpenApiBuilder
 
         if (!$isExplicit) {
             foreach (TcaColumnDiscovery::getExposableColumnNames($table) as $column) {
-                $columnConfig = $config['columns'][$column] ?? [];
+                $columnConfig = ($config['columns'] ?? [])[$column] ?? [];
                 $properties[$column] = $this->buildPropertySchema($columnConfig);
             }
         } else {
