@@ -475,8 +475,9 @@ class ResourceSerializer
      */
     private function resolveColumnMap(array $config, bool $isExplicitMode): array
     {
-        $table    = $config['general']['table'];
-        $cacheKey = $table . ($isExplicitMode ? ':explicit' : ':default');
+        $table = $config['general']['table'];
+        $resourceName = $config['general']['resourceName'];
+        $cacheKey = $table . $resourceName . ($isExplicitMode ? ':explicit' : ':default');
 
         if (isset($this->columnMapCache[$cacheKey])) {
             return $this->columnMapCache[$cacheKey];
