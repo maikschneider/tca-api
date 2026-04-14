@@ -38,8 +38,8 @@ final class RangeFilterTest extends ApiFunctionalTestCase
             'itemsPerPage' => 20,
         ],
         'columns' => [
-            'title'    => ['readable' => true],
-            'color_id' => ['readable' => true],
+            'title'    => ['groups' => ['list', 'show']],
+            'color_id' => ['groups' => ['list', 'show']],
         ],
         'filters' => [
             'color_id' => ['strategy' => 'range'],

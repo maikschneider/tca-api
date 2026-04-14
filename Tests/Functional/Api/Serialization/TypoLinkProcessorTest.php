@@ -37,9 +37,9 @@ final class TypoLinkProcessorTest extends ApiFunctionalTestCase
             'itemsPerPage' => 20,
         ],
         'columns' => [
-            'title' => ['readable' => true],
+            'title' => ['groups' => ['list', 'show']],
             'article_url' => [
-                'readable' => true,
+                'groups' => ['list', 'show'],
                 'processor' => TypoLinkProcessor::class,
             ],
         ],
@@ -109,8 +109,8 @@ final class TypoLinkProcessorTest extends ApiFunctionalTestCase
     {
         ApiRegistry::register('link-articles', array_merge(self::BASE_CONFIG, [
             'columns' => [
-                'title' => ['readable' => true],
-                'article_url' => ['readable' => true],
+                'title' => ['groups' => ['list', 'show']],
+                'article_url' => ['groups' => ['list', 'show']],
             ],
         ]));
 

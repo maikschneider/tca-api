@@ -55,7 +55,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
                 'operations'   => ['list', 'show'],
                 'itemsPerPage' => 20,
             ],
-            'columns' => ['name' => ['readable' => true]],
+            'columns' => ['name' => ['groups' => ['list', 'show']]],
             'order'   => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
     }
@@ -71,9 +71,9 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
                 'itemsPerPage' => 20,
             ],
             'columns' => array_merge([
-                'title'          => ['readable' => true],
-                'related_colors' => ['readable' => true],
-                'related_items'  => ['readable' => true],
+                'title'          => ['groups' => ['list', 'show']],
+                'related_colors' => ['groups' => ['list', 'show']],
+                'related_items'  => ['groups' => ['list', 'show']],
             ], $columnOverrides),
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
@@ -104,7 +104,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerColorResource();
         $this->registerArticleResource([
-            'related_colors' => ['readable' => true, 'embed' => true],
+            'related_colors' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         $response = $this->executeApiRequest('/_api/grp-articles/200');
@@ -123,7 +123,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerColorResource();
         $this->registerArticleResource([
-            'related_colors' => ['readable' => true, 'embed' => true],
+            'related_colors' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         $response = $this->executeApiRequest('/_api/grp-articles/201');
@@ -138,7 +138,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerColorResource();
         $this->registerArticleResource([
-            'related_colors' => ['readable' => true, 'embed' => true],
+            'related_colors' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         // Article 202 has related_colors=""
@@ -153,7 +153,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerColorResource();
         $this->registerArticleResource([
-            'related_colors' => ['readable' => true, 'embed' => true],
+            'related_colors' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         $response = $this->executeApiRequest('/_api/grp-articles/201');
@@ -172,7 +172,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerColorResource();
         $this->registerArticleResource([
-            'related_colors' => ['readable' => true, 'embed' => true],
+            'related_colors' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         $response = $this->executeApiRequest('/_api/grp-articles');
@@ -256,8 +256,8 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
                 'itemsPerPage' => 20,
             ],
             'columns' => array_merge([
-                'title'                 => ['readable' => true],
-                'related_colors_mm_grp' => ['readable' => true],
+                'title'                 => ['groups' => ['list', 'show']],
+                'related_colors_mm_grp' => ['groups' => ['list', 'show']],
             ], $columnOverrides),
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
@@ -284,7 +284,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerColorResource();
         $this->registerMmArticleResource([
-            'related_colors_mm_grp' => ['readable' => true, 'embed' => true],
+            'related_colors_mm_grp' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         $response = $this->executeApiRequest('/_api/grp-mm-articles/204');
@@ -302,7 +302,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerColorResource();
         $this->registerMmArticleResource([
-            'related_colors_mm_grp' => ['readable' => true, 'embed' => true],
+            'related_colors_mm_grp' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         $response = $this->executeApiRequest('/_api/grp-mm-articles/205');
@@ -317,7 +317,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerColorResource();
         $this->registerMmArticleResource([
-            'related_colors_mm_grp' => ['readable' => true, 'embed' => true],
+            'related_colors_mm_grp' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         $response = $this->executeApiRequest('/_api/grp-mm-articles/206');
@@ -331,7 +331,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerColorResource();
         $this->registerMmArticleResource([
-            'related_colors_mm_grp' => ['readable' => true, 'embed' => true],
+            'related_colors_mm_grp' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         $response = $this->executeApiRequest('/_api/grp-mm-articles');
