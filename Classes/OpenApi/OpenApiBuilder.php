@@ -366,6 +366,10 @@ readonly class OpenApiBuilder
                 $propSchema   = $this->buildPropertySchema($columnConfig);
                 $propSchema   = array_merge($propSchema, $this->mapValidators($columnConfig['validators'] ?? []));
                 $properties[$column] = $propSchema;
+
+                if ($columnConfig['required'] ?? false) {
+                    $required[] = $column;
+                }
             }
         } else {
             foreach ($config['columns'] ?? [] as $column => $columnConfig) {
