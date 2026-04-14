@@ -1,0 +1,106 @@
+..  _relations:
+
+=========
+Relations
+=========
+
+Relations are resolved automatically from the TCA schema. By default, related
+records are serialized as **shallow stubs** containing only ``@id``, ``@type``,
+and ``uid``:
+
+..  code-block:: json
+
+    {
+        "color": {
+            "@id": "/_api/colors/1",
+            "@type": "Color",
+            "uid": 1
+        }
+    }
+
+Embedding related records
+=========================
+
+Add ``'embed' => true`` to a column to inline the full related record instead of
+a stub:
+
+..  code-block:: php
+
+    'columns' => [
+        'color_id'   => ['groups' => ['list', 'show'], 'embed' => true],
+        'categories' => ['groups' => ['list', 'show'], 'embed' => true],
+    ],
+
+In default mode, ``embed`` alone is enough — it does **not** trigger explicit
+mode:
+
+..  code-block:: php
+
+    'columns' => [
+        'color_id' => ['embed' => true],
+    ],
+
+Response with embedded data:
+
+..  code-block:: json
+
+    {
+        "color": {
+            "@id": "/_api/colors/1",
+            "@type": "Color",
+            "uid": 1,
+            "name": "Red",
+            "hex": "#ff0000"
+        },
+        "categories": [
+            {
+                "@id": "/_api/sys-categories/5",
+                "@type": "SysCategory",
+                "uid": 5,
+                "title": "News"
+            }
+        ]
+    }
+
+Controlling recursion depth
+===========================
+
+Control recursion depth with ``'embed' => ['depth' => 2]``. The default depth
+is 1.
+
+..  code-block:: php
+
+    'columns' => [
+        'color_id' => ['embed' => ['depth' => 2]],
+    ],
+
+..  important::
+
+    The related resource must be registered in the ``ApiRegistry`` for embedding
+    to work.
+
+Supported relation types
+========================
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 40 15
+
+   * - TCA type
+     - Storage format
+     - Embedding
+   * - ``select`` / ``group``
+     - UID list (``1,2,3``) — single table
+     - Yes
+   * - ``select`` / ``group``
+     - Prefixed list (``table_uid``) — multi-table
+     - Stubs only
+   * - ``inline`` / ``select``
+     - ``foreign_field`` back-reference
+     - Yes
+   * - Any + ``MM``
+     - Intermediate MM table
+     - Yes
+   * - ``type=group`` + ``MM``
+     - Column holds count, relations in MM
+     - Yes
