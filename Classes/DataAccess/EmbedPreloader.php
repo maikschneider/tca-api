@@ -45,7 +45,6 @@ class EmbedPreloader
 
         $table  = $config['general']['table'];
         $schema = $this->schemaFactory->get($table);
-        $mode = (string)($config['general']['mode'] ?? '');
 
         // Collect UIDs for all UID-based fetches (hasOne FKs + UID-list hasMany + group UID-list).
         // Multiple columns pointing to the same foreignTable are combined into one findByIds call.
@@ -62,7 +61,7 @@ class EmbedPreloader
                 continue;
             }
 
-            if ($mode === 'explicit' && !TcaColumnDiscovery::isColumnReadable($columnConfig)) {
+            if (TcaColumnDiscovery::isExplicitMode($config) && !TcaColumnDiscovery::isColumnReadable($columnConfig)) {
                 continue;
             }
 
