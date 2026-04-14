@@ -130,6 +130,7 @@ final class TypoLinkProcessorTest extends ApiFunctionalTestCase
         ApiRegistry::register('link-articles', array_merge(self::BASE_CONFIG, [
             'virtualProperties' => [
                 'resolvedLink' => [
+                    'groups' => ['show'],
                     'processor' => TypoLinkProcessor::class,
                 ],
             ],
