@@ -488,7 +488,7 @@ class ResourceSerializer
 
         $columnMap = [];
         foreach (TcaColumnDiscovery::getExposableColumnNames($table) as $colName) {
-            $columnMap[$colName] = $config['columns'][$colName] ?? [];
+            $columnMap[$colName] = ($config['columns'] ?? [])[$colName] ?? [];
         }
 
         return $this->columnMapCache[$cacheKey] = $columnMap;
