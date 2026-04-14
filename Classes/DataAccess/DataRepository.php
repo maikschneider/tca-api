@@ -6,9 +6,10 @@ namespace MaikSchneider\TcaApi\DataAccess;
 
 use Doctrine\DBAL\ParameterType;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 
-class DataRepository
+final class DataRepository
 {
     public function __construct(
         private readonly ConnectionPool $connectionPool,
@@ -176,7 +177,7 @@ class DataRepository
         return $grouped;
     }
 
-    private function applyPidConstraint(\TYPO3\CMS\Core\Database\Query\QueryBuilder $qb, array $config): void
+    private function applyPidConstraint(QueryBuilder $qb, array $config): void
     {
         $pids = $this->resolvePids($config);
         if ($pids !== []) {
@@ -201,7 +202,7 @@ class DataRepository
         return array_map('intval', is_array($raw) ? $raw : [$raw]);
     }
 
-    private function applyFilterConstraint(\TYPO3\CMS\Core\Database\Query\QueryBuilder $qb, string $column, array $filter): void
+    private function applyFilterConstraint(QueryBuilder $qb, string $column, array $filter): void
     {
         $strategy = $filter['strategy'] ?? 'exact';
 
@@ -239,7 +240,7 @@ class DataRepository
     }
 
     private function applyRangeFilterConstraint(
-        \TYPO3\CMS\Core\Database\Query\QueryBuilder $qb,
+        QueryBuilder $qb,
         string $column,
         mixed $operators,
     ): void {
@@ -262,7 +263,7 @@ class DataRepository
     }
 
     private function applySearchFilterConstraint(
-        \TYPO3\CMS\Core\Database\Query\QueryBuilder $qb,
+        QueryBuilder $qb,
         array $filter,
         string $value,
     ): void {
@@ -287,7 +288,7 @@ class DataRepository
     }
 
     private function applyMmFilterConstraint(
-        \TYPO3\CMS\Core\Database\Query\QueryBuilder $qb,
+        QueryBuilder $qb,
         array $filter,
         string $value,
     ): void {

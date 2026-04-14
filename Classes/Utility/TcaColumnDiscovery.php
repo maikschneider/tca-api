@@ -7,7 +7,7 @@ namespace MaikSchneider\TcaApi\Utility;
 /**
  * Static utility for TCA introspection — column discovery and explicit-mode detection.
  */
-class TcaColumnDiscovery
+final class TcaColumnDiscovery
 {
     /** @var array<string, list<string>> Per-table cache for exposable column names. */
     private static array $columnNameCache = [];

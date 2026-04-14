@@ -31,7 +31,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   'embed' => ['depth' => N]   — embed N levels deep
  *   (no 'embed' key)            — return shallow stub {@id, @type, uid}  [default]
  */
-class ResourceSerializer
+final class ResourceSerializer
 {
     /** @var array<string, TcaSchema> Schemas cached per table to avoid repeated factory calls during collection serialization. */
     private array $schemaCache = [];

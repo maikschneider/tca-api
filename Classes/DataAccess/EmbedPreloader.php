@@ -27,7 +27,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * This eliminates N+1 queries during serialization: ResourceSerializer reads from this map
  * instead of issuing per-row queries.
  */
-class EmbedPreloader
+final class EmbedPreloader
 {
     public function __construct(
         private readonly DataRepository $dataRepository,

@@ -20,7 +20,7 @@ use TYPO3\CMS\Core\Site\Entity\SiteSettings;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\PathUtility;
 
-class RequestDispatcher
+final class RequestDispatcher
 {
     private const DEFAULT_ITEMS_PER_PAGE = 20;
     private const RESOURCE_OPENAPI = 'openapi.json';
@@ -234,8 +234,7 @@ class RequestDispatcher
 
     private function notFound(): ResponseInterface
     {
-        return $this->responseFactory->createResponse(404)
-            ->withHeader('Content-Type', 'application/ld+json');
+        return $this->hydraResponseBuilder->buildError(404, 'Resource not found', 'Not Found');
     }
 
     private function methodNotAllowed(?string $operation = null): ResponseInterface
