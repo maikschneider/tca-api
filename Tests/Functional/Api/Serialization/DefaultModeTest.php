@@ -119,7 +119,7 @@ final class DefaultModeTest extends ApiFunctionalTestCase
         self::assertSame('Blue', $body['name']);
     }
 
-    public function testGroupsModeWithEmptyGroupsHidesColumns(): void
+    public function testExplicitModeWithEmptyGroupsHidesColumns(): void
     {
         $response = $this->executeApiRequest('/_api/colors-empty-groups/1');
 
