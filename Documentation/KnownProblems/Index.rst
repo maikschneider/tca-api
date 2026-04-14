@@ -15,8 +15,6 @@ Planned features
 
 The following features are planned but not yet implemented:
 
--  **Serialization groups** — per-operation field visibility using dedicated group
-   definitions (medium priority).
 -  **Object-level security for PATCH** — fine-grained access control on
    individual records during partial updates (medium priority).
 -  **Custom route patterns** — support for custom URL patterns like

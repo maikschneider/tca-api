@@ -1,0 +1,141 @@
+..  _virtual-properties:
+
+==================
+Virtual Properties
+==================
+
+Virtual properties are computed fields appended to the serialized output. They
+appear after all real columns and can be driven by a **callable** or a **column
+processor**.
+
+Callable
+========
+
+A callable receives the already-serialized row and the raw DB record, and returns
+any serializable value:
+
+..  code-block:: php
+
+    'virtualProperties' => [
+        'displayName' => [
+            'callback' => [DisplayNameCallable::class, 'build'],
+            'groups'   => ['list', 'show'],
+        ],
+    ],
+
+The callable signature is
+``(array $serializedRow, array $rawRow): mixed``.
+``$serializedRow`` reflects columns already serialized in this request;
+``$rawRow`` is the raw DB record.
+
+Column processor
+================
+
+A virtual property can also use a column processor:
+
+..  code-block:: php
+
+    'virtualProperties' => [
+        'titleUppercase' => [
+            'processor' => UppercaseProcessor::class,
+            'groups'    => ['list', 'show'],
+        ],
+    ],
+
+The processor implements
+:php:`MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface`.
+Without a ``column`` key the value passed to the processor is ``null``.
+
+Referencing an existing column
+==============================
+
+Add a ``column`` key to source the virtual property's value from an existing DB
+column:
+
+..  code-block:: php
+
+    'virtualProperties' => [
+        'titleCopy' => [
+            'column'    => 'title',
+            'processor' => MyProcessor::class,
+            'groups'    => ['list', 'show'],
+        ],
+    ],
+
+The processor receives the column's **raw DB value** instead of ``null``.
+
+File / image column references
+------------------------------
+
+For **file/image columns** the file references are fetched automatically and the
+result of the virtual property's own file processor is returned. This lets you
+expose the same image at different sizes per operation:
+
+..  code-block:: php
+
+    'virtualProperties' => [
+        'profile_photo_thumb' => [
+            'column'    => 'profile_photo',   // existing type=file column
+            'processor' => FileProcessor::class,
+            'maxWidth'  => 200,
+            'maxHeight' => 200,
+            'groups'    => ['list'],          // small thumb in list only
+        ],
+        'profile_photo_large' => [
+            'column'    => 'profile_photo',
+            // no processor → ImageProcessor with cropVariants (default)
+            'maxWidth'  => 1600,
+            'maxHeight' => 1200,
+            'groups'    => ['show'],          // full size in show only
+        ],
+    ],
+
+The virtual property uses its **own** processor and config keys (``maxWidth``,
+``maxHeight``, etc.) — the referenced column's original config is ignored.
+
+Visibility gate
+===============
+
+Virtual properties respect the same serialization groups as regular columns.
+When any column has a ``groups`` key (explicit mode), virtual properties without
+``groups`` are excluded:
+
+..  code-block:: php
+
+    'virtualProperties' => [
+        'displayName' => [
+            'callback' => [DisplayNameCallable::class, 'build'],
+            'groups'   => ['list', 'show'],  // required in explicit mode
+        ],
+        'adminNote' => [
+            'callback' => [AdminNoteCallable::class, 'build'],
+            'groups'   => ['show'],          // only in show, not list
+        ],
+    ],
+
+Virtual property options reference
+===================================
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 80
+
+   * - Key
+     - Description
+   * - ``callback``
+     - Callable ``[ClassName::class, 'method']`` that receives
+       ``(array $serializedRow, array $rawRow)`` and returns any serializable
+       value.
+   * - ``processor``
+     - Column processor class implementing ``ColumnProcessorInterface``.
+   * - ``column``
+     - Name of an existing DB column to source the value from. When set, the
+       processor receives the raw DB value instead of ``null``. For file columns,
+       file references are fetched automatically.
+   * - ``groups``
+     - Array of operations where this virtual property is active (``list``,
+       ``show``). Required in explicit mode.
+   * - ``maxWidth``
+     - Maximum width for image processing (used with file column references).
+   * - ``maxHeight``
+     - Maximum height for image processing (used with file column references).

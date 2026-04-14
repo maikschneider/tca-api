@@ -35,6 +35,9 @@ Features
    structured 422 error responses
 -  **Access control** — Per-operation roles: ``PUBLIC``, ``FE_USER``, ``FE_GROUP``,
    ``BE_USER``, ``BE_ADMIN``, or custom callable voters
+-  **Virtual properties** — Computed fields via callables or column processors,
+   with support for referencing existing columns (including file/image columns
+   at different sizes)
 -  **Relation handling** — Shallow stubs or fully embedded related records
    (configurable depth)
 -  **Userinfo endpoint** — Expose the authenticated FE user's own record at a
