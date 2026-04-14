@@ -1,10 +1,16 @@
-# TCA API — REST API for TYPO3 based on TCA
+<div align="center">
+
+# `TCA API` — REST API for TYPO3
+
+![Extension icon](Resources/Public/Icons/Extension.svg)
 
 [![License](https://img.shields.io/badge/license-GPL--2.0--or--later-blue.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
 [![TYPO3](https://img.shields.io/badge/TYPO3-13.4%20%7C%2014-orange.svg)](https://typo3.org/)
 [![PHP](https://img.shields.io/badge/PHP-%5E8.2-777BB4.svg)](https://php.net/)
 
-TCA API is a TYPO3 extension that exposes database tables as **Hydra JSON-LD** resources through a configuration-driven REST API. Define which tables, columns, and operations to expose — the extension handles routing, serialization, validation, pagination, and access control.
+`TCA API` is a TYPO3 extension that exposes database tables as **Hydra JSON-LD** resources through a configuration-driven REST API. Define which tables, columns, and operations to expose — the extension handles routing, serialization, validation, pagination, and access control.
+
+</div>
 
 > **State:** Alpha (0.1.0)
 
@@ -321,6 +327,90 @@ The related resource must be registered in the `ApiRegistry` for embedding to wo
 | Any + `MM`           | Intermediate MM table                 | Yes       |
 | `type=group` + `MM`  | Column holds count, relations in MM   | Yes       |
 
+## Virtual properties
+
+Virtual properties are computed fields appended to the serialized output. They appear after all real columns and can be driven by a **callable** or a **column processor**.
+
+### Callable
+
+```php
+'virtualProperties' => [
+    'displayName' => [
+        'callback' => [DisplayNameCallable::class, 'build'],
+        'groups'   => ['list', 'show'],
+    ],
+],
+```
+
+The callable receives `(array $serializedRow, array $rawRow)` and returns any serializable value. `$serializedRow` reflects columns already serialized in this request; `$rawRow` is the raw DB record.
+
+### Column processor
+
+```php
+'virtualProperties' => [
+    'titleUppercase' => [
+        'processor' => UppercaseProcessor::class,
+        'groups'    => ['list', 'show'],
+    ],
+],
+```
+
+The processor implements `ColumnProcessorInterface::process(mixed $value, array $config, array $context)`. Without a `column` key the value passed is `null`.
+
+### Referencing an existing column
+
+Add a `column` key to source the virtual property's value from an existing DB column:
+
+```php
+'virtualProperties' => [
+    'titleCopy' => [
+        'column'    => 'title',
+        'processor' => MyProcessor::class,
+        'groups'    => ['list', 'show'],
+    ],
+],
+```
+
+The processor receives the column's raw DB value instead of `null`. For **file/image columns** the file references are fetched automatically and the result of the virtual property's own file processor is returned — this lets you expose the same image at different sizes per operation:
+
+```php
+'virtualProperties' => [
+    'profile_photo_thumb' => [
+        'column'    => 'profile_photo',   // existing type=file column
+        'processor' => FileProcessor::class,
+        'maxWidth'  => 200,
+        'maxHeight' => 200,
+        'groups'    => ['list'],          // small thumb in list only
+    ],
+    'profile_photo_large' => [
+        'column'    => 'profile_photo',
+        // no processor → ImageProcessor with cropVariants (default)
+        'maxWidth'  => 1600,
+        'maxHeight' => 1200,
+        'groups'    => ['show'],          // full size in show only
+    ],
+],
+```
+
+The virtual property uses its **own** processor and config keys (`maxWidth`, `maxHeight`, etc.) — the referenced column's original config is ignored.
+
+### Visibility gate
+
+Virtual properties respect the same serialization groups as regular columns. When any column has a `groups` key (explicit mode), virtual properties without `groups` are excluded:
+
+```php
+'virtualProperties' => [
+    'displayName' => [
+        'callback' => [DisplayNameCallable::class, 'build'],
+        'groups'   => ['list', 'show'],  // required in explicit mode
+    ],
+    'adminNote' => [
+        'callback' => [AdminNoteCallable::class, 'build'],
+        'groups'   => ['show'],          // only in show, not list
+    ],
+],
+```
+
 ## Userinfo endpoint
 
 A userinfo endpoint exposes the **currently authenticated FE user's own record** without requiring a UID in the URL. Set `'type' => 'userinfo'` in the `general` section:
@@ -351,7 +441,7 @@ GET /_api/me   → Returns the record of the logged-in FE user
 
 - Only `GET` is allowed — write operations are not supported on userinfo endpoints.
 - Returns **403** if no FE user is authenticated.
-- All column features work as normal: `embed`, `virtualProperties`, column processors.
+- All column features work as normal: `embed`, `virtualProperties`, column processors (see [Virtual properties](#virtual-properties)).
 - The `security` and `operations` keys are ignored — access is always tied to FE user authentication.
 
 ## Events

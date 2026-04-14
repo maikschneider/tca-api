@@ -111,8 +111,23 @@ class ResourceSerializer
         }
 
         foreach ($config['virtualProperties'] ?? [] as $virtualPropertyName => $virtualPropertyConfig) {
-            if (isset($virtualPropertyConfig['processor'])) {
-                $result[$virtualPropertyName] = $this->applyColumnProcessor(null, $virtualPropertyConfig, $result, $row);
+            // Visibility gate — same logic as column groups
+            if ($isExplicitMode && !TcaColumnDiscovery::isColumnReadable($virtualPropertyConfig, $operation)) {
+                continue;
+            }
+
+            $columnRef   = $virtualPropertyConfig['column'] ?? null;
+            $columnField = null;
+            if ($columnRef !== null && $schema->hasField($columnRef)) {
+                $columnField = $schema->getField($columnRef);
+            }
+
+            if ($columnField instanceof FileFieldType) {
+                // File column reference: fetch file refs for the source column, process with VP's own config
+                $result[$virtualPropertyName] = $this->serializeFileField($columnRef, $columnField, $virtualPropertyConfig, $table, $uid);
+            } elseif (isset($virtualPropertyConfig['processor'])) {
+                $value = $columnRef !== null ? ($row[$columnRef] ?? null) : null;
+                $result[$virtualPropertyName] = $this->applyColumnProcessor($value, $virtualPropertyConfig, $result, $row);
             } else {
                 [$class, $method] = $virtualPropertyConfig['callback'];
                 $result[$virtualPropertyName] = GeneralUtility::makeInstance($class)->$method($result, $row);

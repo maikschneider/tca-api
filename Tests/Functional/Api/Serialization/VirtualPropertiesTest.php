@@ -8,6 +8,7 @@ use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 use MaikSchneider\TcaApi\Tests\Functional\Fixtures\TestDisplayNameCallable;
+use MaikSchneider\TcaApi\Tests\Functional\Fixtures\TestStaticValueProcessor;
 
 /**
  * Functional tests for virtualProperties in resource config.
@@ -54,6 +55,7 @@ final class VirtualPropertiesTest extends ApiFunctionalTestCase
             'virtualProperties' => [
                 'displayName' => [
                     'callback' => [TestDisplayNameCallable::class, 'displayName'],
+                    'groups' => ['list', 'show'],
                 ],
             ],
         ]));
@@ -70,6 +72,7 @@ final class VirtualPropertiesTest extends ApiFunctionalTestCase
             'virtualProperties' => [
                 'displayName' => [
                     'callback' => [TestDisplayNameCallable::class, 'displayName'],
+                    'groups' => ['list', 'show'],
                 ],
             ],
         ]));
@@ -86,6 +89,7 @@ final class VirtualPropertiesTest extends ApiFunctionalTestCase
             'virtualProperties' => [
                 'displayName' => [
                     'callback' => [TestDisplayNameCallable::class, 'displayName'],
+                    'groups' => ['list', 'show'],
                 ],
             ],
         ]));
@@ -97,6 +101,76 @@ final class VirtualPropertiesTest extends ApiFunctionalTestCase
         self::assertArrayHasKey('title', $body);
         self::assertSame('Person Record', $body['title']);
         self::assertArrayHasKey('displayName', $body);
+    }
+
+    public function testVirtualPropertyWithShowGroupExcludedFromList(): void
+    {
+        ApiRegistry::register('people', array_merge(self::BASE_CONFIG, [
+            'virtualProperties' => [
+                'displayName' => [
+                    'callback' => [TestDisplayNameCallable::class, 'displayName'],
+                    'groups' => ['show'],
+                ],
+            ],
+        ]));
+
+        $response = $this->executeApiRequest('/_api/people');
+        $body = $this->decodeResponseBody($response);
+
+        self::assertArrayNotHasKey('displayName', $body['hydra:member'][0] ?? []);
+    }
+
+    public function testVirtualPropertyWithShowGroupIncludedInShow(): void
+    {
+        ApiRegistry::register('people', array_merge(self::BASE_CONFIG, [
+            'virtualProperties' => [
+                'displayName' => [
+                    'callback' => [TestDisplayNameCallable::class, 'displayName'],
+                    'groups' => ['show'],
+                ],
+            ],
+        ]));
+
+        $response = $this->executeApiRequest('/_api/people/10');
+        $body = $this->decodeResponseBody($response);
+
+        self::assertArrayHasKey('displayName', $body);
+    }
+
+    public function testVirtualPropertyWithNoGroupsExcludedInExplicitMode(): void
+    {
+        ApiRegistry::register('people', array_merge(self::BASE_CONFIG, [
+            'virtualProperties' => [
+                'displayName' => [
+                    'callback' => [TestDisplayNameCallable::class, 'displayName'],
+                ],
+            ],
+        ]));
+
+        $response = $this->executeApiRequest('/_api/people/10');
+        $body = $this->decodeResponseBody($response);
+
+        // BASE_CONFIG has columns with 'groups' → explicit mode is active
+        // VP has no 'groups' → excluded
+        self::assertArrayNotHasKey('displayName', $body);
+    }
+
+    public function testProcessorBasedVirtualPropertyExcludedByVisibilityGate(): void
+    {
+        ApiRegistry::register('people', array_merge(self::BASE_CONFIG, [
+            'virtualProperties' => [
+                'computedValue' => [
+                    'processor' => TestStaticValueProcessor::class,
+                    'groups' => ['show'],
+                ],
+            ],
+        ]));
+
+        $response = $this->executeApiRequest('/_api/people');
+        $body = $this->decodeResponseBody($response);
+
+        // 'show' group only — must be absent from list
+        self::assertArrayNotHasKey('computedValue', $body['hydra:member'][0] ?? []);
     }
 
     public function testResourceWithoutVirtualPropertiesSerializesNormally(): void
