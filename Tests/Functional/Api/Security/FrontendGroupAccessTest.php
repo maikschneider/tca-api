@@ -45,7 +45,7 @@ final class FrontendGroupAccessTest extends ApiFunctionalTestCase
             'itemsPerPage' => 20,
         ],
         'columns' => [
-            'title' => ['readable' => true, 'writable' => true, 'required' => false],
+            'title' => ['groups' => ['list', 'show', 'create', 'update'], 'required' => false],
         ],
         'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
     ];

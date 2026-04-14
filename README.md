@@ -13,6 +13,7 @@ TCA API is a TYPO3 extension that exposes database tables as **Hydra JSON-LD** r
 - **Full CRUD** — List, show, create, update (PUT & PATCH), and delete operations
 - **Hydra JSON-LD** — Responses follow the [Hydra](https://www.hydra-cg.com/) specification (`application/ld+json`)
 - **Configuration-driven** — Expose tables by registering a PHP configuration array; no custom controllers needed
+- **Serialization groups** — Use `groups` to control which columns appear per operation (`list`, `show`, `create`, `update`)
 - **Filtering** — Exact, partial, word-start, and many-to-many filter strategies via query parameters
 - **Sorting** — Configurable allowed sort columns with defaults
 - **Pagination** — Offset-based pagination with Hydra `PartialCollectionView` links
@@ -70,51 +71,43 @@ This exposes the following site settings, configurable per site in the TYPO3 bac
 
 Place a PHP file in `Configuration/TcaApi/` inside any active TYPO3 extension. **No manual registration is needed** — the extension auto-discovers all `*.php` files from every active package's `Configuration/TcaApi/` directory at boot time and caches the result.
 
-Create `Configuration/TcaApi/Articles.php` in your extension:
+**Zero-config (sane defaults):** omit `columns` entirely and all non-system TCA columns are auto-exposed for read and write:
 
 ```php
 use MaikSchneider\TcaApi\Enum\AccessRole;
 
 return [
     'general' => [
-        'table' => 'tx_myext_domain_model_article',
+        'table'        => 'tx_myext_domain_model_article',
         'resourceName' => 'articles',
         'resourceType' => 'Article',
-        'operations' => ['list', 'show', 'create', 'update', 'delete'],
+        'operations'   => ['list', 'show', 'create', 'update', 'delete'],
         'itemsPerPage' => 20,
-        'defaultPid' => 1,
-    ],
-    'columns' => [
-        'title' => [
-            'type' => 'string',
-            'readable' => true,
-            'writable' => true,
-            'required' => true,
-            'validators' => [
-                ['type' => 'maxLength', 'max' => 255],
-                ['type' => 'minLength', 'min' => 3],
-            ],
-        ],
-        'color_id' => [
-            'readable' => true,
-            'writable' => true,
-        ],
-    ],
-    'filters' => [
-        'title' => ['strategy' => 'exact'],
-    ],
-    'order' => [
-        'allowed' => ['title', 'uid'],
-        'default' => ['uid' => 'asc'],
+        'defaultPid'   => 1,
     ],
     'security' => [
-        'list' => AccessRole::PUBLIC,
-        'show' => AccessRole::PUBLIC,
+        'list'   => AccessRole::PUBLIC,
+        'show'   => AccessRole::PUBLIC,
         'create' => AccessRole::FE_USER,
         'update' => AccessRole::FE_USER,
         'delete' => AccessRole::BE_ADMIN,
     ],
 ];
+```
+
+**Explicit mode** (opt in by adding `groups` to any column — only columns with `groups` are then exposed):
+
+```php
+'columns' => [
+    'title' => [
+        'groups'     => ['list', 'show', 'create', 'update'],
+        'required'   => true,
+        'validators' => [
+            ['type' => 'maxLength', 'max' => 255],
+        ],
+    ],
+    'color_id' => ['groups' => ['list', 'show']],
+],
 ```
 
 ### 2. Use the API
@@ -155,18 +148,43 @@ Access to both endpoints is controlled by the `tca_api.openApiExposed` and `tca_
 | `itemsPerPage`  | Default page size for list operations            |
 | `defaultPid`    | Page ID for newly created records                |
 
-### Columns
+### Column visibility
 
-Each column key maps to a database column:
+TCA API has two visibility modes. The mode is **auto-detected** per resource:
+
+**Default mode** — active when no column has `groups` set. All non-system TCA columns (i.e. not `hidden`, `deleted`, `tstamp`, `crdate`, language/workspace fields) are automatically exposed for read and write.
+
+**Explicit mode** — active as soon as any column declares `groups`. Only columns with a matching `groups` entry are exposed; all others are hidden.
+
+#### Serialization groups
+
+Use `groups` instead of `readable`/`writable` to control visibility per operation:
+
+```php
+'columns' => [
+    'title'  => ['groups' => ['list', 'show', 'create', 'update']],  // everywhere
+    'teaser' => ['groups' => ['list']],                              // list only
+    'body'   => ['groups' => ['show']],                              // detail view only
+    'secret' => ['groups' => []],                                    // never exposed
+],
+```
+
+Valid group names: `list`, `show`, `create`, `update`.
+
+#### Columns reference
+
+Each entry in `columns` maps to a database column. All keys are optional:
 
 | Key            | Description                                         |
 |----------------|-----------------------------------------------------|
-| `type`         | Data type hint (e.g. `string`)                      |
-| `readable`     | Include in API responses                            |
-| `writable`     | Accept in create/update requests                    |
+| `type`         | Data type hint for OpenAPI schema (e.g. `string`, `integer`) |
+| `readable`     | `true` — include in responses (legacy; use `groups` instead) |
+| `writable`     | `true` — accept in create/update requests (legacy; use `groups` instead) |
+| `groups`       | Array of operations where this column is active — triggers explicit mode (`list`, `show`, `create`, `update`) |
 | `required`     | Require on POST/PUT (skipped on PATCH if absent)    |
 | `embed`        | `true` or `['depth' => N]` — inline related records instead of shallow stubs |
 | `resourceName` | Override related resource name for relation columns |
+| `processor`    | Column processor class (does **not** trigger explicit mode) |
 | `validators`   | Array of validation rules (see [Validation](#validation)) |
 
 ### Filters
@@ -264,8 +282,16 @@ Add `'embed' => true` to a column to inline the full related record instead of a
 
 ```php
 'columns' => [
-    'color_id'   => ['readable' => true, 'embed' => true],
-    'categories' => ['readable' => true, 'embed' => true],
+    'color_id'   => ['groups' => ['list', 'show'], 'embed' => true],  // explicit mode
+    'categories' => ['groups' => ['list', 'show'], 'embed' => true],
+],
+```
+
+In default mode, `embed` alone is enough — it does not trigger explicit mode:
+
+```php
+'columns' => [
+    'color_id' => ['embed' => true],  // default mode: all columns exposed, color embedded
 ],
 ```
 
@@ -308,11 +334,11 @@ ApiRegistry::register('me', [
         'resourceType' => 'FeUser',
     ],
     'columns' => [
-        'username'   => ['readable' => true],
-        'email'      => ['readable' => true],
-        'name'       => ['readable' => true],
-        'first_name' => ['readable' => true],
-        'last_name'  => ['readable' => true],
+        'username'   => ['groups' => ['show']],
+        'email'      => ['groups' => ['show']],
+        'name'       => ['groups' => ['show']],
+        'first_name' => ['groups' => ['show']],
+        'last_name'  => ['groups' => ['show']],
     ],
 ]);
 ```

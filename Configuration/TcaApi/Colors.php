@@ -15,8 +15,7 @@ return [
     'columns' => [
         'name' => [
             'type' => 'string',
-            'readable' => true,
-            'writable' => false,
+            'groups' => ['list', 'show'],
         ],
     ],
     'security' => [

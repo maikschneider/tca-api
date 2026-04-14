@@ -16,8 +16,7 @@ return [
     'columns' => [
         'title' => [
             'type' => 'string',
-            'readable' => true,
-            'writable' => true,
+            'groups' => ['list', 'show', 'create', 'update'],
             'required' => true,
             'validators' => [
                 ['type' => 'maxLength', 'max' => 20],
@@ -26,22 +25,20 @@ return [
             ],
         ],
         'color_id' => [
-            'readable' => true,
-            'writable' => true,
+            'groups' => ['list', 'show', 'create', 'update'],
         ],
         'categories' => [
-            'readable' => true,
-            'writable' => true,
+            'groups' => ['list', 'show', 'create', 'update'],
         ],
         'profile_photo' => [
-            'readable' => true,
+            'groups' => ['list', 'show'],
         ],
         'downloads' => [
-            'readable'  => true,
+            'groups'    => ['list', 'show'],
             'processor' => FileProcessor::class,
         ],
         'article_url' => [
-            'readable'  => true,
+            'groups'    => ['list', 'show'],
             'processor' => TypoLinkProcessor::class,
         ],
     ],

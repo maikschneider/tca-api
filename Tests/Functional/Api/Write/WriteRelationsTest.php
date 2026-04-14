@@ -9,7 +9,7 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 /**
  * Functional tests for writing relation fields via POST / PUT / PATCH.
  *
- * RED phase: color_id and categories are writable: false in Articles.php config.
+ * color_id and categories now have groups including 'create'/'update' in Articles.php config.
  * All tests must fail until the config and write pipeline are updated.
  *
  * Fixture baseline:

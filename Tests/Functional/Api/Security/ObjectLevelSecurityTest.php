@@ -30,11 +30,10 @@ final class ObjectLevelSecurityTest extends ApiFunctionalTestCase
         ],
         'columns' => [
             'title' => [
-                'readable' => true,
-                'writable' => true,
+                                'groups' => ['list', 'show', 'create', 'update'],
             ],
             'fe_user_id' => [
-                'readable' => true,
+                'groups' => ['list', 'show'],
             ],
         ],
         'order' => [

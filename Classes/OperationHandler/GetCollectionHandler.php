@@ -66,7 +66,7 @@ class GetCollectionHandler implements OperationHandlerInterface
         $total     = $this->dataRepository->count($table, $safeFilters, $config);
         $rows      = $this->dataRepository->findCollection($table, $safeFilters, $itemsPerPage, $offset, $safeOrder, $config);
         $preloaded = $this->embedPreloader->preload($rows, $config);
-        $members   = $this->serializer->serializeCollection($rows, $config, $baseUrl, $fields, $preloaded);
+        $members   = $this->serializer->serializeCollection($rows, $config, $baseUrl, $fields, $preloaded, 'list');
 
         $event = new AfterOperationEvent('list', $members);
         $this->eventDispatcher->dispatch($event);
