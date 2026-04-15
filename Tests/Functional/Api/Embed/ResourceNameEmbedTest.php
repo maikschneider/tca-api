@@ -248,4 +248,38 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
         self::assertArrayNotHasKey('name', $body['color']);
         self::assertArrayHasKey('@id', $body['color']);
     }
+
+    // ── Group 4: HasMany default-mode fallback (covers serializeHasManyFromRows) ──
+
+    public function testNoApiDefinitionHasManyWithEmbedSerializesDefaultModeColumns(): void
+    {
+        // Article 200 has related_colors="1,2" (type=group, single table, UID list in own column).
+        // 'resourceName' points to a non-existent key → buildDefaultConfig() synthesized →
+        // all TCA columns exposed (name + hex) without a registered color endpoint.
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles_group.csv');
+
+        ApiRegistry::register('rn-group-articles', [
+            'general' => [
+                'table'        => self::ARTICLE_TABLE,
+                'resourceName' => 'rn-group-articles',
+                'resourceType' => 'Article',
+                'operations'   => ['list', 'show'],
+                'itemsPerPage' => 20,
+            ],
+            'columns' => [
+                'title'          => ['groups' => ['list', 'show'], 'required' => false],
+                'related_colors' => ['groups' => ['list', 'show'], 'required' => false, 'embed' => true, 'resourceName' => 'rn-colors-nonexistent'],
+            ],
+            'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
+        ]);
+
+        $response = $this->executeApiRequest('/_api/rn-group-articles/200');
+
+        $body = $this->decodeResponseBody($response);
+        self::assertIsArray($body['related_colors']);
+        self::assertCount(2, $body['related_colors']);
+        self::assertArrayHasKey('name', $body['related_colors'][0]);
+        self::assertArrayHasKey('hex', $body['related_colors'][0]);
+        self::assertSame('Red', $body['related_colors'][0]['name']);
+    }
 }
