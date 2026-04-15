@@ -60,7 +60,7 @@ class GetCollectionHandler implements OperationHandlerInterface
         $baseUrl = '/_api/' . $config['general']['resourceName'];
         $offset  = ($page - 1) * $itemsPerPage;
 
-        $safeFilters = $this->resolveFilters($filters, $config);
+        $safeFilters = $this->resolveFilters($filters, $config, $request);
         $safeOrder   = $this->resolveOrder($order, $config);
 
         $total     = $this->dataRepository->count($table, $safeFilters, $config);
@@ -74,16 +74,18 @@ class GetCollectionHandler implements OperationHandlerInterface
         return $this->hydraResponseBuilder->buildCollection($event->getData(), $total, $baseUrl, $page, $itemsPerPage);
     }
 
-    private function resolveFilters(array $requested, array $config): array
+    private function resolveFilters(array $requested, array $config, ServerRequestInterface $request): array
     {
         $declared = $config['filters'] ?? [];
         $safe     = [];
         foreach ($requested as $column => $value) {
             if (isset($declared[$column])) {
                 $safe[$column] = array_merge($declared[$column], [
-                    'value'   => $value,
-                    '_table'  => $config['general']['table'],
-                    '_column' => $column,
+                    'value'           => $value,
+                    '_table'          => $config['general']['table'],
+                    '_column'         => $column,
+                    '_request'        => $request,
+                    '_resourceConfig' => $config,
                 ]);
             }
         }
