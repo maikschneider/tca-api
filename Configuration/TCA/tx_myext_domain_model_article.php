@@ -148,6 +148,7 @@ return [
             'label' => 'Related Items (inline)',
             'config' => [
                 'type' => 'inline',
+                'foreign_field' => 'foreign_article_id',
                 'foreign_table' => 'tx_myext_domain_model_color',
             ],
         ],

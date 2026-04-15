@@ -55,5 +55,10 @@ return [
                 'eval' => 'trim',
             ],
         ],
+        'foreign_article_id' => [
+            'config' => [
+                'type' => 'passthrough',
+            ],
+        ],
     ],
 ];

@@ -10,17 +10,17 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 /**
  * Functional tests for TCA type=inline column serialization.
  *
- * type=inline without foreign_field stores related UIDs as a comma-separated list
- * in the parent row's own column — identical runtime path to UID-list hasMany.
+ * type=inline with foreign_field='foreign_article_id' stores the relationship
+ * on the child side: colors carry a back-pointer to their parent article.
+ * EmbedPreloader resolves this via findHasManyByForeignField() (line 124).
  *
- * Fixtures (articles_inline.csv + colors.csv):
- *   Article 300 → related_items_inline="1,2"  (Red + Blue)
- *   Article 301 → related_items_inline="1"    (Red only)
- *   Article 302 → related_items_inline=""     (none)
- *   Article 303 → related_items_inline="2"    (Blue only)
+ * Fixtures (articles_inline.csv + colors_inline.csv):
+ *   Article 300 → 2 inline colors: InlineRed (10), InlineBlue (11)
+ *   Article 301 → 1 inline color:  InlineGreen (12)
+ *   Article 302 → 0 inline colors
+ *   Article 303 → 1 inline color:  InlineCyan (13)
  *
- *   Color uid=1 → Red
- *   Color uid=2 → Blue
+ * Colors carry foreign_article_id pointing back to the parent article.
  */
 final class InlineEmbedTest extends ApiFunctionalTestCase
 {
@@ -31,7 +31,7 @@ final class InlineEmbedTest extends ApiFunctionalTestCase
     {
         parent::setUp();
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
-        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/colors.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/colors_inline.csv');
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles_inline.csv');
     }
 
@@ -110,10 +110,10 @@ final class InlineEmbedTest extends ApiFunctionalTestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertCount(1, $body['related_items_inline']);
-        self::assertSame(1, $body['related_items_inline'][0]['uid']);
+        self::assertSame(12, $body['related_items_inline'][0]['uid']);
     }
 
-    public function testInlineEmptyValueWithoutEmbedReturnsEmptyArray(): void
+    public function testInlineEmptyWithoutEmbedReturnsEmptyArray(): void
     {
         $this->registerColorResource();
         $this->registerArticleResource();
@@ -141,8 +141,8 @@ final class InlineEmbedTest extends ApiFunctionalTestCase
         self::assertCount(2, $body['related_items_inline']);
 
         $names = array_column($body['related_items_inline'], 'name');
-        self::assertContains('Red', $names);
-        self::assertContains('Blue', $names);
+        self::assertContains('InlineRed', $names);
+        self::assertContains('InlineBlue', $names);
     }
 
     public function testInlineWithEmbedReturnsOneColorRecord(): void
@@ -157,10 +157,10 @@ final class InlineEmbedTest extends ApiFunctionalTestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertCount(1, $body['related_items_inline']);
-        self::assertSame('Red', $body['related_items_inline'][0]['name']);
+        self::assertSame('InlineGreen', $body['related_items_inline'][0]['name']);
     }
 
-    public function testInlineEmptyValueWithEmbedReturnsEmptyArray(): void
+    public function testInlineEmptyWithEmbedReturnsEmptyArray(): void
     {
         $this->registerColorResource();
         $this->registerArticleResource([
@@ -226,7 +226,7 @@ final class InlineEmbedTest extends ApiFunctionalTestCase
         self::assertArrayHasKey('name', $body['related_items_inline'][0]);
     }
 
-    // ── Collection endpoint: bulk preload ─────────────────────────────────────
+    // ── Collection endpoint: bulk preload via foreign_field ───────────────────
 
     public function testInlineCollectionPreloadWorks(): void
     {
@@ -244,6 +244,6 @@ final class InlineEmbedTest extends ApiFunctionalTestCase
         self::assertCount(1, $members[301]['related_items_inline']);
         self::assertSame([], $members[302]['related_items_inline']);
         self::assertCount(1, $members[303]['related_items_inline']);
-        self::assertSame('Blue', $members[303]['related_items_inline'][0]['name']);
+        self::assertSame('InlineCyan', $members[303]['related_items_inline'][0]['name']);
     }
 }
