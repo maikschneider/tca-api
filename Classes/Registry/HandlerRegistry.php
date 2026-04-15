@@ -7,7 +7,7 @@ namespace MaikSchneider\TcaApi\Registry;
 use MaikSchneider\TcaApi\OperationHandler\OperationHandlerInterface;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
-class HandlerRegistry
+final class HandlerRegistry
 {
     /** @var array<int, list<string>> */
     private static array $handlers = [];

@@ -66,3 +66,4 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
+          flags: functional,php${{ matrix.php-version }},typo3-${{ matrix.typo3-version }}

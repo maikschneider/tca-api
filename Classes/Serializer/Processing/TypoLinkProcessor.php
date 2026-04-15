@@ -30,8 +30,8 @@ final class TypoLinkProcessor implements ColumnProcessorInterface
 
         return match ($linkDetails['type'] ?? LinkService::TYPE_UNKNOWN) {
             LinkService::TYPE_URL       => $linkDetails['url'] ?? $value,
-            LinkService::TYPE_EMAIL     => 'mailto:' . ($linkDetails['email'] ?? ''),
-            LinkService::TYPE_TELEPHONE => 'tel:' . ($linkDetails['telephone'] ?? ''),
+            LinkService::TYPE_EMAIL     => !empty($linkDetails['email']) ? 'mailto:' . $linkDetails['email'] : null,
+            LinkService::TYPE_TELEPHONE => !empty($linkDetails['telephone']) ? 'tel:' . $linkDetails['telephone'] : null,
             LinkService::TYPE_PAGE      => $this->resolvePageUrl($linkDetails),
             default                     => $value,
         };
