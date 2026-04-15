@@ -200,9 +200,14 @@ final class ResourceSerializer
         // For self-referential relations use the current config directly so that embed column
         // definitions (e.g. parent_id with embed:true on an article resource) are preserved
         // through recursive calls instead of falling back to a different ApiRegistry entry.
-        $relatedConfig = $this->resolveRelatedConfig($foreignTable, $config);
-        $resourceName  = $columnConfig['resourceName'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceName'] : $foreignTable);
-        $resourceType  = $columnConfig['resourceType'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceType'] : $foreignTable);
+        $relatedConfig = $this->resolveRelatedConfig($foreignTable, $config, $columnConfig);
+
+        if ($relatedConfig === null && $effectiveDepth > 0 && !isset($visited[$foreignTable . ':' . $fkValue])) {
+            $relatedConfig = $this->buildDefaultConfig($foreignTable, $columnConfig);
+        }
+
+        $resourceName = $columnConfig['resourceName'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceName'] : $foreignTable);
+        $resourceType = $columnConfig['resourceType'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceType'] : $foreignTable);
 
         if ($effectiveDepth <= 0 || isset($visited[$foreignTable . ':' . $fkValue]) || $relatedConfig === null) {
             return $this->buildStub($resourceName, $resourceType, $fkValue);
@@ -274,9 +279,14 @@ final class ResourceSerializer
         array $visited,
         string $operation = '',
     ): array {
-        $relatedConfig = $this->resolveRelatedConfig($foreignTable, $config);
-        $resourceName  = $columnConfig['resourceName'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceName'] : $foreignTable);
-        $resourceType  = $columnConfig['resourceType'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceType'] : $foreignTable);
+        $relatedConfig = $this->resolveRelatedConfig($foreignTable, $config, $columnConfig);
+
+        if ($relatedConfig === null && $effectiveDepth > 0) {
+            $relatedConfig = $this->buildDefaultConfig($foreignTable, $columnConfig);
+        }
+
+        $resourceName = $columnConfig['resourceName'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceName'] : $foreignTable);
+        $resourceType = $columnConfig['resourceType'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceType'] : $foreignTable);
 
         if ($effectiveDepth <= 0 || $relatedConfig === null) {
             return array_map(fn (array $r) => $this->buildStub($resourceName, $resourceType, (int)$r['uid']), $relatedRows);
@@ -479,6 +489,23 @@ final class ResourceSerializer
     }
 
     /**
+     * Synthesize a minimal default-mode config for a table with no API registration.
+     * 'columns' => [] with no 'groups' key → isExplicitMode() returns false → all TCA columns exposed.
+     */
+    private function buildDefaultConfig(string $foreignTable, array $columnConfig = []): array
+    {
+        return [
+            'general' => [
+                'table'        => $foreignTable,
+                'resourceName' => $columnConfig['resourceName'] ?? $foreignTable,
+                'resourceType' => $columnConfig['resourceType'] ?? $foreignTable,
+                'operations'   => [],
+            ],
+            'columns' => [],
+        ];
+    }
+
+    /**
      * Build the column map for iteration in serialize().
      *
      * Explicit mode: returns $config['columns'] as-is.
@@ -553,12 +580,19 @@ final class ResourceSerializer
     /**
      * Resolve the API config for a related table.
      * For self-referential relations returns the current config to preserve embed definitions.
+     * When $columnConfig['resourceName'] is set, selects that specific ApiRegistry entry by name.
      */
-    private function resolveRelatedConfig(string $foreignTable, array $config): ?array
+    private function resolveRelatedConfig(string $foreignTable, array $config, array $columnConfig = []): ?array
     {
-        return $foreignTable === $config['general']['table']
-            ? $config
-            : ApiRegistry::getByTable($foreignTable);
+        if ($foreignTable === $config['general']['table']) {
+            return $config;
+        }
+
+        if (isset($columnConfig['resourceName'])) {
+            return ApiRegistry::get($columnConfig['resourceName']);
+        }
+
+        return ApiRegistry::getByTable($foreignTable);
     }
 
     /** Returns the TcaSchema for a table, cached to avoid repeated factory calls per collection row. */
