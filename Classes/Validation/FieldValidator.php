@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Validation;
 
-class FieldValidator
+use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
+
+final class FieldValidator
 {
     /**
      * Validate $body against the column config.
@@ -18,8 +20,28 @@ class FieldValidator
     {
         $violations = [];
 
+        if (!TcaColumnDiscovery::isExplicitMode($config)) {
+            // Default mode: only run declared validators — no required-check unless configured
+            foreach ($config['columns'] ?? [] as $column => $columnConfig) {
+                $provided = \array_key_exists($column, $body);
+                if ($partial && !$provided) {
+                    continue;
+                }
+                if ($provided) {
+                    foreach ($columnConfig['validators'] ?? [] as $validatorConfig) {
+                        $violation = $this->applyValidator($validatorConfig, $column, $body[$column]);
+                        if ($violation !== null) {
+                            $violations[] = $violation;
+                        }
+                    }
+                }
+            }
+            return $violations;
+        }
+
+        // Explicit mode
         foreach ($config['columns'] as $column => $columnConfig) {
-            if (!($columnConfig['writable'] ?? false)) {
+            if (!TcaColumnDiscovery::isColumnWritable($columnConfig)) {
                 continue;
             }
 
@@ -84,7 +106,11 @@ class FieldValidator
 
     private function validateRegex(string $column, mixed $value, string $pattern): ?array
     {
-        if (preg_match($pattern, (string)$value) !== 1) {
+        $result = @preg_match($pattern, (string)$value);
+        if ($result === false) {
+            return $this->buildViolation($column, "Field '$column' has an invalid validation pattern.", 'REGEX_ERROR');
+        }
+        if ($result !== 1) {
             return $this->buildViolation($column, "Field '$column' does not match the required pattern.", 'REGEX');
         }
 

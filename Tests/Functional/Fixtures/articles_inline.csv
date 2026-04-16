@@ -1,0 +1,6 @@
+"tx_myext_domain_model_article"
+,"uid","pid","title","color_id","parent_id","hidden","deleted","tstamp","crdate","related_items_inline"
+,300,1,"Inline Article A",0,0,0,0,1704067200,1704067200,2
+,301,1,"Inline Article B",0,0,0,0,1704067200,1704067200,1
+,302,1,"Inline Article C",0,0,0,0,1704067200,1704067200,0
+,303,1,"Inline Article D",0,0,0,0,1704067200,1704067200,1

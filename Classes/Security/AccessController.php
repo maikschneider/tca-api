@@ -9,7 +9,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
-class AccessController
+final class AccessController
 {
     public function isAllowed(AccessRole|array $requiredRole, ServerRequestInterface $request, array $record = []): bool
     {

@@ -73,7 +73,7 @@ final class CollectionFilteringTest extends ApiFunctionalTestCase
                 'operations' => ['list'],
                 'itemsPerPage' => 20,
             ],
-            'columns' => ['title' => ['type' => 'string', 'readable' => true]],
+            'columns' => ['title' => ['type' => 'string', 'groups' => ['list', 'show']]],
             'filters' => ['title' => ['strategy' => 'partial']],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
@@ -110,7 +110,7 @@ final class CollectionFilteringTest extends ApiFunctionalTestCase
                 'operations' => ['list'],
                 'itemsPerPage' => 20,
             ],
-            'columns' => ['title' => ['type' => 'string', 'readable' => true]],
+            'columns' => ['title' => ['type' => 'string', 'groups' => ['list', 'show']]],
             'filters' => ['title' => ['strategy' => 'word_start']],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);

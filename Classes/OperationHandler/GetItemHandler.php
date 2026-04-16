@@ -58,7 +58,7 @@ class GetItemHandler implements OperationHandlerInterface
         }
 
         $preloaded  = $this->embedPreloader->preload([$row], $config);
-        $serialized = $this->serializer->serialize($row, $config, $baseUrl, $fields, $preloaded);
+        $serialized = $this->serializer->serialize($row, $config, $baseUrl, $fields, $preloaded, -1, [], 'show');
 
         $event = new AfterOperationEvent('show', $serialized);
         $this->eventDispatcher->dispatch($event);

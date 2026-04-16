@@ -41,6 +41,10 @@ final class DataWriteService
             $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
             $dataHandler->start($dataMap, [], $adminUser);
             $dataHandler->process_datamap();
+
+            if ($dataHandler->errorLog) {
+                throw new \RuntimeException('DataHandler update failed: ' . implode(', ', $dataHandler->errorLog));
+            }
         });
     }
 
@@ -52,6 +56,10 @@ final class DataWriteService
             $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
             $dataHandler->start([], $cmdMap, $adminUser);
             $dataHandler->process_cmdmap();
+
+            if ($dataHandler->errorLog) {
+                throw new \RuntimeException('DataHandler delete failed: ' . implode(', ', $dataHandler->errorLog));
+            }
         });
     }
 

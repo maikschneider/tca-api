@@ -47,7 +47,7 @@ final class HasManyEmbedTest extends ApiFunctionalTestCase
                 'itemsPerPage' => 20,
             ],
             'columns' => [
-                'title' => ['readable' => true],
+                'title' => ['groups' => ['list', 'show']],
             ],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
@@ -64,8 +64,8 @@ final class HasManyEmbedTest extends ApiFunctionalTestCase
                 'itemsPerPage' => 20,
             ],
             'columns' => array_merge([
-                'title'      => ['readable' => true],
-                'categories' => ['readable' => true],
+                'title'      => ['groups' => ['list', 'show']],
+                'categories' => ['groups' => ['list', 'show']],
             ], $columnOverrides),
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
@@ -99,7 +99,7 @@ final class HasManyEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerCategoryResource();
         $this->registerArticleResource([
-            'categories' => ['readable' => true, 'embed' => true],
+            'categories' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         $response = $this->executeApiRequest('/_api/hm-articles/1');
@@ -127,7 +127,7 @@ final class HasManyEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerCategoryResource();
         $this->registerArticleResource([
-            'categories' => ['readable' => true, 'embed' => true],
+            'categories' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         // Article 3 has no categories
@@ -144,7 +144,7 @@ final class HasManyEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerCategoryResource();
         $this->registerArticleResource([
-            'categories' => ['readable' => true, 'embed' => true],
+            'categories' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         $response = $this->executeApiRequest('/_api/hm-articles');
@@ -172,7 +172,7 @@ final class HasManyEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerCategoryResource();
         $this->registerArticleResource([
-            'categories' => ['readable' => true, 'embed' => ['depth' => 1]],
+            'categories' => ['groups' => ['list', 'show'], 'embed' => ['depth' => 1]],
         ]);
 
         $response = $this->executeApiRequest('/_api/hm-articles/1');

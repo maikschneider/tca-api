@@ -1,0 +1,6 @@
+"tx_myext_domain_model_color"
+,"uid","pid","name","hidden","deleted","foreign_article_id"
+,10,1,"InlineRed",0,0,300
+,11,1,"InlineBlue",0,0,300
+,12,1,"InlineGreen",0,0,301
+,13,1,"InlineCyan",0,0,303

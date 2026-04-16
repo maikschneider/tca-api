@@ -19,7 +19,7 @@ return [
     ],
     'types' => [
         0 => [
-            'showitem' => 'title, color_id, parent_id, categories, profile_photo, downloads, first_name, last_name, article_url, fe_user_id, related_colors, related_items, hidden',
+            'showitem' => 'title, color_id, parent_id, categories, profile_photo, downloads, first_name, last_name, article_url, fe_user_id, related_colors, related_items, related_items_inline, hidden',
         ],
     ],
     'columns' => [
@@ -142,6 +142,14 @@ return [
                 'allowed' => 'tx_myext_domain_model_color',
                 'MM' => 'tx_myext_article_colors_mm',
                 'size' => 5,
+            ],
+        ],
+        'related_items_inline' => [
+            'label' => 'Related Items (inline)',
+            'config' => [
+                'type' => 'inline',
+                'foreign_field' => 'foreign_article_id',
+                'foreign_table' => 'tx_myext_domain_model_color',
             ],
         ],
     ],

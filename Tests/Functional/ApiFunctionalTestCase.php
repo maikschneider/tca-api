@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional;
 
+use MaikSchneider\TcaApi\Loader\ApiDefinitionLoader;
+use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Core\Http\Stream;
 use TYPO3\CMS\Core\Http\UploadedFile;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequest;
 use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequestContext;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
@@ -20,6 +23,16 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
     protected array $pathsToLinkInTestInstance = [
         'typo3conf/ext/tca_api/Tests/Functional/Fixtures/Sites' => 'typo3conf/sites',
     ];
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Tests frequently register temporary resources in static ApiRegistry.
+        // Reset and reload baseline definitions to prevent cross-test leakage.
+        ApiRegistry::reset();
+        GeneralUtility::makeInstance(ApiDefinitionLoader::class)->load();
+    }
 
     /**
      * Execute a GET request against the API and return the PSR-7 response.

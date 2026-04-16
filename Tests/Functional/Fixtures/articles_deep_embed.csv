@@ -1,0 +1,6 @@
+"tx_myext_domain_model_article"
+,"uid","pid","title","color_id","parent_id","hidden","deleted","tstamp","crdate"
+,70,1,"Deep Level 1",1,71,0,0,1704067200,1704067200
+,71,1,"Deep Level 2",2,72,0,0,1704067200,1704067200
+,72,1,"Deep Level 3",1,73,0,0,1704067200,1704067200
+,73,1,"Deep Level 4",2,0,0,0,1704067200,1704067200

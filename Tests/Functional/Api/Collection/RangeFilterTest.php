@@ -20,12 +20,12 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
  * Request format: ?filters[color_id][gte]=100&filters[color_id][lte]=200
  *
  * Fixture articles (articles_range.csv):
- *   uid=80  color_id=10
- *   uid=81  color_id=50
- *   uid=82  color_id=100
- *   uid=83  color_id=150
- *   uid=84  color_id=200
- *   uid=85  color_id=300
+ *   uid=400  color_id=10
+ *   uid=401  color_id=50
+ *   uid=402  color_id=100
+ *   uid=403  color_id=150
+ *   uid=404  color_id=200
+ *   uid=405  color_id=300
  */
 final class RangeFilterTest extends ApiFunctionalTestCase
 {
@@ -38,8 +38,8 @@ final class RangeFilterTest extends ApiFunctionalTestCase
             'itemsPerPage' => 20,
         ],
         'columns' => [
-            'title'    => ['readable' => true],
-            'color_id' => ['readable' => true],
+            'title'    => ['groups' => ['list', 'show']],
+            'color_id' => ['groups' => ['list', 'show']],
         ],
         'filters' => [
             'color_id' => ['strategy' => 'range'],
@@ -82,7 +82,7 @@ final class RangeFilterTest extends ApiFunctionalTestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertSame(4, $body['hydra:totalItems']);
-        self::assertSame([82, 83, 84, 85], $this->getUids($body));
+        self::assertSame([402, 403, 404, 405], $this->getUids($body));
     }
 
     public function testGteIncludesBoundaryValue(): void
@@ -91,7 +91,7 @@ final class RangeFilterTest extends ApiFunctionalTestCase
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(1, $body['hydra:totalItems']);
-        self::assertSame([85], $this->getUids($body));
+        self::assertSame([405], $this->getUids($body));
     }
 
     // ── lte ──────────────────────────────────────────────────────────────────
@@ -103,7 +103,7 @@ final class RangeFilterTest extends ApiFunctionalTestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertSame(4, $body['hydra:totalItems']);
-        self::assertSame([80, 81, 82, 83], $this->getUids($body));
+        self::assertSame([400, 401, 402, 403], $this->getUids($body));
     }
 
     public function testLteIncludesBoundaryValue(): void
@@ -112,7 +112,7 @@ final class RangeFilterTest extends ApiFunctionalTestCase
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(1, $body['hydra:totalItems']);
-        self::assertSame([80], $this->getUids($body));
+        self::assertSame([400], $this->getUids($body));
     }
 
     // ── gt ───────────────────────────────────────────────────────────────────
@@ -124,7 +124,7 @@ final class RangeFilterTest extends ApiFunctionalTestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertSame(3, $body['hydra:totalItems']);
-        self::assertSame([83, 84, 85], $this->getUids($body));
+        self::assertSame([403, 404, 405], $this->getUids($body));
     }
 
     public function testGtExcludesBoundaryValue(): void
@@ -144,7 +144,7 @@ final class RangeFilterTest extends ApiFunctionalTestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertSame(3, $body['hydra:totalItems']);
-        self::assertSame([80, 81, 82], $this->getUids($body));
+        self::assertSame([400, 401, 402], $this->getUids($body));
     }
 
     public function testLtExcludesBoundaryValue(): void
@@ -166,7 +166,7 @@ final class RangeFilterTest extends ApiFunctionalTestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertSame(3, $body['hydra:totalItems']);
-        self::assertSame([82, 83, 84], $this->getUids($body));
+        self::assertSame([402, 403, 404], $this->getUids($body));
     }
 
     public function testGtAndLtCombinationReturnsOpenRange(): void
@@ -177,7 +177,7 @@ final class RangeFilterTest extends ApiFunctionalTestCase
         $body = $this->decodeResponseBody($response);
 
         self::assertSame(2, $body['hydra:totalItems']);
-        self::assertSame([82, 83], $this->getUids($body));
+        self::assertSame([402, 403], $this->getUids($body));
     }
 
     // ── edge: empty result ────────────────────────────────────────────────────

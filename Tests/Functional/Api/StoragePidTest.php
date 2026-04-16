@@ -31,7 +31,7 @@ final class StoragePidTest extends ApiFunctionalTestCase
             'storagePid'   => 42,
         ],
         'columns' => [
-            'title' => ['readable' => true, 'writable' => false, 'required' => false],
+            'title' => ['groups' => ['list', 'show'], 'required' => false],
         ],
         'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
     ];
