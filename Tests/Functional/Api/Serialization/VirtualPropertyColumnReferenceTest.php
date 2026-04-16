@@ -20,9 +20,9 @@ use MaikSchneider\TcaApi\Tests\Functional\Fixtures\TestEchoProcessor;
  *   - Callback VP    → callback still receives ($result, $row) unchanged
  *
  * Fixture data (articles_with_files):
- *   Article 70 → title='Article With Photo', profile_photo → sys_file_reference uid=1 (image/jpeg)
- *   Article 71 → title='Article With Downloads'
- *   Article 72 → no file references
+ *   Article 410 → title='Article With Photo', profile_photo → sys_file_reference uid=1 (image/jpeg)
+ *   Article 411 → title='Article With Downloads'
+ *   Article 412 → no file references
  */
 final class VirtualPropertyColumnReferenceTest extends ApiFunctionalTestCase
 {
@@ -62,7 +62,7 @@ final class VirtualPropertyColumnReferenceTest extends ApiFunctionalTestCase
             ],
         ]));
 
-        $response = $this->executeApiRequest('/_api/file-articles/70');
+        $response = $this->executeApiRequest('/_api/file-articles/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('titleCopy', $body);
@@ -80,7 +80,7 @@ final class VirtualPropertyColumnReferenceTest extends ApiFunctionalTestCase
             ],
         ]));
 
-        $response = $this->executeApiRequest('/_api/file-articles/70');
+        $response = $this->executeApiRequest('/_api/file-articles/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame('Article With Photo', $body['titleCopy']);
@@ -97,7 +97,7 @@ final class VirtualPropertyColumnReferenceTest extends ApiFunctionalTestCase
             ],
         ]));
 
-        $response = $this->executeApiRequest('/_api/file-articles/70');
+        $response = $this->executeApiRequest('/_api/file-articles/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertNull($body['noSource']);
@@ -116,7 +116,7 @@ final class VirtualPropertyColumnReferenceTest extends ApiFunctionalTestCase
             ],
         ]));
 
-        $response = $this->executeApiRequest('/_api/file-articles/70');
+        $response = $this->executeApiRequest('/_api/file-articles/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('thumbnail', $body);
@@ -134,7 +134,7 @@ final class VirtualPropertyColumnReferenceTest extends ApiFunctionalTestCase
             ],
         ]));
 
-        $response = $this->executeApiRequest('/_api/file-articles/70');
+        $response = $this->executeApiRequest('/_api/file-articles/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('publicUrl', $body['thumbnail']);
@@ -152,7 +152,7 @@ final class VirtualPropertyColumnReferenceTest extends ApiFunctionalTestCase
             ],
         ]));
 
-        $response = $this->executeApiRequest('/_api/file-articles/70');
+        $response = $this->executeApiRequest('/_api/file-articles/410');
         $body     = $this->decodeResponseBody($response);
 
         // FileProcessor does not produce cropVariants; ImageProcessor (default) does
@@ -170,8 +170,8 @@ final class VirtualPropertyColumnReferenceTest extends ApiFunctionalTestCase
             ],
         ]));
 
-        // Article 72 has no file references
-        $response = $this->executeApiRequest('/_api/file-articles/72');
+        // Article 412 has no file references
+        $response = $this->executeApiRequest('/_api/file-articles/412');
         $body     = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('thumbnail', $body);
@@ -195,7 +195,7 @@ final class VirtualPropertyColumnReferenceTest extends ApiFunctionalTestCase
         // TestDisplayNameCallable builds "last_name, first_name" from $result
         // articles_with_files has no first_name/last_name — both null → "null, null"
         // This test just asserts the key exists and no exception is thrown
-        $response = $this->executeApiRequest('/_api/file-articles/70');
+        $response = $this->executeApiRequest('/_api/file-articles/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('displayName', $body);
@@ -215,7 +215,7 @@ final class VirtualPropertyColumnReferenceTest extends ApiFunctionalTestCase
             ],
         ]));
 
-        $response = $this->executeApiRequest('/_api/file-articles/70');
+        $response = $this->executeApiRequest('/_api/file-articles/410');
 
         self::assertSame(200, $response->getStatusCode());
 
