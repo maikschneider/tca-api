@@ -197,44 +197,55 @@ Each entry in `columns` maps to a database column. All keys are optional:
 
 ### Filters
 
-Define filterable columns with a strategy:
+Each filterable column maps to a filter class. Use the **shorthand** (class name only) or the **options form** (two-element array with class + config):
 
 ```php
+use MaikSchneider\TcaApi\Filter\ExactFilter;
+use MaikSchneider\TcaApi\Filter\MmFilter;
+use MaikSchneider\TcaApi\Filter\PartialFilter;
+use MaikSchneider\TcaApi\Filter\RangeFilter;
+use MaikSchneider\TcaApi\Filter\SearchFilter;
+use MaikSchneider\TcaApi\Filter\WordStartFilter;
+
 'filters' => [
-    'title'  => ['strategy' => 'exact'],       // ?filters[title]=Foo
-    'name'   => ['strategy' => 'partial'],     // ?filters[name]=oo  → LIKE %oo%
-    'slug'   => ['strategy' => 'word_start'],  // ?filters[slug]=Fo  → LIKE Fo%
-    'year'   => ['strategy' => 'range'],       // ?filters[year][gte]=2020&filters[year][lte]=2024
-    'q'      => [                              // Full-text search across multiple columns
-        'strategy' => 'search',
-        'columns'  => ['title', 'teaser', 'body'],
-        'match'    => 'partial',               // 'partial' (default) or 'word_start'
+    'title'  => ExactFilter::class,            // ?filters[title]=Foo
+    'name'   => PartialFilter::class,          // ?filters[name]=oo  → LIKE %oo%
+    'slug'   => WordStartFilter::class,        // ?filters[slug]=Fo  → LIKE Fo%
+    'year'   => RangeFilter::class,            // ?filters[year][gte]=2020&filters[year][lte]=2024
+    'q'      => [                              // Full-text search — options form
+        SearchFilter::class,
+        [
+            'columns' => ['title', 'teaser', 'body'],
+            'match'   => 'partial',            // 'partial' (default) or 'word_start'
+        ],
     ],
-    'categories' => [                          // Many-to-many filter
-        'strategy'       => 'mm',
-        'mm_table'       => 'sys_category_record_mm',
-        'mm_local_key'   => 'uid_local',
-        'mm_foreign_key' => 'uid_foreign',
-        'mm_constraints' => [
-            'tablenames' => 'tx_myext_domain_model_article',
-            'fieldname'  => 'categories',
+    // Shorthand: derive MM config from TCA automatically
+    'categories' => MmFilter::class,
+
+    // Options form: supply MM table config explicitly
+    'tags' => [
+        MmFilter::class,
+        [
+            'mm_table'       => 'tx_myext_article_tag_mm',
+            'mm_local_key'   => 'uid_local',
+            'mm_foreign_key' => 'uid_foreign',
         ],
     ],
 ],
 ```
 
-#### Built-in filter strategies
+#### Built-in filter classes
 
-| Strategy    | Description | Config keys |
-|-------------|-------------|-------------|
-| `exact`     | `WHERE column = value` | — |
-| `partial`   | `WHERE column LIKE %value%` | — |
-| `word_start`| `WHERE column LIKE value%` | — |
-| `range`     | Numeric operators on a column | `value` must be an array with any of: `gte`, `lte`, `gt`, `lt` |
-| `search`    | `OR` across multiple columns (partial or word-start LIKE) | `columns` (required), `match` (`partial`\|`word_start`, default `partial`) |
-| `mm`        | Subquery via MM intermediate table | `mm_table`, `mm_local_key`, `mm_foreign_key`, `mm_constraints` (or derive from TCA automatically) |
+| Class | Description | Options |
+|-------|-------------|---------|
+| `ExactFilter` | `WHERE column = value` | — |
+| `PartialFilter` | `WHERE column LIKE %value%` | — |
+| `WordStartFilter` | `WHERE column LIKE value%` | — |
+| `RangeFilter` | Numeric operators on a column | `value` must be `['gte'=>…, 'lte'=>…, 'gt'=>…, 'lt'=>…]` |
+| `SearchFilter` | `OR` across multiple columns (LIKE) | `columns` (required), `match` (`partial`\|`word_start`, default `partial`) |
+| `MmFilter` | Subquery via MM intermediate table | `mm_table`, `mm_local_key`, `mm_foreign_key`, `mm_constraints` (derived from TCA when omitted) |
 
-For the `mm` strategy, if `mm_table` is omitted the extension derives the MM config from TCA automatically (requires a valid `MM` key on the field).
+For `MmFilter`, if the options array is omitted the extension derives the MM config from TCA automatically (requires a valid `MM` key on the field).
 
 #### Range filter example
 
@@ -623,11 +634,24 @@ Plus any additional keys declared in the resource's filter config entry.
 
 ### Using the custom filter
 
-Declare it in the resource config just like a built-in strategy:
+Declare it in the resource config using the class name directly:
+
+```php
+use My\Extension\Filter\PublishedAfterFilter;
+
+'filters' => [
+    'publish_date' => PublishedAfterFilter::class,
+],
+```
+
+To pass extra config to the filter, use the two-element array form:
 
 ```php
 'filters' => [
-    'publish_date' => ['strategy' => 'published_after'],
+    'publish_date' => [
+        PublishedAfterFilter::class,
+        ['threshold' => 30],   // available in $filterConfig['threshold']
+    ],
 ],
 ```
 

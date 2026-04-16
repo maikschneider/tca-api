@@ -79,15 +79,31 @@ class GetCollectionHandler implements OperationHandlerInterface
         $declared = $config['filters'] ?? [];
         $safe     = [];
         foreach ($requested as $column => $value) {
-            if (isset($declared[$column])) {
-                $safe[$column] = array_merge($declared[$column], [
-                    'value'           => $value,
-                    '_table'          => $config['general']['table'],
-                    '_column'         => $column,
-                    '_request'        => $request,
-                    '_resourceConfig' => $config,
-                ]);
+            if (!isset($declared[$column])) {
+                continue;
             }
+
+            $filterDef = $declared[$column];
+            if (is_string($filterDef)) {
+                $class   = $filterDef;
+                $options = [];
+            } elseif (is_array($filterDef) && is_string($filterDef[0] ?? null)) {
+                $class   = $filterDef[0];
+                $options = $filterDef[1] ?? [];
+            } else {
+                throw new \InvalidArgumentException(
+                    sprintf('Invalid filter definition for column "%s": expected a class name or [ClassName, options].', $column),
+                );
+            }
+
+            $safe[$column] = array_merge($options, [
+                'value'           => $value,
+                '_table'          => $config['general']['table'],
+                '_column'         => $column,
+                '_filterClass'    => $class,
+                '_request'        => $request,
+                '_resourceConfig' => $config,
+            ]);
         }
         return $safe;
     }

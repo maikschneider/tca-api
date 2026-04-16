@@ -14,11 +14,6 @@ final class MmFilter implements FilterInterface
     ) {
     }
 
-    public function getStrategy(): string
-    {
-        return 'mm';
-    }
-
     public function apply(QueryBuilder $qb, string $column, array $filterConfig): void
     {
         if (!isset($filterConfig['mm_table'])) {
@@ -70,7 +65,6 @@ final class MmFilter implements FilterInterface
 
         return [
             'value'          => $filter['value'],
-            'strategy'       => $filter['strategy'] ?? 'mm',
             'mm_table'       => $mmTable,
             'mm_local_key'   => $hasOppositeField ? 'uid_local' : 'uid_foreign',
             'mm_foreign_key' => $hasOppositeField ? 'uid_foreign' : 'uid_local',

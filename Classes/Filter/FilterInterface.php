@@ -11,17 +11,10 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 interface FilterInterface
 {
     /**
-     * Returns the strategy name this filter handles (e.g. 'exact', 'mm', 'range').
-     * Matched against the 'strategy' key in the resource's filter config.
-     */
-    public function getStrategy(): string;
-
-    /**
      * Apply this filter's WHERE constraint to the QueryBuilder.
      *
      * $filterConfig always contains:
      *   - 'value'           : filter value from the request
-     *   - 'strategy'        : strategy name
      *   - '_table'          : resource table name
      *   - '_column'         : column name (same as $column param)
      *   - '_request'        : ServerRequestInterface — access query params, auth context, etc.

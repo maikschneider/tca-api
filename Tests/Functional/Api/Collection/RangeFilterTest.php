@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Collection;
 
 use MaikSchneider\TcaApi\Enum\AccessRole;
+use MaikSchneider\TcaApi\Filter\RangeFilter;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
@@ -42,7 +43,7 @@ final class RangeFilterTest extends ApiFunctionalTestCase
             'color_id' => ['groups' => ['list', 'show']],
         ],
         'filters' => [
-            'color_id' => ['strategy' => 'range'],
+            'color_id' => RangeFilter::class,
         ],
         'order' => [
             'allowed' => ['uid', 'color_id'],

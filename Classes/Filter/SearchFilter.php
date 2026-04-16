@@ -8,11 +8,6 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 
 final class SearchFilter implements FilterInterface
 {
-    public function getStrategy(): string
-    {
-        return 'search';
-    }
-
     public function apply(QueryBuilder $qb, string $column, array $filterConfig): void
     {
         $columns = $filterConfig['columns'] ?? [];

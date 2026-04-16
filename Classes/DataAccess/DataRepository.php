@@ -208,18 +208,20 @@ final class DataRepository
 
     private function applyFilterConstraint(QueryBuilder $qb, string $column, array $filter): void
     {
-        $this->resolveFilter($filter['strategy'] ?? 'exact')->apply($qb, $column, $filter);
+        $this->resolveFilter($filter['_filterClass'])->apply($qb, $column, $filter);
     }
 
-    private function resolveFilter(string $strategy): FilterInterface
+    private function resolveFilter(string $fqcn): FilterInterface
     {
         if ($this->filterMap === null) {
             $this->filterMap = [];
             foreach ($this->filterHandlers as $filter) {
-                $this->filterMap[$filter->getStrategy()] = $filter;
+                $this->filterMap[$filter::class] = $filter;
             }
         }
 
-        return $this->filterMap[$strategy] ?? $this->filterMap['exact'];
+        return $this->filterMap[$fqcn] ?? throw new \InvalidArgumentException(
+            sprintf('No filter registered for class "%s".', $fqcn),
+        );
     }
 }

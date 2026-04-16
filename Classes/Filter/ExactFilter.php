@@ -8,11 +8,6 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 
 final class ExactFilter implements FilterInterface
 {
-    public function getStrategy(): string
-    {
-        return 'exact';
-    }
-
     public function apply(QueryBuilder $qb, string $column, array $filterConfig): void
     {
         $qb->andWhere($qb->expr()->eq(

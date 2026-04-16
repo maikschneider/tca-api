@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Collection;
 
 use MaikSchneider\TcaApi\Enum\AccessRole;
+use MaikSchneider\TcaApi\Filter\SearchFilter;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
@@ -36,9 +37,11 @@ final class SearchFilterTest extends ApiFunctionalTestCase
         ],
         'filters' => [
             'search' => [
-                'strategy' => 'search',
-                'columns'  => ['first_name', 'last_name'],
-                'match'    => 'partial',
+                SearchFilter::class,
+                [
+                    'columns' => ['first_name', 'last_name'],
+                    'match'   => 'partial',
+                ],
             ],
         ],
         'order' => [

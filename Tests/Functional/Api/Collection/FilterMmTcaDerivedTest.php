@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Collection;
 
+use MaikSchneider\TcaApi\Filter\MmFilter;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
@@ -15,7 +16,7 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
  * These must be auto-derived from the TCA Schema API when omitted.
  *
  * Target simplified config:
- *   'categories' => ['strategy' => 'mm']
+ *   'categories' => MmFilter::class
  *
  * The system must derive from TCA:
  *   - mm_table        → sys_category_record_mm
@@ -54,7 +55,7 @@ final class FilterMmTcaDerivedTest extends ApiFunctionalTestCase
                 'title' => ['groups' => ['list', 'show']],
             ],
             'filters' => [
-                'categories' => ['strategy' => 'mm'],
+                'categories' => MmFilter::class,
             ],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
@@ -113,7 +114,7 @@ final class FilterMmTcaDerivedTest extends ApiFunctionalTestCase
         );
     }
 
-    // ── Articles.php simplified to bare 'strategy' => 'mm' ───────────────────
+    // ── Articles.php simplified to bare MmFilter::class ─────────────────────
     // These tests use the main /articles endpoint after Articles.php is simplified
     // (explicit mm_table etc. removed). They will pass once Articles.php is updated.
 
@@ -130,7 +131,7 @@ final class FilterMmTcaDerivedTest extends ApiFunctionalTestCase
             ],
             'columns' => ['title' => ['groups' => ['list', 'show']]],
             'filters' => [
-                'categories' => ['strategy' => 'mm'],
+                'categories' => MmFilter::class,
             ],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
