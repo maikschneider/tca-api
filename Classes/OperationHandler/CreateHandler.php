@@ -49,6 +49,19 @@ class CreateHandler implements OperationHandlerInterface
         $data        = $this->filterWritableColumns($body, $config);
         $data['pid'] = $config['general']['defaultPid'] ?? 1;
 
+        $feUser = $request->getAttribute('frontend.user');
+        if ($feUser !== null && !empty($feUser->user['uid'])) {
+            $uid         = (int)$feUser->user['uid'];
+            $authColumn  = $config['ownership']['column'] ?? null;
+            $trackColumn = $config['ownership']['setOnCreate'] ?? null;
+            if ($authColumn !== null) {
+                $data[$authColumn] = $uid;
+            }
+            if ($trackColumn !== null && $trackColumn !== $authColumn) {
+                $data[$trackColumn] = $uid;
+            }
+        }
+
         $table       = $config['general']['table'];
         $beforeEvent = new BeforeWriteEvent($table, 'create', $data);
         $this->eventDispatcher->dispatch($beforeEvent);

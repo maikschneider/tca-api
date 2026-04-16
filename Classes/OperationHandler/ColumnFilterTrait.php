@@ -26,19 +26,26 @@ trait ColumnFilterTrait
                     $result[$column] = \is_array($value) ? implode(',', $value) : $value;
                 }
             }
-            return $result;
+        } else {
+            // Explicit mode
+            foreach ($config['columns'] as $column => $columnConfig) {
+                if (!TcaColumnDiscovery::isColumnWritable($columnConfig)) {
+                    continue;
+                }
+
+                if (\array_key_exists($column, $body)) {
+                    $value = $body[$column];
+                    $result[$column] = \is_array($value) ? implode(',', $value) : $value;
+                }
+            }
         }
 
-        // Explicit mode
-        foreach ($config['columns'] as $column => $columnConfig) {
-            if (!TcaColumnDiscovery::isColumnWritable($columnConfig)) {
-                continue;
-            }
-
-            if (\array_key_exists($column, $body)) {
-                $value = $body[$column];
-                $result[$column] = \is_array($value) ? implode(',', $value) : $value;
-            }
+        // Strip ownership columns — server-managed and never client-writable
+        foreach (array_unique(array_filter([
+            $config['ownership']['column'] ?? null,
+            $config['ownership']['setOnCreate'] ?? null,
+        ])) as $col) {
+            unset($result[$col]);
         }
 
         return $result;

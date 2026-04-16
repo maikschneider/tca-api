@@ -11,4 +11,5 @@ enum AccessRole: string
     case FE_GROUP = 'FE_GROUP';
     case BE_USER = 'BE_USER';
     case BE_ADMIN = 'BE_ADMIN';
+    case OWNER = 'OWNER';
 }
