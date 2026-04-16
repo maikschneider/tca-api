@@ -158,7 +158,7 @@ final class RequestDispatcher
         }
 
         $requiredRole = $config['security'][$operation] ?? AccessRole::PUBLIC;
-        if (!$this->accessController->isAllowed($requiredRole, $request, $existingRecord)) {
+        if (!$this->accessController->isAllowed($requiredRole, $request, $existingRecord, $config)) {
             return $this->forbidden($operation, $siteSettings);
         }
 
