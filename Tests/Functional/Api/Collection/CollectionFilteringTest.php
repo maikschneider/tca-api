@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Collection;
 
+use MaikSchneider\TcaApi\Filter\PartialFilter;
+use MaikSchneider\TcaApi\Filter\WordStartFilter;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
@@ -74,7 +76,7 @@ final class CollectionFilteringTest extends ApiFunctionalTestCase
                 'itemsPerPage' => 20,
             ],
             'columns' => ['title' => ['type' => 'string', 'groups' => ['list', 'show']]],
-            'filters' => ['title' => ['strategy' => 'partial']],
+            'filters' => ['title' => PartialFilter::class],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
     }
@@ -111,7 +113,7 @@ final class CollectionFilteringTest extends ApiFunctionalTestCase
                 'itemsPerPage' => 20,
             ],
             'columns' => ['title' => ['type' => 'string', 'groups' => ['list', 'show']]],
-            'filters' => ['title' => ['strategy' => 'word_start']],
+            'filters' => ['title' => WordStartFilter::class],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
     }

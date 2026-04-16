@@ -21,7 +21,7 @@
 - **Hydra JSON-LD** — Responses follow the [Hydra](https://www.hydra-cg.com/) specification (`application/ld+json`)
 - **Configuration-driven** — Expose tables by registering a PHP configuration array; no custom controllers needed
 - **Serialization groups** — Use `groups` to control which columns appear per operation (`list`, `show`, `create`, `update`)
-- **Filtering** — Exact, partial, word-start, and many-to-many filter strategies via query parameters
+- **Filtering** — Exact, partial, word-start, range, full-text search, and many-to-many filter strategies via query parameters; extensible via `FilterInterface`
 - **Sorting** — Configurable allowed sort columns with defaults
 - **Pagination** — Offset-based pagination with Hydra `PartialCollectionView` links
 - **Validation** — Required, maxLength, minLength, and regex validators with structured 422 error responses
@@ -197,24 +197,67 @@ Each entry in `columns` maps to a database column. All keys are optional:
 
 ### Filters
 
-Define filterable columns with a strategy:
+Each filterable column maps to a filter class. Use the **shorthand** (class name only) or the **options form** (two-element array with class + config):
 
 ```php
+use MaikSchneider\TcaApi\Filter\ExactFilter;
+use MaikSchneider\TcaApi\Filter\MmFilter;
+use MaikSchneider\TcaApi\Filter\PartialFilter;
+use MaikSchneider\TcaApi\Filter\RangeFilter;
+use MaikSchneider\TcaApi\Filter\SearchFilter;
+use MaikSchneider\TcaApi\Filter\WordStartFilter;
+
 'filters' => [
-    'title'  => ['strategy' => 'exact'],       // ?filters[title]=Foo
-    'name'   => ['strategy' => 'partial'],     // ?filters[name]=oo  → LIKE %oo%
-    'search' => ['strategy' => 'word_start'],  // ?filters[search]=Fo → LIKE Fo%
-    'categories' => [                          // Many-to-many filter
-        'strategy' => 'mm',
-        'mm_table' => 'sys_category_record_mm',
-        'mm_local_key' => 'uid_local',
-        'mm_foreign_key' => 'uid_foreign',
-        'mm_constraints' => [
-            'tablenames' => 'tx_myext_domain_model_article',
-            'fieldname' => 'categories',
+    'title'  => ExactFilter::class,            // ?filters[title]=Foo
+    'name'   => PartialFilter::class,          // ?filters[name]=oo  → LIKE %oo%
+    'slug'   => WordStartFilter::class,        // ?filters[slug]=Fo  → LIKE Fo%
+    'year'   => RangeFilter::class,            // ?filters[year][gte]=2020&filters[year][lte]=2024
+    'q'      => [                              // Full-text search — options form
+        SearchFilter::class,
+        [
+            'columns' => ['title', 'teaser', 'body'],
+            'match'   => 'partial',            // 'partial' (default) or 'word_start'
+        ],
+    ],
+    // Shorthand: derive MM config from TCA automatically
+    'categories' => MmFilter::class,
+
+    // Options form: supply MM table config explicitly
+    'tags' => [
+        MmFilter::class,
+        [
+            'mm_table'       => 'tx_myext_article_tag_mm',
+            'mm_local_key'   => 'uid_local',
+            'mm_foreign_key' => 'uid_foreign',
         ],
     ],
 ],
+```
+
+#### Built-in filter classes
+
+| Class | Description | Options |
+|-------|-------------|---------|
+| `ExactFilter` | `WHERE column = value` | — |
+| `PartialFilter` | `WHERE column LIKE %value%` | — |
+| `WordStartFilter` | `WHERE column LIKE value%` | — |
+| `RangeFilter` | Numeric operators on a column | `value` must be `['gte'=>…, 'lte'=>…, 'gt'=>…, 'lt'=>…]` |
+| `SearchFilter` | `OR` across multiple columns (LIKE) | `columns` (required), `match` (`partial`\|`word_start`, default `partial`) |
+| `MmFilter` | Subquery via MM intermediate table | `mm_table`, `mm_local_key`, `mm_foreign_key`, `mm_constraints` (derived from TCA when omitted) |
+
+For `MmFilter`, if the options array is omitted the extension derives the MM config from TCA automatically (requires a valid `MM` key on the field).
+
+#### Range filter example
+
+```
+?filters[year][gte]=2020&filters[year][lte]=2024
+?filters[price][gt]=10&filters[price][lt]=100
+```
+
+#### Search filter example
+
+```
+?filters[q]=typo3   → WHERE (title LIKE '%typo3%' OR teaser LIKE '%typo3%' OR body LIKE '%typo3%')
 ```
 
 ### Sorting
@@ -548,6 +591,71 @@ HandlerRegistry::register(MyCustomShowHandler::class, priority: 20);
 ```
 
 The `HandlerRegistry` uses TYPO3's DI container via `GeneralUtility::makeInstance()`, so constructor dependencies are injected automatically. The `#[Autoconfigure(public: true)]` attribute on the class is required for the container to expose the service.
+
+## Custom filters
+
+Every filter strategy is a class that implements `FilterInterface`. The extension discovers all implementations automatically via Symfony DI — no `Services.yaml` registration is needed.
+
+### Interface
+
+```php
+use MaikSchneider\TcaApi\Filter\FilterInterface;
+use TYPO3\CMS\Core\Database\Query\QueryBuilder;
+
+final class PublishedAfterFilter implements FilterInterface
+{
+    public function getStrategy(): string
+    {
+        return 'published_after';
+    }
+
+    public function apply(QueryBuilder $qb, string $column, array $filterConfig): void
+    {
+        $qb->andWhere($qb->expr()->gte(
+            $column,
+            $qb->createNamedParameter((int)$filterConfig['value']),
+        ));
+    }
+}
+```
+
+The `$filterConfig` array always contains:
+
+| Key | Description |
+|-----|-------------|
+| `value` | Filter value from the request query string |
+| `strategy` | Strategy name as declared in the resource config |
+| `_table` | Resource table name |
+| `_column` | Column name (same as the `$column` parameter) |
+| `_request` | `ServerRequestInterface` — access query params, auth context, headers |
+| `_resourceConfig` | Full resource config (general, columns, filters, order, …) |
+
+Plus any additional keys declared in the resource's filter config entry.
+
+### Using the custom filter
+
+Declare it in the resource config using the class name directly:
+
+```php
+use My\Extension\Filter\PublishedAfterFilter;
+
+'filters' => [
+    'publish_date' => PublishedAfterFilter::class,
+],
+```
+
+To pass extra config to the filter, use the two-element array form:
+
+```php
+'filters' => [
+    'publish_date' => [
+        PublishedAfterFilter::class,
+        ['threshold' => 30],   // available in $filterConfig['threshold']
+    ],
+],
+```
+
+That's all. The class is auto-tagged and auto-wired — no `ext_localconf.php` or `Services.yaml` changes required.
 
 ## Development
 
