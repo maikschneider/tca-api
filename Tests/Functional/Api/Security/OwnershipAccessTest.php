@@ -201,7 +201,8 @@ final class OwnershipAccessTest extends ApiFunctionalTestCase
 
     public function testCreateUsesSetOnCreateColumnWhenConfigured(): void
     {
-        // setOnCreate → 'first_name'; column → 'fe_user_id' (auth only, not injected on create)
+        // setOnCreate → 'first_name' (separate tracking column); column → 'fe_user_id' (auth column)
+        // Both should receive the FE user UID on create so that subsequent OWNER checks work
         $config = array_merge(self::OWNED_CONFIG, [
             'columns' => array_merge(self::OWNED_CONFIG['columns'], [
                 'first_name' => ['groups' => ['show']],
@@ -217,10 +218,10 @@ final class OwnershipAccessTest extends ApiFunctionalTestCase
         $body = $this->decodeResponseBody($response);
 
         self::assertSame(201, $response->getStatusCode());
-        // first_name receives the FE user UID
+        // first_name (setOnCreate) receives the FE user UID
         self::assertSame('1', (string)$body['first_name']);
-        // fe_user_id is NOT auto-injected on create (only setOnCreate column is)
-        self::assertSame(0, $body['fe_user_id']);
+        // fe_user_id (column, auth) is also injected so OWNER checks work on subsequent update/delete
+        self::assertSame(1, $body['fe_user_id']);
     }
 
     // ── Create: no injection when unauthenticated ─────────────────────────────

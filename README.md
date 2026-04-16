@@ -326,14 +326,16 @@ use MaikSchneider\TcaApi\Enum\AccessRole;
 
 #### Separate tracking vs. auth columns
 
-Use `setOnCreate` when you want a different column for "who created it" vs. "who may edit it":
+Use `setOnCreate` when you want an additional tracking column alongside the auth column:
 
 ```php
 'ownership' => [
-    'column'      => 'fe_user_id',      // column checked on update/delete
-    'setOnCreate' => 'fe_creator_id',   // column written on create (defaults to `column` when omitted)
+    'column'      => 'fe_user_id',      // column checked on update/delete (also written on create)
+    'setOnCreate' => 'fe_creator_id',   // additional column written on create only
 ],
 ```
+
+On create, **both** `column` and `setOnCreate` receive the FE user UID. `column` must be populated for `OWNER` auth to work on subsequent update/delete; `setOnCreate` provides an immutable "created by" audit trail in a separate DB column.
 
 #### BE_ADMIN bypass
 
