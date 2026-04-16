@@ -1,4 +1,4 @@
 "sys_file_reference"
 ,"uid","pid","uid_local","uid_foreign","tablenames","fieldname","sorting_foreign","title","description","alternative","link","crop","hidden","deleted"
-,1,1,1,70,"tx_myext_domain_model_article","profile_photo",1,"Profile Photo","A profile image","Photo alt text","",NULL,0,0
-,2,1,2,71,"tx_myext_domain_model_article","downloads",1,"Download File","A downloadable document","","",NULL,0,0
+,1,1,1,410,"tx_myext_domain_model_article","profile_photo",1,"Profile Photo","A profile image","Photo alt text","",NULL,0,0
+,2,1,2,411,"tx_myext_domain_model_article","downloads",1,"Download File","A downloadable document","","",NULL,0,0

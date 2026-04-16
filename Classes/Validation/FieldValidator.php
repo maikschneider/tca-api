@@ -6,7 +6,7 @@ namespace MaikSchneider\TcaApi\Validation;
 
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 
-class FieldValidator
+final class FieldValidator
 {
     /**
      * Validate $body against the column config.
@@ -106,7 +106,11 @@ class FieldValidator
 
     private function validateRegex(string $column, mixed $value, string $pattern): ?array
     {
-        if (preg_match($pattern, (string)$value) !== 1) {
+        $result = @preg_match($pattern, (string)$value);
+        if ($result === false) {
+            return $this->buildViolation($column, "Field '$column' has an invalid validation pattern.", 'REGEX_ERROR');
+        }
+        if ($result !== 1) {
             return $this->buildViolation($column, "Field '$column' does not match the required pattern.", 'REGEX');
         }
 

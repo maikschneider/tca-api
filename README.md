@@ -7,6 +7,7 @@
 [![License](https://img.shields.io/badge/license-GPL--2.0--or--later-blue.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
 [![TYPO3](https://img.shields.io/badge/TYPO3-13.4%20%7C%2014-orange.svg)](https://typo3.org/)
 [![PHP](https://img.shields.io/badge/PHP-%5E8.2-777BB4.svg)](https://php.net/)
+[![codecov](https://codecov.io/gh/maikschneider/tca-api/graph/badge.svg?token=J2CNGVXEX1)](https://codecov.io/gh/maikschneider/tca-api)
 
 `TCA API` is a TYPO3 extension that exposes database tables as **Hydra JSON-LD** resources through a configuration-driven REST API. Define which tables, columns, and operations to expose — the extension handles routing, serialization, validation, pagination, and access control.
 
@@ -20,11 +21,11 @@
 - **Hydra JSON-LD** — Responses follow the [Hydra](https://www.hydra-cg.com/) specification (`application/ld+json`)
 - **Configuration-driven** — Expose tables by registering a PHP configuration array; no custom controllers needed
 - **Serialization groups** — Use `groups` to control which columns appear per operation (`list`, `show`, `create`, `update`)
-- **Filtering** — Exact, partial, word-start, and many-to-many filter strategies via query parameters
+- **Filtering** — Exact, partial, word-start, range, full-text search, and many-to-many filter strategies via query parameters; extensible via `FilterInterface`
 - **Sorting** — Configurable allowed sort columns with defaults
 - **Pagination** — Offset-based pagination with Hydra `PartialCollectionView` links
 - **Validation** — Required, maxLength, minLength, and regex validators with structured 422 error responses
-- **Access control** — Per-operation roles: `PUBLIC`, `FE_USER`, `BE_USER`, `BE_ADMIN`, or custom callables
+- **Access control** — Per-operation roles: `PUBLIC`, `FE_USER`, `FE_GROUP`, `BE_USER`, `BE_ADMIN`, `OWNER` (record-level ownership), or custom callables
 - **Relation handling** — Shallow stubs or fully embedded related records (configurable depth)
 - **Userinfo endpoint** — Expose the authenticated FE user's own record at a configurable URL
 - **OpenAPI + Swagger UI** — Auto-generated OpenAPI 3.0 spec and interactive Swagger UI served directly from the API prefix
@@ -152,6 +153,7 @@ Access to both endpoints is controlled by the `tca_api.openApiExposed` and `tca_
 | `type`          | Set to `'userinfo'` to create a [userinfo endpoint](#userinfo-endpoint) |
 | `operations`    | Array of enabled operations: `list`, `show`, `create`, `update`, `delete` |
 | `itemsPerPage`  | Default page size for list operations            |
+| `maxItemsPerPage` | Upper limit for `itemsPerPage`; when set, the requested page size is clamped to this value. No limit when omitted |
 | `defaultPid`    | Page ID for newly created records                |
 
 ### Column visibility
@@ -195,24 +197,67 @@ Each entry in `columns` maps to a database column. All keys are optional:
 
 ### Filters
 
-Define filterable columns with a strategy:
+Each filterable column maps to a filter class. Use the **shorthand** (class name only) or the **options form** (two-element array with class + config):
 
 ```php
+use MaikSchneider\TcaApi\Filter\ExactFilter;
+use MaikSchneider\TcaApi\Filter\MmFilter;
+use MaikSchneider\TcaApi\Filter\PartialFilter;
+use MaikSchneider\TcaApi\Filter\RangeFilter;
+use MaikSchneider\TcaApi\Filter\SearchFilter;
+use MaikSchneider\TcaApi\Filter\WordStartFilter;
+
 'filters' => [
-    'title'  => ['strategy' => 'exact'],       // ?filters[title]=Foo
-    'name'   => ['strategy' => 'partial'],     // ?filters[name]=oo  → LIKE %oo%
-    'search' => ['strategy' => 'word_start'],  // ?filters[search]=Fo → LIKE Fo%
-    'categories' => [                          // Many-to-many filter
-        'strategy' => 'mm',
-        'mm_table' => 'sys_category_record_mm',
-        'mm_local_key' => 'uid_local',
-        'mm_foreign_key' => 'uid_foreign',
-        'mm_constraints' => [
-            'tablenames' => 'tx_myext_domain_model_article',
-            'fieldname' => 'categories',
+    'title'  => ExactFilter::class,            // ?filters[title]=Foo
+    'name'   => PartialFilter::class,          // ?filters[name]=oo  → LIKE %oo%
+    'slug'   => WordStartFilter::class,        // ?filters[slug]=Fo  → LIKE Fo%
+    'year'   => RangeFilter::class,            // ?filters[year][gte]=2020&filters[year][lte]=2024
+    'q'      => [                              // Full-text search — options form
+        SearchFilter::class,
+        [
+            'columns' => ['title', 'teaser', 'body'],
+            'match'   => 'partial',            // 'partial' (default) or 'word_start'
+        ],
+    ],
+    // Shorthand: derive MM config from TCA automatically
+    'categories' => MmFilter::class,
+
+    // Options form: supply MM table config explicitly
+    'tags' => [
+        MmFilter::class,
+        [
+            'mm_table'       => 'tx_myext_article_tag_mm',
+            'mm_local_key'   => 'uid_local',
+            'mm_foreign_key' => 'uid_foreign',
         ],
     ],
 ],
+```
+
+#### Built-in filter classes
+
+| Class | Description | Options |
+|-------|-------------|---------|
+| `ExactFilter` | `WHERE column = value` | — |
+| `PartialFilter` | `WHERE column LIKE %value%` | — |
+| `WordStartFilter` | `WHERE column LIKE value%` | — |
+| `RangeFilter` | Numeric operators on a column | `value` must be `['gte'=>…, 'lte'=>…, 'gt'=>…, 'lt'=>…]` |
+| `SearchFilter` | `OR` across multiple columns (LIKE) | `columns` (required), `match` (`partial`\|`word_start`, default `partial`) |
+| `MmFilter` | Subquery via MM intermediate table | `mm_table`, `mm_local_key`, `mm_foreign_key`, `mm_constraints` (derived from TCA when omitted) |
+
+For `MmFilter`, if the options array is omitted the extension derives the MM config from TCA automatically (requires a valid `MM` key on the field).
+
+#### Range filter example
+
+```
+?filters[year][gte]=2020&filters[year][lte]=2024
+?filters[price][gt]=10&filters[price][lt]=100
+```
+
+#### Search filter example
+
+```
+?filters[q]=typo3   → WHERE (title LIKE '%typo3%' OR teaser LIKE '%typo3%' OR body LIKE '%typo3%')
 ```
 
 ### Sorting
@@ -235,16 +280,89 @@ use MaikSchneider\TcaApi\Enum\AccessRole;
     'list'   => AccessRole::PUBLIC,     // No authentication required
     'show'   => AccessRole::PUBLIC,
     'create' => AccessRole::FE_USER,    // Requires a logged-in frontend user
-    'update' => AccessRole::BE_USER,    // Requires any backend user
-    'delete' => AccessRole::BE_ADMIN,   // Requires an admin backend user
+    'update' => AccessRole::OWNER,      // Only the record owner may update
+    'delete' => AccessRole::OWNER,
 ],
 ```
 
-You can also use a callable for custom logic:
+#### Available roles
+
+| Role | Description |
+|---|---|
+| `PUBLIC` | No authentication required |
+| `FE_USER` | Any authenticated frontend user |
+| `FE_GROUP` | Any FE user with at least one group; use `[AccessRole::FE_GROUP, [1,2]]` to restrict to specific group IDs |
+| `BE_USER` | Any authenticated backend user |
+| `BE_ADMIN` | Backend admin only |
+| `OWNER` | Authenticated FE user whose UID matches the record's ownership column (see [Ownership](#ownership)) |
+
+You can also use a callable for fully custom logic:
 
 ```php
-'create' => [MyAccessChecker::class, 'checkCreatePermission'],
+'update' => [MyAccessChecker::class, 'checkUpdatePermission'],
+// Callable receives (ServerRequestInterface $request, array $existingRecord): bool
 ```
+
+### Ownership
+
+The `ownership` section enables declarative record-level security for write operations. It pairs with `AccessRole::OWNER` in the `security` config.
+
+```php
+use MaikSchneider\TcaApi\Enum\AccessRole;
+
+'security' => [
+    'create' => AccessRole::FE_USER,
+    'update' => AccessRole::OWNER,
+    'delete' => AccessRole::OWNER,
+],
+'ownership' => [
+    'column' => 'fe_user_id',   // DB column holding the owner's FE user UID
+],
+```
+
+**What this does:**
+- **On create** — the `fe_user_id` column is automatically set to the authenticated FE user's UID server-side. The client cannot supply this value; it is stripped from the request body regardless of the column's `groups` config.
+- **On update/delete** — the record's `fe_user_id` is compared to the current FE user's UID. If they don't match the request returns **403**.
+
+#### Separate tracking vs. auth columns
+
+Use `setOnCreate` when you want an additional tracking column alongside the auth column:
+
+```php
+'ownership' => [
+    'column'      => 'fe_user_id',      // column checked on update/delete (also written on create)
+    'setOnCreate' => 'fe_creator_id',   // additional column written on create only
+],
+```
+
+On create, **both** `column` and `setOnCreate` receive the FE user UID. `column` must be populated for `OWNER` auth to work on subsequent update/delete; `setOnCreate` provides an immutable "created by" audit trail in a separate DB column.
+
+#### BE_ADMIN bypass
+
+Backend admins bypass ownership checks by default. Set `beAdminBypass: false` to enforce ownership for admins too:
+
+```php
+'ownership' => [
+    'column'        => 'fe_user_id',
+    'beAdminBypass' => false,           // default: true
+],
+```
+
+#### Ownership config reference
+
+| Key | Required | Default | Description |
+|---|---|---|---|
+| `column` | when using `OWNER` | — | DB column holding owner UID; compared on update/delete |
+| `setOnCreate` | no | same as `column` | Column auto-set on create (if different from `column`) |
+| `beAdminBypass` | no | `true` | When `true`, `BE_ADMIN` skips the ownership check |
+
+#### Behaviour notes
+
+- `AccessRole::OWNER` without `ownership.column` configured → **403** (fail-secure)
+- Unauthenticated request + `OWNER` → **403** (no FE user found)
+- `setOnCreate` without a logged-in FE user → column is not set (no injection if user is null)
+- Ownership columns are always stripped from client input regardless of `groups` config
+- `OWNER` is only meaningful on `update` and `delete`; using it on `list`/`show` will always deny (no single record to compare against)
 
 ## Validation
 
@@ -495,7 +613,7 @@ Before the handler loop, the dispatcher sets the following attributes on the PSR
 | `tca_api.operation` | `string` | Resolved operation name |
 | `tca_api.fields` | `array` | `?fields[]=…` sparse-fieldset param |
 | `tca_api.page` | `int` | Pagination page (≥ 1) |
-| `tca_api.items_per_page` | `int` | Items per page |
+| `tca_api.items_per_page` | `int` | Items per page (clamped to `maxItemsPerPage` when configured) |
 | `tca_api.filters` | `array` | Raw `?filters[…]=…` params |
 | `tca_api.order` | `array` | Raw `?order[…]=asc\|desc` params |
 | `tca_api.partial` | `bool` | `true` for PATCH (partial update) |
@@ -546,6 +664,71 @@ HandlerRegistry::register(MyCustomShowHandler::class, priority: 20);
 ```
 
 The `HandlerRegistry` uses TYPO3's DI container via `GeneralUtility::makeInstance()`, so constructor dependencies are injected automatically. The `#[Autoconfigure(public: true)]` attribute on the class is required for the container to expose the service.
+
+## Custom filters
+
+Every filter strategy is a class that implements `FilterInterface`. The extension discovers all implementations automatically via Symfony DI — no `Services.yaml` registration is needed.
+
+### Interface
+
+```php
+use MaikSchneider\TcaApi\Filter\FilterInterface;
+use TYPO3\CMS\Core\Database\Query\QueryBuilder;
+
+final class PublishedAfterFilter implements FilterInterface
+{
+    public function getStrategy(): string
+    {
+        return 'published_after';
+    }
+
+    public function apply(QueryBuilder $qb, string $column, array $filterConfig): void
+    {
+        $qb->andWhere($qb->expr()->gte(
+            $column,
+            $qb->createNamedParameter((int)$filterConfig['value']),
+        ));
+    }
+}
+```
+
+The `$filterConfig` array always contains:
+
+| Key | Description |
+|-----|-------------|
+| `value` | Filter value from the request query string |
+| `strategy` | Strategy name as declared in the resource config |
+| `_table` | Resource table name |
+| `_column` | Column name (same as the `$column` parameter) |
+| `_request` | `ServerRequestInterface` — access query params, auth context, headers |
+| `_resourceConfig` | Full resource config (general, columns, filters, order, …) |
+
+Plus any additional keys declared in the resource's filter config entry.
+
+### Using the custom filter
+
+Declare it in the resource config using the class name directly:
+
+```php
+use My\Extension\Filter\PublishedAfterFilter;
+
+'filters' => [
+    'publish_date' => PublishedAfterFilter::class,
+],
+```
+
+To pass extra config to the filter, use the two-element array form:
+
+```php
+'filters' => [
+    'publish_date' => [
+        PublishedAfterFilter::class,
+        ['threshold' => 30],   // available in $filterConfig['threshold']
+    ],
+],
+```
+
+That's all. The class is auto-tagged and auto-wired — no `ext_localconf.php` or `Services.yaml` changes required.
 
 ## Development
 

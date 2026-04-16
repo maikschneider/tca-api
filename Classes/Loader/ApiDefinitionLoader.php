@@ -10,7 +10,6 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Finder\Finder;
 use TYPO3\CMS\Core\Cache\Frontend\PhpFrontend;
 use TYPO3\CMS\Core\Package\Cache\PackageDependentCacheIdentifier;
-
 use TYPO3\CMS\Core\Package\PackageManager;
 
 #[Autoconfigure(public: true)]
@@ -30,7 +29,7 @@ final readonly class ApiDefinitionLoader
             ->toString();
 
         $definitions = $this->cache->require($cacheIdentifier);
-        if ($definitions === false) {
+        if (!is_array($definitions)) {
             $definitions = $this->collectDefinitions();
             $this->cache->set(
                 $cacheIdentifier,

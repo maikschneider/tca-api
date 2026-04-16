@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use MaikSchneider\TcaApi\Enum\AccessRole;
+use MaikSchneider\TcaApi\Filter\ExactFilter;
+use MaikSchneider\TcaApi\Filter\MmFilter;
 
 return [
     'general' => [
@@ -30,8 +32,8 @@ return [
         ],
     ],
     'filters' => [
-        'title' => ['strategy' => 'exact'],
-        'categories' => ['strategy' => 'mm'],
+        'title'      => ExactFilter::class,
+        'categories' => MmFilter::class,
     ],
     'order' => [
         'allowed' => ['title', 'uid'],

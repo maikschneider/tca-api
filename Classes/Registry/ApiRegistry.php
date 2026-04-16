@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Registry;
 
-class ApiRegistry
+final class ApiRegistry
 {
     private static array $resources = [];
 

@@ -14,7 +14,6 @@ return [
     ],
     'columns' => [
         'title' => [
-            'type' => 'string',
             'groups' => ['list', 'show'],
         ],
     ],

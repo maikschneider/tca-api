@@ -9,9 +9,9 @@ use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
-class AccessController
+final class AccessController
 {
-    public function isAllowed(AccessRole|array $requiredRole, ServerRequestInterface $request, array $record = []): bool
+    public function isAllowed(AccessRole|array $requiredRole, ServerRequestInterface $request, array $record = [], array $config = []): bool
     {
         if (is_array($requiredRole)) {
             if ($requiredRole[0] instanceof AccessRole) {
@@ -28,7 +28,28 @@ class AccessController
             AccessRole::FE_GROUP => $this->hasFrontendUserInGroups($request, []),
             AccessRole::BE_USER  => $this->hasBackendUser(),
             AccessRole::BE_ADMIN => $this->isBackendAdmin(),
+            AccessRole::OWNER    => $this->isOwner($request, $record, $config),
         };
+    }
+
+    private function isOwner(ServerRequestInterface $request, array $record, array $config): bool
+    {
+        $ownerColumn = $config['ownership']['column'] ?? null;
+        if ($ownerColumn === null) {
+            return false;
+        }
+
+        $beAdminBypass = $config['ownership']['beAdminBypass'] ?? true;
+        if ($beAdminBypass && $this->isBackendAdmin()) {
+            return true;
+        }
+
+        $feUser = $request->getAttribute('frontend.user');
+        if ($feUser === null || empty($feUser->user['uid'])) {
+            return false;
+        }
+
+        return (int)($record[$ownerColumn] ?? null) === (int)$feUser->user['uid'];
     }
 
     private function hasFrontendUser(ServerRequestInterface $request): bool

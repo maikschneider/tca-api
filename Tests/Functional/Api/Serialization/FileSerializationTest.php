@@ -10,9 +10,9 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
  * Functional tests for FAL file/image serialization.
  *
  * Fixture data:
- *   Article 70 → profile_photo=sys_file_reference uid=1 (image/jpeg, profile.jpg)
- *   Article 71 → downloads=sys_file_reference uid=2 (application/pdf, document.pdf)
- *   Article 72 → no file references
+ *   Article 410 → profile_photo=sys_file_reference uid=1 (image/jpeg, profile.jpg)
+ *   Article 411 → downloads=sys_file_reference uid=2 (application/pdf, document.pdf)
+ *   Article 412 → no file references
  *
  * Tests assert JSON structure (keys present, types) without depending on
  * actual image processing or real files on disk.
@@ -32,7 +32,7 @@ final class FileSerializationTest extends ApiFunctionalTestCase
 
     public function testProfilePhotoIsObjectWhenFileLinked(): void
     {
-        $response = $this->executeApiRequest('/_api/articles/70');
+        $response = $this->executeApiRequest('/_api/articles/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('profile_photo', $body);
@@ -41,7 +41,7 @@ final class FileSerializationTest extends ApiFunctionalTestCase
 
     public function testProfilePhotoHasPublicUrlKey(): void
     {
-        $response = $this->executeApiRequest('/_api/articles/70');
+        $response = $this->executeApiRequest('/_api/articles/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('publicUrl', $body['profile_photo']);
@@ -49,7 +49,7 @@ final class FileSerializationTest extends ApiFunctionalTestCase
 
     public function testProfilePhotoHasMimeTypeKey(): void
     {
-        $response = $this->executeApiRequest('/_api/articles/70');
+        $response = $this->executeApiRequest('/_api/articles/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('mimeType', $body['profile_photo']);
@@ -58,7 +58,7 @@ final class FileSerializationTest extends ApiFunctionalTestCase
 
     public function testProfilePhotoHasFileSizeKey(): void
     {
-        $response = $this->executeApiRequest('/_api/articles/70');
+        $response = $this->executeApiRequest('/_api/articles/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('fileSize', $body['profile_photo']);
@@ -67,7 +67,7 @@ final class FileSerializationTest extends ApiFunctionalTestCase
 
     public function testProfilePhotoHasMetadataKey(): void
     {
-        $response = $this->executeApiRequest('/_api/articles/70');
+        $response = $this->executeApiRequest('/_api/articles/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('metadata', $body['profile_photo']);
@@ -76,7 +76,7 @@ final class FileSerializationTest extends ApiFunctionalTestCase
 
     public function testProfilePhotoMetadataHasTitleKey(): void
     {
-        $response = $this->executeApiRequest('/_api/articles/70');
+        $response = $this->executeApiRequest('/_api/articles/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('title', $body['profile_photo']['metadata']);
@@ -84,7 +84,7 @@ final class FileSerializationTest extends ApiFunctionalTestCase
 
     public function testProfilePhotoMetadataHasAlternativeKey(): void
     {
-        $response = $this->executeApiRequest('/_api/articles/70');
+        $response = $this->executeApiRequest('/_api/articles/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('alternative', $body['profile_photo']['metadata']);
@@ -92,7 +92,7 @@ final class FileSerializationTest extends ApiFunctionalTestCase
 
     public function testProfilePhotoMetadataHasDescriptionKey(): void
     {
-        $response = $this->executeApiRequest('/_api/articles/70');
+        $response = $this->executeApiRequest('/_api/articles/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('description', $body['profile_photo']['metadata']);
@@ -100,7 +100,7 @@ final class FileSerializationTest extends ApiFunctionalTestCase
 
     public function testProfilePhotoMetadataHasCopyrightKey(): void
     {
-        $response = $this->executeApiRequest('/_api/articles/70');
+        $response = $this->executeApiRequest('/_api/articles/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('copyright', $body['profile_photo']['metadata']);
@@ -108,7 +108,7 @@ final class FileSerializationTest extends ApiFunctionalTestCase
 
     public function testProfilePhotoHasCropVariantsKey(): void
     {
-        $response = $this->executeApiRequest('/_api/articles/70');
+        $response = $this->executeApiRequest('/_api/articles/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('cropVariants', $body['profile_photo']);
@@ -116,7 +116,7 @@ final class FileSerializationTest extends ApiFunctionalTestCase
 
     public function testProfilePhotoCropVariantsIsEmptyArrayWhenNoCropJson(): void
     {
-        $response = $this->executeApiRequest('/_api/articles/70');
+        $response = $this->executeApiRequest('/_api/articles/410');
         $body     = $this->decodeResponseBody($response);
 
         // Fixture has no crop JSON → cropVariants should be []
@@ -127,7 +127,7 @@ final class FileSerializationTest extends ApiFunctionalTestCase
 
     public function testProfilePhotoIsNullWhenNoFileLinked(): void
     {
-        $response = $this->executeApiRequest('/_api/articles/72');
+        $response = $this->executeApiRequest('/_api/articles/412');
         $body     = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('profile_photo', $body);
@@ -138,7 +138,7 @@ final class FileSerializationTest extends ApiFunctionalTestCase
 
     public function testDownloadsIsArrayWhenFilesLinked(): void
     {
-        $response = $this->executeApiRequest('/_api/articles/71');
+        $response = $this->executeApiRequest('/_api/articles/411');
         $body     = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('downloads', $body);
@@ -148,7 +148,7 @@ final class FileSerializationTest extends ApiFunctionalTestCase
 
     public function testDownloadsItemHasPublicUrlKey(): void
     {
-        $response = $this->executeApiRequest('/_api/articles/71');
+        $response = $this->executeApiRequest('/_api/articles/411');
         $body     = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('publicUrl', $body['downloads'][0]);
@@ -156,7 +156,7 @@ final class FileSerializationTest extends ApiFunctionalTestCase
 
     public function testDownloadsItemHasMimeTypeKey(): void
     {
-        $response = $this->executeApiRequest('/_api/articles/71');
+        $response = $this->executeApiRequest('/_api/articles/411');
         $body     = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('mimeType', $body['downloads'][0]);
@@ -165,7 +165,7 @@ final class FileSerializationTest extends ApiFunctionalTestCase
 
     public function testDownloadsItemHasMetadataKey(): void
     {
-        $response = $this->executeApiRequest('/_api/articles/71');
+        $response = $this->executeApiRequest('/_api/articles/411');
         $body     = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('metadata', $body['downloads'][0]);
@@ -174,7 +174,7 @@ final class FileSerializationTest extends ApiFunctionalTestCase
 
     public function testDownloadsItemDoesNotHaveCropVariantsKey(): void
     {
-        $response = $this->executeApiRequest('/_api/articles/71');
+        $response = $this->executeApiRequest('/_api/articles/411');
         $body     = $this->decodeResponseBody($response);
 
         // FileProcessor (explicit on downloads column) has no cropVariants
@@ -183,7 +183,7 @@ final class FileSerializationTest extends ApiFunctionalTestCase
 
     public function testDownloadsIsEmptyArrayWhenNoFilesLinked(): void
     {
-        $response = $this->executeApiRequest('/_api/articles/72');
+        $response = $this->executeApiRequest('/_api/articles/412');
         $body     = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('downloads', $body);
@@ -194,7 +194,7 @@ final class FileSerializationTest extends ApiFunctionalTestCase
 
     public function testResponseIsOk(): void
     {
-        $response = $this->executeApiRequest('/_api/articles/70');
+        $response = $this->executeApiRequest('/_api/articles/410');
 
         self::assertSame(200, $response->getStatusCode());
     }
