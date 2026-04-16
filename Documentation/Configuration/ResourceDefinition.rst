@@ -48,6 +48,9 @@ The ``general`` key defines the basic resource properties:
        ``delete``.
    * - ``itemsPerPage``
      - Default page size for list operations (overrides the global site setting).
+   * - ``maxItemsPerPage``
+     - Upper limit for ``itemsPerPage``; when set, the requested page size is
+       clamped to this value. No limit when omitted.
    * - ``defaultPid``
      - Page ID for newly created records.
 
@@ -83,6 +86,8 @@ Full example
 ..  code-block:: php
 
     use MaikSchneider\TcaApi\Enum\AccessRole;
+    use MaikSchneider\TcaApi\Filter\ExactFilter;
+    use MaikSchneider\TcaApi\Filter\MmFilter;
     use MaikSchneider\TcaApi\Serializer\FileProcessing\FileProcessor;
     use MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor;
 
@@ -117,9 +122,9 @@ Full example
             ],
         ],
         'filters' => [
-            'title'      => ['strategy' => 'exact'],
-            'color_id'   => ['strategy' => 'exact'],
-            'categories' => ['strategy' => 'mm'],
+            'title'      => ExactFilter::class,
+            'color_id'   => ExactFilter::class,
+            'categories' => MmFilter::class,
         ],
         'order' => [
             'allowed' => ['title', 'uid'],

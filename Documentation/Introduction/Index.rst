@@ -26,15 +26,17 @@ Features
    array; no custom controllers needed
 -  **Serialization groups** — Use ``groups`` to control which columns appear per
    operation (``list``, ``show``, ``create``, ``update``)
--  **Filtering** — Exact, partial, word-start, many-to-many, search, and range
-   filter strategies via query parameters
+-  **Filtering** — Exact, partial, word-start, range, full-text search, and
+   many-to-many filter strategies via query parameters; extensible via
+   ``FilterInterface``
 -  **Sorting** — Configurable allowed sort columns with defaults
 -  **Pagination** — Offset-based pagination with Hydra ``PartialCollectionView``
    links
 -  **Validation** — Required, maxLength, minLength, and regex validators with
    structured 422 error responses
 -  **Access control** — Per-operation roles: ``PUBLIC``, ``FE_USER``, ``FE_GROUP``,
-   ``BE_USER``, ``BE_ADMIN``, or custom callable voters
+   ``BE_USER``, ``BE_ADMIN``, ``OWNER`` (record-level ownership), or custom
+   callable voters
 -  **Virtual properties** — Computed fields via callables or column processors,
    with support for referencing existing columns (including file/image columns
    at different sizes)

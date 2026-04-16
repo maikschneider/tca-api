@@ -15,12 +15,8 @@ Planned features
 
 The following features are planned but not yet implemented:
 
--  **Object-level security for PATCH** — fine-grained access control on
-   individual records during partial updates (medium priority).
 -  **Custom route patterns** — support for custom URL patterns like
    ``/user/current`` (medium priority).
--  **Maximum items per page** — enforce an upper limit on ``itemsPerPage`` to
-   prevent abuse (low priority).
 -  **Inline relation field selection** — select specific fields from related
    records when embedding (high priority).
 -  **Relation filtering in serialization** — filter related records during

@@ -29,7 +29,8 @@ PSR-7 request. These are available in operation handlers and event listeners.
      - Pagination page number (≥ 1).
    * - ``tca_api.items_per_page``
      - ``int``
-     - Items per page for the current request.
+     - Items per page for the current request (clamped to ``maxItemsPerPage``
+       when configured).
    * - ``tca_api.filters``
      - ``array``
      - Raw filter parameters from ``?filters[…]=…``.
