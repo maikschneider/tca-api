@@ -21,7 +21,7 @@
 - **Hydra JSON-LD** — Responses follow the [Hydra](https://www.hydra-cg.com/) specification (`application/ld+json`)
 - **Configuration-driven** — Expose tables by registering a PHP configuration array; no custom controllers needed
 - **Serialization groups** — Use `groups` to control which columns appear per operation (`list`, `show`, `create`, `update`)
-- **Filtering** — Exact, partial, word-start, and many-to-many filter strategies via query parameters
+- **Filtering** — Exact, partial, word-start, range, full-text search, and many-to-many filter strategies via query parameters; extensible via `FilterInterface`
 - **Sorting** — Configurable allowed sort columns with defaults
 - **Pagination** — Offset-based pagination with Hydra `PartialCollectionView` links
 - **Validation** — Required, maxLength, minLength, and regex validators with structured 422 error responses
@@ -203,18 +203,50 @@ Define filterable columns with a strategy:
 'filters' => [
     'title'  => ['strategy' => 'exact'],       // ?filters[title]=Foo
     'name'   => ['strategy' => 'partial'],     // ?filters[name]=oo  → LIKE %oo%
-    'search' => ['strategy' => 'word_start'],  // ?filters[search]=Fo → LIKE Fo%
+    'slug'   => ['strategy' => 'word_start'],  // ?filters[slug]=Fo  → LIKE Fo%
+    'year'   => ['strategy' => 'range'],       // ?filters[year][gte]=2020&filters[year][lte]=2024
+    'q'      => [                              // Full-text search across multiple columns
+        'strategy' => 'search',
+        'columns'  => ['title', 'teaser', 'body'],
+        'match'    => 'partial',               // 'partial' (default) or 'word_start'
+    ],
     'categories' => [                          // Many-to-many filter
-        'strategy' => 'mm',
-        'mm_table' => 'sys_category_record_mm',
-        'mm_local_key' => 'uid_local',
+        'strategy'       => 'mm',
+        'mm_table'       => 'sys_category_record_mm',
+        'mm_local_key'   => 'uid_local',
         'mm_foreign_key' => 'uid_foreign',
         'mm_constraints' => [
             'tablenames' => 'tx_myext_domain_model_article',
-            'fieldname' => 'categories',
+            'fieldname'  => 'categories',
         ],
     ],
 ],
+```
+
+#### Built-in filter strategies
+
+| Strategy    | Description | Config keys |
+|-------------|-------------|-------------|
+| `exact`     | `WHERE column = value` | — |
+| `partial`   | `WHERE column LIKE %value%` | — |
+| `word_start`| `WHERE column LIKE value%` | — |
+| `range`     | Numeric operators on a column | `value` must be an array with any of: `gte`, `lte`, `gt`, `lt` |
+| `search`    | `OR` across multiple columns (partial or word-start LIKE) | `columns` (required), `match` (`partial`\|`word_start`, default `partial`) |
+| `mm`        | Subquery via MM intermediate table | `mm_table`, `mm_local_key`, `mm_foreign_key`, `mm_constraints` (or derive from TCA automatically) |
+
+For the `mm` strategy, if `mm_table` is omitted the extension derives the MM config from TCA automatically (requires a valid `MM` key on the field).
+
+#### Range filter example
+
+```
+?filters[year][gte]=2020&filters[year][lte]=2024
+?filters[price][gt]=10&filters[price][lt]=100
+```
+
+#### Search filter example
+
+```
+?filters[q]=typo3   → WHERE (title LIKE '%typo3%' OR teaser LIKE '%typo3%' OR body LIKE '%typo3%')
 ```
 
 ### Sorting
@@ -548,6 +580,58 @@ HandlerRegistry::register(MyCustomShowHandler::class, priority: 20);
 ```
 
 The `HandlerRegistry` uses TYPO3's DI container via `GeneralUtility::makeInstance()`, so constructor dependencies are injected automatically. The `#[Autoconfigure(public: true)]` attribute on the class is required for the container to expose the service.
+
+## Custom filters
+
+Every filter strategy is a class that implements `FilterInterface`. The extension discovers all implementations automatically via Symfony DI — no `Services.yaml` registration is needed.
+
+### Interface
+
+```php
+use MaikSchneider\TcaApi\Filter\FilterInterface;
+use TYPO3\CMS\Core\Database\Query\QueryBuilder;
+
+final class PublishedAfterFilter implements FilterInterface
+{
+    public function getStrategy(): string
+    {
+        return 'published_after';
+    }
+
+    public function apply(QueryBuilder $qb, string $column, array $filterConfig): void
+    {
+        $qb->andWhere($qb->expr()->gte(
+            $column,
+            $qb->createNamedParameter((int)$filterConfig['value']),
+        ));
+    }
+}
+```
+
+The `$filterConfig` array always contains:
+
+| Key | Description |
+|-----|-------------|
+| `value` | Filter value from the request query string |
+| `strategy` | Strategy name as declared in the resource config |
+| `_table` | Resource table name |
+| `_column` | Column name (same as the `$column` parameter) |
+| `_request` | `ServerRequestInterface` — access query params, auth context, headers |
+| `_resourceConfig` | Full resource config (general, columns, filters, order, …) |
+
+Plus any additional keys declared in the resource's filter config entry.
+
+### Using the custom filter
+
+Declare it in the resource config just like a built-in strategy:
+
+```php
+'filters' => [
+    'publish_date' => ['strategy' => 'published_after'],
+],
+```
+
+That's all. The class is auto-tagged and auto-wired — no `ext_localconf.php` or `Services.yaml` changes required.
 
 ## Development
 
