@@ -25,7 +25,7 @@
 - **Sorting** — Configurable allowed sort columns with defaults
 - **Pagination** — Offset-based pagination with Hydra `PartialCollectionView` links
 - **Validation** — Required, maxLength, minLength, and regex validators with structured 422 error responses
-- **Access control** — Per-operation roles: `PUBLIC`, `FE_USER`, `BE_USER`, `BE_ADMIN`, or custom callables
+- **Access control** — Per-operation roles: `PUBLIC`, `FE_USER`, `FE_GROUP`, `BE_USER`, `BE_ADMIN`, `OWNER` (record-level ownership), or custom callables
 - **Relation handling** — Shallow stubs or fully embedded related records (configurable depth)
 - **Userinfo endpoint** — Expose the authenticated FE user's own record at a configurable URL
 - **OpenAPI + Swagger UI** — Auto-generated OpenAPI 3.0 spec and interactive Swagger UI served directly from the API prefix
@@ -280,16 +280,87 @@ use MaikSchneider\TcaApi\Enum\AccessRole;
     'list'   => AccessRole::PUBLIC,     // No authentication required
     'show'   => AccessRole::PUBLIC,
     'create' => AccessRole::FE_USER,    // Requires a logged-in frontend user
-    'update' => AccessRole::BE_USER,    // Requires any backend user
-    'delete' => AccessRole::BE_ADMIN,   // Requires an admin backend user
+    'update' => AccessRole::OWNER,      // Only the record owner may update
+    'delete' => AccessRole::OWNER,
 ],
 ```
 
-You can also use a callable for custom logic:
+#### Available roles
+
+| Role | Description |
+|---|---|
+| `PUBLIC` | No authentication required |
+| `FE_USER` | Any authenticated frontend user |
+| `FE_GROUP` | Any FE user with at least one group; use `[AccessRole::FE_GROUP, [1,2]]` to restrict to specific group IDs |
+| `BE_USER` | Any authenticated backend user |
+| `BE_ADMIN` | Backend admin only |
+| `OWNER` | Authenticated FE user whose UID matches the record's ownership column (see [Ownership](#ownership)) |
+
+You can also use a callable for fully custom logic:
 
 ```php
-'create' => [MyAccessChecker::class, 'checkCreatePermission'],
+'update' => [MyAccessChecker::class, 'checkUpdatePermission'],
+// Callable receives (ServerRequestInterface $request, array $existingRecord): bool
 ```
+
+### Ownership
+
+The `ownership` section enables declarative record-level security for write operations. It pairs with `AccessRole::OWNER` in the `security` config.
+
+```php
+use MaikSchneider\TcaApi\Enum\AccessRole;
+
+'security' => [
+    'create' => AccessRole::FE_USER,
+    'update' => AccessRole::OWNER,
+    'delete' => AccessRole::OWNER,
+],
+'ownership' => [
+    'column' => 'fe_user_id',   // DB column holding the owner's FE user UID
+],
+```
+
+**What this does:**
+- **On create** — the `fe_user_id` column is automatically set to the authenticated FE user's UID server-side. The client cannot supply this value; it is stripped from the request body regardless of the column's `groups` config.
+- **On update/delete** — the record's `fe_user_id` is compared to the current FE user's UID. If they don't match the request returns **403**.
+
+#### Separate tracking vs. auth columns
+
+Use `setOnCreate` when you want a different column for "who created it" vs. "who may edit it":
+
+```php
+'ownership' => [
+    'column'      => 'fe_user_id',      // column checked on update/delete
+    'setOnCreate' => 'fe_creator_id',   // column written on create (defaults to `column` when omitted)
+],
+```
+
+#### BE_ADMIN bypass
+
+Backend admins bypass ownership checks by default. Set `beAdminBypass: false` to enforce ownership for admins too:
+
+```php
+'ownership' => [
+    'column'        => 'fe_user_id',
+    'beAdminBypass' => false,           // default: true
+],
+```
+
+#### Ownership config reference
+
+| Key | Required | Default | Description |
+|---|---|---|---|
+| `column` | when using `OWNER` | — | DB column holding owner UID; compared on update/delete |
+| `setOnCreate` | no | same as `column` | Column auto-set on create (if different from `column`) |
+| `beAdminBypass` | no | `true` | When `true`, `BE_ADMIN` skips the ownership check |
+
+#### Behaviour notes
+
+- `AccessRole::OWNER` without `ownership.column` configured → **403** (fail-secure)
+- Unauthenticated request + `OWNER` → **403** (no FE user found)
+- `setOnCreate` without a logged-in FE user → column is not set (no injection if user is null)
+- Ownership columns are always stripped from client input regardless of `groups` config
+- `OWNER` is only meaningful on `update` and `delete`; using it on `list`/`show` will always deny (no single record to compare against)
 
 ## Validation
 
