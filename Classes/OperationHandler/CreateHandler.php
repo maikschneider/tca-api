@@ -9,6 +9,7 @@ use MaikSchneider\TcaApi\DataAccess\DataWriteService;
 use MaikSchneider\TcaApi\DataAccess\RelationInputResolver;
 use MaikSchneider\TcaApi\Event\AfterWriteEvent;
 use MaikSchneider\TcaApi\Event\BeforeWriteEvent;
+use MaikSchneider\TcaApi\FileUpload\FileOwnershipService;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
 use MaikSchneider\TcaApi\Validation\FieldValidator;
@@ -30,6 +31,7 @@ class CreateHandler implements OperationHandlerInterface
         private readonly FieldValidator $fieldValidator,
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly RelationInputResolver $relationResolver,
+        private readonly FileOwnershipService $fileOwnershipService,
     ) {
     }
 
@@ -57,6 +59,18 @@ class CreateHandler implements OperationHandlerInterface
 
         $data        = $this->filterWritableColumns($resolved->scalarBody, $config);
         $data['pid'] = $pid;
+
+        if ($config['ownership']['checkFileColumns'] ?? false) {
+            $feUserUid = (int)($feUser?->user['uid'] ?? 0);
+            $denied    = $this->fileOwnershipService->checkFileColumns($data, $table, $feUserUid);
+            if ($denied !== []) {
+                return $this->hydraResponseBuilder->buildError(
+                    403,
+                    'File ownership check failed for sys_file UIDs: ' . implode(', ', $denied),
+                    'Forbidden',
+                );
+            }
+        }
 
         if ($feUser !== null && !empty($feUser->user['uid'])) {
             $feUid       = (int)$feUser->user['uid'];

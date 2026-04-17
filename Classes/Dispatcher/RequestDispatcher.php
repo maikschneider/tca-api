@@ -119,6 +119,10 @@ final class RequestDispatcher
             return $method === 'GET' ? 'userinfo' : null;
         }
 
+        if (($config['general']['type'] ?? '') === 'file_upload') {
+            return $method === 'POST' && $uid === null ? 'upload' : null;
+        }
+
         return match ($method) {
             'GET'         => $uid !== null ? 'show' : 'list',
             'POST'        => $uid === null ? 'create' : null,
