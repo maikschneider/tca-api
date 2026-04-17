@@ -73,7 +73,8 @@ class UpdateHandler implements OperationHandlerInterface
         $pid    = $config['general']['defaultPid'] ?? 1;
         $feUser = $request->getAttribute('frontend.user');
 
-        $resolved = $this->relationResolver->resolve($body, $table, $pid, $feUser?->user);
+        $writableBody = $this->filterWritableColumns($body, $config);
+        $resolved = $this->relationResolver->resolve($writableBody, $table, $pid, $feUser?->user);
 
         $data = $this->filterWritableColumns($resolved->scalarBody, $config);
 

@@ -9,8 +9,8 @@ namespace MaikSchneider\TcaApi\DataAccess;
  *
  * scalarBody    - request body with all relation objects replaced by NEW_xxx
  *                 placeholder strings (or integer UIDs for existing records).
- *                 inline (foreign_field) columns are included for CREATE (with
- *                 placeholder strings) and omitted for UPDATE.
+ *                 inline (foreign_field) columns may also contain NEW_xxx
+ *                 placeholder strings when inline relations are resolved.
  *
  * extraDataMap  - additional table entries to include in the same DataHandler
  *                 processDataMap call:

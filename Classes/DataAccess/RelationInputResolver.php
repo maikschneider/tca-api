@@ -223,9 +223,30 @@ final class RelationInputResolver
 
         if ($type === 'group') {
             $allowed = $tcaConfig['allowed'] ?? '';
+
+            if (is_string($allowed)) {
+                $allowed = array_values(array_filter(
+                    array_map(
+                        static fn(string $tableName): string => trim($tableName),
+                        explode(',', $allowed)
+                    ),
+                    static fn(string $tableName): bool => $tableName !== ''
+                ));
+            } elseif (is_array($allowed)) {
+                $allowed = array_values(array_filter(
+                    array_map(
+                        static fn(mixed $tableName): string => is_string($tableName) ? trim($tableName) : '',
+                        $allowed
+                    ),
+                    static fn(string $tableName): bool => $tableName !== ''
+                ));
+            } else {
+                $allowed = [];
+            }
+
             // Only support single-table group for object creation
-            if ($allowed !== '' && !str_contains($allowed, ',')) {
-                return $allowed;
+            if (count($allowed) === 1) {
+                return $allowed[0];
             }
         }
 
