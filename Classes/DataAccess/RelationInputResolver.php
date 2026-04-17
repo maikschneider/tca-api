@@ -30,16 +30,13 @@ use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
  *
  * ── Non-inline relations (select, category, group) ──────────────────────────
  * New objects become NEW_xxx entries in extraDataMap; their placeholder is placed
- * in the parent's field value. DataHandler resolves NEW_xxx in passthrough fields
- * via substNEWwithIDs after processing the other table in the same datamap call.
- * NOTE: select/category field validation in DataHandler may not substitute
- * NEW_xxx in complex comma-separated values. For hasOne (single select) the
- * placeholder is in an exact-match position and IS substituted correctly.
- * For hasMany (category/group) the NEW_xxx entries are treated as new records
- * by DataHandler's inline/category handlers only when the table processing
- * order is correct (child table processed before parent). To avoid ordering
- * dependency, non-inline new records are created immediately so only real UIDs
- * reach DataHandler.
+ * in the parent's field value. DataHandler resolves NEW_xxx via substNEWwithIDs
+ * after processing all tables in the same datamap call. For hasOne (single select)
+ * the placeholder is in an exact-match position and is substituted correctly.
+ * For hasMany (category/group) the NEW_xxx entries are treated by DataHandler's
+ * relation processors which handle the MM table writes and substitute placeholders
+ * with real UIDs. Because all tables are processed in a single processDataMap() call,
+ * this achieves true atomic writes with correct cross-references.
  *
  * Security gate: object creation is only allowed for foreign tables that have
  * an entry in ApiRegistry. Objects for unregistered tables are silently skipped.
@@ -47,11 +44,6 @@ use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 #[Autoconfigure(public: true)]
 final class RelationInputResolver
 {
-    public function __construct(
-        private readonly DataWriteService $writeService,
-    ) {
-    }
-
     /**
      * @param array      $body      Raw decoded request body
      * @param string     $table     Parent table name
@@ -93,7 +85,12 @@ final class RelationInputResolver
                     continue;
                 }
 
-                $subConfig         = ApiRegistry::getByTable($foreignTable);
+                $subConfig = ApiRegistry::getByTable($foreignTable);
+                // Security gate: skip creation for unregistered foreign tables
+                if ($subConfig === null) {
+                    continue;
+                }
+
                 $childPlaceholders = [];
                 foreach ($newObjects as $childData) {
                     $ph                              = $this->uniquePlaceholder();
@@ -109,43 +106,52 @@ final class RelationInputResolver
             }
 
             // ── Single assoc-array value (hasOne: select + foreign_table) ─────
-            // Created immediately so the real UID is available for the parent.
+            // New object becomes a NEW_xxx placeholder in extraDataMap, and the
+            // placeholder is placed in the parent's field value. DataHandler resolves
+            // NEW_xxx via substNEWwithIDs after processing all tables in the datamap.
             if (!array_is_list($value)) {
+                // Only treat assoc arrays specially for actual relation fields;
+                // otherwise let them pass through unchanged below.
                 if ($foreignTable !== '') {
                     $subConfig = ApiRegistry::getByTable($foreignTable);
                     if ($subConfig !== null) {
-                        $scalarBody[$col] = $this->writeService->create(
-                            $foreignTable,
-                            $this->prepareChildData($value, $pid, $feUserRow, $subConfig),
-                        );
+                        $ph                              = $this->uniquePlaceholder();
+                        $childData                       = $this->prepareChildData($value, $pid, $feUserRow, $subConfig);
+                        $extraDataMap[$foreignTable][$ph] = $childData;
+                        $scalarBody[$col]                 = $ph;
                     }
+                    // Unregistered foreign table → skip entirely (no scalarBody entry)
+                    continue;
                 }
-                // Unregistered foreign table → skip entirely (no scalarBody entry)
-                continue;
+                // Non-relation field with assoc array → pass through unchanged
             }
 
             // ── Sequential array (hasMany: MM, UID-list, category, group) ─────
-            // New objects are created immediately; UIDs are passed to DataHandler.
-            $effectiveFt = $this->effectiveForeignTable($type, $tcaConfig);
-            if ($effectiveFt !== '') {
-                $subConfig    = ApiRegistry::getByTable($effectiveFt);
-                $resolvedUids = [];
-                foreach ($value as $item) {
-                    if (is_int($item)) {
-                        $resolvedUids[] = $item;
-                    } elseif (is_string($item) && ctype_digit($item)) {
-                        $resolvedUids[] = (int)$item;
-                    } elseif (is_array($item) && !array_is_list($item) && $subConfig !== null) {
-                        $resolvedUids[] = $this->writeService->create(
-                            $effectiveFt,
-                            $this->prepareChildData($item, $pid, $feUserRow, $subConfig),
-                        );
+            // New objects become NEW_xxx entries in extraDataMap; their placeholders
+            // are placed in the parent's field value. DataHandler resolves NEW_xxx
+            // via substNEWwithIDs after processing all tables in the datamap.
+            if (is_array($value) && array_is_list($value)) {
+                $effectiveFt = $this->effectiveForeignTable($type, $tcaConfig);
+                if ($effectiveFt !== '') {
+                    $subConfig    = ApiRegistry::getByTable($effectiveFt);
+                    $resolvedUids = [];
+                    foreach ($value as $item) {
+                        if (is_int($item)) {
+                            $resolvedUids[] = $item;
+                        } elseif (is_string($item) && ctype_digit($item)) {
+                            $resolvedUids[] = (int)$item;
+                        } elseif (is_array($item) && !array_is_list($item) && $subConfig !== null) {
+                            $ph                              = $this->uniquePlaceholder();
+                            $childData                       = $this->prepareChildData($item, $pid, $feUserRow, $subConfig);
+                            $extraDataMap[$effectiveFt][$ph] = $childData;
+                            $resolvedUids[]                  = $ph;
+                        }
+                        // Unregistered table → skip new-object items
                     }
-                    // Unregistered table → skip new-object items
+                    // ColumnFilterTrait will implode(',', $array) on this
+                    $scalarBody[$col] = $resolvedUids;
+                    continue;
                 }
-                // ColumnFilterTrait will implode(',', $array) on this
-                $scalarBody[$col] = $resolvedUids;
-                continue;
             }
 
             // Default: pass through unchanged
