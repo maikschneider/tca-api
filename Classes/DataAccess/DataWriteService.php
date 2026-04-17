@@ -18,9 +18,31 @@ final class DataWriteService
 {
     public function create(string $table, array $data): int
     {
+        $substMap = $this->processDataMap([$table => ['NEW_1' => $data]]);
+        return (int)($substMap['NEW_1'] ?? 0);
+    }
+
+    public function update(string $table, int $uid, array $data): void
+    {
+        $this->processDataMap([$table => [$uid => $data]]);
+    }
+
+    /**
+     * Process a multi-table datamap in a single DataHandler call.
+     *
+     * Accepts a map of table => [uid_or_NEW_placeholder => data]. DataHandler
+     * resolves NEW_xxx placeholders across all tables in the map, enabling
+     * creation of parent and related records atomically with correct cross-references.
+     *
+     * Returns the substNEWwithIDs array: NEW_xxx => resolved integer UID.
+     *
+     * @param array<string, array<string|int, array>> $dataMap
+     * @return array<string, int>
+     */
+    public function processDataMap(array $dataMap): array
+    {
         $adminUser = $this->makeAdminUser();
-        return $this->withGlobalBackendUser($adminUser, function () use ($table, $data, $adminUser) {
-            $dataMap = [$table => ['NEW_1' => $data]];
+        return $this->withGlobalBackendUser($adminUser, function () use ($dataMap, $adminUser): array {
             $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
             $dataHandler->start($dataMap, [], $adminUser);
             $dataHandler->process_datamap();
@@ -29,29 +51,14 @@ final class DataWriteService
                 throw new \RuntimeException(implode(', ', $dataHandler->errorLog));
             }
 
-            return (int)($dataHandler->substNEWwithIDs['NEW_1'] ?? 0);
-        });
-    }
-
-    public function update(string $table, int $uid, array $data): void
-    {
-        $adminUser = $this->makeAdminUser();
-        $this->withGlobalBackendUser($adminUser, function () use ($table, $uid, $data, $adminUser) {
-            $dataMap = [$table => [$uid => $data]];
-            $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
-            $dataHandler->start($dataMap, [], $adminUser);
-            $dataHandler->process_datamap();
-
-            if ($dataHandler->errorLog) {
-                throw new \RuntimeException('DataHandler update failed: ' . implode(', ', $dataHandler->errorLog));
-            }
+            return $dataHandler->substNEWwithIDs;
         });
     }
 
     public function delete(string $table, int $uid): void
     {
         $adminUser = $this->makeAdminUser();
-        $this->withGlobalBackendUser($adminUser, function () use ($table, $uid, $adminUser) {
+        $this->withGlobalBackendUser($adminUser, function () use ($table, $uid, $adminUser): void {
             $cmdMap = [$table => [$uid => ['delete' => 1]]];
             $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
             $dataHandler->start([], $cmdMap, $adminUser);

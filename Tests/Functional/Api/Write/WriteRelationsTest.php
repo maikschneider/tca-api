@@ -147,4 +147,98 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         self::assertCount(1, $body['categories']);
         self::assertSame(2, $body['categories'][0]['uid']);
     }
+
+    // ── Inline object creation (hasOne) ──────────────────────────────────────
+
+    public function testPostWithNewColorObjectCreatesColorAndLinks(): void
+    {
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
+            'title'    => 'Fresh Color Article',
+            'color_id' => ['name' => 'Fresh'],
+        ]);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(201, $response->getStatusCode());
+        self::assertArrayHasKey('color', $body);
+        self::assertIsArray($body['color']);
+        self::assertGreaterThan(2, $body['color']['uid'], 'New color UID should be > 2 (fixtures have 1,2)');
+    }
+
+    public function testPostWithNewColorObjectColorPersistedInDatabase(): void
+    {
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
+            'title'    => 'Persisted New Color',
+            'color_id' => ['name' => 'PersistMe'],
+        ]);
+        $articleUid = $this->decodeResponseBody($response)['uid'];
+
+        $getBody = $this->decodeResponseBody($this->executeApiRequest('/_api/articles/' . $articleUid));
+
+        self::assertSame('Color', $getBody['color']['@type']);
+        self::assertGreaterThan(2, $getBody['color']['uid']);
+    }
+
+    public function testPutWithNewColorObjectReplacesRelation(): void
+    {
+        // Article 1 currently has color_id=1 (Red)
+        $response = $this->executeApiWriteRequestAs('PUT', '/_api/articles/1', 1, [
+            'title'    => 'First Article',
+            'color_id' => ['name' => 'Replaced'],
+        ]);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertIsArray($body['color']);
+        self::assertGreaterThan(2, $body['color']['uid'], 'New color should have uid > 2');
+    }
+
+    // ── Inline object creation (hasMany / MM) ─────────────────────────────────
+
+    public function testPostWithNewCategoryObjectCreatesCategoryAndLinks(): void
+    {
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
+            'title'      => 'New Cat Article',
+            'categories' => [['title' => 'Inline Category']],
+        ]);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(201, $response->getStatusCode());
+        self::assertCount(1, $body['categories']);
+        self::assertGreaterThan(3, $body['categories'][0]['uid'], 'New cat UID should be > 3 (fixtures have 1-3)');
+    }
+
+    public function testPostWithMixedCategoriesMixesNewAndExisting(): void
+    {
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
+            'title'      => 'Mixed Cat Article',
+            'categories' => [1, ['title' => 'Mixed New']],
+        ]);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(201, $response->getStatusCode());
+        self::assertCount(2, $body['categories']);
+
+        $uids = array_column($body['categories'], 'uid');
+        self::assertContains(1, $uids, 'Existing category uid=1 should be linked');
+        foreach ($uids as $uid) {
+            if ($uid !== 1) {
+                self::assertGreaterThan(3, $uid, 'New category UID should be > 3');
+            }
+        }
+    }
+
+    public function testPatchWithMixedCategoriesLinksNewAndExisting(): void
+    {
+        // Article 3 has no categories → patch with 1 existing + 1 new
+        $response = $this->executeApiWriteRequestAs('PATCH', '/_api/articles/3', 1, [
+            'categories' => [2, ['title' => 'Patch New Cat']],
+        ]);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertCount(2, $body['categories']);
+
+        $uids = array_column($body['categories'], 'uid');
+        self::assertContains(2, $uids);
+    }
 }

@@ -6,6 +6,7 @@ namespace MaikSchneider\TcaApi\OperationHandler;
 
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\DataWriteService;
+use MaikSchneider\TcaApi\DataAccess\RelationInputResolver;
 use MaikSchneider\TcaApi\Event\AfterWriteEvent;
 use MaikSchneider\TcaApi\Event\BeforeWriteEvent;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
@@ -30,6 +31,7 @@ class UpdateHandler implements OperationHandlerInterface
         private readonly ResponseFactoryInterface $responseFactory,
         private readonly FieldValidator $fieldValidator,
         private readonly EventDispatcherInterface $eventDispatcher,
+        private readonly RelationInputResolver $relationResolver,
     ) {
     }
 
@@ -68,13 +70,21 @@ class UpdateHandler implements OperationHandlerInterface
             return $this->hydraResponseBuilder->buildValidationError($violations);
         }
 
-        $data = $this->filterWritableColumns($body, $config);
+        $pid    = $config['general']['defaultPid'] ?? 1;
+        $feUser = $request->getAttribute('frontend.user');
+
+        $resolved = $this->relationResolver->resolve($body, $table, $pid, $feUser?->user);
+
+        $data = $this->filterWritableColumns($resolved->scalarBody, $config);
 
         $beforeEvent = new BeforeWriteEvent($table, 'update', $data);
         $this->eventDispatcher->dispatch($beforeEvent);
         $data = $beforeEvent->getData();
 
-        $this->writeService->update($table, $uid, $data);
+        // Single DataHandler call: parent update + any new related records.
+        $dataMap = [$table => [$uid => $data]] + $resolved->extraDataMap;
+        $this->writeService->processDataMap($dataMap);
+
         $this->eventDispatcher->dispatch(new AfterWriteEvent($table, 'update', $uid));
 
         $row     = $this->dataRepository->findById($table, $uid, $config);
