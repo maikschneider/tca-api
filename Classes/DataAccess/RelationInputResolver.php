@@ -49,7 +49,8 @@ final class RelationInputResolver
 {
     public function __construct(
         private readonly DataWriteService $writeService,
-    ) {}
+    ) {
+    }
 
     /**
      * @param array      $body      Raw decoded request body
@@ -58,10 +59,10 @@ final class RelationInputResolver
      * @param array|null $feUserRow FE user row (e.g. $feUser->user), or null
      */
     public function resolve(
-        array   $body,
-        string  $table,
-        int     $pid,
-        ?array  $feUserRow,
+        array $body,
+        string $table,
+        int $pid,
+        ?array $feUserRow,
     ): ResolvedInput {
         $scalarBody   = [];
         $extraDataMap = [];

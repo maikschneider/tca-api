@@ -26,7 +26,7 @@
 - **Pagination** — Offset-based pagination with Hydra `PartialCollectionView` links
 - **Validation** — Required, maxLength, minLength, and regex validators with structured 422 error responses
 - **Access control** — Per-operation roles: `PUBLIC`, `FE_USER`, `FE_GROUP`, `BE_USER`, `BE_ADMIN`, `OWNER` (record-level ownership), or custom callables
-- **Relation handling** — Shallow stubs or fully embedded related records (configurable depth)
+- **Relation handling** — Shallow stubs or fully embedded related records (configurable depth); create new related records inline on POST/PUT/PATCH
 - **Userinfo endpoint** — Expose the authenticated FE user's own record at a configurable URL
 - **OpenAPI + Swagger UI** — Auto-generated OpenAPI 3.0 spec and interactive Swagger UI served directly from the API prefix
 - **PSR-14 events** — Hook into the request lifecycle with Before/AfterOperation and Before/AfterWrite events
@@ -444,6 +444,48 @@ The related resource must be registered in the `ApiRegistry` for embedding to wo
 | `inline` / `select`  | `foreign_field` back-reference        | Yes       |
 | Any + `MM`           | Intermediate MM table                 | Yes       |
 | `type=group` + `MM`  | Column holds count, relations in MM   | Yes       |
+
+### Creating related records on write
+
+On POST, PUT, and PATCH you can create new related records inline by passing an assoc array instead of a UID. Three forms are accepted per relation field:
+
+```json
+{ "color_id": 1 }                          // existing record — link by UID
+{ "color_id": { "name": "Red" } }          // new record — created atomically
+{ "categories": [1, { "title": "New" }] }  // mixed — link existing + create new
+```
+
+All forms work for every TCA relation type:
+
+| TCA type | Example |
+|---|---|
+| `select` + single value | `"color_id": { "name": "Red" }` |
+| `category` / `select` + MM | `"categories": [1, { "title": "New" }]` |
+| `group` | `"tags": [3, { "name": "New Tag" }]` |
+| `inline` + `foreign_field` | `"related_items": [{ "name": "Child" }]` |
+
+**Atomicity:** all records (parent + new children) are created in a single DataHandler call, so cross-references resolve correctly and no partial writes occur.
+
+**Ownership:** if the related table has an `ownership` config, the ownership column is automatically injected and cannot be overridden by the client.
+
+**Security gate:** new sub-records can only be created for tables that have their own entry in ApiRegistry. Objects for unregistered foreign tables are silently skipped; existing UID references still work.
+
+#### Inline relations (`type=inline` + `foreign_field`)
+
+Inline children carry a back-pointer column to the parent (`foreign_field`). The extension sets this column automatically via DataHandler's `writeForeignField` mechanism — you do not need to include the parent UID in the child object:
+
+```json
+POST /_api/articles
+{
+  "title": "My Article",
+  "images": [
+    { "caption": "Photo 1" },
+    { "caption": "Photo 2" }
+  ]
+}
+```
+
+On PATCH, new inline children are **appended**; existing children are left untouched.
 
 ## Virtual properties
 

@@ -27,5 +27,6 @@ final readonly class ResolvedInput
     public function __construct(
         public array $scalarBody,
         public array $extraDataMap,
-    ) {}
+    ) {
+    }
 }
