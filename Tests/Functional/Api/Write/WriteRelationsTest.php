@@ -241,4 +241,33 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         $uids = array_column($body['categories'], 'uid');
         self::assertContains(2, $uids);
     }
+
+    public function testPostWithNewCategoryObjectCategoryPersistedInDatabase(): void
+    {
+        $response   = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
+            'title'      => 'Persist Cat Article',
+            'categories' => [['title' => 'PersistCat']],
+        ]);
+        $articleUid = $this->decodeResponseBody($response)['uid'];
+
+        $getBody = $this->decodeResponseBody($this->executeApiRequest('/_api/articles/' . $articleUid));
+
+        self::assertCount(1, $getBody['categories']);
+        self::assertSame('SysCategory', $getBody['categories'][0]['@type']);
+        self::assertGreaterThan(3, $getBody['categories'][0]['uid']);
+    }
+
+    public function testPutWithNewCategoryObjectReplacesCategoryRelations(): void
+    {
+        // Article 1 has categories [1, 2] → PUT replaces with 1 new category
+        $response = $this->executeApiWriteRequestAs('PUT', '/_api/articles/1', 1, [
+            'title'      => 'First Article',
+            'categories' => [['title' => 'PutNewCat']],
+        ]);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertCount(1, $body['categories']);
+        self::assertGreaterThan(3, $body['categories'][0]['uid'], 'New category UID should be > 3');
+    }
 }
