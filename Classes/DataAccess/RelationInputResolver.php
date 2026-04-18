@@ -41,7 +41,6 @@ use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 #[Autoconfigure(public: true)]
 final class RelationInputResolver
 {
-
     /**
      * @param array      $body      Raw decoded request body
      * @param string     $table     Parent table name
