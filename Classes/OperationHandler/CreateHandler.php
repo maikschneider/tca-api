@@ -48,15 +48,13 @@ class CreateHandler implements OperationHandlerInterface
             return $this->hydraResponseBuilder->buildValidationError($violations);
         }
 
-        $table        = $config['general']['table'];
-        $pid          = $config['general']['defaultPid'] ?? 1;
-        $feUser       = $request->getAttribute('frontend.user');
-        $writableBody = $this->filterWritableColumns($body, $config);
+        $table  = $config['general']['table'];
+        $pid    = $config['general']['defaultPid'] ?? 1;
+        $feUser = $request->getAttribute('frontend.user');
 
-        // Resolve relation fields only for writable columns: objects become NEW_xxx
-        // placeholders; UIDs stay as-is. This prevents side effects for relation
-        // input on non-writable columns that would later be filtered out.
-        $resolved = $this->relationResolver->resolve($writableBody, $table, $pid, $feUser?->user);
+        // Resolve relation fields: objects become real UIDs (non-inline) or NEW_xxx
+        // placeholders (inline); UIDs stay as-is.
+        $resolved = $this->relationResolver->resolve($body, $table, $pid, $feUser?->user);
 
         $data        = $this->filterWritableColumns($resolved->scalarBody, $config);
         $data['pid'] = $pid;

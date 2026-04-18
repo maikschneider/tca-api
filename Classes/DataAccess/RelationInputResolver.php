@@ -30,13 +30,10 @@ use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
  *
  * ── Non-inline relations (select, category, group) ──────────────────────────
  * New objects become NEW_xxx entries in extraDataMap; their placeholder is placed
- * in the parent's field value. DataHandler resolves NEW_xxx via substNEWwithIDs
- * after processing all tables in the same datamap call. For hasOne (single select)
- * the placeholder is in an exact-match position and is substituted correctly.
- * For hasMany (category/group) the NEW_xxx entries are treated by DataHandler's
- * relation processors which handle the MM table writes and substitute placeholders
- * with real UIDs. Because all tables are processed in a single processDataMap() call,
- * this achieves true atomic writes with correct cross-references.
+ * in the parent's field value. DataHandler's checkValueForGroupFolderSelect() and
+ * checkValueForCategory() detect NEW_xxx values and defer processing to the
+ * remapStack — the same mechanism as inline. processRemapStack() resolves
+ * placeholders to real UIDs and calls the respective processDBdata handler.
  *
  * Security gate: object creation is only allowed for foreign tables that have
  * an entry in ApiRegistry. Objects for unregistered tables are silently skipped.
@@ -44,6 +41,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 #[Autoconfigure(public: true)]
 final class RelationInputResolver
 {
+
     /**
      * @param array      $body      Raw decoded request body
      * @param string     $table     Parent table name
@@ -106,52 +104,44 @@ final class RelationInputResolver
             }
 
             // ── Single assoc-array value (hasOne: select + foreign_table) ─────
-            // New object becomes a NEW_xxx placeholder in extraDataMap, and the
-            // placeholder is placed in the parent's field value. DataHandler resolves
-            // NEW_xxx via substNEWwithIDs after processing all tables in the datamap.
+            // New object becomes a NEW_xxx entry in extraDataMap; its placeholder
+            // is placed in the parent's field. DataHandler's remapStack resolves it.
             if (!array_is_list($value)) {
-                // Only treat assoc arrays specially for actual relation fields;
-                // otherwise let them pass through unchanged below.
                 if ($foreignTable !== '') {
                     $subConfig = ApiRegistry::getByTable($foreignTable);
                     if ($subConfig !== null) {
                         $ph                              = $this->uniquePlaceholder();
-                        $childData                       = $this->prepareChildData($value, $pid, $feUserRow, $subConfig);
-                        $extraDataMap[$foreignTable][$ph] = $childData;
-                        $scalarBody[$col]                 = $ph;
+                        $extraDataMap[$foreignTable][$ph] = $this->prepareChildData($value, $pid, $feUserRow, $subConfig);
+                        $scalarBody[$col]                = $ph;
                     }
                     // Unregistered foreign table → skip entirely (no scalarBody entry)
                     continue;
                 }
-                // Non-relation field with assoc array → pass through unchanged
+                // Non-relation assoc array → pass through unchanged
             }
 
             // ── Sequential array (hasMany: MM, UID-list, category, group) ─────
             // New objects become NEW_xxx entries in extraDataMap; their placeholders
-            // are placed in the parent's field value. DataHandler resolves NEW_xxx
-            // via substNEWwithIDs after processing all tables in the datamap.
-            if (is_array($value) && array_is_list($value)) {
-                $effectiveFt = $this->effectiveForeignTable($type, $tcaConfig);
-                if ($effectiveFt !== '') {
-                    $subConfig    = ApiRegistry::getByTable($effectiveFt);
-                    $resolvedUids = [];
-                    foreach ($value as $item) {
-                        if (is_int($item)) {
-                            $resolvedUids[] = $item;
-                        } elseif (is_string($item) && ctype_digit($item)) {
-                            $resolvedUids[] = (int)$item;
-                        } elseif (is_array($item) && !array_is_list($item) && $subConfig !== null) {
-                            $ph                              = $this->uniquePlaceholder();
-                            $childData                       = $this->prepareChildData($item, $pid, $feUserRow, $subConfig);
-                            $extraDataMap[$effectiveFt][$ph] = $childData;
-                            $resolvedUids[]                  = $ph;
-                        }
-                        // Unregistered table → skip new-object items
+            // are included in the UID list. DataHandler's remapStack resolves them.
+            $effectiveFt = $this->effectiveForeignTable($type, $tcaConfig);
+            if ($effectiveFt !== '') {
+                $subConfig    = ApiRegistry::getByTable($effectiveFt);
+                $resolvedUids = [];
+                foreach ($value as $item) {
+                    if (is_int($item)) {
+                        $resolvedUids[] = $item;
+                    } elseif (is_string($item) && ctype_digit($item)) {
+                        $resolvedUids[] = (int)$item;
+                    } elseif (is_array($item) && !array_is_list($item) && $subConfig !== null) {
+                        $ph                              = $this->uniquePlaceholder();
+                        $extraDataMap[$effectiveFt][$ph] = $this->prepareChildData($item, $pid, $feUserRow, $subConfig);
+                        $resolvedUids[]                  = $ph;
                     }
-                    // ColumnFilterTrait will implode(',', $array) on this
-                    $scalarBody[$col] = $resolvedUids;
-                    continue;
+                    // Unregistered table → skip new-object items
                 }
+                // ColumnFilterTrait will implode(',', $array) on this
+                $scalarBody[$col] = $resolvedUids;
+                continue;
             }
 
             // Default: pass through unchanged
@@ -233,18 +223,18 @@ final class RelationInputResolver
             if (is_string($allowed)) {
                 $allowed = array_values(array_filter(
                     array_map(
-                        static fn(string $tableName): string => trim($tableName),
+                        static fn (string $tableName): string => trim($tableName),
                         explode(',', $allowed)
                     ),
-                    static fn(string $tableName): bool => $tableName !== ''
+                    static fn (string $tableName): bool => $tableName !== ''
                 ));
             } elseif (is_array($allowed)) {
                 $allowed = array_values(array_filter(
                     array_map(
-                        static fn(mixed $tableName): string => is_string($tableName) ? trim($tableName) : '',
+                        static fn (mixed $tableName): string => is_string($tableName) ? trim($tableName) : '',
                         $allowed
                     ),
-                    static fn(string $tableName): bool => $tableName !== ''
+                    static fn (string $tableName): bool => $tableName !== ''
                 ));
             } else {
                 $allowed = [];
