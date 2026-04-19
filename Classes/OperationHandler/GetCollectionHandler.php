@@ -56,9 +56,10 @@ class GetCollectionHandler implements OperationHandlerInterface
         array $order = [],
         array $fields = [],
     ): ResponseInterface {
-        $table   = $config['general']['table'];
-        $baseUrl = '/_api/' . $config['general']['resourceName'];
-        $offset  = ($page - 1) * $itemsPerPage;
+        $table     = $config['general']['table'];
+        $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
+        $baseUrl   = $apiPrefix . '/' . $config['general']['resourceName'];
+        $offset    = ($page - 1) * $itemsPerPage;
 
         $safeFilters = $this->resolveFilters($filters, $config, $request);
         $safeOrder   = $this->resolveOrder($order, $config);

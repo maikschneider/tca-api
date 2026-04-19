@@ -33,6 +33,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 final class ResourceSerializer
 {
+    private const DEFAULT_API_PREFIX = '/_api';
+
     /** @var array<string, TcaSchema> Schemas cached per table to avoid repeated factory calls during collection serialization. */
     private array $schemaCache = [];
 
@@ -70,6 +72,13 @@ final class ResourceSerializer
         $isExplicitMode = TcaColumnDiscovery::isExplicitMode($config);
         $columnMap      = $this->resolveColumnMap($config, $isExplicitMode);
 
+        // Derive the API prefix from $baseUrl by stripping the resource name portion.
+        // e.g. '/_api/articles' → '/_api', '/custom-api/articles' → '/custom-api'
+        $resourceName = (string)$config['general']['resourceName'];
+        $apiPrefix    = \strlen($resourceName) > 0
+            ? rtrim(substr($baseUrl, 0, \strlen($baseUrl) - \strlen($resourceName)), '/')
+            : rtrim($baseUrl, '/');
+
         $result = [
             '@type' => $config['general']['resourceType'],
             '@id'   => $baseUrl . '/' . $uid,
@@ -103,11 +112,11 @@ final class ResourceSerializer
 
             if ($field->getRelationshipType()->hasOne()) {
                 $propertyName          = str_ends_with($column, '_id') ? substr($column, 0, -3) : $column;
-                $result[$propertyName] = $this->serializeHasOne($column, $columnConfig, $config, $row, $field, $preloaded, $remainingDepth, $visited, $operation);
+                $result[$propertyName] = $this->serializeHasOne($column, $columnConfig, $config, $row, $field, $preloaded, $remainingDepth, $visited, $operation, $apiPrefix);
                 continue;
             }
 
-            $result[$column] = $this->serializeHasManyField($column, $columnConfig, $config, $row, $field, $preloaded, $remainingDepth, $visited, $operation);
+            $result[$column] = $this->serializeHasManyField($column, $columnConfig, $config, $row, $field, $preloaded, $remainingDepth, $visited, $operation, $apiPrefix);
         }
 
         foreach ($config['virtualProperties'] ?? [] as $virtualPropertyName => $virtualPropertyConfig) {
@@ -187,6 +196,7 @@ final class ResourceSerializer
         int $remainingDepth,
         array $visited,
         string $operation = '',
+        string $apiPrefix = self::DEFAULT_API_PREFIX,
     ): mixed {
         $fkValue      = (int)($row[$column] ?? 0);
         $foreignTable = $fieldObj->getConfiguration()['foreign_table'] ?? null;
@@ -210,7 +220,7 @@ final class ResourceSerializer
         $resourceType = $columnConfig['resourceType'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceType'] : $foreignTable);
 
         if ($effectiveDepth <= 0 || isset($visited[$foreignTable . ':' . $fkValue]) || $relatedConfig === null) {
-            return $this->buildStub($resourceName, $resourceType, $fkValue);
+            return $this->buildStub($resourceName, $resourceType, $fkValue, $apiPrefix);
         }
 
         $relatedRow = $preloaded['rows'][$foreignTable][$fkValue]
@@ -223,7 +233,7 @@ final class ResourceSerializer
         return $this->serialize(
             $relatedRow,
             $relatedConfig,
-            '/_api/' . $relatedConfig['general']['resourceName'],
+            $apiPrefix . '/' . $relatedConfig['general']['resourceName'],
             [],
             $preloaded,
             $effectiveDepth - 1,
@@ -245,11 +255,12 @@ final class ResourceSerializer
         int $remainingDepth,
         array $visited,
         string $operation = '',
+        string $apiPrefix = self::DEFAULT_API_PREFIX,
     ): array {
         $effectiveDepth = $remainingDepth >= 0 ? $remainingDepth : $this->resolveEmbedDepth($columnConfig);
 
         if ($field instanceof GroupFieldType) {
-            return $this->serializeGroupField($column, $field->getConfiguration(), $columnConfig, $config, $row, $preloaded, $effectiveDepth, $visited, $operation);
+            return $this->serializeGroupField($column, $field->getConfiguration(), $columnConfig, $config, $row, $preloaded, $effectiveDepth, $visited, $operation, $apiPrefix);
         }
 
         $foreignTable = $field->getConfiguration()['foreign_table'] ?? null;
@@ -260,7 +271,7 @@ final class ResourceSerializer
         $relatedRows = $this->resolveHasManyRows($column, $foreignTable, (int)$row['uid'], $row, $field, $preloaded);
 
         return $relatedRows !== []
-            ? $this->serializeHasManyFromRows($foreignTable, $columnConfig, $config, $row, $relatedRows, $preloaded, $effectiveDepth, $visited, $operation)
+            ? $this->serializeHasManyFromRows($foreignTable, $columnConfig, $config, $row, $relatedRows, $preloaded, $effectiveDepth, $visited, $operation, $apiPrefix)
             : [];
     }
 
@@ -278,6 +289,7 @@ final class ResourceSerializer
         int $effectiveDepth,
         array $visited,
         string $operation = '',
+        string $apiPrefix = self::DEFAULT_API_PREFIX,
     ): array {
         $relatedConfig = $this->resolveRelatedConfig($foreignTable, $config, $columnConfig);
 
@@ -289,10 +301,10 @@ final class ResourceSerializer
         $resourceType = $columnConfig['resourceType'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceType'] : $foreignTable);
 
         if ($effectiveDepth <= 0 || $relatedConfig === null) {
-            return array_map(fn (array $r) => $this->buildStub($resourceName, $resourceType, (int)$r['uid']), $relatedRows);
+            return array_map(fn (array $r) => $this->buildStub($resourceName, $resourceType, (int)$r['uid'], $apiPrefix), $relatedRows);
         }
 
-        $relatedBaseUrl = '/_api/' . $relatedConfig['general']['resourceName'];
+        $relatedBaseUrl = $apiPrefix . '/' . $relatedConfig['general']['resourceName'];
         $newVisited     = $visited + [$config['general']['table'] . ':' . (int)$row['uid'] => true];
 
         $result = [];
@@ -300,7 +312,7 @@ final class ResourceSerializer
             $itemUid = (int)$relatedRow['uid'];
 
             if (isset($newVisited[$foreignTable . ':' . $itemUid])) {
-                $result[] = $this->buildStub($resourceName, $resourceType, $itemUid);
+                $result[] = $this->buildStub($resourceName, $resourceType, $itemUid, $apiPrefix);
                 continue;
             }
 
@@ -384,6 +396,7 @@ final class ResourceSerializer
         int $effectiveDepth,
         array $visited,
         string $operation = '',
+        string $apiPrefix = self::DEFAULT_API_PREFIX,
     ): array {
         $allowedTables = GeneralUtility::trimExplode(',', $fieldConfig['allowed'] ?? '', true);
 
@@ -392,10 +405,10 @@ final class ResourceSerializer
         }
 
         if (count($allowedTables) === 1) {
-            return $this->serializeSingleTableGroup($column, $fieldConfig, $columnConfig, $config, $row, $preloaded, $effectiveDepth, $visited, $allowedTables[0], $operation);
+            return $this->serializeSingleTableGroup($column, $fieldConfig, $columnConfig, $config, $row, $preloaded, $effectiveDepth, $visited, $allowedTables[0], $operation, $apiPrefix);
         }
 
-        return $this->serializeMultiTableGroup($column, $columnConfig, $config, $row);
+        return $this->serializeMultiTableGroup($column, $columnConfig, $config, $row, $apiPrefix);
     }
 
     /** Single allowed table: preloaded pool → MM slow path → UID-list slow path. */
@@ -410,6 +423,7 @@ final class ResourceSerializer
         array $visited,
         string $foreignTable,
         string $operation = '',
+        string $apiPrefix = self::DEFAULT_API_PREFIX,
     ): array {
         $uid     = (int)$row['uid'];
         $mmTable = $fieldConfig['MM'] ?? null;
@@ -438,20 +452,20 @@ final class ResourceSerializer
         }
 
         return $relatedRows !== []
-            ? $this->serializeHasManyFromRows($foreignTable, $columnConfig, $config, $row, $relatedRows, $preloaded, $effectiveDepth, $visited, $operation)
+            ? $this->serializeHasManyFromRows($foreignTable, $columnConfig, $config, $row, $relatedRows, $preloaded, $effectiveDepth, $visited, $operation, $apiPrefix)
             : [];
     }
 
     /** Multiple allowed tables: parse "tablename_uid" prefix format and return stubs. */
-    private function serializeMultiTableGroup(string $column, array $columnConfig, array $config, array $row): array
+    private function serializeMultiTableGroup(string $column, array $columnConfig, array $config, array $row, string $apiPrefix = self::DEFAULT_API_PREFIX): array
     {
         $items = $this->parseMultiTableGroupValues(trim((string)($row[$column] ?? '')));
 
-        return array_map(function (array $item) use ($columnConfig, $config): array {
+        return array_map(function (array $item) use ($columnConfig, $config, $apiPrefix): array {
             $relatedConfig = $this->resolveRelatedConfig($item['table'], $config);
             $resourceName  = $columnConfig['resourceName'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceName'] : $item['table']);
             $resourceType  = $columnConfig['resourceType'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceType'] : $item['table']);
-            return $this->buildStub($resourceName, $resourceType, $item['uid']);
+            return $this->buildStub($resourceName, $resourceType, $item['uid'], $apiPrefix);
         }, $items);
     }
 
@@ -483,9 +497,9 @@ final class ResourceSerializer
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private function buildStub(string $resourceName, string $resourceType, int $uid): array
+    private function buildStub(string $resourceName, string $resourceType, int $uid, string $apiPrefix = self::DEFAULT_API_PREFIX): array
     {
-        return ['@id' => '/_api/' . $resourceName . '/' . $uid, '@type' => $resourceType, 'uid' => $uid];
+        return ['@id' => $apiPrefix . '/' . $resourceName . '/' . $uid, '@type' => $resourceType, 'uid' => $uid];
     }
 
     /**

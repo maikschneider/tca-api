@@ -56,8 +56,9 @@ class GetUserInfoHandler implements OperationHandlerInterface
         $feUser = $request->getAttribute('frontend.user');
         $uid    = (int)($feUser->user['uid'] ?? 0);
 
-        $table   = $config['general']['table'];
-        $baseUrl = '/_api/' . $config['general']['resourceName'];
+        $table     = $config['general']['table'];
+        $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
+        $baseUrl   = $apiPrefix . '/' . $config['general']['resourceName'];
 
         $row = $this->dataRepository->findById($table, $uid, $config);
         if ($row === null) {
