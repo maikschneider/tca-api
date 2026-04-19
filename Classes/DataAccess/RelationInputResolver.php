@@ -6,6 +6,7 @@ namespace MaikSchneider\TcaApi\DataAccess;
 
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\MathUtility;
 
 /**
@@ -216,27 +217,7 @@ final class RelationInputResolver
         }
 
         if ($type === 'group') {
-            $allowed = $tcaConfig['allowed'] ?? '';
-
-            if (is_string($allowed)) {
-                $allowed = array_values(array_filter(
-                    array_map(
-                        static fn (string $tableName): string => trim($tableName),
-                        explode(',', $allowed)
-                    ),
-                    static fn (string $tableName): bool => $tableName !== ''
-                ));
-            } elseif (is_array($allowed)) {
-                $allowed = array_values(array_filter(
-                    array_map(
-                        static fn (mixed $tableName): string => is_string($tableName) ? trim($tableName) : '',
-                        $allowed
-                    ),
-                    static fn (string $tableName): bool => $tableName !== ''
-                ));
-            } else {
-                $allowed = [];
-            }
+            $allowed = GeneralUtility::trimExplode(',', $tcaConfig['allowed'] ?? '', true);
 
             // Only support single-table group for object creation
             if (count($allowed) === 1) {
@@ -249,10 +230,6 @@ final class RelationInputResolver
 
     private function uniquePlaceholder(): string
     {
-        // DataHandler's processRemapStack resolves NEW_xxx values in inline field
-        // value arrays by looking up substNEWwithIDs[$value] — but only after
-        // splitting on '_'. A plain 'NEW' + hex uniqid has no underscores,
-        // so the full string is used as the lookup key and resolves correctly.
         return 'NEW' . uniqid('', false);
     }
 }
