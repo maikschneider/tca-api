@@ -16,25 +16,6 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 final class DataWriteService
 {
-    public function create(string $table, array $data): int
-    {
-        try {
-            $substMap = $this->processDataMap([$table => ['NEW_1' => $data]]);
-            return (int)($substMap['NEW_1'] ?? 0);
-        } catch (\RuntimeException $e) {
-            throw new \RuntimeException('DataHandler create failed: ' . $e->getMessage(), 0, $e);
-        }
-    }
-
-    public function update(string $table, int $uid, array $data): void
-    {
-        try {
-            $this->processDataMap([$table => [$uid => $data]]);
-        } catch (\RuntimeException $e) {
-            throw new \RuntimeException('DataHandler update failed: ' . $e->getMessage(), 0, $e);
-        }
-    }
-
     /**
      * Process a multi-table datamap in a single DataHandler call.
      *
