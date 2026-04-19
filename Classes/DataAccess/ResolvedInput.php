@@ -17,16 +17,23 @@ namespace MaikSchneider\TcaApi\DataAccess;
  *                 ['table_name' => ['NEW_xxx' => [...field_data...]]]
  *                 DataHandler resolves NEW_xxx placeholders across all tables,
  *                 enabling atomic multi-record creation with correct cross-references.
+ *
+ * violations    - security or validation failures collected while processing
+ *                 nested child objects. Non-empty means the caller must reject
+ *                 the request (return 422) before calling processDataMap.
+ *                 Each entry: ['propertyPath' => string, 'message' => string, 'code' => string]
  */
 final readonly class ResolvedInput
 {
     /**
      * @param array<string, mixed>                       $scalarBody
      * @param array<string, array<string, array>>        $extraDataMap
+     * @param list<array{propertyPath: string, message: string, code: string}> $violations
      */
     public function __construct(
         public array $scalarBody,
         public array $extraDataMap,
+        public array $violations = [],
     ) {
     }
 }

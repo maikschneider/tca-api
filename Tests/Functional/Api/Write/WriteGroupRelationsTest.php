@@ -187,6 +187,90 @@ final class WriteGroupRelationsTest extends ApiFunctionalTestCase
         self::assertContains(2, $uids);
     }
 
+    // ── Security enforcement: child security['create'] is checked ────────────
+
+    public function testPostWithGroupChildForbiddenBySecurityReturns422(): void
+    {
+        $this->rerouteGrpWriteColorsFirst([
+            'security' => [
+                'list'   => AccessRole::PUBLIC,
+                'show'   => AccessRole::PUBLIC,
+                'create' => AccessRole::BE_ADMIN,
+            ],
+        ]);
+
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/grp-write-articles', 1, [
+            'title'          => 'Security Blocked Group',
+            'related_colors' => [['name' => 'ForbiddenGroupChild']],
+        ]);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(422, $response->getStatusCode());
+        $codes = array_column($body['violations'], 'code');
+        self::assertContains('CHILD_FORBIDDEN', $codes);
+    }
+
+    // ── Validation enforcement: child required fields are checked ─────────────
+
+    public function testPostWithGroupChildMissingRequiredFieldReturns422(): void
+    {
+        $this->rerouteGrpWriteColorsFirst([
+            'columns' => [
+                'name' => ['groups' => ['list', 'show', 'create'], 'required' => true],
+            ],
+        ]);
+
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/grp-write-articles', 1, [
+            'title'          => 'Validation Group Article',
+            'related_colors' => [['name' => '']],  // empty required 'name' field
+        ]);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(422, $response->getStatusCode());
+        self::assertNotEmpty($body['violations']);
+        $codes = array_column($body['violations'], 'code');
+        self::assertContains('REQUIRED', $codes);
+        $paths = array_column($body['violations'], 'propertyPath');
+        foreach ($paths as $path) {
+            self::assertStringStartsWith('related_colors.', $path);
+        }
+    }
+
+    /**
+     * Re-register 'grp-write-colors' with overrides as the FIRST registry entry for
+     * tx_myext_domain_model_color, ensuring ApiRegistry::getByTable() returns it
+     * before the file-based 'colors' resource.
+     */
+    private function rerouteGrpWriteColorsFirst(array $overrides): void
+    {
+        $baseConfig = [
+            'general' => [
+                'table'        => self::COLOR_TABLE,
+                'resourceName' => 'grp-write-colors',
+                'resourceType' => 'Color',
+                'operations'   => ['list', 'show', 'create'],
+                'itemsPerPage' => 20,
+            ],
+            'columns' => ['name' => ['groups' => ['list', 'show', 'create']]],
+            'security' => [
+                'list'   => AccessRole::PUBLIC,
+                'show'   => AccessRole::PUBLIC,
+                'create' => AccessRole::PUBLIC,
+            ],
+            'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
+        ];
+
+        $snapshot = ApiRegistry::getAll();
+        ApiRegistry::reset();
+        // Register grp-write-colors FIRST so getByTable() returns it before 'colors'
+        ApiRegistry::register('grp-write-colors', array_replace_recursive($baseConfig, $overrides));
+        foreach ($snapshot as $name => $config) {
+            if ($name !== 'grp-write-colors') {
+                ApiRegistry::register($name, $config);
+            }
+        }
+    }
+
     // ── Unregistered foreign table: new objects silently skipped ─────────────
 
     public function testMultiTableGroupNewObjectsAreSkippedSinceEffectiveForeignTableIsEmpty(): void

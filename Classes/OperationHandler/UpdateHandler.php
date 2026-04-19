@@ -70,10 +70,14 @@ class UpdateHandler implements OperationHandlerInterface
             return $this->hydraResponseBuilder->buildValidationError($violations);
         }
 
-        $pid    = $config['general']['defaultPid'] ?? 1;
-        $feUser = $request->getAttribute('frontend.user');
+        $pid = $config['general']['defaultPid'] ?? 1;
 
-        $resolved = $this->relationResolver->resolve($body, $table, $pid, $feUser?->user);
+        // Resolve relation fields. Security + validation on nested child objects
+        // is enforced inside resolve(); violations bubble up here.
+        $resolved = $this->relationResolver->resolve($body, $table, $pid, $request);
+        if ($resolved->violations !== []) {
+            return $this->hydraResponseBuilder->buildValidationError($resolved->violations);
+        }
 
         $data = $this->filterWritableColumns($resolved->scalarBody, $config);
 
