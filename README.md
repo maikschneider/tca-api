@@ -21,7 +21,7 @@
 - **Hydra JSON-LD** — Responses follow the [Hydra](https://www.hydra-cg.com/) specification (`application/ld+json`)
 - **Configuration-driven** — Expose tables by registering a PHP configuration array; no custom controllers needed
 - **Serialization groups** — Use `groups` to control which columns appear per operation (`list`, `show`, `create`, `update`)
-- **Filtering** — Exact, partial, word-start, range, full-text search, and many-to-many filter strategies via query parameters; extensible via `FilterInterface`
+- **Filtering** — Exact, partial, word-start, range, full-text search, and many-to-many filter strategies via query parameters; configurable defaults and private (non-overrideable) filters; extensible via `FilterInterface`
 - **Sorting** — Configurable allowed sort columns with defaults
 - **Pagination** — Offset-based pagination with Hydra `PartialCollectionView` links
 - **Validation** — Required, maxLength, minLength, and regex validators with structured 422 error responses
@@ -246,6 +246,28 @@ use MaikSchneider\TcaApi\Filter\WordStartFilter;
 | `MmFilter` | Subquery via MM intermediate table | `mm_table`, `mm_local_key`, `mm_foreign_key`, `mm_constraints` (derived from TCA when omitted) |
 
 For `MmFilter`, if the options array is omitted the extension derives the MM config from TCA automatically (requires a valid `MM` key on the field).
+
+#### Default values and private filters
+
+Two options available on any filter definition control server-side defaults and enforcement:
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `default` | `string` | Value applied when the filter is absent from the request URL params |
+| `private` | `bool` | When `true`, the default always applies — user-supplied values are ignored; the filter is also excluded from the OpenAPI spec |
+
+```php
+'filters' => [
+    // Overrideable default — applied when ?filters[color_id] is absent
+    'color_id' => [ExactFilter::class, ['default' => '1']],
+
+    // Private filter — default always applies, cannot be overridden via URL,
+    // and does not appear in the OpenAPI spec
+    'deleted' => [ExactFilter::class, ['default' => '0', 'private' => true]],
+],
+```
+
+A private filter without a `default` has no effect (no value to enforce).
 
 #### Range filter example
 
