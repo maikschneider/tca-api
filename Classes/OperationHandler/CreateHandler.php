@@ -38,8 +38,12 @@ class CreateHandler implements OperationHandlerInterface
 
     public function handle(ServerRequestInterface $request, array $config): ResponseInterface
     {
-        $raw  = (string)$request->getBody();
-        $body = $raw !== '' ? (json_decode($raw, true, 512, JSON_THROW_ON_ERROR) ?? []) : [];
+        $raw = (string)$request->getBody();
+        try {
+            $body = $raw !== '' ? (json_decode($raw, true, 512, JSON_THROW_ON_ERROR) ?? []) : [];
+        } catch (\JsonException) {
+            return $this->hydraResponseBuilder->buildError(400, 'Request body is not valid JSON.', 'Bad Request');
+        }
 
         $violations = $this->fieldValidator->validate($body, $config);
         if ($violations !== []) {

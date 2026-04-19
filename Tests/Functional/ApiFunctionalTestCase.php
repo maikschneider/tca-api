@@ -123,6 +123,26 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
     }
 
     /**
+     * Execute a write request with a raw (potentially non-JSON) body as a frontend user.
+     */
+    protected function executeApiWriteRawRequestAs(string $method, string $path, int $feUserId, string $rawBody): ResponseInterface
+    {
+        $uri = 'http://localhost' . $path;
+
+        $body = new Stream('php://temp', 'rw');
+        $body->write($rawBody);
+        $body->rewind();
+
+        return $this->executeFrontendSubRequest(
+            (new InternalRequest($uri))
+                ->withMethod($method)
+                ->withAddedHeader('Content-Type', 'application/json')
+                ->withBody($body),
+            (new InternalRequestContext())->withFrontendUserId($feUserId),
+        );
+    }
+
+    /**
      * Execute a write request (POST/PUT/PATCH/DELETE) with a JSON body.
      */
     protected function executeApiWriteRequest(string $method, string $path, array $data = []): ResponseInterface
