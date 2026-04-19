@@ -7,7 +7,7 @@ namespace MaikSchneider\TcaApi\Serializer;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 
-class HydraResponseBuilder
+final class HydraResponseBuilder
 {
     public function __construct(
         private readonly ResponseFactoryInterface $responseFactory,

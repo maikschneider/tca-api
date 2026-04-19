@@ -1,0 +1,40 @@
+codecov:
+  require_ci_to_pass: true
+
+coverage:
+  status:
+    project:
+      default:
+        target: 70%
+        threshold: 2%
+    patch:
+      default:
+        target: 80%
+        threshold: 5%
+        informational: true
+
+flags:
+  functional:
+    paths:
+      - Classes/
+    carryforward: true
+
+ignore:
+  - Tests/
+  - vendor/
+  - Resources/
+  - Configuration/
+  - config/
+  - .ddev/
+  - public/
+  - ext_emconf.php
+  - ext_localconf.php
+
+comment:
+  layout: "reach,diff,flags,files"
+  behavior: default
+  require_changes: true
+  after_n_builds: 6
+
+github_checks:
+  annotations: true

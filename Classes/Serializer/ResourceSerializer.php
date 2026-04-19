@@ -31,8 +31,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   'embed' => ['depth' => N]   — embed N levels deep
  *   (no 'embed' key)            — return shallow stub {@id, @type, uid}  [default]
  */
-class ResourceSerializer
+final class ResourceSerializer
 {
+    private const DEFAULT_API_PREFIX = '/_api';
+
     /** @var array<string, TcaSchema> Schemas cached per table to avoid repeated factory calls during collection serialization. */
     private array $schemaCache = [];
 
@@ -70,6 +72,13 @@ class ResourceSerializer
         $isExplicitMode = TcaColumnDiscovery::isExplicitMode($config);
         $columnMap      = $this->resolveColumnMap($config, $isExplicitMode);
 
+        // Derive the API prefix from $baseUrl by stripping the resource name portion.
+        // e.g. '/_api/articles' → '/_api', '/custom-api/articles' → '/custom-api'
+        $resourceName = (string)$config['general']['resourceName'];
+        $apiPrefix    = \strlen($resourceName) > 0
+            ? rtrim(substr($baseUrl, 0, \strlen($baseUrl) - \strlen($resourceName)), '/')
+            : rtrim($baseUrl, '/');
+
         $result = [
             '@type' => $config['general']['resourceType'],
             '@id'   => $baseUrl . '/' . $uid,
@@ -103,16 +112,31 @@ class ResourceSerializer
 
             if ($field->getRelationshipType()->hasOne()) {
                 $propertyName          = str_ends_with($column, '_id') ? substr($column, 0, -3) : $column;
-                $result[$propertyName] = $this->serializeHasOne($column, $columnConfig, $config, $row, $field, $preloaded, $remainingDepth, $visited, $operation);
+                $result[$propertyName] = $this->serializeHasOne($column, $columnConfig, $config, $row, $field, $preloaded, $remainingDepth, $visited, $operation, $apiPrefix);
                 continue;
             }
 
-            $result[$column] = $this->serializeHasManyField($column, $columnConfig, $config, $row, $field, $preloaded, $remainingDepth, $visited, $operation);
+            $result[$column] = $this->serializeHasManyField($column, $columnConfig, $config, $row, $field, $preloaded, $remainingDepth, $visited, $operation, $apiPrefix);
         }
 
         foreach ($config['virtualProperties'] ?? [] as $virtualPropertyName => $virtualPropertyConfig) {
-            if (isset($virtualPropertyConfig['processor'])) {
-                $result[$virtualPropertyName] = $this->applyColumnProcessor(null, $virtualPropertyConfig, $result, $row);
+            // Visibility gate — same logic as column groups
+            if ($isExplicitMode && !TcaColumnDiscovery::isColumnReadable($virtualPropertyConfig, $operation)) {
+                continue;
+            }
+
+            $columnRef   = $virtualPropertyConfig['column'] ?? null;
+            $columnField = null;
+            if ($columnRef !== null && $schema->hasField($columnRef)) {
+                $columnField = $schema->getField($columnRef);
+            }
+
+            if ($columnField instanceof FileFieldType) {
+                // File column reference: fetch file refs for the source column, process with VP's own config
+                $result[$virtualPropertyName] = $this->serializeFileField($columnRef, $columnField, $virtualPropertyConfig, $table, $uid);
+            } elseif (isset($virtualPropertyConfig['processor'])) {
+                $value = $columnRef !== null ? ($row[$columnRef] ?? null) : null;
+                $result[$virtualPropertyName] = $this->applyColumnProcessor($value, $virtualPropertyConfig, $result, $row);
             } else {
                 [$class, $method] = $virtualPropertyConfig['callback'];
                 $result[$virtualPropertyName] = GeneralUtility::makeInstance($class)->$method($result, $row);
@@ -172,6 +196,7 @@ class ResourceSerializer
         int $remainingDepth,
         array $visited,
         string $operation = '',
+        string $apiPrefix = self::DEFAULT_API_PREFIX,
     ): mixed {
         $fkValue      = (int)($row[$column] ?? 0);
         $foreignTable = $fieldObj->getConfiguration()['foreign_table'] ?? null;
@@ -185,12 +210,17 @@ class ResourceSerializer
         // For self-referential relations use the current config directly so that embed column
         // definitions (e.g. parent_id with embed:true on an article resource) are preserved
         // through recursive calls instead of falling back to a different ApiRegistry entry.
-        $relatedConfig = $this->resolveRelatedConfig($foreignTable, $config);
-        $resourceName  = $columnConfig['resourceName'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceName'] : $foreignTable);
-        $resourceType  = $columnConfig['resourceType'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceType'] : $foreignTable);
+        $relatedConfig = $this->resolveRelatedConfig($foreignTable, $config, $columnConfig);
+
+        if ($relatedConfig === null && $effectiveDepth > 0 && !isset($visited[$foreignTable . ':' . $fkValue])) {
+            $relatedConfig = $this->buildDefaultConfig($foreignTable, $columnConfig);
+        }
+
+        $resourceName = $columnConfig['resourceName'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceName'] : $foreignTable);
+        $resourceType = $columnConfig['resourceType'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceType'] : $foreignTable);
 
         if ($effectiveDepth <= 0 || isset($visited[$foreignTable . ':' . $fkValue]) || $relatedConfig === null) {
-            return $this->buildStub($resourceName, $resourceType, $fkValue);
+            return $this->buildStub($resourceName, $resourceType, $fkValue, $apiPrefix);
         }
 
         $relatedRow = $preloaded['rows'][$foreignTable][$fkValue]
@@ -203,7 +233,7 @@ class ResourceSerializer
         return $this->serialize(
             $relatedRow,
             $relatedConfig,
-            '/_api/' . $relatedConfig['general']['resourceName'],
+            $apiPrefix . '/' . $relatedConfig['general']['resourceName'],
             [],
             $preloaded,
             $effectiveDepth - 1,
@@ -225,11 +255,12 @@ class ResourceSerializer
         int $remainingDepth,
         array $visited,
         string $operation = '',
+        string $apiPrefix = self::DEFAULT_API_PREFIX,
     ): array {
         $effectiveDepth = $remainingDepth >= 0 ? $remainingDepth : $this->resolveEmbedDepth($columnConfig);
 
         if ($field instanceof GroupFieldType) {
-            return $this->serializeGroupField($column, $field->getConfiguration(), $columnConfig, $config, $row, $preloaded, $effectiveDepth, $visited, $operation);
+            return $this->serializeGroupField($column, $field->getConfiguration(), $columnConfig, $config, $row, $preloaded, $effectiveDepth, $visited, $operation, $apiPrefix);
         }
 
         $foreignTable = $field->getConfiguration()['foreign_table'] ?? null;
@@ -240,7 +271,7 @@ class ResourceSerializer
         $relatedRows = $this->resolveHasManyRows($column, $foreignTable, (int)$row['uid'], $row, $field, $preloaded);
 
         return $relatedRows !== []
-            ? $this->serializeHasManyFromRows($foreignTable, $columnConfig, $config, $row, $relatedRows, $preloaded, $effectiveDepth, $visited, $operation)
+            ? $this->serializeHasManyFromRows($foreignTable, $columnConfig, $config, $row, $relatedRows, $preloaded, $effectiveDepth, $visited, $operation, $apiPrefix)
             : [];
     }
 
@@ -258,16 +289,22 @@ class ResourceSerializer
         int $effectiveDepth,
         array $visited,
         string $operation = '',
+        string $apiPrefix = self::DEFAULT_API_PREFIX,
     ): array {
-        $relatedConfig = $this->resolveRelatedConfig($foreignTable, $config);
-        $resourceName  = $columnConfig['resourceName'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceName'] : $foreignTable);
-        $resourceType  = $columnConfig['resourceType'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceType'] : $foreignTable);
+        $relatedConfig = $this->resolveRelatedConfig($foreignTable, $config, $columnConfig);
 
-        if ($effectiveDepth <= 0 || $relatedConfig === null) {
-            return array_map(fn (array $r) => $this->buildStub($resourceName, $resourceType, (int)$r['uid']), $relatedRows);
+        if ($relatedConfig === null && $effectiveDepth > 0) {
+            $relatedConfig = $this->buildDefaultConfig($foreignTable, $columnConfig);
         }
 
-        $relatedBaseUrl = '/_api/' . $relatedConfig['general']['resourceName'];
+        $resourceName = $columnConfig['resourceName'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceName'] : $foreignTable);
+        $resourceType = $columnConfig['resourceType'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceType'] : $foreignTable);
+
+        if ($effectiveDepth <= 0 || $relatedConfig === null) {
+            return array_map(fn (array $r) => $this->buildStub($resourceName, $resourceType, (int)$r['uid'], $apiPrefix), $relatedRows);
+        }
+
+        $relatedBaseUrl = $apiPrefix . '/' . $relatedConfig['general']['resourceName'];
         $newVisited     = $visited + [$config['general']['table'] . ':' . (int)$row['uid'] => true];
 
         $result = [];
@@ -275,7 +312,7 @@ class ResourceSerializer
             $itemUid = (int)$relatedRow['uid'];
 
             if (isset($newVisited[$foreignTable . ':' . $itemUid])) {
-                $result[] = $this->buildStub($resourceName, $resourceType, $itemUid);
+                $result[] = $this->buildStub($resourceName, $resourceType, $itemUid, $apiPrefix);
                 continue;
             }
 
@@ -359,6 +396,7 @@ class ResourceSerializer
         int $effectiveDepth,
         array $visited,
         string $operation = '',
+        string $apiPrefix = self::DEFAULT_API_PREFIX,
     ): array {
         $allowedTables = GeneralUtility::trimExplode(',', $fieldConfig['allowed'] ?? '', true);
 
@@ -367,10 +405,10 @@ class ResourceSerializer
         }
 
         if (count($allowedTables) === 1) {
-            return $this->serializeSingleTableGroup($column, $fieldConfig, $columnConfig, $config, $row, $preloaded, $effectiveDepth, $visited, $allowedTables[0], $operation);
+            return $this->serializeSingleTableGroup($column, $fieldConfig, $columnConfig, $config, $row, $preloaded, $effectiveDepth, $visited, $allowedTables[0], $operation, $apiPrefix);
         }
 
-        return $this->serializeMultiTableGroup($column, $columnConfig, $config, $row);
+        return $this->serializeMultiTableGroup($column, $columnConfig, $config, $row, $apiPrefix);
     }
 
     /** Single allowed table: preloaded pool → MM slow path → UID-list slow path. */
@@ -385,6 +423,7 @@ class ResourceSerializer
         array $visited,
         string $foreignTable,
         string $operation = '',
+        string $apiPrefix = self::DEFAULT_API_PREFIX,
     ): array {
         $uid     = (int)$row['uid'];
         $mmTable = $fieldConfig['MM'] ?? null;
@@ -413,20 +452,20 @@ class ResourceSerializer
         }
 
         return $relatedRows !== []
-            ? $this->serializeHasManyFromRows($foreignTable, $columnConfig, $config, $row, $relatedRows, $preloaded, $effectiveDepth, $visited, $operation)
+            ? $this->serializeHasManyFromRows($foreignTable, $columnConfig, $config, $row, $relatedRows, $preloaded, $effectiveDepth, $visited, $operation, $apiPrefix)
             : [];
     }
 
     /** Multiple allowed tables: parse "tablename_uid" prefix format and return stubs. */
-    private function serializeMultiTableGroup(string $column, array $columnConfig, array $config, array $row): array
+    private function serializeMultiTableGroup(string $column, array $columnConfig, array $config, array $row, string $apiPrefix = self::DEFAULT_API_PREFIX): array
     {
         $items = $this->parseMultiTableGroupValues(trim((string)($row[$column] ?? '')));
 
-        return array_map(function (array $item) use ($columnConfig, $config): array {
+        return array_map(function (array $item) use ($columnConfig, $config, $apiPrefix): array {
             $relatedConfig = $this->resolveRelatedConfig($item['table'], $config);
             $resourceName  = $columnConfig['resourceName'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceName'] : $item['table']);
             $resourceType  = $columnConfig['resourceType'] ?? ($relatedConfig !== null ? $relatedConfig['general']['resourceType'] : $item['table']);
-            return $this->buildStub($resourceName, $resourceType, $item['uid']);
+            return $this->buildStub($resourceName, $resourceType, $item['uid'], $apiPrefix);
         }, $items);
     }
 
@@ -458,9 +497,26 @@ class ResourceSerializer
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private function buildStub(string $resourceName, string $resourceType, int $uid): array
+    private function buildStub(string $resourceName, string $resourceType, int $uid, string $apiPrefix = self::DEFAULT_API_PREFIX): array
     {
-        return ['@id' => '/_api/' . $resourceName . '/' . $uid, '@type' => $resourceType, 'uid' => $uid];
+        return ['@id' => $apiPrefix . '/' . $resourceName . '/' . $uid, '@type' => $resourceType, 'uid' => $uid];
+    }
+
+    /**
+     * Synthesize a minimal default-mode config for a table with no API registration.
+     * 'columns' => [] with no 'groups' key → isExplicitMode() returns false → all TCA columns exposed.
+     */
+    private function buildDefaultConfig(string $foreignTable, array $columnConfig = []): array
+    {
+        return [
+            'general' => [
+                'table'        => $foreignTable,
+                'resourceName' => $columnConfig['resourceName'] ?? $foreignTable,
+                'resourceType' => $columnConfig['resourceType'] ?? $foreignTable,
+                'operations'   => [],
+            ],
+            'columns' => [],
+        ];
     }
 
     /**
@@ -538,12 +594,19 @@ class ResourceSerializer
     /**
      * Resolve the API config for a related table.
      * For self-referential relations returns the current config to preserve embed definitions.
+     * When $columnConfig['resourceName'] is set, selects that specific ApiRegistry entry by name.
      */
-    private function resolveRelatedConfig(string $foreignTable, array $config): ?array
+    private function resolveRelatedConfig(string $foreignTable, array $config, array $columnConfig = []): ?array
     {
-        return $foreignTable === $config['general']['table']
-            ? $config
-            : ApiRegistry::getByTable($foreignTable);
+        if ($foreignTable === $config['general']['table']) {
+            return $config;
+        }
+
+        if (isset($columnConfig['resourceName'])) {
+            return ApiRegistry::get($columnConfig['resourceName']);
+        }
+
+        return ApiRegistry::getByTable($foreignTable);
     }
 
     /** Returns the TcaSchema for a table, cached to avoid repeated factory calls per collection row. */

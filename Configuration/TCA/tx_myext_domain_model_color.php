@@ -55,5 +55,20 @@ return [
                 'eval' => 'trim',
             ],
         ],
+        'foreign_article_id' => [
+            'config' => [
+                'type' => 'passthrough',
+            ],
+        ],
+        'category_id' => [
+            'label' => 'Category',
+            'config' => [
+                'type' => 'select',
+                'renderType' => 'selectSingle',
+                'foreign_table' => 'sys_category',
+                'items' => [['label' => '- none -', 'value' => 0]],
+                'default' => 0,
+            ],
+        ],
     ],
 ];

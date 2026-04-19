@@ -4,15 +4,20 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\DataAccess;
 
-use Doctrine\DBAL\ParameterType;
+use MaikSchneider\TcaApi\Filter\FilterInterface;
+use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
 use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
+use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 
-class DataRepository
+final class DataRepository
 {
+    /** @var array<string, FilterInterface>|null */
+    private ?array $filterMap = null;
+
     public function __construct(
         private readonly ConnectionPool $connectionPool,
-        private readonly TcaSchemaFactory $schemaFactory,
+        #[TaggedIterator('tca_api.filter')]
+        private readonly iterable $filterHandlers,
     ) {
     }
 
@@ -176,7 +181,7 @@ class DataRepository
         return $grouped;
     }
 
-    private function applyPidConstraint(\TYPO3\CMS\Core\Database\Query\QueryBuilder $qb, array $config): void
+    private function applyPidConstraint(QueryBuilder $qb, array $config): void
     {
         $pids = $this->resolvePids($config);
         if ($pids !== []) {
@@ -201,149 +206,22 @@ class DataRepository
         return array_map('intval', is_array($raw) ? $raw : [$raw]);
     }
 
-    private function applyFilterConstraint(\TYPO3\CMS\Core\Database\Query\QueryBuilder $qb, string $column, array $filter): void
+    private function applyFilterConstraint(QueryBuilder $qb, string $column, array $filter): void
     {
-        $strategy = $filter['strategy'] ?? 'exact';
-
-        if ($strategy === 'mm') {
-            $this->applyMmFilterConstraint($qb, $filter, (string)$filter['value']);
-            return;
-        }
-
-        if ($strategy === 'search') {
-            $this->applySearchFilterConstraint($qb, $filter, (string)$filter['value']);
-            return;
-        }
-
-        if ($strategy === 'range') {
-            $this->applyRangeFilterConstraint($qb, $column, $filter['value']);
-            return;
-        }
-
-        $value = (string)$filter['value'];
-
-        match ($strategy) {
-            'partial'    => $qb->andWhere($qb->expr()->like(
-                $column,
-                $qb->createNamedParameter('%' . $qb->escapeLikeWildcards($value) . '%'),
-            )),
-            'word_start' => $qb->andWhere($qb->expr()->like(
-                $column,
-                $qb->createNamedParameter($qb->escapeLikeWildcards($value) . '%'),
-            )),
-            default      => $qb->andWhere($qb->expr()->eq(
-                $column,
-                $qb->createNamedParameter($value),
-            )),
-        };
+        $this->resolveFilter($filter['_filterClass'])->apply($qb, $column, $filter);
     }
 
-    private function applyRangeFilterConstraint(
-        \TYPO3\CMS\Core\Database\Query\QueryBuilder $qb,
-        string $column,
-        mixed $operators,
-    ): void {
-        if (!\is_array($operators)) {
-            return;
-        }
-
-        $map = [
-            'gte' => fn (mixed $v) => $qb->expr()->gte($column, $qb->createNamedParameter((int)$v, ParameterType::INTEGER)),
-            'lte' => fn (mixed $v) => $qb->expr()->lte($column, $qb->createNamedParameter((int)$v, ParameterType::INTEGER)),
-            'gt'  => fn (mixed $v) => $qb->expr()->gt($column, $qb->createNamedParameter((int)$v, ParameterType::INTEGER)),
-            'lt'  => fn (mixed $v) => $qb->expr()->lt($column, $qb->createNamedParameter((int)$v, ParameterType::INTEGER)),
-        ];
-
-        foreach ($operators as $op => $value) {
-            if (isset($map[$op])) {
-                $qb->andWhere(($map[$op])($value));
+    private function resolveFilter(string $fqcn): FilterInterface
+    {
+        if ($this->filterMap === null) {
+            $this->filterMap = [];
+            foreach ($this->filterHandlers as $filter) {
+                $this->filterMap[$filter::class] = $filter;
             }
         }
-    }
 
-    private function applySearchFilterConstraint(
-        \TYPO3\CMS\Core\Database\Query\QueryBuilder $qb,
-        array $filter,
-        string $value,
-    ): void {
-        $columns = $filter['columns'] ?? [];
-        if ($columns === []) {
-            return;
-        }
-
-        $match   = $filter['match'] ?? 'partial';
-        $escaped = $qb->escapeLikeWildcards($value);
-        $pattern = match ($match) {
-            'word_start' => $escaped . '%',
-            default      => '%' . $escaped . '%',
-        };
-
-        $orParts = [];
-        foreach ($columns as $col) {
-            $orParts[] = $qb->expr()->like($col, $qb->createNamedParameter($pattern));
-        }
-
-        $qb->andWhere($qb->expr()->or(...$orParts));
-    }
-
-    private function applyMmFilterConstraint(
-        \TYPO3\CMS\Core\Database\Query\QueryBuilder $qb,
-        array $filter,
-        string $value,
-    ): void {
-        if (!isset($filter['mm_table'])) {
-            $filter = $this->deriveMmConfigFromTca($filter);
-        }
-
-        $mmTable       = $filter['mm_table'];
-        $mmLocalKey    = $filter['mm_local_key'];
-        $mmForeignKey  = $filter['mm_foreign_key'];
-
-        $parts = [sprintf('%s = %s', $qb->quoteIdentifier($mmLocalKey), $qb->createNamedParameter($value))];
-        foreach ($filter['mm_constraints'] ?? [] as $col => $val) {
-            $parts[] = sprintf('%s = %s', $qb->quoteIdentifier($col), $qb->createNamedParameter($val));
-        }
-
-        $subSql = sprintf(
-            'SELECT %s FROM %s WHERE %s',
-            $qb->quoteIdentifier($mmForeignKey),
-            $qb->quoteIdentifier($mmTable),
-            implode(' AND ', $parts),
+        return $this->filterMap[$fqcn] ?? throw new \InvalidArgumentException(
+            sprintf('No filter registered for class "%s".', $fqcn),
         );
-        $qb->andWhere($qb->expr()->in('uid', '(' . $subSql . ')'));
-    }
-
-    private function deriveMmConfigFromTca(array $filter): array
-    {
-        $table  = $filter['_table'];
-        $column = $filter['_column'];
-        $schema = $this->schemaFactory->get($table);
-
-        if (!$schema->hasField($column)) {
-            throw new \InvalidArgumentException(
-                sprintf('Field %s.%s does not exist in TCA.', $table, $column),
-            );
-        }
-
-        $config  = $schema->getField($column)->getConfiguration();
-        $mmTable = $config['MM'] ?? null;
-        if ($mmTable === null) {
-            throw new \InvalidArgumentException(
-                sprintf('Cannot derive MM table for %s.%s: no MM key in TCA config.', $table, $column),
-            );
-        }
-
-        // MM_opposite_field is set when the MM table is owned by the related side (e.g. sys_category_record_mm).
-        // In that case uid_local holds the related UID and uid_foreign holds the record UID — reversed from standard MM.
-        $hasOppositeField = isset($config['MM_opposite_field']);
-
-        return [
-            'value'          => $filter['value'],
-            'strategy'       => $filter['strategy'] ?? 'mm',
-            'mm_table'       => $mmTable,
-            'mm_local_key'   => $hasOppositeField ? 'uid_local' : 'uid_foreign',
-            'mm_foreign_key' => $hasOppositeField ? 'uid_foreign' : 'uid_local',
-            'mm_constraints' => $config['MM_match_fields'] ?? [],
-        ];
     }
 }

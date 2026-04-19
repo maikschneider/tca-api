@@ -48,8 +48,9 @@ class GetItemHandler implements OperationHandlerInterface
 
     private function doHandle(ServerRequestInterface $request, array $config, int $uid, array $fields): ResponseInterface
     {
-        $table   = $config['general']['table'];
-        $baseUrl = '/_api/' . $config['general']['resourceName'];
+        $table     = $config['general']['table'];
+        $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
+        $baseUrl   = $apiPrefix . '/' . $config['general']['resourceName'];
 
         $row = $this->dataRepository->findById($table, $uid, $config);
         if ($row === null) {

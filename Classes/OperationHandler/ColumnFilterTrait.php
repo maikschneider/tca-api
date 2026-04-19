@@ -26,40 +26,28 @@ trait ColumnFilterTrait
                     $result[$column] = \is_array($value) ? implode(',', $value) : $value;
                 }
             }
-            return $result;
-        }
-
-        // Explicit mode
-        foreach ($config['columns'] as $column => $columnConfig) {
-            if (!TcaColumnDiscovery::isColumnWritable($columnConfig)) {
-                continue;
-            }
-
-            if (\array_key_exists($column, $body)) {
-                $value = $body[$column];
-                if (\is_array($value) && $this->isScalarList($value)) {
-                    $result[$column] = implode(',', $value);
+        } else {
+            // Explicit mode
+            foreach ($config['columns'] as $column => $columnConfig) {
+                if (!TcaColumnDiscovery::isColumnWritable($columnConfig)) {
                     continue;
                 }
-                $result[$column] = $value;
+
+                if (\array_key_exists($column, $body)) {
+                    $value = $body[$column];
+                    $result[$column] = \is_array($value) ? implode(',', $value) : $value;
+                }
             }
+        }
+
+        // Strip ownership columns — server-managed and never client-writable
+        foreach (array_unique(array_filter([
+            $config['ownership']['column'] ?? null,
+            $config['ownership']['setOnCreate'] ?? null,
+        ])) as $col) {
+            unset($result[$col]);
         }
 
         return $result;
-    }
-
-    private function isScalarList(array $value): bool
-    {
-        if (!array_is_list($value)) {
-            return false;
-        }
-
-        foreach ($value as $item) {
-            if (!\is_scalar($item) && $item !== null) {
-                return false;
-            }
-        }
-
-        return true;
     }
 }

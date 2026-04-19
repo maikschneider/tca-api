@@ -27,7 +27,6 @@
 		"helmich/typo3-typoscript-lint": "^3.3",
 		"move-elevator/composer-translation-validator": "^1.3",
 		"phpstan/extension-installer": "^1.3",
-		"roave/security-advisories": "dev-latest",
 		"symfony/translation": "^7.2",
 		"typo3/cms-filelist": "^13.4 || ^14.0",
 		"typo3/cms-lowlevel": "^13.4 || ^14.0",
@@ -68,7 +67,7 @@
 		"ci:editorconfig:lint": "ec --strict --git-only -n",
 		"ci:language:lint": "composer validate-translations Resources/Private/Language",
 		"ci:php:fixer": "php-cs-fixer --config=php-cs-fixer.php fix --dry-run --format=checkstyle > php-cs-fixer.xml || true",
-		"ci:php:lint": "find *.php . -name '*.php' ! -path './vendor/*'  ! -path './var/*' ! -path '*node_modules/*' -print0 | xargs -0 -n 1 -P 4 php -l",
+		"ci:php:lint": "find *.php . -name '*.php' ! -path './vendor/*'  ! -path './var/*' ! -path '*node_modules/*' ! -path '*public/*' -print0 | xargs -0 -n 1 -P 4 php -l",
 		"ci:php:stan": "phpstan --no-progress --error-format=checkstyle > phpstan.xml || true",
 		"ci:sca": [
 			"@ci:composer:normalize",
@@ -86,7 +85,7 @@
 		"editorconfig:lint": "ec --strict --fix --git-only -n",
 		"language:lint": "composer validate-translations Resources/Private/Language",
 		"php:fixer": "php-cs-fixer --config=php-cs-fixer.php fix",
-		"php:lint": "find *.php . -name '*.php' ! -path './vendor/*'  ! -path './var/*' ! -path '*node_modules/*' -print0 | xargs -0 -n 1 -P 4 php -l",
+		"php:lint": "find *.php . -name '*.php' ! -path './vendor/*'  ! -path './var/*' ! -path '*node_modules/*' ! -path '*public/*' -print0 | xargs -0 -n 1 -P 4 php -l",
 		"php:stan": "phpstan --generate-baseline=phpstan-baseline.neon --allow-empty-baseline",
 		"sca": [
 			"@composer:normalize",

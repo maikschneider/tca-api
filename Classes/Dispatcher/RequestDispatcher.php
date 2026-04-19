@@ -20,7 +20,7 @@ use TYPO3\CMS\Core\Site\Entity\SiteSettings;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\PathUtility;
 
-class RequestDispatcher
+final class RequestDispatcher
 {
     private const DEFAULT_ITEMS_PER_PAGE = 20;
     private const RESOURCE_OPENAPI = 'openapi.json';
@@ -158,7 +158,7 @@ class RequestDispatcher
         }
 
         $requiredRole = $config['security'][$operation] ?? AccessRole::PUBLIC;
-        if (!$this->accessController->isAllowed($requiredRole, $request, $existingRecord)) {
+        if (!$this->accessController->isAllowed($requiredRole, $request, $existingRecord, $config)) {
             return $this->forbidden($operation, $siteSettings);
         }
 
@@ -169,13 +169,21 @@ class RequestDispatcher
     {
         $params = $request->getQueryParams();
         $defaultItemsPerPage = (int)$siteSettings->get('tca_api.defaultItemsPerPage', self::DEFAULT_ITEMS_PER_PAGE);
+        $itemsPerPage = (int)($params['itemsPerPage'] ?? $config['general']['itemsPerPage'] ?? $defaultItemsPerPage);
+        $maxItemsPerPage = $config['general']['maxItemsPerPage'] ?? null;
+        if ($maxItemsPerPage !== null) {
+            $itemsPerPage = min($itemsPerPage, (int)$maxItemsPerPage);
+        }
+
+        $apiPrefix = rtrim((string)$siteSettings->get('tca_api.apiPrefix', '/_api/'), '/');
 
         return $request
+            ->withAttribute('tca_api.api_prefix', $apiPrefix)
             ->withAttribute('tca_api.uid', $uid)
             ->withAttribute('tca_api.operation', $operation)
             ->withAttribute('tca_api.fields', \is_array($params['fields'] ?? null) ? $params['fields'] : [])
             ->withAttribute('tca_api.page', max(1, (int)($params['page'] ?? 1)))
-            ->withAttribute('tca_api.items_per_page', (int)($params['itemsPerPage'] ?? $config['general']['itemsPerPage'] ?? $defaultItemsPerPage))
+            ->withAttribute('tca_api.items_per_page', $itemsPerPage)
             ->withAttribute('tca_api.filters', \is_array($params['filters'] ?? null) ? $params['filters'] : [])
             ->withAttribute('tca_api.order', \is_array($params['order'] ?? null) ? $params['order'] : [])
             ->withAttribute('tca_api.partial', $method === 'PATCH');
@@ -234,8 +242,7 @@ class RequestDispatcher
 
     private function notFound(): ResponseInterface
     {
-        return $this->responseFactory->createResponse(404)
-            ->withHeader('Content-Type', 'application/ld+json');
+        return $this->hydraResponseBuilder->buildError(404, 'Resource not found', 'Not Found');
     }
 
     private function methodNotAllowed(?string $operation = null): ResponseInterface

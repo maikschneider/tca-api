@@ -6,6 +6,7 @@ namespace MaikSchneider\TcaApi\OperationHandler;
 
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\DataWriteService;
+use MaikSchneider\TcaApi\DataAccess\RelationInputResolver;
 use MaikSchneider\TcaApi\Event\AfterWriteEvent;
 use MaikSchneider\TcaApi\Event\BeforeWriteEvent;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
@@ -28,6 +29,7 @@ class CreateHandler implements OperationHandlerInterface
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly FieldValidator $fieldValidator,
         private readonly EventDispatcherInterface $eventDispatcher,
+        private readonly RelationInputResolver $relationResolver,
     ) {
     }
 
@@ -38,28 +40,64 @@ class CreateHandler implements OperationHandlerInterface
 
     public function handle(ServerRequestInterface $request, array $config): ResponseInterface
     {
-        $raw  = (string)$request->getBody();
-        $body = $raw !== '' ? (json_decode($raw, true, 512, JSON_THROW_ON_ERROR) ?? []) : [];
+        $raw = (string)$request->getBody();
+        try {
+            $body = $raw !== '' ? (json_decode($raw, true, 512, JSON_THROW_ON_ERROR) ?? []) : [];
+        } catch (\JsonException) {
+            return $this->hydraResponseBuilder->buildError(400, 'Request body is not valid JSON.', 'Bad Request');
+        }
 
         $violations = $this->fieldValidator->validate($body, $config);
         if ($violations !== []) {
             return $this->hydraResponseBuilder->buildValidationError($violations);
         }
 
-        $data        = $this->filterWritableColumns($body, $config);
-        $data['pid'] = $config['general']['defaultPid'] ?? 1;
+        $table = $config['general']['table'];
+        $pid   = $config['general']['defaultPid'] ?? 1;
 
-        $table       = $config['general']['table'];
+        // Resolve relation fields: objects become real UIDs (non-inline) or NEW_xxx
+        // placeholders (inline); UIDs stay as-is. Security + validation on nested
+        // child objects is enforced inside resolve(); violations bubble up here.
+        $resolved = $this->relationResolver->resolve($body, $table, $pid, $request);
+        if ($resolved->violations !== []) {
+            return $this->hydraResponseBuilder->buildValidationError($resolved->violations);
+        }
+
+        $feUser = $request->getAttribute('frontend.user');
+
+        $data        = $this->filterWritableColumns($resolved->scalarBody, $config);
+        $data['pid'] = $pid;
+
+        if ($feUser !== null && !empty($feUser->user['uid'])) {
+            $feUid       = (int)$feUser->user['uid'];
+            $authColumn  = $config['ownership']['column'] ?? null;
+            $trackColumn = $config['ownership']['setOnCreate'] ?? null;
+            if ($authColumn !== null) {
+                $data[$authColumn] = $feUid;
+            }
+            if ($trackColumn !== null && $trackColumn !== $authColumn) {
+                $data[$trackColumn] = $feUid;
+            }
+        }
+
         $beforeEvent = new BeforeWriteEvent($table, 'create', $data);
         $this->eventDispatcher->dispatch($beforeEvent);
         $data = $beforeEvent->getData();
 
-        $uid = $this->writeService->create($table, $data);
-        $this->eventDispatcher->dispatch(new AfterWriteEvent($table, 'create', $uid));
-        $row = $this->dataRepository->findById($table, $uid, $config);
+        // Single DataHandler call: parent + all related new records atomically.
+        // NEW_xxx placeholders in $data (e.g. color_id, inline column) are resolved
+        // by DataHandler using the records in $resolved->extraDataMap.
+        $primaryKey = 'NEW_primary';
+        $dataMap    = [$table => [$primaryKey => $data]] + $resolved->extraDataMap;
+        $substMap   = $this->writeService->processDataMap($dataMap);
+        $uid        = (int)($substMap[$primaryKey] ?? 0);
 
-        $baseUrl  = '/_api/' . $config['general']['resourceName'];
-        $location = $baseUrl . '/' . $uid;
+        $this->eventDispatcher->dispatch(new AfterWriteEvent($table, 'create', $uid));
+
+        $row       = $this->dataRepository->findById($table, $uid, $config);
+        $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
+        $baseUrl   = $apiPrefix . '/' . $config['general']['resourceName'];
+        $location  = $baseUrl . '/' . $uid;
 
         return $this->hydraResponseBuilder->buildItem(
             $this->serializer->serialize($row, $config, $baseUrl),

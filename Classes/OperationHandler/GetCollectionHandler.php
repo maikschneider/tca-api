@@ -56,11 +56,12 @@ class GetCollectionHandler implements OperationHandlerInterface
         array $order = [],
         array $fields = [],
     ): ResponseInterface {
-        $table   = $config['general']['table'];
-        $baseUrl = '/_api/' . $config['general']['resourceName'];
-        $offset  = ($page - 1) * $itemsPerPage;
+        $table     = $config['general']['table'];
+        $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
+        $baseUrl   = $apiPrefix . '/' . $config['general']['resourceName'];
+        $offset    = ($page - 1) * $itemsPerPage;
 
-        $safeFilters = $this->resolveFilters($filters, $config);
+        $safeFilters = $this->resolveFilters($filters, $config, $request);
         $safeOrder   = $this->resolveOrder($order, $config);
 
         $total     = $this->dataRepository->count($table, $safeFilters, $config);
@@ -74,20 +75,51 @@ class GetCollectionHandler implements OperationHandlerInterface
         return $this->hydraResponseBuilder->buildCollection($event->getData(), $total, $baseUrl, $page, $itemsPerPage);
     }
 
-    private function resolveFilters(array $requested, array $config): array
+    private function resolveFilters(array $requested, array $config, ServerRequestInterface $request): array
     {
         $declared = $config['filters'] ?? [];
         $safe     = [];
-        foreach ($requested as $column => $value) {
-            if (isset($declared[$column])) {
-                $safe[$column] = array_merge($declared[$column], [
-                    'value'   => $value,
-                    '_table'  => $config['general']['table'],
-                    '_column' => $column,
-                ]);
+
+        foreach ($declared as $column => $filterDef) {
+            [$class, $options] = $this->normalizeFilterDef($column, $filterDef);
+            $isPrivate = (bool)($options['private'] ?? false);
+            $default   = $options['default'] ?? null;
+            $cleanOpts = array_diff_key($options, array_flip(['default', 'private']));
+
+            if ($isPrivate) {
+                $value = $default;
+            } elseif (isset($requested[$column])) {
+                $value = $requested[$column];
+            } elseif ($default !== null) {
+                $value = $default;
+            } else {
+                continue;
             }
+
+            $safe[$column] = array_merge($cleanOpts, [
+                'value'           => $value,
+                '_table'          => $config['general']['table'],
+                '_column'         => $column,
+                '_filterClass'    => $class,
+                '_request'        => $request,
+                '_resourceConfig' => $config,
+            ]);
         }
+
         return $safe;
+    }
+
+    private function normalizeFilterDef(string $column, mixed $filterDef): array
+    {
+        if (is_string($filterDef)) {
+            return [$filterDef, []];
+        }
+        if (is_array($filterDef) && is_string($filterDef[0] ?? null)) {
+            return [$filterDef[0], $filterDef[1] ?? []];
+        }
+        throw new \InvalidArgumentException(
+            sprintf('Invalid filter definition for column "%s": expected a class name or [ClassName, options].', $column),
+        );
     }
 
     private function resolveOrder(array $requested, array $config): array

@@ -11,7 +11,7 @@ use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use TYPO3\CMS\Core\Site\Entity\Site;
 
-class TcaApiMiddleware implements MiddlewareInterface
+final class TcaApiMiddleware implements MiddlewareInterface
 {
     public function __construct(
         private readonly RequestDispatcher $dispatcher,
