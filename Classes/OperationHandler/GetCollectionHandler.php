@@ -78,25 +78,24 @@ class GetCollectionHandler implements OperationHandlerInterface
     {
         $declared = $config['filters'] ?? [];
         $safe     = [];
-        foreach ($requested as $column => $value) {
-            if (!isset($declared[$column])) {
+
+        foreach ($declared as $column => $filterDef) {
+            [$class, $options] = $this->normalizeFilterDef($column, $filterDef);
+            $isPrivate = (bool)($options['private'] ?? false);
+            $default   = $options['default'] ?? null;
+            $cleanOpts = array_diff_key($options, array_flip(['default', 'private']));
+
+            if ($isPrivate) {
+                $value = $default;
+            } elseif (isset($requested[$column])) {
+                $value = $requested[$column];
+            } elseif ($default !== null) {
+                $value = $default;
+            } else {
                 continue;
             }
 
-            $filterDef = $declared[$column];
-            if (is_string($filterDef)) {
-                $class   = $filterDef;
-                $options = [];
-            } elseif (is_array($filterDef) && is_string($filterDef[0] ?? null)) {
-                $class   = $filterDef[0];
-                $options = $filterDef[1] ?? [];
-            } else {
-                throw new \InvalidArgumentException(
-                    sprintf('Invalid filter definition for column "%s": expected a class name or [ClassName, options].', $column),
-                );
-            }
-
-            $safe[$column] = array_merge($options, [
+            $safe[$column] = array_merge($cleanOpts, [
                 'value'           => $value,
                 '_table'          => $config['general']['table'],
                 '_column'         => $column,
@@ -105,7 +104,21 @@ class GetCollectionHandler implements OperationHandlerInterface
                 '_resourceConfig' => $config,
             ]);
         }
+
         return $safe;
+    }
+
+    private function normalizeFilterDef(string $column, mixed $filterDef): array
+    {
+        if (is_string($filterDef)) {
+            return [$filterDef, []];
+        }
+        if (is_array($filterDef) && is_string($filterDef[0] ?? null)) {
+            return [$filterDef[0], $filterDef[1] ?? []];
+        }
+        throw new \InvalidArgumentException(
+            sprintf('Invalid filter definition for column "%s": expected a class name or [ClassName, options].', $column),
+        );
     }
 
     private function resolveOrder(array $requested, array $config): array

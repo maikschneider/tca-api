@@ -256,6 +256,10 @@ readonly class OpenApiBuilder
         if ($filterFields !== []) {
             $filterProperties = [];
             foreach ($filterFields as $field => $filterConfig) {
+                $options = is_array($filterConfig) ? ($filterConfig[1] ?? []) : [];
+                if ($options['private'] ?? false) {
+                    continue;
+                }
                 $filterClass = is_string($filterConfig) ? $filterConfig : ($filterConfig[0] ?? '');
                 $shortName   = basename(str_replace('\\', '/', $filterClass)) ?: $filterClass;
                 $filterProperties[$field] = ['type' => 'string', 'description' => 'Filter by ' . $field . ' (' . $shortName . ')'];
