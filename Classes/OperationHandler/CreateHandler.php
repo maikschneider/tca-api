@@ -85,9 +85,10 @@ class CreateHandler implements OperationHandlerInterface
 
         $this->eventDispatcher->dispatch(new AfterWriteEvent($table, 'create', $uid));
 
-        $row      = $this->dataRepository->findById($table, $uid, $config);
-        $baseUrl  = '/_api/' . $config['general']['resourceName'];
-        $location = $baseUrl . '/' . $uid;
+        $row       = $this->dataRepository->findById($table, $uid, $config);
+        $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
+        $baseUrl   = $apiPrefix . '/' . $config['general']['resourceName'];
+        $location  = $baseUrl . '/' . $uid;
 
         return $this->hydraResponseBuilder->buildItem(
             $this->serializer->serialize($row, $config, $baseUrl),
