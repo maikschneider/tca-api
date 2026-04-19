@@ -6,6 +6,7 @@ namespace MaikSchneider\TcaApi\DataAccess;
 
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
+use TYPO3\CMS\Core\Utility\MathUtility;
 
 /**
  * Pre-processes a write request body to resolve relation fields.
@@ -127,9 +128,7 @@ final class RelationInputResolver
                 $subConfig    = ApiRegistry::getByTable($effectiveFt);
                 $resolvedUids = [];
                 foreach ($value as $item) {
-                    if (is_int($item)) {
-                        $resolvedUids[] = $item;
-                    } elseif (is_string($item) && ctype_digit($item)) {
+                    if (MathUtility::canBeInterpretedAsInteger($item)) {
                         $resolvedUids[] = (int)$item;
                     } elseif (is_array($item) && !array_is_list($item) && $subConfig !== null) {
                         $ph                              = $this->uniquePlaceholder();

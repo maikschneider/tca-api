@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Write;
 
+use MaikSchneider\TcaApi\Enum\AccessRole;
+use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -269,5 +271,117 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         self::assertSame(200, $response->getStatusCode());
         self::assertCount(1, $body['categories']);
         self::assertGreaterThan(3, $body['categories'][0]['uid'], 'New category UID should be > 3');
+    }
+
+    // ── Sub-entity ownership injection (prepareChildData) ─────────────────────
+
+    public function testPostNewSubEntityGetsOwnerColumnInjected(): void
+    {
+        // Register Colors with ownership.column = 'hex' so FE user UID is injected there
+        $this->configureColorsWithOwnership('hex');
+
+        $response   = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
+            'title'    => 'Owner Article',
+            'color_id' => ['name' => 'OwnedColor'],
+        ]);
+        $colorUid = $this->decodeResponseBody($response)['color']['uid'];
+
+        $colorRow = $this->getConnectionPool()
+            ->getConnectionForTable('tx_myext_domain_model_color')
+            ->select(['hex'], 'tx_myext_domain_model_color', ['uid' => $colorUid])
+            ->fetchAssociative();
+
+        // FE user uid=1 must be injected into the ownership column
+        self::assertSame('1', (string)$colorRow['hex']);
+    }
+
+    public function testPostNewSubEntityClientOwnershipValueIsStripped(): void
+    {
+        // Client attempts to set hex='hacker' — server must overwrite with FE user UID
+        $this->configureColorsWithOwnership('hex');
+
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
+            'title'    => 'Strip Client Value',
+            'color_id' => ['name' => 'Color', 'hex' => 'hacker'],
+        ]);
+        $colorUid = $this->decodeResponseBody($response)['color']['uid'];
+
+        $colorRow = $this->getConnectionPool()
+            ->getConnectionForTable('tx_myext_domain_model_color')
+            ->select(['hex'], 'tx_myext_domain_model_color', ['uid' => $colorUid])
+            ->fetchAssociative();
+
+        self::assertSame('1', (string)$colorRow['hex'], 'Client hex value must be stripped and replaced by server-injected FE user UID');
+    }
+
+    public function testPostNewSubEntityGetsSetOnCreateColumnInjected(): void
+    {
+        // ownership.column = 'hex', ownership.setOnCreate = 'foreign_article_id'
+        // Both must receive the FE user UID (1) on creation
+        $this->configureColorsWithOwnership('hex', 'foreign_article_id');
+
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
+            'title'    => 'SetOnCreate Article',
+            'color_id' => ['name' => 'TrackColor'],
+        ]);
+        $colorUid = $this->decodeResponseBody($response)['color']['uid'];
+
+        $colorRow = $this->getConnectionPool()
+            ->getConnectionForTable('tx_myext_domain_model_color')
+            ->select(['hex', 'foreign_article_id'], 'tx_myext_domain_model_color', ['uid' => $colorUid])
+            ->fetchAssociative();
+
+        self::assertSame('1', (string)$colorRow['hex'], 'ownership.column must receive FE user UID');
+        self::assertSame(1, (int)$colorRow['foreign_article_id'], 'ownership.setOnCreate must receive FE user UID');
+    }
+
+    /**
+     * Ensure a color resource with ownership columns is returned FIRST by
+     * ApiRegistry::getByTable() — even after Bootstrap::init() re-runs
+     * ext_localconf.php during executeFrontendSubRequest().
+     *
+     * Bootstrap re-registers file-based resources (articles, colors, …) but
+     * never touches 'colors-with-ownership' (no matching TcaApi PHP file).
+     * PHP arrays preserve insertion order on key-updates, so our owned
+     * resource stays at index 0 and getByTable() returns it before 'colors'.
+     */
+    private function configureColorsWithOwnership(string $ownerColumn, ?string $setOnCreate = null): void
+    {
+        $snapshot = ApiRegistry::getAll();
+        ApiRegistry::reset();
+
+        // Build a color resource config with ownership columns
+        $ownedConfig = [
+            'general' => [
+                'table'        => 'tx_myext_domain_model_color',
+                'resourceName' => 'colors-with-ownership',
+                'resourceType' => 'Color',
+                'operations'   => ['list', 'show', 'create'],
+                'itemsPerPage' => 20,
+            ],
+            'columns' => [
+                'name'               => ['groups' => ['list', 'show', 'create']],
+                'hex'                => ['groups' => ['list', 'show', 'create']],
+                'foreign_article_id' => ['groups' => ['create']],
+            ],
+            'security'  => [
+                'list'   => AccessRole::PUBLIC,
+                'show'   => AccessRole::PUBLIC,
+                'create' => AccessRole::PUBLIC,
+            ],
+            'ownership' => ['column' => $ownerColumn],
+        ];
+
+        if ($setOnCreate !== null) {
+            $ownedConfig['ownership']['setOnCreate'] = $setOnCreate;
+        }
+
+        // Register FIRST — Bootstrap::init() will later re-register file-based
+        // resources in-place (preserving order) but never touches this key.
+        ApiRegistry::register('colors-with-ownership', $ownedConfig);
+
+        foreach ($snapshot as $name => $config) {
+            ApiRegistry::register($name, $config);
+        }
     }
 }

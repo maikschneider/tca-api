@@ -56,7 +56,7 @@ final class DataWriteService
             $dataHandler->process_datamap();
 
             if ($dataHandler->errorLog) {
-                throw new \RuntimeException(implode(', ', $dataHandler->errorLog));
+                throw new \RuntimeException('DataHandler process failed: ' . implode(', ', $dataHandler->errorLog));
             }
 
             return $dataHandler->substNEWwithIDs;
