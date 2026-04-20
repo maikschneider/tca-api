@@ -7,12 +7,6 @@ parameters:
 			path: Classes/Dispatcher/RequestDispatcher.php
 
 		-
-			message: '#^Property MaikSchneider\\TcaApi\\Configuration\\ApiDefinition\:\:\$itemsPerPage \(int\) on left side of \?\? is not nullable\.$#'
-			identifier: nullCoalesce.property
-			count: 1
-			path: Classes/Dispatcher/RequestDispatcher.php
-
-		-
 			message: '#^Call to an undefined method TYPO3\\CMS\\Core\\Schema\\Field\\RelationalFieldTypeInterface\:\:getConfiguration\(\)\.$#'
 			identifier: method.notFound
 			count: 3

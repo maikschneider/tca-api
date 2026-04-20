@@ -241,7 +241,7 @@ readonly class OpenApiBuilder
     {
         $params = [
             ['name' => 'page', 'in' => 'query', 'schema' => ['type' => 'integer', 'minimum' => 1, 'default' => 1]],
-            ['name' => 'itemsPerPage', 'in' => 'query', 'schema' => ['type' => 'integer', 'minimum' => 1, 'default' => $config->itemsPerPage]],
+            ['name' => 'itemsPerPage', 'in' => 'query', 'schema' => ['type' => 'integer', 'minimum' => 1, 'default' => $config->itemsPerPage ?? 20]],
         ];
 
         if ($config->filters !== []) {
