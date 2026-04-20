@@ -37,6 +37,7 @@ final class TcaApiMiddleware implements MiddlewareInterface
             return $handler->handle($request);
         }
 
+        $request = $request->withAttribute('tca_api.api_prefix', $apiPrefix);
         $response = $this->dispatcher->dispatch($request, $settings);
 
         if ($settings->get('tca_api.corsEnabled', false)) {
