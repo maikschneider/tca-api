@@ -374,7 +374,7 @@ final class ResourceSerializer
         }
 
         // UID list stored in parent row's own column (no MM, no foreign_field).
-        $uids = UidListParser::parse((string)($row[$column] ?? ''));
+        $uids = GeneralUtility::intExplode(',', (string)($row[$column] ?? ''), true);
         return $uids !== []
             ? UidListParser::mapToRows($uids, $this->dataRepository->findByIds($foreignTable, $uids))
             : [];
@@ -445,7 +445,7 @@ final class ResourceSerializer
             );
             $relatedRows = $grouped[$uid] ?? [];
         } else {
-            $uids        = UidListParser::parse((string)($row[$column] ?? ''));
+            $uids        = GeneralUtility::intExplode(',', (string)($row[$column] ?? ''), true);
             $relatedRows = $uids !== []
                 ? UidListParser::mapToRows($uids, $this->dataRepository->findByIds($foreignTable, $uids))
                 : [];

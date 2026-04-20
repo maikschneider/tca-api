@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\DataAccess;
 
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
-use MaikSchneider\TcaApi\Utility\UidListParser;
 use TYPO3\CMS\Core\Schema\Field\FileFieldType;
 use TYPO3\CMS\Core\Schema\Field\GroupFieldType;
 use TYPO3\CMS\Core\Schema\Field\RelationalFieldTypeInterface;
@@ -188,7 +187,7 @@ final class EmbedPreloader
     {
         foreach ($rows as $row) {
             $parentUid = (int)$row['uid'];
-            $uids      = UidListParser::parse((string)($row[$column] ?? ''));
+            $uids      = GeneralUtility::intExplode(',', (string)($row[$column] ?? ''), true);
 
             $preloaded['relations'][$column][$parentUid] = $uids;
             foreach ($uids as $uid) {
