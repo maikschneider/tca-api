@@ -56,7 +56,7 @@ class CreateHandler implements OperationHandlerInterface
         // Resolve relation fields: objects become real UIDs (non-inline) or NEW_xxx
         // placeholders (inline); UIDs stay as-is. Security + validation on nested
         // child objects is enforced inside resolve(); violations bubble up here.
-        $resolved = $this->relationResolver->resolve($body, $config->table, $config->defaultPid, $request);
+        $resolved = $this->relationResolver->resolve($body, $config->table, $config->getStoragePid(), $request);
         if ($resolved->violations !== []) {
             return $this->hydraResponseBuilder->buildValidationError($resolved->violations);
         }
@@ -64,7 +64,7 @@ class CreateHandler implements OperationHandlerInterface
         $feUser = $request->getAttribute('frontend.user');
 
         $data        = $this->filterWritableColumns($resolved->scalarBody, $config);
-        $data['pid'] = $config->defaultPid;
+        $data['pid'] = $config->getStoragePid();
 
         if ($feUser !== null && !empty($feUser->user['uid'])) {
             $feUid = (int)$feUser->user['uid'];

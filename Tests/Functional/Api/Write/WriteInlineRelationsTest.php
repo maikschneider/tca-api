@@ -45,6 +45,7 @@ final class WriteInlineRelationsTest extends ApiFunctionalTestCase
                 'resourceName' => 'inline-colors',
                 'resourceType' => 'Color',
                 'operations'   => ['list', 'show', 'create'],
+                'storagePid'   => 1,
             ],
             'columns' => ['name' => ['groups' => ['list', 'show', 'create']]],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
@@ -62,6 +63,7 @@ final class WriteInlineRelationsTest extends ApiFunctionalTestCase
                 'resourceName' => 'inline-articles',
                 'resourceType' => 'Article',
                 'operations'   => ['list', 'show', 'create', 'update'],
+                'storagePid'   => 1,
             ],
             'columns' => [
                 'title'                => ['groups' => ['list', 'show', 'create', 'update'], 'required' => true],

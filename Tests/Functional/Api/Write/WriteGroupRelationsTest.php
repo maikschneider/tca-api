@@ -47,6 +47,7 @@ final class WriteGroupRelationsTest extends ApiFunctionalTestCase
                 'resourceName' => 'grp-write-colors',
                 'resourceType' => 'Color',
                 'operations'   => ['list', 'show', 'create'],
+                'storagePid'   => 1,
             ],
             'columns' => ['name' => ['groups' => ['list', 'show', 'create']]],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
@@ -58,6 +59,7 @@ final class WriteGroupRelationsTest extends ApiFunctionalTestCase
                 'resourceName' => 'grp-write-articles',
                 'resourceType' => 'Article',
                 'operations'   => ['list', 'show', 'create', 'update'],
+                'storagePid'   => 1,
             ],
             'columns' => [
                 'title'          => ['groups' => ['list', 'show', 'create', 'update'], 'required' => true],

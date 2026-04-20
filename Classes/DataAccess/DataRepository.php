@@ -7,6 +7,7 @@ namespace MaikSchneider\TcaApi\DataAccess;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Filter\FilterInterface;
 use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 
@@ -48,7 +49,7 @@ final class DataRepository
         return $indexed;
     }
 
-    public function findById(string $table, int $uid, ?ApiDefinition $config = null): ?array
+    public function findById(string $table, int $uid, ApiDefinition $config): ?array
     {
         $qb = $this->connectionPool->getQueryBuilderForTable($table);
         $qb->select('*')
@@ -182,29 +183,11 @@ final class DataRepository
         return $grouped;
     }
 
-    private function applyPidConstraint(QueryBuilder $qb, ?ApiDefinition $config): void
+    private function applyPidConstraint(QueryBuilder $qb, ApiDefinition $config): void
     {
-        $pids = $this->resolvePids($config);
-        if ($pids !== []) {
-            $qb->andWhere($qb->expr()->in('pid', array_map(
-                fn (int $pid) => $qb->createNamedParameter($pid),
-                $pids,
-            )));
+        if ($config->getStoragePid()) {
+            $qb->andWhere($qb->expr()->eq('pid', $qb->createNamedParameter($config->getStoragePid(), Connection::PARAM_INT)));
         }
-    }
-
-    /**
-     * Normalises the storagePid config value (int or int[]) to a flat int[].
-     * Returns [] when no storagePid is configured.
-     */
-    private function resolvePids(?ApiDefinition $config): array
-    {
-        $raw = $config?->storagePid;
-        if ($raw === null) {
-            return [];
-        }
-
-        return array_map('intval', is_array($raw) ? $raw : [$raw]);
     }
 
     private function applyFilterConstraint(QueryBuilder $qb, string $column, array $filter): void

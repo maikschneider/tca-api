@@ -27,6 +27,7 @@ final class OwnershipAccessTest extends ApiFunctionalTestCase
             'resourceName' => 'owned-arts',
             'resourceType' => 'Article',
             'operations'   => ['show', 'create', 'update', 'delete'],
+            'storagePid' => 1,
         ],
         'columns' => [
             'title' => [

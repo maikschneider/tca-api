@@ -223,7 +223,7 @@ final class ResourceSerializer
         }
 
         $relatedRow = $preloaded['rows'][$foreignTable][$fkValue]
-            ?? $this->dataRepository->findById($foreignTable, $fkValue);
+            ?? $this->dataRepository->findById($foreignTable, $fkValue, $relatedConfig);
 
         if ($relatedRow === null) {
             return null;

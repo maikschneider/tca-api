@@ -25,6 +25,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
             'resourceName' => 'be-articles',
             'resourceType' => 'Article',
             'operations'   => ['list', 'show', 'create', 'update', 'delete'],
+            'storagePid' => 1,
         ],
         'columns' => [
             'title' => [
@@ -44,6 +45,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
             'resourceName' => 'group-articles',
             'resourceType' => 'Article',
             'operations'   => ['list', 'show', 'create', 'update', 'delete'],
+            'storagePid' => 1,
         ],
         'columns' => [
             'title' => [

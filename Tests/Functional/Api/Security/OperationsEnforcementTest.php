@@ -37,6 +37,7 @@ final class OperationsEnforcementTest extends ApiFunctionalTestCase
                 'resourceName' => self::READONLY,
                 'resourceType' => 'Article',
                 'operations'   => ['list', 'show'],
+                'storagePid'   => 1,
             ],
             'columns' => [
                 'title' => ['groups' => ['list', 'show']],
@@ -50,6 +51,7 @@ final class OperationsEnforcementTest extends ApiFunctionalTestCase
                 'resourceName' => self::CREATEONLY,
                 'resourceType' => 'Article',
                 'operations'   => ['list', 'create'],
+                'storagePid'   => 1,
             ],
             'columns' => [
                 'title' => ['groups' => ['list', 'show', 'create', 'update']],

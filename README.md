@@ -90,7 +90,7 @@ return [
         'resourceType' => 'Article',
         'operations'   => ['list', 'show', 'create', 'update', 'delete'],
         'itemsPerPage' => 20,
-        'defaultPid'   => 1,
+        'storagePid'   => 1,
     ],
     'security' => [
         'list'   => AccessRole::PUBLIC,
@@ -145,16 +145,16 @@ Access to both endpoints is controlled by the `tca_api.openApiExposed` and `tca_
 
 ### General
 
-| Key             | Description                                      |
-|-----------------|--------------------------------------------------|
-| `table`         | TYPO3 database table name                        |
-| `resourceName`  | URL slug used in `/_api/{resourceName}`           |
-| `resourceType`  | JSON-LD `@type` value                            |
-| `type`          | Set to `'userinfo'` to create a [userinfo endpoint](#userinfo-endpoint) |
-| `operations`    | Array of enabled operations: `list`, `show`, `create`, `update`, `delete` |
-| `itemsPerPage`  | Default page size for list operations            |
+| Key               | Description                                      |
+|-------------------|--------------------------------------------------|
+| `table`           | TYPO3 database table name                        |
+| `resourceName`    | URL slug used in `/_api/{resourceName}`           |
+| `resourceType`    | JSON-LD `@type` value                            |
+| `type`            | Set to `'userinfo'` to create a [userinfo endpoint](#userinfo-endpoint) |
+| `operations`      | Array of enabled operations: `list`, `show`, `create`, `update`, `delete` |
+| `itemsPerPage`    | Default page size for list operations            |
 | `maxItemsPerPage` | Upper limit for `itemsPerPage`; when set, the requested page size is clamped to this value. No limit when omitted |
-| `defaultPid`    | Page ID for newly created records                |
+| `storagePid`      | Page ID for newly created records                |
 
 ### Column visibility
 

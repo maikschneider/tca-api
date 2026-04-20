@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Configuration;
 
 use MaikSchneider\TcaApi\Enum\AccessRole;
+use TYPO3\CMS\Core\Utility\MathUtility;
 
 /**
  * Typed, normalised API endpoint configuration.
@@ -32,7 +33,6 @@ final readonly class ApiDefinition
         public readonly array $operations,
         public readonly ?int $itemsPerPage,
         public readonly ?int $maxItemsPerPage,
-        public readonly int $defaultPid,
         public readonly ?string $type,
         public readonly mixed $storagePid,
         public readonly array $columns,
@@ -75,6 +75,11 @@ final readonly class ApiDefinition
     public function getVirtualProperty(string $name): ?ColumnDefinition
     {
         return $this->virtualProperties[$name] ?? null;
+    }
+
+    public function getStoragePid(): int
+    {
+        return MathUtility::canBeInterpretedAsInteger($this->storagePid) ? (int)$this->storagePid : 0;
     }
 
     /**
@@ -125,7 +130,6 @@ final readonly class ApiDefinition
             operations:             $general['operations'],
             itemsPerPage:           isset($general['itemsPerPage']) ? (int)$general['itemsPerPage'] : null,
             maxItemsPerPage:        isset($general['maxItemsPerPage']) ? (int)$general['maxItemsPerPage'] : null,
-            defaultPid:             (int)($general['defaultPid'] ?? 1),
             type:                   $general['type'] ?? null,
             storagePid:             $general['storagePid'] ?? null,
             columns:                $columns,
