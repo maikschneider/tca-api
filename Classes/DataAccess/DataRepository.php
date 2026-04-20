@@ -63,7 +63,7 @@ final class DataRepository
         return $qb->executeQuery()->fetchAssociative() ?: null;
     }
 
-    public function findCollection(string $table, array $constraints, int $limit, int $offset, array $order, ?ApiDefinition $config = null): array
+    public function findCollection(string $table, array $constraints, int $limit, int $offset, array $order, ApiDefinition $config): array
     {
         $qb = $this->connectionPool->getQueryBuilderForTable($table);
         $qb->select('*')
@@ -89,7 +89,7 @@ final class DataRepository
         return $qb->executeQuery()->fetchAllAssociative();
     }
 
-    public function count(string $table, array $constraints, ?ApiDefinition $config = null): int
+    public function count(string $table, array $constraints, ApiDefinition $config): int
     {
         $qb = $this->connectionPool->getQueryBuilderForTable($table);
         $qb->count('uid')
