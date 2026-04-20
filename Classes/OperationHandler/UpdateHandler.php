@@ -64,18 +64,26 @@ class UpdateHandler implements OperationHandlerInterface
                 ->withHeader('Content-Type', 'application/ld+json');
         }
 
-        $raw  = (string)$request->getBody();
-        $body = $raw !== '' ? (json_decode($raw, true, 512, JSON_THROW_ON_ERROR) ?? []) : [];
+        $raw = (string)$request->getBody();
+        try {
+            $body = $raw !== '' ? (json_decode($raw, true, 512, JSON_THROW_ON_ERROR) ?? []) : [];
+        } catch (\JsonException) {
+            return $this->hydraResponseBuilder->buildError(400, 'Request body is not valid JSON.', 'Bad Request');
+        }
 
         $violations = $this->fieldValidator->validate($body, $config, $partial);
         if ($violations !== []) {
             return $this->hydraResponseBuilder->buildValidationError($violations);
         }
 
-        $pid    = $config['general']['defaultPid'] ?? 1;
-        $feUser = $request->getAttribute('frontend.user');
+        $pid = $config['general']['defaultPid'] ?? 1;
 
-        $resolved = $this->relationResolver->resolve($body, $table, $pid, $feUser?->user);
+        // Resolve relation fields. Security + validation on nested child objects
+        // is enforced inside resolve(); violations bubble up here.
+        $resolved = $this->relationResolver->resolve($body, $table, $pid, $request);
+        if ($resolved->violations !== []) {
+            return $this->hydraResponseBuilder->buildValidationError($resolved->violations);
+        }
 
         $data = $this->filterWritableColumns($resolved->scalarBody, $config);
 
@@ -101,8 +109,9 @@ class UpdateHandler implements OperationHandlerInterface
 
         $this->eventDispatcher->dispatch(new AfterWriteEvent($table, 'update', $uid));
 
-        $row     = $this->dataRepository->findById($table, $uid, $config);
-        $baseUrl = '/_api/' . $config['general']['resourceName'];
+        $row       = $this->dataRepository->findById($table, $uid, $config);
+        $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
+        $baseUrl   = $apiPrefix . '/' . $config['general']['resourceName'];
 
         return $this->hydraResponseBuilder->buildItem(
             $this->serializer->serialize($row, $config, $baseUrl),

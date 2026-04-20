@@ -21,7 +21,7 @@
 - **Hydra JSON-LD** — Responses follow the [Hydra](https://www.hydra-cg.com/) specification (`application/ld+json`)
 - **Configuration-driven** — Expose tables by registering a PHP configuration array; no custom controllers needed
 - **Serialization groups** — Use `groups` to control which columns appear per operation (`list`, `show`, `create`, `update`)
-- **Filtering** — Exact, partial, word-start, range, full-text search, and many-to-many filter strategies via query parameters; extensible via `FilterInterface`
+- **Filtering** — Exact, partial, word-start, range, full-text search, and many-to-many filter strategies via query parameters; configurable defaults and private (non-overrideable) filters; extensible via `FilterInterface`
 - **Sorting** — Configurable allowed sort columns with defaults
 - **Pagination** — Offset-based pagination with Hydra `PartialCollectionView` links
 - **Validation** — Required, maxLength, minLength, and regex validators with structured 422 error responses
@@ -247,6 +247,28 @@ use MaikSchneider\TcaApi\Filter\WordStartFilter;
 
 For `MmFilter`, if the options array is omitted the extension derives the MM config from TCA automatically (requires a valid `MM` key on the field).
 
+#### Default values and private filters
+
+Two options available on any filter definition control server-side defaults and enforcement:
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `default` | `string` | Value applied when the filter is absent from the request URL params |
+| `private` | `bool` | When `true`, the default always applies — user-supplied values are ignored; the filter is also excluded from the OpenAPI spec |
+
+```php
+'filters' => [
+    // Overrideable default — applied when ?filters[color_id] is absent
+    'color_id' => [ExactFilter::class, ['default' => '1']],
+
+    // Private filter — default always applies, cannot be overridden via URL,
+    // and does not appear in the OpenAPI spec
+    'deleted' => [ExactFilter::class, ['default' => '0', 'private' => true]],
+],
+```
+
+A private filter without a `default` has no effect (no value to enforce).
+
 #### Range filter example
 
 ```
@@ -455,15 +477,16 @@ On POST, PUT, and PATCH you can create new related records inline by passing an 
 { "categories": [1, { "title": "New" }] }  // mixed — link existing + create new
 ```
 
-All forms work for every TCA relation type:
+These forms work across the supported TCA relation types, with one important limitation for `group` fields noted below:
 
 | TCA type | Example |
 |---|---|
 | `select` + single value | `"color_id": { "name": "Red" }` |
 | `category` / `select` + MM | `"categories": [1, { "title": "New" }]` |
-| `group` | `"tags": [3, { "name": "New Tag" }]` |
+| `group` (single-table `allowed`) | `"tags": [3, { "name": "New Tag" }]` |
 | `inline` + `foreign_field` | `"related_items": [{ "name": "Child" }]` |
 
+For `type=group`, inline creation of new related records is only supported when `allowed` contains exactly one table. Multi-table `group` relations still support linking existing records by UID, but not creating new related records inline.
 **Atomicity:** all records (parent + new children) are created in a single DataHandler call, so cross-references resolve correctly and no partial writes occur.
 
 **Ownership:** if the related table has an `ownership` config, the ownership column is automatically injected and cannot be overridden by the client.

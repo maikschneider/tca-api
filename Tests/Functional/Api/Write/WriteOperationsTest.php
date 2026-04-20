@@ -150,6 +150,38 @@ final class WriteOperationsTest extends ApiFunctionalTestCase
         self::assertSame('/_api/articles/' . $body['uid'], $response->getHeaderLine('Location'));
     }
 
+    // ── Malformed JSON body ──────────────────────────────────────────────────
+
+    public function testPostWithMalformedJsonReturns400(): void
+    {
+        $response = $this->executeApiWriteRawRequestAs('POST', '/_api/articles', 1, '{invalid json');
+        $body     = $this->decodeResponseBody($response);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertSame('hydra:Error', $body['@type']);
+        self::assertSame('Bad Request', $body['hydra:title']);
+    }
+
+    public function testPatchWithMalformedJsonReturns400(): void
+    {
+        $response = $this->executeApiWriteRawRequestAs('PATCH', '/_api/articles/1', 1, '{"title": broken}');
+        $body     = $this->decodeResponseBody($response);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertSame('hydra:Error', $body['@type']);
+        self::assertSame('Bad Request', $body['hydra:title']);
+    }
+
+    public function testPutWithMalformedJsonReturns400(): void
+    {
+        $response = $this->executeApiWriteRawRequestAs('PUT', '/_api/articles/1', 1, 'not-json-at-all');
+        $body     = $this->decodeResponseBody($response);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertSame('hydra:Error', $body['@type']);
+        self::assertSame('Bad Request', $body['hydra:title']);
+    }
+
     // ── 405 Method Not Allowed ───────────────────────────────────────────────
 
     public function testUnsupportedMethodReturns405(): void

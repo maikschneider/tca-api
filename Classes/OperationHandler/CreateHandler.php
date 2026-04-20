@@ -42,20 +42,30 @@ class CreateHandler implements OperationHandlerInterface
 
     public function handle(ServerRequestInterface $request, array $config): ResponseInterface
     {
-        $raw  = (string)$request->getBody();
-        $body = $raw !== '' ? (json_decode($raw, true, 512, JSON_THROW_ON_ERROR) ?? []) : [];
+        $raw = (string)$request->getBody();
+        try {
+            $body = $raw !== '' ? (json_decode($raw, true, 512, JSON_THROW_ON_ERROR) ?? []) : [];
+        } catch (\JsonException) {
+            return $this->hydraResponseBuilder->buildError(400, 'Request body is not valid JSON.', 'Bad Request');
+        }
 
         $violations = $this->fieldValidator->validate($body, $config);
         if ($violations !== []) {
             return $this->hydraResponseBuilder->buildValidationError($violations);
         }
 
-        $table  = $config['general']['table'];
-        $pid    = $config['general']['defaultPid'] ?? 1;
-        $feUser = $request->getAttribute('frontend.user');
+        $table = $config['general']['table'];
+        $pid   = $config['general']['defaultPid'] ?? 1;
 
-        // Resolve relation fields: objects become NEW_xxx placeholders; UIDs stay as-is.
-        $resolved = $this->relationResolver->resolve($body, $table, $pid, $feUser?->user);
+        // Resolve relation fields: objects become real UIDs (non-inline) or NEW_xxx
+        // placeholders (inline); UIDs stay as-is. Security + validation on nested
+        // child objects is enforced inside resolve(); violations bubble up here.
+        $resolved = $this->relationResolver->resolve($body, $table, $pid, $request);
+        if ($resolved->violations !== []) {
+            return $this->hydraResponseBuilder->buildValidationError($resolved->violations);
+        }
+
+        $feUser = $request->getAttribute('frontend.user');
 
         $data        = $this->filterWritableColumns($resolved->scalarBody, $config);
         $data['pid'] = $pid;
@@ -98,9 +108,10 @@ class CreateHandler implements OperationHandlerInterface
 
         $this->eventDispatcher->dispatch(new AfterWriteEvent($table, 'create', $uid));
 
-        $row      = $this->dataRepository->findById($table, $uid, $config);
-        $baseUrl  = '/_api/' . $config['general']['resourceName'];
-        $location = $baseUrl . '/' . $uid;
+        $row       = $this->dataRepository->findById($table, $uid, $config);
+        $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
+        $baseUrl   = $apiPrefix . '/' . $config['general']['resourceName'];
+        $location  = $baseUrl . '/' . $uid;
 
         return $this->hydraResponseBuilder->buildItem(
             $this->serializer->serialize($row, $config, $baseUrl),

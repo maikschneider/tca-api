@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\DataAccess;
 
+use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
+use MaikSchneider\TcaApi\Security\AccessController;
+use MaikSchneider\TcaApi\Validation\FieldValidator;
+use Psr\Http\Message\ServerRequestInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
+use TYPO3\CMS\Core\Utility\MathUtility;
 
 /**
  * Pre-processes a write request body to resolve relation fields.
@@ -30,42 +36,46 @@ use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
  *
  * ── Non-inline relations (select, category, group) ──────────────────────────
  * New objects become NEW_xxx entries in extraDataMap; their placeholder is placed
- * in the parent's field value. DataHandler resolves NEW_xxx in passthrough fields
- * via substNEWwithIDs after processing the other table in the same datamap call.
- * NOTE: select/category field validation in DataHandler may not substitute
- * NEW_xxx in complex comma-separated values. For hasOne (single select) the
- * placeholder is in an exact-match position and IS substituted correctly.
- * For hasMany (category/group) the NEW_xxx entries are treated as new records
- * by DataHandler's inline/category handlers only when the table processing
- * order is correct (child table processed before parent). To avoid ordering
- * dependency, non-inline new records are created immediately so only real UIDs
- * reach DataHandler.
+ * in the parent's field value. DataHandler's checkValueForGroupFolderSelect() and
+ * checkValueForCategory() detect NEW_xxx values and defer processing to the
+ * remapStack — the same mechanism as inline. processRemapStack() resolves
+ * placeholders to real UIDs and calls the respective processDBdata handler.
  *
  * Security gate: object creation is only allowed for foreign tables that have
  * an entry in ApiRegistry. Objects for unregistered tables are silently skipped.
+ *
+ * Child security + validation gate: before creating any nested child record,
+ * the child resource's security['create'] role is checked via AccessController,
+ * and the child data is validated via FieldValidator against the child config.
+ * Failures are collected in ResolvedInput::$violations; the caller must check
+ * for violations and reject the request (422) before calling processDataMap.
  */
 #[Autoconfigure(public: true)]
 final class RelationInputResolver
 {
     public function __construct(
-        private readonly DataWriteService $writeService,
+        private readonly AccessController $accessController,
+        private readonly FieldValidator $fieldValidator,
     ) {
     }
 
     /**
-     * @param array      $body      Raw decoded request body
-     * @param string     $table     Parent table name
-     * @param int        $pid       Storage PID for created sub-records
-     * @param array|null $feUserRow FE user row (e.g. $feUser->user), or null
+     * @param array $body  Raw decoded request body
+     * @param string $table Parent table name
+     * @param int $pid Storage PID for created sub-records
+     * @param ServerRequestInterface $request Current HTTP request (used for child security checks)
      */
     public function resolve(
         array $body,
         string $table,
         int $pid,
-        ?array $feUserRow,
+        ServerRequestInterface $request,
     ): ResolvedInput {
+        $feUser       = $request->getAttribute('frontend.user');
+        $feUserRow    = $feUser?->user;
         $scalarBody   = [];
         $extraDataMap = [];
+        $violations   = [];
 
         foreach ($body as $col => $value) {
             $tcaConfig = $GLOBALS['TCA'][$table]['columns'][$col]['config'] ?? null;
@@ -93,53 +103,102 @@ final class RelationInputResolver
                     continue;
                 }
 
-                $subConfig         = ApiRegistry::getByTable($foreignTable);
+                $subConfig = ApiRegistry::getByTable($foreignTable);
+                // Security gate: skip creation for unregistered foreign tables
+                if ($subConfig === null) {
+                    continue;
+                }
+
                 $childPlaceholders = [];
-                foreach ($newObjects as $childData) {
+                foreach ($newObjects as $index => $childData) {
+                    // Child security check
+                    $childViolation = $this->checkChildSecurity($subConfig, $request, $col, $index);
+                    if ($childViolation !== null) {
+                        $violations[] = $childViolation;
+                        continue;
+                    }
+
+                    // Child validation check
+                    $childViolations = $this->validateChildData($childData, $subConfig, $col, $index);
+                    if ($childViolations !== []) {
+                        array_push($violations, ...$childViolations);
+                        continue;
+                    }
+
                     $ph                              = $this->uniquePlaceholder();
                     $childData                       = $this->prepareChildData($childData, $pid, $feUserRow, $subConfig);
                     $extraDataMap[$foreignTable][$ph] = $childData;
                     $childPlaceholders[]             = $ph;
                 }
-                // Inline column carries child placeholders; DataHandler's remap
-                // stack resolves them and calls writeForeignField() after all
-                // records are created (works for foreign_field = passthrough too).
-                $scalarBody[$col] = implode(',', $childPlaceholders);
+
+                if ($childPlaceholders !== []) {
+                    // Inline column carries child placeholders; DataHandler's remap
+                    // stack resolves them and calls writeForeignField() after all
+                    // records are created (works for foreign_field = passthrough too).
+                    $scalarBody[$col] = implode(',', $childPlaceholders);
+                }
                 continue;
             }
 
             // ── Single assoc-array value (hasOne: select + foreign_table) ─────
-            // Created immediately so the real UID is available for the parent.
+            // New object becomes a NEW_xxx entry in extraDataMap; its placeholder
+            // is placed in the parent's field. DataHandler's remapStack resolves it.
             if (!array_is_list($value)) {
                 if ($foreignTable !== '') {
                     $subConfig = ApiRegistry::getByTable($foreignTable);
                     if ($subConfig !== null) {
-                        $scalarBody[$col] = $this->writeService->create(
-                            $foreignTable,
-                            $this->prepareChildData($value, $pid, $feUserRow, $subConfig),
-                        );
+                        // Child security check
+                        $childViolation = $this->checkChildSecurity($subConfig, $request, $col, null);
+                        if ($childViolation !== null) {
+                            $violations[] = $childViolation;
+                            continue;
+                        }
+
+                        // Child validation check
+                        $childViolations = $this->validateChildData($value, $subConfig, $col, null);
+                        if ($childViolations !== []) {
+                            array_push($violations, ...$childViolations);
+                            continue;
+                        }
+
+                        $ph                              = $this->uniquePlaceholder();
+                        $extraDataMap[$foreignTable][$ph] = $this->prepareChildData($value, $pid, $feUserRow, $subConfig);
+                        $scalarBody[$col]                = $ph;
                     }
+                    // Unregistered foreign table → skip entirely (no scalarBody entry)
+                    continue;
                 }
-                // Unregistered foreign table → skip entirely (no scalarBody entry)
-                continue;
+                // Non-relation assoc array → pass through unchanged
             }
 
             // ── Sequential array (hasMany: MM, UID-list, category, group) ─────
-            // New objects are created immediately; UIDs are passed to DataHandler.
+            // New objects become NEW_xxx entries in extraDataMap; their placeholders
+            // are included in the UID list. DataHandler's remapStack resolves them.
             $effectiveFt = $this->effectiveForeignTable($type, $tcaConfig);
             if ($effectiveFt !== '') {
                 $subConfig    = ApiRegistry::getByTable($effectiveFt);
                 $resolvedUids = [];
-                foreach ($value as $item) {
-                    if (is_int($item)) {
-                        $resolvedUids[] = $item;
-                    } elseif (is_string($item) && ctype_digit($item)) {
+                foreach ($value as $index => $item) {
+                    if (MathUtility::canBeInterpretedAsInteger($item)) {
                         $resolvedUids[] = (int)$item;
                     } elseif (is_array($item) && !array_is_list($item) && $subConfig !== null) {
-                        $resolvedUids[] = $this->writeService->create(
-                            $effectiveFt,
-                            $this->prepareChildData($item, $pid, $feUserRow, $subConfig),
-                        );
+                        // Child security check
+                        $childViolation = $this->checkChildSecurity($subConfig, $request, $col, $index);
+                        if ($childViolation !== null) {
+                            $violations[] = $childViolation;
+                            continue;
+                        }
+
+                        // Child validation check
+                        $childViolations = $this->validateChildData($item, $subConfig, $col, $index);
+                        if ($childViolations !== []) {
+                            array_push($violations, ...$childViolations);
+                            continue;
+                        }
+
+                        $ph                              = $this->uniquePlaceholder();
+                        $extraDataMap[$effectiveFt][$ph] = $this->prepareChildData($item, $pid, $feUserRow, $subConfig);
+                        $resolvedUids[]                  = $ph;
                     }
                     // Unregistered table → skip new-object items
                 }
@@ -152,7 +211,59 @@ final class RelationInputResolver
             $scalarBody[$col] = $value;
         }
 
-        return new ResolvedInput($scalarBody, $extraDataMap);
+        return new ResolvedInput($scalarBody, $extraDataMap, $violations);
+    }
+
+    /**
+     * Check whether the current request is allowed to create a child record.
+     *
+     * @param array $subConfig ApiRegistry entry for the child table
+     * @param ServerRequestInterface $request Current request
+     * @param string $col Parent column name (used for propertyPath)
+     * @param int|string|null $index Array index for array paths, null for hasOne
+     * @return array{propertyPath: string, message: string, code: string}|null
+     */
+    private function checkChildSecurity(array $subConfig, ServerRequestInterface $request, string $col, int|string|null $index): ?array
+    {
+        $requiredRole = $subConfig['security']['create'] ?? AccessRole::PUBLIC;
+        if ($this->accessController->isAllowed($requiredRole, $request)) {
+            return null;
+        }
+
+        $path = $index !== null ? $col . '.' . $index : $col;
+        return [
+            'propertyPath' => $path,
+            'message'      => "Nested creation of '$col' is not allowed.",
+            'code'         => 'CHILD_FORBIDDEN',
+        ];
+    }
+
+    /**
+     * Validate child data against the child resource's config.
+     *
+     * @param array $childData Raw child data from the request
+     * @param array $subConfig ApiRegistry entry for the child table
+     * @param string $col Parent column name (used for propertyPath prefix)
+     * @param int|string|null $index Array index for array paths, null for hasOne
+     * @return list<array{propertyPath: string, message: string, code: string}>
+     */
+    private function validateChildData(array $childData, array $subConfig, string $col, int|string|null $index): array
+    {
+        $childViolations = $this->fieldValidator->validate($childData, $subConfig);
+        if ($childViolations === []) {
+            return [];
+        }
+
+        $prefix = $index !== null ? $col . '.' . $index . '.' : $col . '.';
+        $result = [];
+        foreach ($childViolations as $v) {
+            $result[] = [
+                'propertyPath' => $prefix . $v['propertyPath'],
+                'message'      => $v['message'],
+                'code'         => $v['code'],
+            ];
+        }
+        return $result;
     }
 
     /**
@@ -222,10 +333,11 @@ final class RelationInputResolver
         }
 
         if ($type === 'group') {
-            $allowed = $tcaConfig['allowed'] ?? '';
+            $allowed = GeneralUtility::trimExplode(',', $tcaConfig['allowed'] ?? '', true);
+
             // Only support single-table group for object creation
-            if ($allowed !== '' && !str_contains($allowed, ',')) {
-                return $allowed;
+            if (count($allowed) === 1) {
+                return $allowed[0];
             }
         }
 
@@ -234,10 +346,6 @@ final class RelationInputResolver
 
     private function uniquePlaceholder(): string
     {
-        // DataHandler's processRemapStack resolves NEW_xxx values in inline field
-        // value arrays by looking up substNEWwithIDs[$value] — but only after
-        // splitting on '_'. A plain 'NEW' + hex uniqid has no underscores,
-        // so the full string is used as the lookup key and resolves correctly.
         return 'NEW' . uniqid('', false);
     }
 }

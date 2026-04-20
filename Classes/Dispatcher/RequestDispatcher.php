@@ -179,7 +179,10 @@ final class RequestDispatcher
             $itemsPerPage = min($itemsPerPage, (int)$maxItemsPerPage);
         }
 
+        $apiPrefix = rtrim((string)$siteSettings->get('tca_api.apiPrefix', '/_api/'), '/');
+
         return $request
+            ->withAttribute('tca_api.api_prefix', $apiPrefix)
             ->withAttribute('tca_api.uid', $uid)
             ->withAttribute('tca_api.operation', $operation)
             ->withAttribute('tca_api.fields', \is_array($params['fields'] ?? null) ? $params['fields'] : [])
