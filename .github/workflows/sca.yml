@@ -28,10 +28,15 @@ jobs:
         with:
           autostart: false
 
+      # Start DDEV
+      - name: Configure and start DDEV
+        run: |
+          ddev config --project-name=tca-api-github-workflow
+          ddev start
+
       # Install dependencies
       - name: Install Composer dependencies
         run: |
-          ddev start
           ddev composer config github-oauth.github.com ${{ secrets.GITHUB_TOKEN }}
           ddev composer install
 
