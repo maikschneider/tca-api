@@ -12,6 +12,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\MathUtility;
+use TYPO3\CMS\Core\Utility\StringUtility;
 
 /**
  * Pre-processes a write request body to resolve relation fields.
@@ -51,11 +52,11 @@ use TYPO3\CMS\Core\Utility\MathUtility;
  * for violations and reject the request (422) before calling processDataMap.
  */
 #[Autoconfigure(public: true)]
-final class RelationInputResolver
+final readonly class RelationInputResolver
 {
     public function __construct(
-        private readonly AccessController $accessController,
-        private readonly FieldValidator $fieldValidator,
+        private AccessController $accessController,
+        private FieldValidator $fieldValidator,
     ) {
     }
 
@@ -125,7 +126,7 @@ final class RelationInputResolver
                         continue;
                     }
 
-                    $ph                              = $this->uniquePlaceholder();
+                    $ph                              = StringUtility::getUniqueId('NEW');
                     $childData                       = $this->prepareChildData($childData, $pid, $feUserRow, $subConfig);
                     $extraDataMap[$foreignTable][$ph] = $childData;
                     $childPlaceholders[]             = $ph;
@@ -161,7 +162,7 @@ final class RelationInputResolver
                             continue;
                         }
 
-                        $ph                              = $this->uniquePlaceholder();
+                        $ph                              = StringUtility::getUniqueId('NEW');
                         $extraDataMap[$foreignTable][$ph] = $this->prepareChildData($value, $pid, $feUserRow, $subConfig);
                         $scalarBody[$col]                = $ph;
                     }
@@ -196,7 +197,7 @@ final class RelationInputResolver
                             continue;
                         }
 
-                        $ph                              = $this->uniquePlaceholder();
+                        $ph                              = StringUtility::getUniqueId('NEW');
                         $extraDataMap[$effectiveFt][$ph] = $this->prepareChildData($item, $pid, $feUserRow, $subConfig);
                         $resolvedUids[]                  = $ph;
                     }
@@ -340,10 +341,5 @@ final class RelationInputResolver
         }
 
         return '';
-    }
-
-    private function uniquePlaceholder(): string
-    {
-        return 'NEW' . uniqid('', false);
     }
 }

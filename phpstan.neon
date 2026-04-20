@@ -15,3 +15,19 @@ parameters:
 				- Configuration
 				- Resources
 				- Tests
+
+		ignoreErrors:
+				- '#return type has no value type specified in iterable type array#'
+				- '#with no value type specified in iterable type array#'
+
+		typo3:
+				requestGetAttributeMapping:
+						tca_api.api_prefix: string
+						tca_api.uid: int|null
+						tca_api.operation: string
+						tca_api.fields: mixed
+						tca_api.page: mixed
+						tca_api.items_per_page: mixed
+						tca_api.filters: mixed
+						tca_api.order: mixed
+						tca_api.partial: mixed
