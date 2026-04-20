@@ -215,8 +215,8 @@ final class ResourceSerializer
             $relatedConfig = $this->buildDefaultConfig($foreignTable, $columnDef);
         }
 
-        $resourceName = $columnDef->resourceName ?? ($relatedConfig?->resourceName ?? $foreignTable);
-        $resourceType = $columnDef->resourceType ?? ($relatedConfig?->resourceType ?? $foreignTable);
+        $resourceName = $columnDef->resourceName ?? ($relatedConfig->resourceName ?? $foreignTable);
+        $resourceType = $columnDef->resourceType ?? ($relatedConfig->resourceType ?? $foreignTable);
 
         if ($effectiveDepth <= 0 || isset($visited[$foreignTable . ':' . $fkValue]) || $relatedConfig === null) {
             return $this->buildStub($resourceName, $resourceType, $fkValue, $apiPrefix);
@@ -296,8 +296,8 @@ final class ResourceSerializer
             $relatedConfig = $this->buildDefaultConfig($foreignTable, $columnDef);
         }
 
-        $resourceName = $columnDef->resourceName ?? ($relatedConfig?->resourceName ?? $foreignTable);
-        $resourceType = $columnDef->resourceType ?? ($relatedConfig?->resourceType ?? $foreignTable);
+        $resourceName = $columnDef->resourceName ?? ($relatedConfig->resourceName ?? $foreignTable);
+        $resourceType = $columnDef->resourceType ?? ($relatedConfig->resourceType ?? $foreignTable);
 
         if ($effectiveDepth <= 0 || $relatedConfig === null) {
             return array_map(fn (array $r) => $this->buildStub($resourceName, $resourceType, (int)$r['uid'], $apiPrefix), $relatedRows);
@@ -462,8 +462,8 @@ final class ResourceSerializer
 
         return array_map(function (array $item) use ($columnDef, $config, $apiPrefix): array {
             $relatedConfig = $this->resolveRelatedConfig($item['table'], $config);
-            $resourceName  = $columnDef->resourceName ?? ($relatedConfig?->resourceName ?? $item['table']);
-            $resourceType  = $columnDef->resourceType ?? ($relatedConfig?->resourceType ?? $item['table']);
+            $resourceName  = $columnDef->resourceName ?? ($relatedConfig->resourceName ?? $item['table']);
+            $resourceType  = $columnDef->resourceType ?? ($relatedConfig->resourceType ?? $item['table']);
             return $this->buildStub($resourceName, $resourceType, $item['uid'], $apiPrefix);
         }, $items);
     }
@@ -510,8 +510,8 @@ final class ResourceSerializer
         return ApiDefinition::fromArray([
             'general' => [
                 'table'        => $foreignTable,
-                'resourceName' => $columnDef?->resourceName ?? $foreignTable,
-                'resourceType' => $columnDef?->resourceType ?? $foreignTable,
+                'resourceName' => $columnDef->resourceName ?? $foreignTable,
+                'resourceType' => $columnDef->resourceType ?? $foreignTable,
                 'operations'   => [],
             ],
             'columns' => [],

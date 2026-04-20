@@ -41,7 +41,7 @@ final class RequestDispatcher
         $method        = strtoupper($request->getMethod());
         $prefixWithout = rtrim((string)$siteSettings->get('tca_api.apiPrefix'), '/');
         $segments      = explode('/', trim(substr($request->getUri()->getPath(), \strlen($prefixWithout)), '/'));
-        $resource      = $segments[0] ?? '';
+        $resource      = $segments[0];
         $uid           = isset($segments[1]) && $segments[1] !== '' ? (int)$segments[1] : null;
 
         if ($resource === self::RESOURCE_OPENAPI) {

@@ -243,8 +243,6 @@ final class CollectionFilteringTest extends ApiFunctionalTestCase
         if ($filtersParam !== null) {
             $properties = $filtersParam['schema']['properties'] ?? [];
             self::assertArrayNotHasKey('color_id', $properties, 'Private filter "color_id" must not appear in OpenAPI spec');
-        } else {
-            self::assertTrue(true); // No filters param at all — also correct
         }
     }
 }

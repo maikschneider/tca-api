@@ -58,11 +58,6 @@ final class RangeFilterTest extends ApiFunctionalTestCase
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
-    private function getColorIds(array $body): array
-    {
-        return array_column($body['hydra:member'], 'color');
-    }
-
     private function getUids(array $body): array
     {
         return array_column($body['hydra:member'], 'uid');
