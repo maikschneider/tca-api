@@ -35,7 +35,7 @@ jobs:
 
       - name: Configure and start DDEV
         run: |
-          ddev config --project-name=tca-api-github-workflow --project-type=typo3 --php-version=${{ matrix.php-version }}
+          ddev config --project-type=typo3 --php-version=${{ matrix.php-version }}
           ddev start
 
       # Install dependencies
