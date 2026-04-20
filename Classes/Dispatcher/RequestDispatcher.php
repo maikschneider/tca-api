@@ -69,7 +69,7 @@ final class RequestDispatcher
             return $this->serveSwaggerUi($prefixWithout);
         }
 
-        if (!$this->isResourceAllowed($resource, $siteSettings)) {
+        if (!$this->isResourceInSiteAllowed($resource, $siteSettings)) {
             return $this->notFound();
         }
 
@@ -141,7 +141,7 @@ final class RequestDispatcher
         return $this->dataRepository->findById($config['general']['table'], $uid, $config) ?? false;
     }
 
-    private function isResourceAllowed(string $resource, SiteSettings $siteSettings): bool
+    private function isResourceInSiteAllowed(string $resource, SiteSettings $siteSettings): bool
     {
         $allowed = GeneralUtility::trimExplode(',', (string)$siteSettings->get('tca_api.allowedResources', ''), true);
         return $allowed === [] || \in_array($resource, $allowed, true);
