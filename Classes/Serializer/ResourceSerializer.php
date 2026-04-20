@@ -171,10 +171,10 @@ final class ResourceSerializer
         $fileRefs  = $this->fileRepository->findByRelation($table, $column, $uid);
 
         if (($field->getConfiguration()['maxitems'] ?? 0) === 1) {
-            return isset($fileRefs[0]) ? $processor->process($fileRefs[0], $columnDef->toArray()) : null;
+            return isset($fileRefs[0]) ? $processor->process($fileRefs[0], $columnDef) : null;
         }
 
-        return array_map(fn ($ref) => $processor->process($ref, $columnDef->toArray()), $fileRefs);
+        return array_map(fn ($ref) => $processor->process($ref, $columnDef), $fileRefs);
     }
 
     // ── HasOne ────────────────────────────────────────────────────────────────
@@ -557,7 +557,7 @@ final class ResourceSerializer
         /** @var ColumnProcessorInterface $processor */
         $processor = GeneralUtility::makeInstance($columnDef->processor);
 
-        return $processor->process($value, $columnDef->toArray(), ['serializedRow' => $serializedRow, 'rawRow' => $rawRow]);
+        return $processor->process($value, $columnDef, ['serializedRow' => $serializedRow, 'rawRow' => $rawRow]);
     }
 
     private function resolveFileProcessor(ColumnDefinition $columnDef): FileProcessorInterface

@@ -72,7 +72,7 @@ final readonly class ColumnDefinition
 
     /**
      * Resolves the embed depth from the embed config value.
-     * null/false → 0; true → 1; ['depth' => N] → N; ['maxDepth' => N] → N (legacy).
+     * null/false → 0; true → 1; ['depth' => N] → N.
      */
     public function embedDepth(): int
     {
@@ -83,51 +83,10 @@ final readonly class ColumnDefinition
             return 1;
         }
         if (\is_array($this->embed)) {
-            return max(0, (int)($this->embed['depth'] ?? $this->embed['maxDepth'] ?? 1));
+            return (int)($this->embed['depth'] ?? 1);
         }
 
         return 0;
-    }
-
-    /**
-     * Returns a plain array representation, for passing to legacy column processor interfaces.
-     */
-    public function toArray(): array
-    {
-        $result = [];
-
-        if ($this->groups !== null) {
-            $result['groups'] = $this->groups;
-        }
-        if ($this->type !== null) {
-            $result['type'] = $this->type;
-        }
-        if ($this->required) {
-            $result['required'] = $this->required;
-        }
-        if ($this->embed !== null) {
-            $result['embed'] = $this->embed;
-        }
-        if ($this->processor !== null) {
-            $result['processor'] = $this->processor;
-        }
-        if ($this->resourceName !== null) {
-            $result['resourceName'] = $this->resourceName;
-        }
-        if ($this->resourceType !== null) {
-            $result['resourceType'] = $this->resourceType;
-        }
-        if ($this->validators !== []) {
-            $result['validators'] = $this->validators;
-        }
-        if ($this->column !== null) {
-            $result['column'] = $this->column;
-        }
-        if ($this->callback !== null) {
-            $result['callback'] = $this->callback;
-        }
-
-        return $result;
     }
 
     public static function fromArray(array $raw): self
