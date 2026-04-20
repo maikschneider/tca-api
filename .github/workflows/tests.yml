@@ -15,7 +15,7 @@ permissions:
 jobs:
   tests:
     name: Tests (PHP ${{ matrix.php-version }}, TYPO3 ${{ matrix.typo3-version }})
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     strategy:
       fail-fast: false
       matrix:
