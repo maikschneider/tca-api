@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Collection;
 
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Functional tests for collection pagination.
@@ -41,5 +42,24 @@ final class CollectionPaginationTest extends ApiFunctionalTestCase
         self::assertCount(1, $body['hydra:member']);
         self::assertSame('Third Article', $body['hydra:member'][0]['title']);
         self::assertNull($body['hydra:view']['hydra:next'] ?? null);
+    }
+
+    public static function invalidItemsPerPageProvider(): iterable
+    {
+        yield 'zero' => [0];
+        yield 'negative' => [-5];
+    }
+
+    #[DataProvider('invalidItemsPerPageProvider')]
+    public function testInvalidItemsPerPageIsClampedToOne(int $invalidValue): void
+    {
+        $response = $this->executeApiRequest('/_api/articles', ['itemsPerPage' => $invalidValue]);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertArrayHasKey('hydra:member', $body);
+        self::assertCount(1, $body['hydra:member']);
+        self::assertSame(3, $body['hydra:totalItems']);
+        self::assertStringContainsString('itemsPerPage=1', $body['hydra:view']['hydra:first']);
     }
 }

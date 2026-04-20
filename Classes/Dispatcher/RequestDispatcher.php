@@ -167,7 +167,7 @@ final class RequestDispatcher
     {
         $params = $request->getQueryParams();
         $defaultItemsPerPage = (int)$siteSettings->get('tca_api.defaultItemsPerPage', self::DEFAULT_ITEMS_PER_PAGE);
-        $itemsPerPage = (int)($params['itemsPerPage'] ?? $config->itemsPerPage ?? $defaultItemsPerPage);
+        $itemsPerPage = max(1, (int)($params['itemsPerPage'] ?? $config->itemsPerPage ?? $defaultItemsPerPage));
         if ($config->maxItemsPerPage !== null) {
             $itemsPerPage = min($itemsPerPage, $config->maxItemsPerPage);
         }
