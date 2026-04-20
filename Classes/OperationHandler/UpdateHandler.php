@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\OperationHandler;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\DataWriteService;
 use MaikSchneider\TcaApi\DataAccess\RelationInputResolver;
@@ -35,12 +36,12 @@ class UpdateHandler implements OperationHandlerInterface
     ) {
     }
 
-    public function supports(ServerRequestInterface $request, string $operation, array $config): bool
+    public function supports(ServerRequestInterface $request, string $operation, ApiDefinition $config): bool
     {
         return $operation === 'update';
     }
 
-    public function handle(ServerRequestInterface $request, array $config): ResponseInterface
+    public function handle(ServerRequestInterface $request, ApiDefinition $config): ResponseInterface
     {
         $uid     = (int)$request->getAttribute('tca_api.uid');
         $partial = (bool)$request->getAttribute('tca_api.partial', false);
@@ -53,11 +54,9 @@ class UpdateHandler implements OperationHandlerInterface
         return 10;
     }
 
-    private function doHandle(ServerRequestInterface $request, array $config, int $uid, bool $partial = false): ResponseInterface
+    private function doHandle(ServerRequestInterface $request, ApiDefinition $config, int $uid, bool $partial = false): ResponseInterface
     {
-        $table = $config['general']['table'];
-
-        if ($this->dataRepository->findById($table, $uid, $config) === null) {
+        if ($this->dataRepository->findById($config->table, $uid, $config) === null) {
             return $this->responseFactory->createResponse(404)
                 ->withHeader('Content-Type', 'application/ld+json');
         }
@@ -74,30 +73,28 @@ class UpdateHandler implements OperationHandlerInterface
             return $this->hydraResponseBuilder->buildValidationError($violations);
         }
 
-        $pid = $config['general']['defaultPid'] ?? 1;
-
         // Resolve relation fields. Security + validation on nested child objects
         // is enforced inside resolve(); violations bubble up here.
-        $resolved = $this->relationResolver->resolve($body, $table, $pid, $request);
+        $resolved = $this->relationResolver->resolve($body, $config->table, $config->defaultPid, $request);
         if ($resolved->violations !== []) {
             return $this->hydraResponseBuilder->buildValidationError($resolved->violations);
         }
 
         $data = $this->filterWritableColumns($resolved->scalarBody, $config);
 
-        $beforeEvent = new BeforeWriteEvent($table, 'update', $data);
+        $beforeEvent = new BeforeWriteEvent($config->table, 'update', $data);
         $this->eventDispatcher->dispatch($beforeEvent);
         $data = $beforeEvent->getData();
 
         // Single DataHandler call: parent update + any new related records.
-        $dataMap = [$table => [$uid => $data]] + $resolved->extraDataMap;
+        $dataMap = [$config->table => [$uid => $data]] + $resolved->extraDataMap;
         $this->writeService->processDataMap($dataMap);
 
-        $this->eventDispatcher->dispatch(new AfterWriteEvent($table, 'update', $uid));
+        $this->eventDispatcher->dispatch(new AfterWriteEvent($config->table, 'update', $uid));
 
-        $row       = $this->dataRepository->findById($table, $uid, $config);
+        $row       = $this->dataRepository->findById($config->table, $uid, $config);
         $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
-        $baseUrl   = $apiPrefix . '/' . $config['general']['resourceName'];
+        $baseUrl   = $apiPrefix . '/' . $config->resourceName;
 
         return $this->hydraResponseBuilder->buildItem(
             $this->serializer->serialize($row, $config, $baseUrl),

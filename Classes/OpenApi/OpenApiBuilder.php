@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\OpenApi;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
@@ -37,36 +39,35 @@ readonly class OpenApiBuilder
         return $spec;
     }
 
+    /** @param array<string, ApiDefinition> $resources */
     private function buildPaths(array $resources): array
     {
         $paths = [];
 
         foreach ($resources as $resourceName => $config) {
-            $operations = $config['general']['operations'] ?? [];
             $collectionPath = $this->settings->get('tca_api.apiPrefix') . $resourceName;
             $itemPath = $this->settings->get('tca_api.apiPrefix') . $resourceName . '/{uid}';
-            $resourceType = $config['general']['resourceType'] ?? $resourceName;
 
             $collectionItem = [];
-            if (\in_array('list', $operations, true)) {
-                $collectionItem['get'] = $this->buildListOperation($resourceName, $resourceType, $config);
+            if ($config->hasOperation('list')) {
+                $collectionItem['get'] = $this->buildListOperation($resourceName, $config->resourceType, $config);
             }
-            if (\in_array('create', $operations, true)) {
-                $collectionItem['post'] = $this->buildCreateOperation($resourceName, $resourceType, $config);
+            if ($config->hasOperation('create')) {
+                $collectionItem['post'] = $this->buildCreateOperation($resourceName, $config->resourceType, $config);
             }
             if ($collectionItem !== []) {
                 $paths[$collectionPath] = $collectionItem;
             }
 
             $itemItem = [];
-            if (\in_array('show', $operations, true)) {
-                $itemItem['get'] = $this->buildShowOperation($resourceName, $resourceType, $config);
+            if ($config->hasOperation('show')) {
+                $itemItem['get'] = $this->buildShowOperation($resourceName, $config->resourceType, $config);
             }
-            if (\in_array('update', $operations, true)) {
-                $itemItem['put'] = $this->buildUpdateOperation($resourceName, $resourceType, $config, partial: false);
-                $itemItem['patch'] = $this->buildUpdateOperation($resourceName, $resourceType, $config, partial: true);
+            if ($config->hasOperation('update')) {
+                $itemItem['put'] = $this->buildUpdateOperation($resourceName, $config->resourceType, $config, partial: false);
+                $itemItem['patch'] = $this->buildUpdateOperation($resourceName, $config->resourceType, $config, partial: true);
             }
-            if (\in_array('delete', $operations, true)) {
+            if ($config->hasOperation('delete')) {
                 $itemItem['delete'] = $this->buildDeleteOperation($resourceName, $config);
             }
             if ($itemItem !== []) {
@@ -93,14 +94,12 @@ readonly class OpenApiBuilder
         return str_replace(' ', '', ucwords(str_replace('-', ' ', $resourceName)));
     }
 
-    private function buildListOperation(string $resourceName, string $resourceType, array $config): array
+    private function buildListOperation(string $resourceName, string $resourceType, ApiDefinition $config): array
     {
-        $accessRole = $this->accessRoleValue($config['security']['list'] ?? null);
-
         return [
             'summary' => 'List ' . $resourceType . ' collection',
             'operationId' => 'list' . $this->toPascalCase($resourceName),
-            'x-typo3-access-role' => $accessRole,
+            'x-typo3-access-role' => $this->accessRoleValue($config->securityRole('list')),
             'parameters' => $this->buildQueryParams($resourceName, $config),
             'responses' => [
                 '200' => [
@@ -116,14 +115,12 @@ readonly class OpenApiBuilder
         ];
     }
 
-    private function buildShowOperation(string $resourceName, string $resourceType, array $config): array
+    private function buildShowOperation(string $resourceName, string $resourceType, ApiDefinition $config): array
     {
-        $accessRole = $this->accessRoleValue($config['security']['show'] ?? null);
-
         return [
             'summary' => 'Get single ' . $resourceType,
             'operationId' => 'show' . $this->toPascalCase($resourceName),
-            'x-typo3-access-role' => $accessRole,
+            'x-typo3-access-role' => $this->accessRoleValue($config->securityRole('show')),
             'parameters' => [
                 [
                     'name' => 'fields',
@@ -148,14 +145,12 @@ readonly class OpenApiBuilder
         ];
     }
 
-    private function buildCreateOperation(string $resourceName, string $resourceType, array $config): array
+    private function buildCreateOperation(string $resourceName, string $resourceType, ApiDefinition $config): array
     {
-        $accessRole = $this->accessRoleValue($config['security']['create'] ?? null);
-
         return [
             'summary' => 'Create ' . $resourceType,
             'operationId' => 'create' . $this->toPascalCase($resourceName),
-            'x-typo3-access-role' => $accessRole,
+            'x-typo3-access-role' => $this->accessRoleValue($config->securityRole('create')),
             'requestBody' => [
                 'required' => true,
                 'content' => [
@@ -189,15 +184,14 @@ readonly class OpenApiBuilder
         ];
     }
 
-    private function buildUpdateOperation(string $resourceName, string $resourceType, array $config, bool $partial): array
+    private function buildUpdateOperation(string $resourceName, string $resourceType, ApiDefinition $config, bool $partial): array
     {
-        $accessRole = $this->accessRoleValue($config['security']['update'] ?? null);
         $method = $partial ? 'Partially update' : 'Update';
 
         return [
             'summary' => $method . ' ' . $resourceType,
             'operationId' => ($partial ? 'patch' : 'update') . $this->toPascalCase($resourceName),
-            'x-typo3-access-role' => $accessRole,
+            'x-typo3-access-role' => $this->accessRoleValue($config->securityRole('update')),
             'requestBody' => [
                 'required' => true,
                 'content' => [
@@ -229,14 +223,12 @@ readonly class OpenApiBuilder
         ];
     }
 
-    private function buildDeleteOperation(string $resourceName, array $config): array
+    private function buildDeleteOperation(string $resourceName, ApiDefinition $config): array
     {
-        $accessRole = $this->accessRoleValue($config['security']['delete'] ?? null);
-
         return [
             'summary' => 'Delete resource',
             'operationId' => 'delete' . $this->toPascalCase($resourceName),
-            'x-typo3-access-role' => $accessRole,
+            'x-typo3-access-role' => $this->accessRoleValue($config->securityRole('delete')),
             'responses' => [
                 '204' => ['description' => 'Deleted'],
                 '403' => ['description' => 'Forbidden'],
@@ -245,17 +237,16 @@ readonly class OpenApiBuilder
         ];
     }
 
-    private function buildQueryParams(string $resourceName, array $config): array
+    private function buildQueryParams(string $resourceName, ApiDefinition $config): array
     {
         $params = [
             ['name' => 'page', 'in' => 'query', 'schema' => ['type' => 'integer', 'minimum' => 1, 'default' => 1]],
-            ['name' => 'itemsPerPage', 'in' => 'query', 'schema' => ['type' => 'integer', 'minimum' => 1, 'default' => $config['general']['itemsPerPage'] ?? 20]],
+            ['name' => 'itemsPerPage', 'in' => 'query', 'schema' => ['type' => 'integer', 'minimum' => 1, 'default' => $config->itemsPerPage]],
         ];
 
-        $filterFields = $config['filters'] ?? [];
-        if ($filterFields !== []) {
+        if ($config->filters !== []) {
             $filterProperties = [];
-            foreach ($filterFields as $field => $filterConfig) {
+            foreach ($config->filters as $field => $filterConfig) {
                 $options = is_array($filterConfig) ? ($filterConfig[1] ?? []) : [];
                 if ($options['private'] ?? false) {
                     continue;
@@ -273,10 +264,9 @@ readonly class OpenApiBuilder
             ];
         }
 
-        $allowedOrder = $config['order']['allowed'] ?? [];
-        if ($allowedOrder !== []) {
+        if ($config->allowedOrder !== []) {
             $orderProperties = [];
-            foreach ($allowedOrder as $field) {
+            foreach ($config->allowedOrder as $field) {
                 $orderProperties[$field] = ['type' => 'string', 'enum' => ['asc', 'desc']];
             }
             $params[] = [
@@ -299,6 +289,7 @@ readonly class OpenApiBuilder
         return $params;
     }
 
+    /** @param array<string, ApiDefinition> $resources */
     private function buildSchemas(array $resources): array
     {
         $schemas = [
@@ -321,73 +312,66 @@ readonly class OpenApiBuilder
         ];
 
         foreach ($resources as $resourceName => $config) {
-            $resourceType = $config['general']['resourceType'] ?? $resourceName;
-
-            $schemas[$resourceType . 'Read'] = $this->buildReadSchema($resourceType, $config);
-            $schemas[$resourceType . 'Write'] = $this->buildWriteSchema($config);
-            $schemas[$resourceType . 'Collection'] = $this->buildCollectionSchema($resourceType);
+            $schemas[$config->resourceType . 'Read'] = $this->buildReadSchema($config);
+            $schemas[$config->resourceType . 'Write'] = $this->buildWriteSchema($config);
+            $schemas[$config->resourceType . 'Collection'] = $this->buildCollectionSchema($config->resourceType);
         }
 
         return $schemas;
     }
 
-    private function buildReadSchema(string $resourceType, array $config): array
+    private function buildReadSchema(ApiDefinition $config): array
     {
         $properties = [
-            '@type' => ['type' => 'string', 'example' => $resourceType],
+            '@type' => ['type' => 'string', 'example' => $config->resourceType],
             '@id' => ['type' => 'string'],
             'uid' => ['type' => 'integer'],
         ];
 
-        $table      = $config['general']['table'];
-        $isExplicit = TcaColumnDiscovery::isExplicitMode($config);
-
-        if (!$isExplicit) {
-            foreach (TcaColumnDiscovery::getExposableColumnNames($table) as $column) {
-                $columnConfig = ($config['columns'] ?? [])[$column] ?? [];
-                $properties[$column] = $this->buildPropertySchema($columnConfig);
+        if (!$config->isExplicitMode) {
+            foreach (TcaColumnDiscovery::getExposableColumnNames($config->table) as $column) {
+                $columnDef = $config->columns[$column] ?? new ColumnDefinition(groups: null);
+                $properties[$column] = $this->buildPropertySchema($columnDef);
             }
         } else {
-            foreach ($config['columns'] ?? [] as $column => $columnConfig) {
-                if (!TcaColumnDiscovery::isColumnReadable($columnConfig)) {
+            foreach ($config->columns as $column => $columnDef) {
+                if (!$columnDef->isReadable()) {
                     continue;
                 }
-                $properties[$column] = $this->buildPropertySchema($columnConfig);
+                $properties[$column] = $this->buildPropertySchema($columnDef);
             }
         }
 
         return ['type' => 'object', 'properties' => $properties];
     }
 
-    private function buildWriteSchema(array $config): array
+    private function buildWriteSchema(ApiDefinition $config): array
     {
         $properties = [];
         $required   = [];
-        $table      = $config['general']['table'];
-        $isExplicit = TcaColumnDiscovery::isExplicitMode($config);
 
-        if (!$isExplicit) {
-            foreach (TcaColumnDiscovery::getExposableColumnNames($table) as $column) {
-                $columnConfig = $config['columns'][$column] ?? [];
-                $propSchema   = $this->buildPropertySchema($columnConfig);
-                $propSchema   = array_merge($propSchema, $this->mapValidators($columnConfig['validators'] ?? []));
+        if (!$config->isExplicitMode) {
+            foreach (TcaColumnDiscovery::getExposableColumnNames($config->table) as $column) {
+                $columnDef  = $config->columns[$column] ?? new ColumnDefinition(groups: null);
+                $propSchema = $this->buildPropertySchema($columnDef);
+                $propSchema = array_merge($propSchema, $this->mapValidators($columnDef->validators));
                 $properties[$column] = $propSchema;
 
-                if ($columnConfig['required'] ?? false) {
+                if ($columnDef->required) {
                     $required[] = $column;
                 }
             }
         } else {
-            foreach ($config['columns'] ?? [] as $column => $columnConfig) {
-                if (!TcaColumnDiscovery::isColumnWritable($columnConfig)) {
+            foreach ($config->columns as $column => $columnDef) {
+                if (!$columnDef->isWritable()) {
                     continue;
                 }
 
-                $propSchema = $this->buildPropertySchema($columnConfig);
-                $propSchema = array_merge($propSchema, $this->mapValidators($columnConfig['validators'] ?? []));
+                $propSchema = $this->buildPropertySchema($columnDef);
+                $propSchema = array_merge($propSchema, $this->mapValidators($columnDef->validators));
                 $properties[$column] = $propSchema;
 
-                if ($columnConfig['required'] ?? false) {
+                if ($columnDef->required) {
                     $required[] = $column;
                 }
             }
@@ -428,9 +412,9 @@ readonly class OpenApiBuilder
         ];
     }
 
-    private function buildPropertySchema(array $columnConfig): array
+    private function buildPropertySchema(ColumnDefinition $columnDef): array
     {
-        $type = $this->columnTypeToJsonType($columnConfig['type'] ?? '');
+        $type = $this->columnTypeToJsonType($columnDef->type ?? '');
         return ['type' => $type];
     }
 

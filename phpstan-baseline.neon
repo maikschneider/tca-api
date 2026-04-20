@@ -7,7 +7,37 @@ parameters:
 			path: Classes/Dispatcher/RequestDispatcher.php
 
 		-
+			message: '#^Property MaikSchneider\\TcaApi\\Configuration\\ApiDefinition\:\:\$itemsPerPage \(int\) on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.property
+			count: 1
+			path: Classes/Dispatcher/RequestDispatcher.php
+
+		-
 			message: '#^Call to an undefined method TYPO3\\CMS\\Core\\Schema\\Field\\RelationalFieldTypeInterface\:\:getConfiguration\(\)\.$#'
 			identifier: method.notFound
 			count: 3
 			path: Classes/Serializer/ResourceSerializer.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>resourceName" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 4
+			path: Classes/Serializer/ResourceSerializer.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>resourceType" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 4
+			path: Classes/Serializer/ResourceSerializer.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertTrue\(\) with true will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 1
+			path: Tests/Functional/Api/Collection/CollectionFilteringTest.php
+
+		-
+			message: '#^Method MaikSchneider\\TcaApi\\Tests\\Functional\\Api\\Collection\\RangeFilterTest\:\:getColorIds\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: Tests/Functional/Api/Collection/RangeFilterTest.php

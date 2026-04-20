@@ -7,7 +7,6 @@ namespace MaikSchneider\TcaApi\Tests\Functional\Api\Collection;
 use MaikSchneider\TcaApi\Filter\ExactFilter;
 use MaikSchneider\TcaApi\Filter\PartialFilter;
 use MaikSchneider\TcaApi\Filter\WordStartFilter;
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -68,13 +67,12 @@ final class CollectionFilteringTest extends ApiFunctionalTestCase
 
     private function registerPartialArticles(): void
     {
-        ApiRegistry::register('partial-articles', [
+        $this->registerResource('partial-articles', [
             'general' => [
                 'table' => 'tx_myext_domain_model_article',
                 'resourceName' => 'partial-articles',
                 'resourceType' => 'Article',
                 'operations' => ['list'],
-                'itemsPerPage' => 20,
             ],
             'columns' => ['title' => ['type' => 'string', 'groups' => ['list', 'show']]],
             'filters' => ['title' => PartialFilter::class],
@@ -105,13 +103,12 @@ final class CollectionFilteringTest extends ApiFunctionalTestCase
 
     private function registerWordStartArticles(): void
     {
-        ApiRegistry::register('ws-articles', [
+        $this->registerResource('ws-articles', [
             'general' => [
                 'table' => 'tx_myext_domain_model_article',
                 'resourceName' => 'ws-articles',
                 'resourceType' => 'Article',
                 'operations' => ['list'],
-                'itemsPerPage' => 20,
             ],
             'columns' => ['title' => ['type' => 'string', 'groups' => ['list', 'show']]],
             'filters' => ['title' => WordStartFilter::class],
@@ -143,13 +140,12 @@ final class CollectionFilteringTest extends ApiFunctionalTestCase
 
     private function registerDefaultFilterArticles(): void
     {
-        ApiRegistry::register('default-filter-articles', [
+        $this->registerResource('default-filter-articles', [
             'general' => [
                 'table' => 'tx_myext_domain_model_article',
                 'resourceName' => 'default-filter-articles',
                 'resourceType' => 'Article',
                 'operations' => ['list'],
-                'itemsPerPage' => 20,
             ],
             'columns' => ['title' => ['type' => 'string', 'groups' => ['list']], 'color_id' => ['groups' => ['list']]],
             'filters' => ['color_id' => [ExactFilter::class, ['default' => '1']]],
@@ -183,13 +179,12 @@ final class CollectionFilteringTest extends ApiFunctionalTestCase
 
     private function registerPrivateFilterArticles(): void
     {
-        ApiRegistry::register('private-filter-articles', [
+        $this->registerResource('private-filter-articles', [
             'general' => [
                 'table' => 'tx_myext_domain_model_article',
                 'resourceName' => 'private-filter-articles',
                 'resourceType' => 'Article',
                 'operations' => ['list'],
-                'itemsPerPage' => 20,
             ],
             'columns' => ['title' => ['type' => 'string', 'groups' => ['list']], 'color_id' => ['groups' => ['list']]],
             'filters' => ['color_id' => [ExactFilter::class, ['default' => '1', 'private' => true]]],

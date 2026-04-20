@@ -4,30 +4,35 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Registry;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+
 final class ApiRegistry
 {
+    /** @var array<string, ApiDefinition> */
     private static array $resources = [];
 
-    public static function register(string $resourceName, array $config): void
+    public static function register(string $resourceName, ApiDefinition $definition): void
     {
-        self::$resources[$resourceName] = $config;
+        self::$resources[$resourceName] = $definition;
     }
 
-    public static function get(string $resourceName): ?array
+    public static function get(string $resourceName): ?ApiDefinition
     {
         return self::$resources[$resourceName] ?? null;
     }
 
-    public static function getByTable(string $table): ?array
+    public static function getByTable(string $table): ?ApiDefinition
     {
-        foreach (self::$resources as $config) {
-            if (($config['general']['table'] ?? '') === $table) {
-                return $config;
+        foreach (self::$resources as $definition) {
+            if ($definition->table === $table) {
+                return $definition;
             }
         }
+
         return null;
     }
 
+    /** @return array<string, ApiDefinition> */
     public static function getAll(): array
     {
         return self::$resources;

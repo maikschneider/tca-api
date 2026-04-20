@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Write;
 
-use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
@@ -357,17 +356,11 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
                 'resourceName' => 'colors-with-ownership',
                 'resourceType' => 'Color',
                 'operations'   => ['list', 'show', 'create'],
-                'itemsPerPage' => 20,
             ],
             'columns' => [
                 'name'               => ['groups' => ['list', 'show', 'create']],
                 'hex'                => ['groups' => ['list', 'show', 'create']],
                 'foreign_article_id' => ['groups' => ['create']],
-            ],
-            'security'  => [
-                'list'   => AccessRole::PUBLIC,
-                'show'   => AccessRole::PUBLIC,
-                'create' => AccessRole::PUBLIC,
             ],
             'ownership' => ['column' => $ownerColumn],
         ];
@@ -378,7 +371,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
 
         // Register FIRST — Bootstrap::init() will later re-register file-based
         // resources in-place (preserving order) but never touches this key.
-        ApiRegistry::register('colors-with-ownership', $ownedConfig);
+        $this->registerResource('colors-with-ownership', $ownedConfig);
 
         foreach ($snapshot as $name => $config) {
             ApiRegistry::register($name, $config);

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\DataAccess;
 
-use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use TYPO3\CMS\Core\Schema\Field\FileFieldType;
 use TYPO3\CMS\Core\Schema\Field\GroupFieldType;
 use TYPO3\CMS\Core\Schema\Field\RelationalFieldTypeInterface;
@@ -34,7 +34,7 @@ final class EmbedPreloader
     ) {
     }
 
-    public function preload(array $rows, array $config): array
+    public function preload(array $rows, ApiDefinition $config): array
     {
         $preloaded = ['rows' => [], 'relations' => []];
 
@@ -42,8 +42,7 @@ final class EmbedPreloader
             return $preloaded;
         }
 
-        $table  = $config['general']['table'];
-        $schema = $this->schemaFactory->get($table);
+        $schema = $this->schemaFactory->get($config->table);
 
         // Collect UIDs for all UID-based fetches (hasOne FKs + UID-list hasMany + group UID-list).
         // Multiple columns pointing to the same foreignTable are combined into one findByIds call.
@@ -54,13 +53,12 @@ final class EmbedPreloader
             fn (int $uid) => $uid > 0,
         ));
 
-        foreach ($config['columns'] as $column => $columnConfig) {
-            $embed = $columnConfig['embed'] ?? null;
-            if ($embed === null || $embed === false) {
+        foreach ($config->columns as $column => $columnDef) {
+            if ($columnDef->embedDepth() === 0) {
                 continue;
             }
 
-            if (TcaColumnDiscovery::isExplicitMode($config) && !TcaColumnDiscovery::isColumnReadable($columnConfig)) {
+            if ($config->isExplicitMode && !$columnDef->isReadable()) {
                 continue;
             }
 

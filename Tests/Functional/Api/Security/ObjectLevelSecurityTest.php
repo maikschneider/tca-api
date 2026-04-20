@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Security;
 
 use MaikSchneider\TcaApi\Enum\AccessRole;
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 use MaikSchneider\TcaApi\Tests\Functional\Fixtures\TestOwnerChecker;
 
@@ -26,7 +25,6 @@ final class ObjectLevelSecurityTest extends ApiFunctionalTestCase
             'resourceName' => 'owned-articles',
             'resourceType' => 'Article',
             'operations'   => ['show', 'update', 'delete'],
-            'itemsPerPage' => 20,
         ],
         'columns' => [
             'title' => [
@@ -59,7 +57,7 @@ final class ObjectLevelSecurityTest extends ApiFunctionalTestCase
 
     public function testOwnerCanUpdateOwnRecord(): void
     {
-        ApiRegistry::register('owned-articles', self::BASE_CONFIG);
+        $this->registerResource('owned-articles', self::BASE_CONFIG);
 
         $response = $this->executeApiWriteRequestAs('PATCH', '/_api/owned-articles/90', 1, [
             'title' => 'Updated by Owner',
@@ -72,7 +70,7 @@ final class ObjectLevelSecurityTest extends ApiFunctionalTestCase
 
     public function testNonOwnerCannotUpdateRecord(): void
     {
-        ApiRegistry::register('owned-articles', self::BASE_CONFIG);
+        $this->registerResource('owned-articles', self::BASE_CONFIG);
 
         $response = $this->executeApiWriteRequestAs('PATCH', '/_api/owned-articles/90', 2, [
             'title' => 'Updated by Non-Owner',
@@ -85,7 +83,7 @@ final class ObjectLevelSecurityTest extends ApiFunctionalTestCase
 
     public function testOwnerCanDeleteOwnRecord(): void
     {
-        ApiRegistry::register('owned-articles', self::BASE_CONFIG);
+        $this->registerResource('owned-articles', self::BASE_CONFIG);
 
         $response = $this->executeApiWriteRequestAs('DELETE', '/_api/owned-articles/90', 1, []);
 
@@ -96,7 +94,7 @@ final class ObjectLevelSecurityTest extends ApiFunctionalTestCase
 
     public function testNonOwnerCannotDeleteRecord(): void
     {
-        ApiRegistry::register('owned-articles', self::BASE_CONFIG);
+        $this->registerResource('owned-articles', self::BASE_CONFIG);
 
         $response = $this->executeApiWriteRequestAs('DELETE', '/_api/owned-articles/90', 2, []);
 
@@ -107,7 +105,7 @@ final class ObjectLevelSecurityTest extends ApiFunctionalTestCase
 
     public function testUnauthenticatedUserCannotUpdate(): void
     {
-        ApiRegistry::register('owned-articles', self::BASE_CONFIG);
+        $this->registerResource('owned-articles', self::BASE_CONFIG);
 
         $response = $this->executeApiWriteRequest('PATCH', '/_api/owned-articles/90', [
             'title' => 'Unauthenticated',
@@ -120,7 +118,7 @@ final class ObjectLevelSecurityTest extends ApiFunctionalTestCase
 
     public function testUpdateNonExistentRecordReturns404(): void
     {
-        ApiRegistry::register('owned-articles', self::BASE_CONFIG);
+        $this->registerResource('owned-articles', self::BASE_CONFIG);
 
         $response = $this->executeApiWriteRequestAs('PATCH', '/_api/owned-articles/999', 1, [
             'title' => 'Ghost',
@@ -133,7 +131,7 @@ final class ObjectLevelSecurityTest extends ApiFunctionalTestCase
 
     public function testCallableWithoutRecordParamStillWorks(): void
     {
-        ApiRegistry::register('owned-articles', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('owned-articles', array_merge(self::BASE_CONFIG, [
             'security' => [
                 'show'   => AccessRole::PUBLIC,
                 'update' => AccessRole::PUBLIC,

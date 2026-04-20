@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Loader;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -38,7 +39,7 @@ final readonly class ApiDefinitionLoader
         }
 
         foreach ($definitions as $resourceName => $config) {
-            ApiRegistry::register($resourceName, $config);
+            ApiRegistry::register($resourceName, ApiDefinition::fromArray($config));
         }
     }
 

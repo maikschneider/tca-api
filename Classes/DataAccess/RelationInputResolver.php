@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\DataAccess;
 
-use MaikSchneider\TcaApi\Enum\AccessRole;
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Security\AccessController;
 use MaikSchneider\TcaApi\Validation\FieldValidator;
@@ -217,15 +217,15 @@ final class RelationInputResolver
     /**
      * Check whether the current request is allowed to create a child record.
      *
-     * @param array $subConfig ApiRegistry entry for the child table
+     * @param ApiDefinition $subConfig ApiRegistry entry for the child table
      * @param ServerRequestInterface $request Current request
      * @param string $col Parent column name (used for propertyPath)
      * @param int|string|null $index Array index for array paths, null for hasOne
      * @return array{propertyPath: string, message: string, code: string}|null
      */
-    private function checkChildSecurity(array $subConfig, ServerRequestInterface $request, string $col, int|string|null $index): ?array
+    private function checkChildSecurity(ApiDefinition $subConfig, ServerRequestInterface $request, string $col, int|string|null $index): ?array
     {
-        $requiredRole = $subConfig['security']['create'] ?? AccessRole::PUBLIC;
+        $requiredRole = $subConfig->securityRole('create');
         if ($this->accessController->isAllowed($requiredRole, $request)) {
             return null;
         }
@@ -242,12 +242,12 @@ final class RelationInputResolver
      * Validate child data against the child resource's config.
      *
      * @param array $childData Raw child data from the request
-     * @param array $subConfig ApiRegistry entry for the child table
+     * @param ApiDefinition $subConfig ApiRegistry entry for the child table
      * @param string $col Parent column name (used for propertyPath prefix)
      * @param int|string|null $index Array index for array paths, null for hasOne
      * @return list<array{propertyPath: string, message: string, code: string}>
      */
-    private function validateChildData(array $childData, array $subConfig, string $col, int|string|null $index): array
+    private function validateChildData(array $childData, ApiDefinition $subConfig, string $col, int|string|null $index): array
     {
         $childViolations = $this->fieldValidator->validate($childData, $subConfig);
         if ($childViolations === []) {
@@ -269,10 +269,8 @@ final class RelationInputResolver
     /**
      * Prepare child data: set pid, strip client-provided ownership columns,
      * inject authenticated FE user as owner when sub-resource config has one.
-     *
-     * @param array|null $subConfig ApiRegistry entry for the child table, or null if unregistered
      */
-    private function prepareChildData(array $data, int $pid, ?array $feUserRow, ?array $subConfig): array
+    private function prepareChildData(array $data, int $pid, ?array $feUserRow, ?ApiDefinition $subConfig): array
     {
         $data['pid'] = $pid;
 
@@ -280,8 +278,8 @@ final class RelationInputResolver
             return $data;
         }
 
-        $ownerCol = $subConfig['ownership']['column'] ?? null;
-        $trackCol = $subConfig['ownership']['setOnCreate'] ?? null;
+        $ownerCol = $subConfig->ownershipColumn;
+        $trackCol = $subConfig->ownershipSetOnCreate;
 
         foreach (array_unique(array_filter([$ownerCol, $trackCol])) as $col) {
             unset($data[$col]);

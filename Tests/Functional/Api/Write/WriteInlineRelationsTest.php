@@ -45,14 +45,8 @@ final class WriteInlineRelationsTest extends ApiFunctionalTestCase
                 'resourceName' => 'inline-colors',
                 'resourceType' => 'Color',
                 'operations'   => ['list', 'show', 'create'],
-                'itemsPerPage' => 20,
             ],
             'columns' => ['name' => ['groups' => ['list', 'show', 'create']]],
-            'security' => [
-                'list'   => AccessRole::PUBLIC,
-                'show'   => AccessRole::PUBLIC,
-                'create' => AccessRole::PUBLIC,
-            ],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ];
 
@@ -60,24 +54,20 @@ final class WriteInlineRelationsTest extends ApiFunctionalTestCase
             $colorConfig['ownership'] = ['column' => 'foreign_article_id'];
         }
 
-        ApiRegistry::register('inline-colors', $colorConfig);
+        $this->registerResource('inline-colors', $colorConfig);
 
-        ApiRegistry::register('inline-articles', [
+        $this->registerResource('inline-articles', [
             'general' => [
                 'table'        => self::ARTICLE_TABLE,
                 'resourceName' => 'inline-articles',
                 'resourceType' => 'Article',
                 'operations'   => ['list', 'show', 'create', 'update'],
-                'defaultPid'   => 1,
-                'itemsPerPage' => 20,
             ],
             'columns' => [
                 'title'                => ['groups' => ['list', 'show', 'create', 'update'], 'required' => true],
                 'related_items_inline' => ['groups' => ['list', 'show', 'create', 'update']],
             ],
             'security' => [
-                'list'   => AccessRole::PUBLIC,
-                'show'   => AccessRole::PUBLIC,
                 'create' => AccessRole::FE_USER,
                 'update' => AccessRole::FE_USER,
             ],
@@ -237,21 +227,15 @@ final class WriteInlineRelationsTest extends ApiFunctionalTestCase
                 'resourceName' => 'inline-colors',
                 'resourceType' => 'Color',
                 'operations'   => ['list', 'show', 'create'],
-                'itemsPerPage' => 20,
             ],
             'columns' => ['name' => ['groups' => ['list', 'show', 'create']]],
-            'security' => [
-                'list'   => AccessRole::PUBLIC,
-                'show'   => AccessRole::PUBLIC,
-                'create' => AccessRole::PUBLIC,
-            ],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ];
 
         $snapshot = ApiRegistry::getAll();
         ApiRegistry::reset();
         // Register inline-colors FIRST so getByTable() returns it before 'colors'
-        ApiRegistry::register('inline-colors', array_replace_recursive($baseConfig, $overrides));
+        $this->registerResource('inline-colors', array_replace_recursive($baseConfig, $overrides));
         foreach ($snapshot as $name => $config) {
             if ($name !== 'inline-colors') {
                 ApiRegistry::register($name, $config);

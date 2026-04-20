@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Embed;
 
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -45,16 +44,15 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
 
     private function registerColorResource(): void
     {
-        ApiRegistry::register('embed-colors', [
+        $this->registerResource('embed-colors', [
             'general'  => [
                 'table'        => self::COLOR_TABLE,
                 'resourceName' => 'embed-colors',
                 'resourceType' => 'Color',
                 'operations'   => ['list', 'show'],
-                'itemsPerPage' => 20,
             ],
             'columns' => [
-                'name' => ['groups' => ['list', 'show'], 'required' => false],
+                'name' => ['groups' => ['list', 'show']],
             ],
             'order'   => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
@@ -62,18 +60,17 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
 
     private function registerArticleResource(array $columnOverrides = [], string $name = 'embed-articles'): void
     {
-        ApiRegistry::register($name, [
+        $this->registerResource($name, [
             'general'  => [
                 'table'        => self::ARTICLE_TABLE,
                 'resourceName' => $name,
                 'resourceType' => 'Article',
                 'operations'   => ['list', 'show'],
-                'itemsPerPage' => 20,
             ],
             'columns' => array_merge([
-                'title'     => ['groups' => ['list', 'show'], 'required' => false],
-                'color_id'  => ['groups' => ['list', 'show'], 'required' => false],
-                'parent_id' => ['groups' => ['list', 'show'], 'required' => false],
+                'title'     => ['groups' => ['list', 'show']],
+                'color_id'  => ['groups' => ['list', 'show']],
+                'parent_id' => ['groups' => ['list', 'show']],
             ], $columnOverrides),
             'order'   => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
@@ -85,7 +82,7 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerColorResource();
         $this->registerArticleResource([
-            'color_id' => ['groups' => ['list', 'show'], 'required' => false, 'embed' => true],
+            'color_id' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         $response = $this->executeApiRequest('/_api/embed-articles/50');
@@ -100,7 +97,7 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerColorResource();
         $this->registerArticleResource([
-            'color_id' => ['groups' => ['list', 'show'], 'required' => false, 'embed' => true],
+            'color_id' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         $response = $this->executeApiRequest('/_api/embed-articles/50');
@@ -113,7 +110,7 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerColorResource();
         $this->registerArticleResource([
-            'color_id' => ['groups' => ['list', 'show'], 'required' => false, 'embed' => true],
+            'color_id' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         $response = $this->executeApiRequest('/_api/embed-articles/50');
@@ -128,7 +125,7 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerColorResource();
         $this->registerArticleResource([
-            'color_id' => ['groups' => ['list', 'show'], 'required' => false, 'embed' => true],
+            'color_id' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         // uid=52 has color_id=0 (no color)
@@ -157,7 +154,7 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerColorResource();
         $this->registerArticleResource([
-            'color_id' => ['groups' => ['list', 'show'], 'required' => false, 'embed' => true],
+            'color_id' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         $response = $this->executeApiRequest('/_api/embed-articles', ['filter[uid][0]' => 50, 'filter[uid][1]' => 51]);
@@ -177,7 +174,7 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerColorResource();
         $this->registerArticleResource([
-            'color_id' => ['groups' => ['list', 'show'], 'required' => false, 'embed' => true],
+            'color_id' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         $response = $this->executeApiRequest('/_api/embed-articles');
@@ -196,7 +193,7 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerColorResource();
         $this->registerArticleResource([
-            'parent_id' => ['groups' => ['list', 'show'], 'required' => false, 'embed' => true],
+            'parent_id' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         // uid=60 has parent_id=61, uid=61 has parent_id=62
@@ -214,7 +211,7 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerColorResource();
         $this->registerArticleResource([
-            'parent_id' => ['groups' => ['list', 'show'], 'required' => false, 'embed' => ['depth' => 2]],
+            'parent_id' => ['groups' => ['list', 'show'], 'embed' => ['depth' => 2]],
         ]);
 
         // uid=60 → parent=61 → parent=62 → parent=null
@@ -234,7 +231,7 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerColorResource();
         $this->registerArticleResource([
-            'parent_id' => ['groups' => ['list', 'show'], 'required' => false, 'embed' => ['depth' => 5]],
+            'parent_id' => ['groups' => ['list', 'show'], 'embed' => ['depth' => 5]],
         ]);
 
         // uid=53 parent=54, uid=54 parent=53 (cycle)
@@ -248,7 +245,7 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerColorResource();
         $this->registerArticleResource([
-            'parent_id' => ['groups' => ['list', 'show'], 'required' => false, 'embed' => ['depth' => 5]],
+            'parent_id' => ['groups' => ['list', 'show'], 'embed' => ['depth' => 5]],
         ]);
 
         // article 53 embeds article 54, article 54's parent is article 53 (already visited → stub)

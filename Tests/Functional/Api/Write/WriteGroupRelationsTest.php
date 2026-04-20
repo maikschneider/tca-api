@@ -41,31 +41,23 @@ final class WriteGroupRelationsTest extends ApiFunctionalTestCase
 
     private function registerResources(): void
     {
-        ApiRegistry::register('grp-write-colors', [
+        $this->registerResource('grp-write-colors', [
             'general' => [
                 'table'        => self::COLOR_TABLE,
                 'resourceName' => 'grp-write-colors',
                 'resourceType' => 'Color',
                 'operations'   => ['list', 'show', 'create'],
-                'itemsPerPage' => 20,
             ],
             'columns' => ['name' => ['groups' => ['list', 'show', 'create']]],
-            'security' => [
-                'list'   => AccessRole::PUBLIC,
-                'show'   => AccessRole::PUBLIC,
-                'create' => AccessRole::PUBLIC,
-            ],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
 
-        ApiRegistry::register('grp-write-articles', [
+        $this->registerResource('grp-write-articles', [
             'general' => [
                 'table'        => self::ARTICLE_TABLE,
                 'resourceName' => 'grp-write-articles',
                 'resourceType' => 'Article',
                 'operations'   => ['list', 'show', 'create', 'update'],
-                'defaultPid'   => 1,
-                'itemsPerPage' => 20,
             ],
             'columns' => [
                 'title'          => ['groups' => ['list', 'show', 'create', 'update'], 'required' => true],
@@ -73,8 +65,6 @@ final class WriteGroupRelationsTest extends ApiFunctionalTestCase
                 'related_items'  => ['groups' => ['list', 'show', 'create', 'update']],
             ],
             'security' => [
-                'list'   => AccessRole::PUBLIC,
-                'show'   => AccessRole::PUBLIC,
                 'create' => AccessRole::FE_USER,
                 'update' => AccessRole::FE_USER,
             ],
@@ -249,21 +239,15 @@ final class WriteGroupRelationsTest extends ApiFunctionalTestCase
                 'resourceName' => 'grp-write-colors',
                 'resourceType' => 'Color',
                 'operations'   => ['list', 'show', 'create'],
-                'itemsPerPage' => 20,
             ],
             'columns' => ['name' => ['groups' => ['list', 'show', 'create']]],
-            'security' => [
-                'list'   => AccessRole::PUBLIC,
-                'show'   => AccessRole::PUBLIC,
-                'create' => AccessRole::PUBLIC,
-            ],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ];
 
         $snapshot = ApiRegistry::getAll();
         ApiRegistry::reset();
         // Register grp-write-colors FIRST so getByTable() returns it before 'colors'
-        ApiRegistry::register('grp-write-colors', array_replace_recursive($baseConfig, $overrides));
+        $this->registerResource('grp-write-colors', array_replace_recursive($baseConfig, $overrides));
         foreach ($snapshot as $name => $config) {
             if ($name !== 'grp-write-colors') {
                 ApiRegistry::register($name, $config);

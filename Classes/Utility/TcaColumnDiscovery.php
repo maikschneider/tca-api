@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Utility;
 
 /**
- * Static utility for TCA introspection — column discovery and explicit-mode detection.
+ * Static utility for TCA introspection — column discovery.
+ *
+ * The config-facing methods (isExplicitMode, isColumnReadable, isColumnWritable) have been
+ * moved to ApiDefinition::$isExplicitMode and ColumnDefinition::isReadable()/isWritable().
+ * The stubs below are kept for backward compatibility and will be removed in a future version.
  */
 final class TcaColumnDiscovery
 {
@@ -63,10 +67,7 @@ final class TcaColumnDiscovery
     }
 
     /**
-     * Returns true when any column config entry has 'groups' set,
-     * meaning the developer has opted into explicit visibility control.
-     *
-     * Columns with only 'processor', 'type', 'embed', etc. do NOT trigger explicit mode.
+     * @deprecated Use ApiDefinition::$isExplicitMode instead.
      */
     public static function isExplicitMode(array $config): bool
     {
@@ -80,9 +81,7 @@ final class TcaColumnDiscovery
     }
 
     /**
-     * Returns true when the column should accept write operations (create/update).
-     *
-     * @param string $operation 'create', 'update', or '' for any-write check
+     * @deprecated Use ColumnDefinition::isWritable() instead.
      */
     public static function isColumnWritable(array $columnConfig, string $operation = ''): bool
     {
@@ -96,11 +95,7 @@ final class TcaColumnDiscovery
     }
 
     /**
-     * Returns true when the column should be included in read responses for $operation.
-     * In explicit mode without an operation context (e.g. OpenAPI), includes if any read
-     * operation group ('list' or 'show') is present.
-     *
-     * @param string $operation 'list', 'show', or '' for any-read check (OpenAPI)
+     * @deprecated Use ColumnDefinition::isReadable() instead.
      */
     public static function isColumnReadable(array $columnConfig, string $operation = ''): bool
     {

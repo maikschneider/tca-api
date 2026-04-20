@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Embed;
 
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -39,13 +38,12 @@ final class InlineEmbedTest extends ApiFunctionalTestCase
 
     private function registerColorResource(): void
     {
-        ApiRegistry::register('inline-colors', [
+        $this->registerResource('inline-colors', [
             'general' => [
                 'table'        => self::COLOR_TABLE,
                 'resourceName' => 'inline-colors',
                 'resourceType' => 'Color',
                 'operations'   => ['list', 'show'],
-                'itemsPerPage' => 20,
             ],
             'columns' => ['name' => ['groups' => ['list', 'show']]],
             'order'   => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
@@ -54,13 +52,12 @@ final class InlineEmbedTest extends ApiFunctionalTestCase
 
     private function registerArticleResource(array $columnOverrides = []): void
     {
-        ApiRegistry::register('inline-articles', [
+        $this->registerResource('inline-articles', [
             'general' => [
                 'table'        => self::ARTICLE_TABLE,
                 'resourceName' => 'inline-articles',
                 'resourceType' => 'Article',
                 'operations'   => ['list', 'show'],
-                'itemsPerPage' => 20,
             ],
             'columns' => array_merge([
                 'title'                => ['groups' => ['list', 'show']],

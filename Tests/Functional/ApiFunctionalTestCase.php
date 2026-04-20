@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Loader\ApiDefinitionLoader;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use Psr\Http\Message\ResponseInterface;
@@ -161,6 +162,15 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
                 ->withAddedHeader('Content-Type', 'application/json')
                 ->withBody($body),
         );
+    }
+
+    /**
+     * Normalise a raw config array and register it in ApiRegistry.
+     * Use this in tests instead of ApiRegistry::register() directly.
+     */
+    protected function registerResource(string $name, array $rawConfig): void
+    {
+        ApiRegistry::register($name, ApiDefinition::fromArray($rawConfig));
     }
 
     /**

@@ -14,3 +14,4 @@ parameters:
 				- Classes
 				- Configuration
 				- Resources
+				- Tests

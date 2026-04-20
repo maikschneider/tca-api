@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Embed;
 
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -46,13 +45,12 @@ final class DeepEmbedTest extends ApiFunctionalTestCase
 
     private function registerColorResource(): void
     {
-        ApiRegistry::register('deep-colors', [
+        $this->registerResource('deep-colors', [
             'general' => [
                 'table'        => self::COLOR_TABLE,
                 'resourceName' => 'deep-colors',
                 'resourceType' => 'Color',
                 'operations'   => ['list', 'show'],
-                'itemsPerPage' => 20,
             ],
             'columns' => [
                 'name' => ['groups' => ['list', 'show']],
@@ -64,21 +62,20 @@ final class DeepEmbedTest extends ApiFunctionalTestCase
     private function registerArticleResource(array $parentIdOverride = []): void
     {
         $parentIdConfig = array_merge(
-            ['groups' => ['list', 'show'], 'required' => false],
+            ['groups' => ['list', 'show']],
             $parentIdOverride,
         );
 
-        ApiRegistry::register('deep-articles', [
+        $this->registerResource('deep-articles', [
             'general' => [
                 'table'        => self::ARTICLE_TABLE,
                 'resourceName' => 'deep-articles',
                 'resourceType' => 'Article',
                 'operations'   => ['list', 'show'],
-                'itemsPerPage' => 20,
             ],
             'columns' => [
-                'title'     => ['groups' => ['list', 'show'], 'required' => false],
-                'color_id'  => ['groups' => ['list', 'show'], 'required' => false, 'embed' => true],
+                'title'     => ['groups' => ['list', 'show']],
+                'color_id'  => ['groups' => ['list', 'show'], 'embed' => true],
                 'parent_id' => $parentIdConfig,
             ],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
@@ -238,13 +235,12 @@ final class DeepEmbedTest extends ApiFunctionalTestCase
      */
     private function registerChainResources(int $depth = 3): void
     {
-        ApiRegistry::register('chain-fe-groups', [
+        $this->registerResource('chain-fe-groups', [
             'general' => [
                 'table'        => self::FE_GROUP_TABLE,
                 'resourceName' => 'chain-fe-groups',
                 'resourceType' => 'FeGroup',
                 'operations'   => ['list', 'show'],
-                'itemsPerPage' => 20,
             ],
             'columns' => [
                 'title' => ['groups' => ['list', 'show']],
@@ -252,13 +248,12 @@ final class DeepEmbedTest extends ApiFunctionalTestCase
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
 
-        ApiRegistry::register('chain-categories', [
+        $this->registerResource('chain-categories', [
             'general' => [
                 'table'        => self::CATEGORY_TABLE,
                 'resourceName' => 'chain-categories',
                 'resourceType' => 'Category',
                 'operations'   => ['list', 'show'],
-                'itemsPerPage' => 20,
             ],
             'columns' => [
                 'title'       => ['groups' => ['list', 'show']],
@@ -267,13 +262,12 @@ final class DeepEmbedTest extends ApiFunctionalTestCase
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
 
-        ApiRegistry::register('chain-colors', [
+        $this->registerResource('chain-colors', [
             'general' => [
                 'table'        => self::COLOR_TABLE,
                 'resourceName' => 'chain-colors',
                 'resourceType' => 'ChainColor',
                 'operations'   => ['list', 'show'],
-                'itemsPerPage' => 20,
             ],
             'columns' => [
                 'name'        => ['groups' => ['list', 'show']],
@@ -282,13 +276,12 @@ final class DeepEmbedTest extends ApiFunctionalTestCase
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
 
-        ApiRegistry::register('chain-articles', [
+        $this->registerResource('chain-articles', [
             'general' => [
                 'table'        => self::ARTICLE_TABLE,
                 'resourceName' => 'chain-articles',
                 'resourceType' => 'ChainArticle',
                 'operations'   => ['list', 'show'],
-                'itemsPerPage' => 20,
             ],
             'columns' => [
                 'title'    => ['groups' => ['list', 'show']],

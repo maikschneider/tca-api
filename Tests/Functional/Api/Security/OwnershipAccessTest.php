@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Security;
 
 use MaikSchneider\TcaApi\Enum\AccessRole;
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -28,7 +27,6 @@ final class OwnershipAccessTest extends ApiFunctionalTestCase
             'resourceName' => 'owned-arts',
             'resourceType' => 'Article',
             'operations'   => ['show', 'create', 'update', 'delete'],
-            'itemsPerPage' => 20,
         ],
         'columns' => [
             'title' => [
@@ -67,7 +65,7 @@ final class OwnershipAccessTest extends ApiFunctionalTestCase
 
     public function testOwnerCanUpdate(): void
     {
-        ApiRegistry::register('owned-arts', self::OWNED_CONFIG);
+        $this->registerResource('owned-arts', self::OWNED_CONFIG);
 
         $response = $this->executeApiWriteRequestAs('PUT', '/_api/owned-arts/90', 1, ['title' => 'By Owner']);
 
@@ -76,7 +74,7 @@ final class OwnershipAccessTest extends ApiFunctionalTestCase
 
     public function testNonOwnerCannotUpdate(): void
     {
-        ApiRegistry::register('owned-arts', self::OWNED_CONFIG);
+        $this->registerResource('owned-arts', self::OWNED_CONFIG);
 
         $response = $this->executeApiWriteRequestAs('PUT', '/_api/owned-arts/90', 2, ['title' => 'By Non-Owner']);
 
@@ -85,7 +83,7 @@ final class OwnershipAccessTest extends ApiFunctionalTestCase
 
     public function testUnauthenticatedCannotUpdate(): void
     {
-        ApiRegistry::register('owned-arts', self::OWNED_CONFIG);
+        $this->registerResource('owned-arts', self::OWNED_CONFIG);
 
         $response = $this->executeApiWriteRequest('PUT', '/_api/owned-arts/90', ['title' => 'Anon']);
 
@@ -96,7 +94,7 @@ final class OwnershipAccessTest extends ApiFunctionalTestCase
 
     public function testOwnerCanDelete(): void
     {
-        ApiRegistry::register('owned-arts', self::OWNED_CONFIG);
+        $this->registerResource('owned-arts', self::OWNED_CONFIG);
 
         $response = $this->executeApiWriteRequestAs('DELETE', '/_api/owned-arts/90', 1);
 
@@ -105,7 +103,7 @@ final class OwnershipAccessTest extends ApiFunctionalTestCase
 
     public function testNonOwnerCannotDelete(): void
     {
-        ApiRegistry::register('owned-arts', self::OWNED_CONFIG);
+        $this->registerResource('owned-arts', self::OWNED_CONFIG);
 
         $response = $this->executeApiWriteRequestAs('DELETE', '/_api/owned-arts/90', 2);
 
@@ -117,7 +115,7 @@ final class OwnershipAccessTest extends ApiFunctionalTestCase
     public function testBeAdminCanUpdateWithDefaultBypass(): void
     {
         // beAdminBypass defaults to true — BE_ADMIN bypasses ownership check
-        ApiRegistry::register('owned-arts', self::OWNED_CONFIG);
+        $this->registerResource('owned-arts', self::OWNED_CONFIG);
 
         $response = $this->executeApiWriteRequestAsBackendUser('PUT', '/_api/owned-arts/90', 1, ['title' => 'Admin Update']);
 
@@ -132,7 +130,7 @@ final class OwnershipAccessTest extends ApiFunctionalTestCase
                 'beAdminBypass' => false,
             ],
         ]);
-        ApiRegistry::register('owned-arts', $config);
+        $this->registerResource('owned-arts', $config);
 
         // BE_ADMIN uid=1 is not the FE owner — bypass disabled → 403
         $response = $this->executeApiWriteRequestAsBackendUser('PUT', '/_api/owned-arts/90', 1, ['title' => 'Admin No Bypass']);
@@ -150,7 +148,6 @@ final class OwnershipAccessTest extends ApiFunctionalTestCase
                 'resourceName' => 'owned-arts',
                 'resourceType' => 'Article',
                 'operations'   => ['show', 'update'],
-                'itemsPerPage' => 20,
             ],
             'columns' => [
                 'title' => ['groups' => ['show', 'update']],
@@ -162,7 +159,7 @@ final class OwnershipAccessTest extends ApiFunctionalTestCase
                 // No 'ownership' key → isOwner() returns false
             ],
         ];
-        ApiRegistry::register('owned-arts', $config);
+        $this->registerResource('owned-arts', $config);
 
         $response = $this->executeApiWriteRequestAs('PUT', '/_api/owned-arts/90', 1, ['title' => 'Should Fail']);
 
@@ -173,7 +170,7 @@ final class OwnershipAccessTest extends ApiFunctionalTestCase
 
     public function testCreateInjectsFeUserIdServerSide(): void
     {
-        ApiRegistry::register('owned-arts', self::OWNED_CONFIG);
+        $this->registerResource('owned-arts', self::OWNED_CONFIG);
 
         $response = $this->executeApiWriteRequestAs('POST', '/_api/owned-arts', 1, ['title' => 'New Owned']);
         $body = $this->decodeResponseBody($response);
@@ -184,7 +181,7 @@ final class OwnershipAccessTest extends ApiFunctionalTestCase
 
     public function testCreateIgnoresClientSuppliedOwnershipColumn(): void
     {
-        ApiRegistry::register('owned-arts', self::OWNED_CONFIG);
+        $this->registerResource('owned-arts', self::OWNED_CONFIG);
 
         // Client tries to claim ownership as user 99 — server must overwrite with logged-in user (1)
         $response = $this->executeApiWriteRequestAs('POST', '/_api/owned-arts', 1, [
@@ -212,7 +209,7 @@ final class OwnershipAccessTest extends ApiFunctionalTestCase
                 'setOnCreate' => 'first_name',
             ],
         ]);
-        ApiRegistry::register('owned-arts', $config);
+        $this->registerResource('owned-arts', $config);
 
         $response = $this->executeApiWriteRequestAs('POST', '/_api/owned-arts', 1, ['title' => 'Tracked']);
         $body = $this->decodeResponseBody($response);
@@ -234,7 +231,7 @@ final class OwnershipAccessTest extends ApiFunctionalTestCase
                 'create' => AccessRole::PUBLIC,
             ]),
         ]);
-        ApiRegistry::register('owned-arts', $config);
+        $this->registerResource('owned-arts', $config);
 
         $response = $this->executeApiWriteRequest('POST', '/_api/owned-arts', ['title' => 'Anon Created']);
         $body = $this->decodeResponseBody($response);

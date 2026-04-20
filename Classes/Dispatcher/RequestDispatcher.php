@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Dispatcher;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Event\BeforeOperationEvent;
@@ -83,11 +84,8 @@ final class RequestDispatcher
             return $this->methodNotAllowed();
         }
 
-        if ($operation !== 'userinfo') {
-            $allowedOps = $config['general']['operations'] ?? [];
-            if (!\in_array($operation, $allowedOps, true)) {
-                return $this->methodNotAllowed($operation);
-            }
+        if ($operation !== 'userinfo' && !$config->hasOperation($operation)) {
+            return $this->methodNotAllowed($operation);
         }
 
         $existingRecord = $this->resolveExistingRecord($operation, $uid, $config);
@@ -113,18 +111,18 @@ final class RequestDispatcher
         return $this->methodNotAllowed($operation);
     }
 
-    private function resolveOperation(string $method, ?int $uid, array $config): ?string
+    private function resolveOperation(string $method, ?int $uid, ApiDefinition $config): ?string
     {
-        if (($config['general']['type'] ?? '') === 'userinfo') {
+        if ($config->isUserInfo()) {
             return $method === 'GET' ? 'userinfo' : null;
         }
 
         return match ($method) {
-            'GET'         => $uid !== null ? 'show' : 'list',
-            'POST'        => $uid === null ? 'create' : null,
+            'GET'          => $uid !== null ? 'show' : 'list',
+            'POST'         => $uid === null ? 'create' : null,
             'PUT', 'PATCH' => $uid !== null ? 'update' : null,
-            'DELETE'      => $uid !== null ? 'delete' : null,
-            default       => null,
+            'DELETE'       => $uid !== null ? 'delete' : null,
+            default        => null,
         };
     }
 
@@ -132,13 +130,13 @@ final class RequestDispatcher
      * Returns the existing record for update/delete, an empty array when no lookup is needed,
      * or false when the record does not exist (→ 404).
      */
-    private function resolveExistingRecord(string $operation, ?int $uid, array $config): array|false
+    private function resolveExistingRecord(string $operation, ?int $uid, ApiDefinition $config): array|false
     {
         if ($uid === null || !\in_array($operation, ['update', 'delete'], true)) {
             return [];
         }
 
-        return $this->dataRepository->findById($config['general']['table'], $uid, $config) ?? false;
+        return $this->dataRepository->findById($config->table, $uid, $config) ?? false;
     }
 
     private function isResourceInSiteAllowed(string $resource, SiteSettings $siteSettings): bool
@@ -147,7 +145,7 @@ final class RequestDispatcher
         return $allowed === [] || \in_array($resource, $allowed, true);
     }
 
-    private function checkAccess(string $operation, ServerRequestInterface $request, array $config, array $existingRecord, SiteSettings $siteSettings): ?ResponseInterface
+    private function checkAccess(string $operation, ServerRequestInterface $request, ApiDefinition $config, array $existingRecord, SiteSettings $siteSettings): ?ResponseInterface
     {
         if ($operation === 'userinfo') {
             $feUser = $request->getAttribute('frontend.user');
@@ -157,7 +155,7 @@ final class RequestDispatcher
             return null;
         }
 
-        $requiredRole = $config['security'][$operation] ?? AccessRole::PUBLIC;
+        $requiredRole = $config->securityRole($operation);
         if (!$this->accessController->isAllowed($requiredRole, $request, $existingRecord, $config)) {
             return $this->forbidden($operation, $siteSettings);
         }
@@ -165,14 +163,13 @@ final class RequestDispatcher
         return null;
     }
 
-    private function withRequestAttributes(ServerRequestInterface $request, string $method, ?int $uid, string $operation, array $config, SiteSettings $siteSettings): ServerRequestInterface
+    private function withRequestAttributes(ServerRequestInterface $request, string $method, ?int $uid, string $operation, ApiDefinition $config, SiteSettings $siteSettings): ServerRequestInterface
     {
         $params = $request->getQueryParams();
         $defaultItemsPerPage = (int)$siteSettings->get('tca_api.defaultItemsPerPage', self::DEFAULT_ITEMS_PER_PAGE);
-        $itemsPerPage = (int)($params['itemsPerPage'] ?? $config['general']['itemsPerPage'] ?? $defaultItemsPerPage);
-        $maxItemsPerPage = $config['general']['maxItemsPerPage'] ?? null;
-        if ($maxItemsPerPage !== null) {
-            $itemsPerPage = min($itemsPerPage, (int)$maxItemsPerPage);
+        $itemsPerPage = (int)($params['itemsPerPage'] ?? $config->itemsPerPage ?? $defaultItemsPerPage);
+        if ($config->maxItemsPerPage !== null) {
+            $itemsPerPage = min($itemsPerPage, $config->maxItemsPerPage);
         }
 
         return $request

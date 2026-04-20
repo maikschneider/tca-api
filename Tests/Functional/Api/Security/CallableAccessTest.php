@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Security;
 
-use MaikSchneider\TcaApi\Enum\AccessRole;
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 use MaikSchneider\TcaApi\Tests\Functional\Fixtures\TestCallableChecker;
 use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequest;
@@ -27,13 +25,11 @@ final class CallableAccessTest extends ApiFunctionalTestCase
             'resourceName' => 'callable-articles',
             'resourceType' => 'Article',
             'operations'   => ['list', 'show', 'create', 'update', 'delete'],
-            'itemsPerPage' => 20,
         ],
         'columns' => [
             'title' => [
-                'type'     => 'string',
-                                'groups' => ['list', 'show', 'create', 'update'],
-                'required' => false,
+                'type'   => 'string',
+                'groups' => ['list', 'show', 'create', 'update'],
             ],
         ],
         'order' => [
@@ -54,7 +50,7 @@ final class CallableAccessTest extends ApiFunctionalTestCase
 
     public function testCallableThatReturnsTrueGrantsAccessWithoutAuth(): void
     {
-        ApiRegistry::register('callable-articles', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('callable-articles', array_merge(self::BASE_CONFIG, [
             'security' => [
                 'update' => [TestCallableChecker::class, 'allowAll'],
             ],
@@ -69,7 +65,7 @@ final class CallableAccessTest extends ApiFunctionalTestCase
 
     public function testCallableThatReturnsFalseDeniesAccessWithFeUser(): void
     {
-        ApiRegistry::register('callable-articles', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('callable-articles', array_merge(self::BASE_CONFIG, [
             'security' => [
                 'update' => [TestCallableChecker::class, 'denyAll'],
             ],
@@ -84,7 +80,7 @@ final class CallableAccessTest extends ApiFunctionalTestCase
 
     public function testCallableGrantsAccessWhenCustomHeaderPresent(): void
     {
-        ApiRegistry::register('callable-articles', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('callable-articles', array_merge(self::BASE_CONFIG, [
             'security' => [
                 'update' => [TestCallableChecker::class, 'checkHeader'],
             ],
@@ -102,7 +98,7 @@ final class CallableAccessTest extends ApiFunctionalTestCase
 
     public function testCallableDeniesAccessWhenCustomHeaderAbsent(): void
     {
-        ApiRegistry::register('callable-articles', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('callable-articles', array_merge(self::BASE_CONFIG, [
             'security' => [
                 'update' => [TestCallableChecker::class, 'checkHeader'],
             ],
@@ -117,7 +113,7 @@ final class CallableAccessTest extends ApiFunctionalTestCase
 
     public function testCallableCanProtectReadOperation(): void
     {
-        ApiRegistry::register('callable-articles', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('callable-articles', array_merge(self::BASE_CONFIG, [
             'security' => [
                 'show' => [TestCallableChecker::class, 'denyAll'],
             ],
@@ -132,7 +128,7 @@ final class CallableAccessTest extends ApiFunctionalTestCase
 
     public function testCallableCanInspectFrontendUserViaRequest(): void
     {
-        ApiRegistry::register('callable-articles', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('callable-articles', array_merge(self::BASE_CONFIG, [
             'security' => [
                 'show' => [TestCallableChecker::class, 'requireFeUser'],
             ],
@@ -154,7 +150,7 @@ final class CallableAccessTest extends ApiFunctionalTestCase
 
     public function testOperationWithoutSecurityEntryIsPublic(): void
     {
-        ApiRegistry::register('callable-articles', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('callable-articles', array_merge(self::BASE_CONFIG, [
             'security' => [
                 // only update has an entry — list/show are absent → default PUBLIC
                 'update' => [TestCallableChecker::class, 'denyAll'],
@@ -170,7 +166,7 @@ final class CallableAccessTest extends ApiFunctionalTestCase
 
     public function testCallable403ResponseHasJsonLdContentType(): void
     {
-        ApiRegistry::register('callable-articles', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('callable-articles', array_merge(self::BASE_CONFIG, [
             'security' => [
                 'show' => [TestCallableChecker::class, 'denyAll'],
             ],
