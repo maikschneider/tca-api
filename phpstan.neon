@@ -1,11 +1,11 @@
 includes:
-	 - phpstan-baseline.neon
+	- phpstan-baseline.neon
 
 parameters:
 		parallel:
 				maximumNumberOfProcesses: 5
 
-		level: 5
+		level: 6
 
 		bootstrapFiles:
 				- vendor/autoload.php

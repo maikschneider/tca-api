@@ -16,6 +16,9 @@ final class DataRepository
     /** @var array<string, FilterInterface>|null */
     private ?array $filterMap = null;
 
+    /**
+     * @param iterable<FilterInterface> $filterHandlers
+     */
     public function __construct(
         private readonly ConnectionPool $connectionPool,
         #[TaggedIterator('tca_api.filter')]

@@ -9,12 +9,13 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final class HandlerRegistry
 {
-    /** @var array<int, list<string>> */
+    /** @var array<int, list<class-string<OperationHandlerInterface>>> */
     private static array $handlers = [];
 
     /** @var list<OperationHandlerInterface>|null */
     private static ?array $cachedInstances = null;
 
+    /** @param class-string<OperationHandlerInterface> $handlerClass */
     public static function register(string $handlerClass, int $priority = 10): void
     {
         self::$handlers[$priority][] = $handlerClass;

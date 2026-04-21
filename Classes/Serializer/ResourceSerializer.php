@@ -14,6 +14,7 @@ use MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use MaikSchneider\TcaApi\Utility\UidListParser;
 use TYPO3\CMS\Core\Resource\FileRepository;
+use TYPO3\CMS\Core\Schema\Field\FieldTypeInterface;
 use TYPO3\CMS\Core\Schema\Field\FileFieldType;
 use TYPO3\CMS\Core\Schema\Field\GroupFieldType;
 use TYPO3\CMS\Core\Schema\Field\RelationalFieldTypeInterface;
@@ -137,7 +138,9 @@ final class ResourceSerializer
                 $value = $columnRef !== null ? ($row[$columnRef] ?? null) : null;
                 $result[$virtualPropertyName] = $this->applyColumnProcessor($value, $virtualPropDef, $result, $row);
             } else {
-                [$class, $method] = $virtualPropDef->callback;
+                /** @var array{class-string, string} $callback */
+                $callback = $virtualPropDef->callback;
+                [$class, $method] = $callback;
                 $result[$virtualPropertyName] = GeneralUtility::makeInstance($class)->$method($result, $row);
             }
         }
@@ -190,7 +193,7 @@ final class ResourceSerializer
         ColumnDefinition $columnDef,
         ApiDefinition $config,
         array $row,
-        RelationalFieldTypeInterface $fieldObj,
+        FieldTypeInterface&RelationalFieldTypeInterface $fieldObj,
         array $preloaded,
         int $remainingDepth,
         array $visited,
@@ -249,7 +252,7 @@ final class ResourceSerializer
         ColumnDefinition $columnDef,
         ApiDefinition $config,
         array $row,
-        RelationalFieldTypeInterface $field,
+        FieldTypeInterface&RelationalFieldTypeInterface $field,
         array $preloaded,
         int $remainingDepth,
         array $visited,
@@ -327,7 +330,7 @@ final class ResourceSerializer
         string $foreignTable,
         int $parentUid,
         array $row,
-        RelationalFieldTypeInterface $field,
+        FieldTypeInterface&RelationalFieldTypeInterface $field,
         array $preloaded,
     ): array {
         if (isset($preloaded['relations'][$column])) {
@@ -343,7 +346,7 @@ final class ResourceSerializer
     /**
      * Fetch hasMany rows directly from DB for a single parent (slow path — not preloaded).
      */
-    private function fetchHasManyRows(string $column, RelationalFieldTypeInterface $fieldObj, array $row): array
+    private function fetchHasManyRows(string $column, FieldTypeInterface&RelationalFieldTypeInterface $fieldObj, array $row): array
     {
         $fieldConfig  = $fieldObj->getConfiguration();
         $foreignTable = $fieldConfig['foreign_table'] ?? null;
@@ -554,17 +557,21 @@ final class ResourceSerializer
             return $value;
         }
 
-        /** @var ColumnProcessorInterface $processor */
-        $processor = GeneralUtility::makeInstance($columnDef->processor);
+        /** @var class-string<ColumnProcessorInterface> $processorClass */
+        $processorClass = $columnDef->processor;
+        $processor = GeneralUtility::makeInstance($processorClass);
 
         return $processor->process($value, $columnDef, ['serializedRow' => $serializedRow, 'rawRow' => $rawRow]);
     }
 
     private function resolveFileProcessor(ColumnDefinition $columnDef): FileProcessorInterface
     {
-        return $columnDef->processor !== null
-            ? GeneralUtility::makeInstance($columnDef->processor)
-            : GeneralUtility::makeInstance(ImageProcessor::class);
+        if ($columnDef->processor !== null) {
+            /** @var class-string<FileProcessorInterface> $processorClass */
+            $processorClass = $columnDef->processor;
+            return GeneralUtility::makeInstance($processorClass);
+        }
+        return GeneralUtility::makeInstance(ImageProcessor::class);
     }
 
     /**
