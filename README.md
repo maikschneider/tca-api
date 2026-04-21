@@ -82,6 +82,8 @@ Place a PHP file in `Configuration/TcaApi/` inside any active TYPO3 extension. *
 **Zero-config (sane defaults):** omit `columns` entirely and all non-system TCA columns are auto-exposed for read and write:
 
 ```php
+<?php
+
 use MaikSchneider\TcaApi\Enum\AccessRole;
 
 return [
@@ -783,6 +785,8 @@ The dispatcher routes each request through a **handler pipeline** — a prioriti
 ### Interface
 
 ```php
+<?php
+
 use MaikSchneider\TcaApi\OperationHandler\OperationHandlerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -813,6 +817,8 @@ Before the handler loop, the dispatcher sets the following attributes on the PSR
 ### Writing a custom handler
 
 ```php
+<?php
+
 use MaikSchneider\TcaApi\OperationHandler\OperationHandlerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -864,6 +870,8 @@ Every filter strategy is a class that implements `FilterInterface`. The extensio
 ### Interface
 
 ```php
+<?php
+
 use MaikSchneider\TcaApi\Filter\FilterInterface;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 
