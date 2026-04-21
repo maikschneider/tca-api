@@ -81,5 +81,6 @@ final class TableAccessControlTest extends TestCase
 
         // Should not throw
         $control->assertWriteAllowed('tx_myext_domain_model_article');
+        $this->addToAssertionCount(1);
     }
 }

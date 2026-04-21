@@ -13,16 +13,11 @@
         </include>
     </source>
     <testsuites>
-        <testsuites>
-            <testsuite name="Unit">
-                <directory>Tests/Unit</directory>
-            </testsuite>
-        </testsuites>
-        <testsuite name="Functional">
-            <directory>Tests/Functional</directory>
-        </testsuite>
         <testsuite name="Unit">
             <directory>Tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Functional">
+            <directory>Tests/Functional</directory>
         </testsuite>
         <testsuite name="Collection">
             <directory>Tests/Functional/Api/Collection</directory>
