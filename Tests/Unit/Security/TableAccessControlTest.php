@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Unit\Security;
 
 use MaikSchneider\TcaApi\Security\TableAccessControl;
-use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -82,6 +81,5 @@ final class TableAccessControlTest extends TestCase
 
         // Should not throw
         $control->assertWriteAllowed('tx_myext_domain_model_article');
-        self::assertTrue(true);
     }
 }

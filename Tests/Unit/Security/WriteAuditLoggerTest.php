@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Unit\Security;
 
-use MaikSchneider\TcaApi\Enum\WriteMode;
 use MaikSchneider\TcaApi\Security\WriteAuditLogger;
 use MaikSchneider\TcaApi\Security\WriteContext;
 use PHPUnit\Framework\Attributes\Test;
