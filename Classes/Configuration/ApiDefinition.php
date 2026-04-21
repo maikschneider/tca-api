@@ -144,7 +144,7 @@ final readonly class ApiDefinition
         foreach (['itemsPerPage', 'maxItemsPerPage'] as $paginationKey) {
             if (isset($general[$paginationKey])) {
                 $val = $general[$paginationKey];
-                if ((!\is_int($val) && !\ctype_digit((string)$val)) || (int)$val < 1) {
+                if (!\is_int($val) || $val < 1) {
                     throw new \InvalidArgumentException(
                         sprintf('TcaApi config for "%s": general.%s must be a positive integer.', $label, $paginationKey),
                     );

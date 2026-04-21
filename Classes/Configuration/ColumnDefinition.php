@@ -156,7 +156,7 @@ final readonly class ColumnDefinition
             $validScalar = \is_bool($embed);
             $validArray  = \is_array($embed)
                 && \array_key_exists('depth', $embed)
-                && (\is_int($embed['depth']) || \ctype_digit((string)$embed['depth']));
+                && \is_int($embed['depth']);
             if (!$validScalar && !$validArray) {
                 throw new \InvalidArgumentException(
                     'Column config "embed" must be true, false, or ["depth" => <int>].',
