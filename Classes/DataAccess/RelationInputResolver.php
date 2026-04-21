@@ -180,9 +180,7 @@ final readonly class RelationInputResolver
                 $subConfig    = ApiRegistry::getByTable($effectiveFt);
                 $resolvedUids = [];
                 foreach ($value as $index => $item) {
-                    if (MathUtility::canBeInterpretedAsInteger($item)) {
-                        $resolvedUids[] = (int)$item;
-                    } elseif (is_array($item) && !array_is_list($item) && $subConfig !== null) {
+                    if (is_array($item) && !array_is_list($item) && $subConfig !== null) {
                         // Child security check
                         $childViolation = $this->checkChildSecurity($subConfig, $request, $col, $index);
                         if ($childViolation !== null) {
@@ -200,6 +198,8 @@ final readonly class RelationInputResolver
                         $ph                              = StringUtility::getUniqueId('NEW');
                         $extraDataMap[$effectiveFt][$ph] = $this->prepareChildData($item, $pid, $feUserRow, $subConfig);
                         $resolvedUids[]                  = $ph;
+                    } elseif (MathUtility::canBeInterpretedAsInteger($item)) {
+                        $resolvedUids[] = (int)$item;
                     }
                     // Unregistered table → skip new-object items
                 }

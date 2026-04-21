@@ -10,6 +10,7 @@ use MaikSchneider\TcaApi\DataAccess\DataWriteService;
 use MaikSchneider\TcaApi\DataAccess\RelationInputResolver;
 use MaikSchneider\TcaApi\Event\AfterWriteEvent;
 use MaikSchneider\TcaApi\Event\BeforeWriteEvent;
+use MaikSchneider\TcaApi\Security\WriteContextFactory;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
 use MaikSchneider\TcaApi\Validation\FieldValidator;
@@ -33,6 +34,7 @@ class UpdateHandler implements OperationHandlerInterface
         private readonly FieldValidator $fieldValidator,
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly RelationInputResolver $relationResolver,
+        private readonly WriteContextFactory $writeContextFactory,
     ) {
     }
 
@@ -87,8 +89,9 @@ class UpdateHandler implements OperationHandlerInterface
         $data = $beforeEvent->getData();
 
         // Single DataHandler call: parent update + any new related records.
-        $dataMap = [$config->table => [$uid => $data]] + $resolved->extraDataMap;
-        $this->writeService->processDataMap($dataMap);
+        $dataMap      = [$config->table => [$uid => $data]] + $resolved->extraDataMap;
+        $writeContext = $this->writeContextFactory->fromRequest($request, $config->writeMode);
+        $this->writeService->processDataMap($dataMap, $writeContext);
 
         $this->eventDispatcher->dispatch(new AfterWriteEvent($config->table, 'update', $uid));
 

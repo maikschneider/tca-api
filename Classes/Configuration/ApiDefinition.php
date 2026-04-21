@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Configuration;
 
 use MaikSchneider\TcaApi\Enum\AccessRole;
+use MaikSchneider\TcaApi\Enum\WriteMode;
 use TYPO3\CMS\Core\Utility\MathUtility;
 
 /**
@@ -45,6 +46,7 @@ final readonly class ApiDefinition
         public readonly bool $ownershipBeAdminBypass,
         public readonly array $virtualProperties,
         public readonly bool $isExplicitMode,
+        public readonly WriteMode $writeMode = WriteMode::ACTING_USER,
     ) {
     }
 
@@ -123,6 +125,16 @@ final readonly class ApiDefinition
         $ownership = $raw['ownership'] ?? [];
         $order     = $raw['order'] ?? [];
 
+        // Parse write mode configuration. Default: ACTING_USER (respects user identity).
+        // Opt-in: 'system_admin' for trusted internal APIs that bypass user context.
+        $rawWriteMode = $general['writeMode'] ?? 'acting_user';
+        $writeMode = WriteMode::tryFrom($rawWriteMode);
+        if ($writeMode === null) {
+            throw new \InvalidArgumentException(
+                sprintf('Invalid writeMode "%s" in TcaApi config for %s. Valid values: acting_user, system_admin', $rawWriteMode, $general['table']),
+            );
+        }
+
         return new self(
             table:                  $general['table'],
             resourceName:           $general['resourceName'],
@@ -142,6 +154,7 @@ final readonly class ApiDefinition
             ownershipBeAdminBypass: (bool)($ownership['beAdminBypass'] ?? true),
             virtualProperties:      $virtualProperties,
             isExplicitMode:         $isExplicitMode,
+            writeMode:              $writeMode,
         );
     }
 }

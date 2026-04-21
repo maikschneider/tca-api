@@ -12,6 +12,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final class AccessController
 {
+    /**
+     * @param AccessRole|array{0: AccessRole, 1?: array<int>}|array{0: class-string, 1: string} $requiredRole
+     */
     public function isAllowed(AccessRole|array $requiredRole, ServerRequestInterface $request, array $record = [], ?ApiDefinition $config = null): bool
     {
         if (is_array($requiredRole)) {

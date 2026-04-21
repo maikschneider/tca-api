@@ -45,6 +45,7 @@ final class CollectionPaginationTest extends ApiFunctionalTestCase
         self::assertNull($body['hydra:view']['hydra:next'] ?? null);
     }
 
+    /** @return iterable<string, array{int}> */
     public static function invalidItemsPerPageProvider(): iterable
     {
         yield 'zero' => [0];
