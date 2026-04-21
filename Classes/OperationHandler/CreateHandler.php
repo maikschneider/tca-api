@@ -10,6 +10,7 @@ use MaikSchneider\TcaApi\DataAccess\DataWriteService;
 use MaikSchneider\TcaApi\DataAccess\RelationInputResolver;
 use MaikSchneider\TcaApi\Event\AfterWriteEvent;
 use MaikSchneider\TcaApi\Event\BeforeWriteEvent;
+use MaikSchneider\TcaApi\Security\WriteContextFactory;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
 use MaikSchneider\TcaApi\Validation\FieldValidator;
@@ -31,6 +32,7 @@ class CreateHandler implements OperationHandlerInterface
         private readonly FieldValidator $fieldValidator,
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly RelationInputResolver $relationResolver,
+        private readonly WriteContextFactory $writeContextFactory,
     ) {
     }
 
@@ -83,10 +85,11 @@ class CreateHandler implements OperationHandlerInterface
         // Single DataHandler call: parent + all related new records atomically.
         // NEW_xxx placeholders in $data (e.g. color_id, inline column) are resolved
         // by DataHandler using the records in $resolved->extraDataMap.
-        $primaryKey = 'NEW_primary';
-        $dataMap    = [$config->table => [$primaryKey => $data]] + $resolved->extraDataMap;
-        $substMap   = $this->writeService->processDataMap($dataMap);
-        $uid        = (int)($substMap[$primaryKey] ?? 0);
+        $primaryKey   = 'NEW_primary';
+        $dataMap      = [$config->table => [$primaryKey => $data]] + $resolved->extraDataMap;
+        $writeContext = $this->writeContextFactory->fromRequest($request, $config->writeMode);
+        $substMap     = $this->writeService->processDataMap($dataMap, $writeContext);
+        $uid          = (int)($substMap[$primaryKey] ?? 0);
 
         $this->eventDispatcher->dispatch(new AfterWriteEvent($config->table, 'create', $uid));
 

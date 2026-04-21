@@ -7,6 +7,11 @@ services:
   MaikSchneider\TcaApi\:
     resource: '../Classes/*'
 
+  MaikSchneider\TcaApi\Security\TableAccessControl:
+    arguments:
+      $allowList: []
+      $denyList: []
+
   MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor:
     public: true
 

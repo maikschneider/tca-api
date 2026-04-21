@@ -9,6 +9,7 @@ use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\DataWriteService;
 use MaikSchneider\TcaApi\Event\AfterWriteEvent;
 use MaikSchneider\TcaApi\Event\BeforeWriteEvent;
+use MaikSchneider\TcaApi\Security\WriteContextFactory;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -23,6 +24,7 @@ class DeleteHandler implements OperationHandlerInterface
         private readonly DataRepository $dataRepository,
         private readonly ResponseFactoryInterface $responseFactory,
         private readonly EventDispatcherInterface $eventDispatcher,
+        private readonly WriteContextFactory $writeContextFactory,
     ) {
     }
 
@@ -35,7 +37,7 @@ class DeleteHandler implements OperationHandlerInterface
     {
         $uid = (int)$request->getAttribute('tca_api.uid');
 
-        return $this->doHandle($config, $uid);
+        return $this->doHandle($request, $config, $uid);
     }
 
     public function getPriority(): int
@@ -43,15 +45,16 @@ class DeleteHandler implements OperationHandlerInterface
         return 10;
     }
 
-    private function doHandle(ApiDefinition $config, int $uid): ResponseInterface
+    private function doHandle(ServerRequestInterface $request, ApiDefinition $config, int $uid): ResponseInterface
     {
         if ($this->dataRepository->findById($config->table, $uid, $config) === null) {
             return $this->responseFactory->createResponse(404)
                 ->withHeader('Content-Type', 'application/ld+json');
         }
 
+        $writeContext = $this->writeContextFactory->fromRequest($request, $config->writeMode);
         $this->eventDispatcher->dispatch(new BeforeWriteEvent($config->table, 'delete', []));
-        $this->writeService->delete($config->table, $uid);
+        $this->writeService->delete($config->table, $uid, $writeContext);
         $this->eventDispatcher->dispatch(new AfterWriteEvent($config->table, 'delete', $uid));
 
         return $this->responseFactory->createResponse(204);
