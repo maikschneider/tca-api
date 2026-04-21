@@ -17,10 +17,10 @@
 
 ## Features
 
-- **Full CRUD** — List, show, create, update (PUT & PATCH), and delete operations
+- **Full CRUD** — List, show, create, update and delete operations
 - **Hydra JSON-LD** — Responses follow the [Hydra](https://www.hydra-cg.com/) specification (`application/ld+json`)
 - **Configuration-driven** — Expose tables by registering a PHP configuration array; no custom controllers needed
-- **Serialization groups** — Use `groups` to control which columns appear per operation (`list`, `show`, `create`, `update`)
+- **Serialization groups** — Use `groups` to control which columns appear per operation
 - **Filtering** — Exact, partial, word-start, range, full-text search, and many-to-many filter strategies via query parameters; configurable defaults and private (non-overrideable) filters; extensible via `FilterInterface`
 - **Sorting** — Configurable allowed sort columns with defaults
 - **Pagination** — Offset-based pagination with Hydra `PartialCollectionView` links
