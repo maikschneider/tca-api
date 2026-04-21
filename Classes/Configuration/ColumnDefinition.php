@@ -89,19 +89,154 @@ final readonly class ColumnDefinition
         return 0;
     }
 
+    /** Known operation names that may appear in the 'groups' array. */
+    private const VALID_GROUPS = ['list', 'show', 'create', 'update', 'delete'];
+
+    /** Allowed scalar types for the 'type' hint used in OpenAPI generation. */
+    private const VALID_TYPES = ['string', 'integer', 'int', 'boolean', 'bool', 'number', 'float', 'double'];
+
+    /** Recognised validator type identifiers. */
+    private const VALID_VALIDATOR_TYPES = ['maxLength', 'minLength', 'regex'];
+
+    /**
+     * Normalise a raw column config array, validate all fields, and return a typed ColumnDefinition.
+     *
+     * @throws \InvalidArgumentException when any field has an invalid shape or value.
+     */
     public static function fromArray(array $raw): self
     {
+        // ── groups ───────────────────────────────────────────────────────
+        $groups = null;
+        if (\array_key_exists('groups', $raw)) {
+            $groupsRaw = $raw['groups'] ?? [];
+            if (!\is_array($groupsRaw)) {
+                throw new \InvalidArgumentException(
+                    'Column config "groups" must be an array of operation names.',
+                );
+            }
+            foreach ($groupsRaw as $group) {
+                if (!\is_string($group) || !\in_array($group, self::VALID_GROUPS, true)) {
+                    throw new \InvalidArgumentException(
+                        sprintf(
+                            'Column config "groups" contains invalid operation "%s". Allowed: %s',
+                            \is_string($group) ? $group : \get_debug_type($group),
+                            implode(', ', self::VALID_GROUPS),
+                        ),
+                    );
+                }
+            }
+            $groups = $groupsRaw;
+        }
+
+        // ── type ─────────────────────────────────────────────────────────
+        $type = $raw['type'] ?? null;
+        if ($type !== null) {
+            if (!\is_string($type)) {
+                throw new \InvalidArgumentException('Column config "type" must be a string.');
+            }
+            if (!\in_array(strtolower($type), self::VALID_TYPES, true)) {
+                throw new \InvalidArgumentException(
+                    sprintf(
+                        'Column config "type" has invalid value "%s". Allowed: %s',
+                        $type,
+                        implode(', ', self::VALID_TYPES),
+                    ),
+                );
+            }
+        }
+
+        // ── required ─────────────────────────────────────────────────────
+        if (isset($raw['required']) && !\is_bool($raw['required'])) {
+            throw new \InvalidArgumentException('Column config "required" must be a boolean.');
+        }
+
+        // ── embed ────────────────────────────────────────────────────────
+        $embed = $raw['embed'] ?? null;
+        if ($embed !== null) {
+            $validScalar = \is_bool($embed);
+            $validArray  = \is_array($embed)
+                && \array_key_exists('depth', $embed)
+                && (\is_int($embed['depth']) || \ctype_digit((string)$embed['depth']));
+            if (!$validScalar && !$validArray) {
+                throw new \InvalidArgumentException(
+                    'Column config "embed" must be true, false, or ["depth" => <int>].',
+                );
+            }
+        }
+
+        // ── processor ────────────────────────────────────────────────────
+        $processor = $raw['processor'] ?? null;
+        if ($processor !== null && !\is_string($processor)) {
+            throw new \InvalidArgumentException('Column config "processor" must be a class-string.');
+        }
+
+        // ── callback ─────────────────────────────────────────────────────
+        $callback = $raw['callback'] ?? null;
+        if ($callback !== null) {
+            if (
+                !\is_array($callback)
+                || \count($callback) !== 2
+                || !isset($callback[0], $callback[1])
+                || !\is_string($callback[0])
+                || !\is_string($callback[1])
+            ) {
+                throw new \InvalidArgumentException(
+                    'Column config "callback" must be a [class-string, method-string] tuple.',
+                );
+            }
+        }
+
+        // ── validators ───────────────────────────────────────────────────
+        $validators = $raw['validators'] ?? [];
+        if (!\is_array($validators)) {
+            throw new \InvalidArgumentException('Column config "validators" must be an array.');
+        }
+        foreach ($validators as $index => $validator) {
+            if (!\is_array($validator)) {
+                throw new \InvalidArgumentException(
+                    sprintf('Column config "validators[%s]" must be an array.', $index),
+                );
+            }
+            $validatorType = $validator['type'] ?? null;
+            if ($validatorType === null || !\in_array($validatorType, self::VALID_VALIDATOR_TYPES, true)) {
+                throw new \InvalidArgumentException(
+                    sprintf(
+                        'Column config "validators[%s].type" is invalid ("%s"). Allowed: %s',
+                        $index,
+                        $validatorType ?? 'null',
+                        implode(', ', self::VALID_VALIDATOR_TYPES),
+                    ),
+                );
+            }
+        }
+
+        // ── column ───────────────────────────────────────────────────────
+        $column = $raw['column'] ?? null;
+        if ($column !== null && !\is_string($column)) {
+            throw new \InvalidArgumentException('Column config "column" must be a string.');
+        }
+
+        // ── resourceName / resourceType ──────────────────────────────────
+        $resourceName = $raw['resourceName'] ?? null;
+        if ($resourceName !== null && !\is_string($resourceName)) {
+            throw new \InvalidArgumentException('Column config "resourceName" must be a string.');
+        }
+        $resourceType = $raw['resourceType'] ?? null;
+        if ($resourceType !== null && !\is_string($resourceType)) {
+            throw new \InvalidArgumentException('Column config "resourceType" must be a string.');
+        }
+
         return new self(
-            groups:       \array_key_exists('groups', $raw) ? ($raw['groups'] ?? []) : null,
-            type:         $raw['type'] ?? null,
+            groups:       $groups,
+            type:         $type,
             required:     (bool)($raw['required'] ?? false),
-            embed:        $raw['embed'] ?? null,
-            processor:    $raw['processor'] ?? null,
-            resourceName: $raw['resourceName'] ?? null,
-            resourceType: $raw['resourceType'] ?? null,
-            validators:   $raw['validators'] ?? [],
-            column:       $raw['column'] ?? null,
-            callback:     $raw['callback'] ?? null,
+            embed:        $embed,
+            processor:    $processor,
+            resourceName: $resourceName,
+            resourceType: $resourceType,
+            validators:   $validators,
+            column:       $column,
+            callback:     $callback,
         );
     }
 }
