@@ -32,7 +32,10 @@ final class RequestDispatcher
         private readonly AccessController $accessController,
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly EventDispatcherInterface $eventDispatcher,
-        private readonly DataRepository $dataRepository
+        private readonly DataRepository $dataRepository,
+        private readonly ApiRegistry $apiRegistry,
+        private readonly HandlerRegistry $handlerRegistry,
+        private readonly OpenApiBuilder $openApiBuilder,
     ) {
     }
 
@@ -74,7 +77,7 @@ final class RequestDispatcher
             return $this->notFound();
         }
 
-        $config = ApiRegistry::get($resource);
+        $config = $this->apiRegistry->get($resource);
         if ($config === null) {
             return $this->notFound();
         }
@@ -102,7 +105,7 @@ final class RequestDispatcher
 
         $request = $this->withRequestAttributes($request, $method, $uid, $operation, $config, $siteSettings);
 
-        foreach (HandlerRegistry::getHandlers() as $handler) {
+        foreach ($this->handlerRegistry->getHandlers() as $handler) {
             if ($handler->supports($request, $operation, $config)) {
                 return $handler->handle($request, $config);
             }
@@ -185,8 +188,7 @@ final class RequestDispatcher
 
     private function serveOpenApiSpec(SiteSettings $siteSettings): ResponseInterface
     {
-        $openApiBuilder = new OpenApiBuilder($siteSettings);
-        $spec     = $openApiBuilder->build();
+        $spec     = $this->openApiBuilder->build($siteSettings);
         $response = $this->responseFactory->createResponse(200)
             ->withHeader('Content-Type', 'application/json');
         $response->getBody()->write((string)json_encode($spec, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));

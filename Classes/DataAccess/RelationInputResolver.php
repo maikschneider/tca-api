@@ -57,6 +57,7 @@ final readonly class RelationInputResolver
     public function __construct(
         private AccessController $accessController,
         private FieldValidator $fieldValidator,
+        private ApiRegistry $apiRegistry,
     ) {
     }
 
@@ -104,8 +105,7 @@ final readonly class RelationInputResolver
                     continue;
                 }
 
-                $subConfig = ApiRegistry::getByTable($foreignTable);
-                // Security gate: skip creation for unregistered foreign tables
+                $subConfig = $this->apiRegistry->getByTable($foreignTable);
                 if ($subConfig === null) {
                     continue;
                 }
@@ -146,7 +146,7 @@ final readonly class RelationInputResolver
             // is placed in the parent's field. DataHandler's remapStack resolves it.
             if (!array_is_list($value)) {
                 if ($foreignTable !== '') {
-                    $subConfig = ApiRegistry::getByTable($foreignTable);
+                    $subConfig = $this->apiRegistry->getByTable($foreignTable);
                     if ($subConfig !== null) {
                         // Child security check
                         $childViolation = $this->checkChildSecurity($subConfig, $request, $col, null);
@@ -177,7 +177,7 @@ final readonly class RelationInputResolver
             // are included in the UID list. DataHandler's remapStack resolves them.
             $effectiveFt = $this->effectiveForeignTable($type, $tcaConfig);
             if ($effectiveFt !== '') {
-                $subConfig    = ApiRegistry::getByTable($effectiveFt);
+                $subConfig    = $this->apiRegistry->getByTable($effectiveFt);
                 $resolvedUids = [];
                 foreach ($value as $index => $item) {
                     if (is_array($item) && !array_is_list($item) && $subConfig !== null) {

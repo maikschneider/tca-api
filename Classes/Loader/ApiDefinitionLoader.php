@@ -20,6 +20,7 @@ final readonly class ApiDefinitionLoader
         private PackageManager $packageManager,
         #[Autowire(service: 'cache.core')]
         private PhpFrontend $cache,
+        private ApiRegistry $apiRegistry,
     ) {
     }
 
@@ -39,7 +40,7 @@ final readonly class ApiDefinitionLoader
         }
 
         foreach ($definitions as $resourceName => $config) {
-            ApiRegistry::register($resourceName, ApiDefinition::fromArray($config));
+            $this->apiRegistry->register($resourceName, ApiDefinition::fromArray($config));
         }
     }
 

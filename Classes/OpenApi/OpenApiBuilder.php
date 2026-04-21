@@ -12,15 +12,19 @@ use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use TYPO3\CMS\Core\Site\Entity\SiteSettings;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
-readonly class OpenApiBuilder
+class OpenApiBuilder
 {
-    public function __construct(private SiteSettings $settings)
+    private SiteSettings $settings;
+
+    public function __construct(private readonly ApiRegistry $apiRegistry)
     {
     }
 
-    public function build(): array
+    public function build(SiteSettings $settings): array
     {
-        $resources = $this->filterAllowedResources(ApiRegistry::getAll());
+        $this->settings = $settings;
+
+        $resources = $this->filterAllowedResources($this->apiRegistry->getAll());
 
         $info = [
             'title' => $this->settings->get('tca_api.apiSpecTitle'),

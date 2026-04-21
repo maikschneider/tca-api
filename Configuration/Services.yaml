@@ -7,6 +7,10 @@ services:
   MaikSchneider\TcaApi\:
     resource: '../Classes/*'
 
+  _instanceof:
+    MaikSchneider\TcaApi\OperationHandler\OperationHandlerInterface:
+      tags: ['tca_api.operation_handler']
+
   MaikSchneider\TcaApi\Security\TableAccessControl:
     arguments:
       $allowList: []

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Write;
 
 use MaikSchneider\TcaApi\Enum\AccessRole;
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -234,13 +233,14 @@ final class WriteInlineRelationsTest extends ApiFunctionalTestCase
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ];
 
-        $snapshot = ApiRegistry::getAll();
-        ApiRegistry::reset();
+        $registry = $this->getApiRegistry();
+        $snapshot = $registry->getAll();
+        $registry->reset();
         // Register inline-colors FIRST so getByTable() returns it before 'colors'
         $this->registerResource('inline-colors', array_replace_recursive($baseConfig, $overrides));
         foreach ($snapshot as $name => $config) {
             if ($name !== 'inline-colors') {
-                ApiRegistry::register($name, $config);
+                $registry->register($name, $config);
             }
         }
     }

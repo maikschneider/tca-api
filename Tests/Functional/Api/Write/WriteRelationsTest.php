@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Write;
 
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -346,8 +345,9 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
      */
     private function configureColorsWithOwnership(string $ownerColumn, ?string $setOnCreate = null): void
     {
-        $snapshot = ApiRegistry::getAll();
-        ApiRegistry::reset();
+        $registry = $this->getApiRegistry();
+        $snapshot = $registry->getAll();
+        $registry->reset();
 
         // Build a color resource config with ownership columns
         $ownedConfig = [
@@ -374,7 +374,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         $this->registerResource('colors-with-ownership', $ownedConfig);
 
         foreach ($snapshot as $name => $config) {
-            ApiRegistry::register($name, $config);
+            $registry->register($name, $config);
         }
     }
 }
