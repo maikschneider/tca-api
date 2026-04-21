@@ -22,3 +22,4 @@ settings:
     enabled: true
     corsEnabled: true
     corsOrigin: 'https://example.com'
+    corsAllowCredentials: true

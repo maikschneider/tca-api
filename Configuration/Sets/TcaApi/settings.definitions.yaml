@@ -112,3 +112,10 @@ settings:
     category: TcaApi.cors
     type: string
     default: '*'
+
+  tca_api.corsAllowCredentials:
+    label: 'Allow Credentials'
+    description: 'Include Access-Control-Allow-Credentials: true in CORS responses. Required when the frontend sends cookies or Authorization headers with cross-origin requests.'
+    category: TcaApi.cors
+    type: bool
+    default: false
