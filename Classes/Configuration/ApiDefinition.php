@@ -80,17 +80,6 @@ final readonly class ApiDefinition
     }
 
     /**
-     * Returns the configured storage PID or null when not configured.
-     *
-     * null  → no storagePid configured (no PID constraint applied)
-     * int   → explicit PID (including 0 for the root page)
-     */
-    public function getStoragePid(): ?int
-    {
-        return $this->storagePid;
-    }
-
-    /**
      * Normalises a raw PHP config array, applies all defaults, and validates required fields.
      *
      * @throws \InvalidArgumentException when required fields are missing.

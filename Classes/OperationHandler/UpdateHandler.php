@@ -77,7 +77,7 @@ class UpdateHandler implements OperationHandlerInterface
 
         // Resolve relation fields. Security + validation on nested child objects
         // is enforced inside resolve(); violations bubble up here.
-        $resolved = $this->relationResolver->resolve($body, $config->table, $config->getStoragePid() ?? 0, $request);
+        $resolved = $this->relationResolver->resolve($body, $config->table, $config->storagePid ?? 0, $request);
         if ($resolved->violations !== []) {
             return $this->hydraResponseBuilder->buildValidationError($resolved->violations);
         }
