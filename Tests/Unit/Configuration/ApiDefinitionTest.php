@@ -243,20 +243,47 @@ final class ApiDefinitionTest extends TestCase
     }
 
     #[Test]
-    public function securityWithNonAccessRoleValueThrows(): void
+    public function securityWithPlainStringValueThrows(): void
     {
         $cfg = self::minimalConfig();
         $cfg['security'] = ['list' => 'PUBLIC'];
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('AccessRole enum');
+        $this->expectExceptionMessage('security["list"]');
         ApiDefinition::fromArray($cfg);
+    }
+
+    #[Test]
+    public function securityWithAccessRoleEnumIsAccepted(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['security'] = ['list' => AccessRole::FE_USER];
+        $def = ApiDefinition::fromArray($cfg);
+        self::assertSame(AccessRole::FE_USER, $def->security['list']);
+    }
+
+    #[Test]
+    public function securityWithCallableTupleIsAccepted(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['security'] = ['update' => ['App\\MyChecker', 'check']];
+        $def = ApiDefinition::fromArray($cfg);
+        self::assertSame(['App\\MyChecker', 'check'], $def->security['update']);
+    }
+
+    #[Test]
+    public function securityWithAccessRoleGroupTupleIsAccepted(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['security'] = ['show' => [AccessRole::FE_GROUP, [1, 2]]];
+        $def = ApiDefinition::fromArray($cfg);
+        self::assertSame([AccessRole::FE_GROUP, [1, 2]], $def->security['show']);
     }
 
     // ── Invalid filters ─────────────────────────────────────────────────
 
     #[Test]
-    public function filterWithNonStringClassThrows(): void
+    public function filterWithIntegerValueThrows(): void
     {
         $cfg = self::minimalConfig();
         $cfg['filters'] = ['title' => 42];
@@ -264,6 +291,24 @@ final class ApiDefinitionTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('filter "title"');
         ApiDefinition::fromArray($cfg);
+    }
+
+    #[Test]
+    public function filterWithClassStringIsAccepted(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['filters'] = ['title' => 'App\\Filter\\ExactFilter'];
+        $def = ApiDefinition::fromArray($cfg);
+        self::assertSame('App\\Filter\\ExactFilter', $def->filters['title']);
+    }
+
+    #[Test]
+    public function filterWithClassAndOptionsArrayIsAccepted(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['filters'] = ['search' => ['App\\Filter\\SearchFilter', ['columns' => ['title', 'body']]]];
+        $def = ApiDefinition::fromArray($cfg);
+        self::assertSame(['App\\Filter\\SearchFilter', ['columns' => ['title', 'body']]], $def->filters['search']);
     }
 
     // ── Invalid order ───────────────────────────────────────────────────

@@ -253,15 +253,31 @@ final readonly class ApiDefinition
                     ),
                 );
             }
-            if (!$secRole instanceof AccessRole) {
-                throw new \InvalidArgumentException(
-                    sprintf(
-                        'TcaApi config for "%s": security["%s"] must be an AccessRole enum instance.',
-                        $label,
-                        $secOp,
-                    ),
-                );
+            // Accepted shapes:
+            //   AccessRole::PUBLIC                           — simple enum
+            //   [AccessRole::FE_GROUP, [1, 2]]              — enum + group IDs
+            //   [MyChecker::class, 'methodName']            — callable [class, method]
+            if ($secRole instanceof AccessRole) {
+                continue;
             }
+            if (\is_array($secRole) && isset($secRole[0])) {
+                // [AccessRole, array<int>]
+                if ($secRole[0] instanceof AccessRole) {
+                    continue;
+                }
+                // [class-string, method-string]
+                if (\is_string($secRole[0]) && \is_string($secRole[1] ?? null)) {
+                    continue;
+                }
+            }
+            throw new \InvalidArgumentException(
+                sprintf(
+                    'TcaApi config for "%s": security["%s"] must be an AccessRole enum, '
+                    . '[AccessRole, groupIds] tuple, or [class-string, method-string] callable.',
+                    $label,
+                    $secOp,
+                ),
+            );
         }
 
         // ── filters ─────────────────────────────────────────────────────
@@ -271,17 +287,28 @@ final readonly class ApiDefinition
                 sprintf('TcaApi config for "%s": "filters" must be an array.', $label),
             );
         }
-        foreach ($rawFilters as $filterCol => $filterClass) {
+        foreach ($rawFilters as $filterCol => $filterDef) {
             if (!\is_string($filterCol) || $filterCol === '') {
                 throw new \InvalidArgumentException(
                     sprintf('TcaApi config for "%s": filter key must be a non-empty string.', $label),
                 );
             }
-            if (!\is_string($filterClass)) {
-                throw new \InvalidArgumentException(
-                    sprintf('TcaApi config for "%s": filter "%s" must be a class-string.', $label, $filterCol),
-                );
+            // Accepted shapes:
+            //   ExactFilter::class                       — simple class-string
+            //   [SearchFilter::class, ['columns' => …]]  — class-string + options array
+            if (\is_string($filterDef)) {
+                continue;
             }
+            if (\is_array($filterDef) && \is_string($filterDef[0] ?? null)) {
+                continue;
+            }
+            throw new \InvalidArgumentException(
+                sprintf(
+                    'TcaApi config for "%s": filter "%s" must be a class-string or [class-string, options-array].',
+                    $label,
+                    $filterCol,
+                ),
+            );
         }
 
         // ── order ───────────────────────────────────────────────────────
