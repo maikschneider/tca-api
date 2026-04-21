@@ -35,7 +35,7 @@ final readonly class ApiDefinition
         public readonly ?int $itemsPerPage,
         public readonly ?int $maxItemsPerPage,
         public readonly ?string $type,
-        public readonly mixed $storagePid,
+        public readonly ?int $storagePid,
         public readonly array $columns,
         public readonly array $security,
         public readonly array $filters,
@@ -77,11 +77,6 @@ final readonly class ApiDefinition
     public function getVirtualProperty(string $name): ?ColumnDefinition
     {
         return $this->virtualProperties[$name] ?? null;
-    }
-
-    public function getStoragePid(): int
-    {
-        return MathUtility::canBeInterpretedAsInteger($this->storagePid) ? (int)$this->storagePid : 0;
     }
 
     /** Valid operation identifiers used across operations, groups, and security keys. */
@@ -407,7 +402,7 @@ final readonly class ApiDefinition
             itemsPerPage:           isset($general['itemsPerPage']) ? (int)$general['itemsPerPage'] : null,
             maxItemsPerPage:        isset($general['maxItemsPerPage']) ? (int)$general['maxItemsPerPage'] : null,
             type:                   $generalType,
-            storagePid:             $general['storagePid'] ?? null,
+            storagePid:             isset($general['storagePid']) && MathUtility::canBeInterpretedAsInteger($general['storagePid']) ? (int)$general['storagePid'] : null,
             columns:                $columns,
             security:               $rawSecurity,
             filters:                $rawFilters,

@@ -70,8 +70,9 @@ This exposes the following site settings, configurable per site in the TYPO3 bac
 | `tca_api.apiSpecDescription` | *(empty)* | Description shown in the OpenAPI spec and Swagger UI |
 | `tca_api.apiSpecVersion` | `1.0.0` | Version string in the OpenAPI spec info block |
 | `tca_api.swaggerUiEnabled` | `PUBLIC` | Who may access the Swagger UI (`PUBLIC`, `FE_USER`, `BE_USER`, `BE_ADMIN`, `NONE`) |
-| `tca_api.corsEnabled` | `false` | Add CORS headers to API responses |
+| `tca_api.corsEnabled` | `false` | Enable CORS support — adds headers to all API responses and handles `OPTIONS` preflight requests with a `204` response |
 | `tca_api.corsOrigin` | `*` | Value for `Access-Control-Allow-Origin` |
+| `tca_api.corsAllowCredentials` | `false` | Include `Access-Control-Allow-Credentials: true` header (required when the client sends cookies or `Authorization` headers cross-origin) |
 
 ## Quick start
 
