@@ -11,11 +11,6 @@ use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 final class ApiRegistry
 {
     /**
-     * Static backing store: TYPO3's testing framework creates a new DI container
-     * per executeFrontendSubRequest() call (Bootstrap::init()), so instance
-     * properties would not be shared between test and sub-request.  Static state
-     * is the only reliable way to keep registrations visible across containers.
-     *
      * @var array<string, ApiDefinition>
      */
     private static array $resources = [];
@@ -53,10 +48,6 @@ final class ApiRegistry
         self::$resources = $resources;
     }
 
-    /**
-     * Clear all registrations.  Called from test setUp() to prevent
-     * cross-test leakage of the static backing store.
-     */
     public function reset(): void
     {
         self::$resources = [];
