@@ -300,6 +300,15 @@ final readonly class ApiDefinition
                 continue;
             }
             if (\is_array($filterDef) && \is_string($filterDef[0] ?? null)) {
+                if (isset($filterDef[1]) && !\is_array($filterDef[1])) {
+                    throw new \InvalidArgumentException(
+                        sprintf(
+                            'TcaApi config for "%s": filter "%s" options (second element) must be an array.',
+                            $label,
+                            $filterCol,
+                        ),
+                    );
+                }
                 continue;
             }
             throw new \InvalidArgumentException(

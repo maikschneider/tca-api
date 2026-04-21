@@ -311,6 +311,17 @@ final class ApiDefinitionTest extends TestCase
         self::assertSame(['App\\Filter\\SearchFilter', ['columns' => ['title', 'body']]], $def->filters['search']);
     }
 
+    #[Test]
+    public function filterWithInvalidOptionsTypeThrows(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['filters'] = ['title' => ['App\\Filter\\ExactFilter', 123]];
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('filter "title" options');
+        ApiDefinition::fromArray($cfg);
+    }
+
     // ── Invalid order ───────────────────────────────────────────────────
 
     #[Test]
