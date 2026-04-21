@@ -72,7 +72,10 @@ class GetCollectionHandler implements OperationHandlerInterface
         $event = new AfterOperationEvent('list', $members);
         $this->eventDispatcher->dispatch($event);
 
-        return $this->hydraResponseBuilder->buildCollection($event->getData(), $total, $baseUrl, $page, $itemsPerPage);
+        $queryState = array_diff_key($request->getQueryParams(), ['page' => null]);
+        $queryState['itemsPerPage'] = $itemsPerPage;
+
+        return $this->hydraResponseBuilder->buildCollection($event->getData(), $total, $baseUrl, $page, $itemsPerPage, $queryState);
     }
 
     private function resolveFilters(array $requested, ApiDefinition $config, ServerRequestInterface $request): array
