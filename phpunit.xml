@@ -13,6 +13,11 @@
         </include>
     </source>
     <testsuites>
+        <testsuites>
+            <testsuite name="Unit">
+                <directory>Tests/Unit</directory>
+            </testsuite>
+        </testsuites>
         <testsuite name="Functional">
             <directory>Tests/Functional</directory>
         </testsuite>
