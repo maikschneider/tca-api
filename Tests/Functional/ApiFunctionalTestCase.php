@@ -27,7 +27,9 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
     {
         parent::setUp();
 
-        // Reload baseline definitions (idempotent — overwrites any stale entries).
+        // Static backing store persists across DI containers; reset before
+        // reloading baseline definitions to prevent cross-test leakage.
+        $this->getApiRegistry()->reset();
         $this->get(ApiDefinitionLoader::class)->load();
     }
 

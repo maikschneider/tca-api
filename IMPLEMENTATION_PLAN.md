@@ -84,7 +84,7 @@ tca_api/
 │
 ├── Classes/
 │   ├── Registry/
-│   │   └── ApiRegistry.php           ← DI-managed registry: register(), get(), getByTable(), replaceAll()
+│   │   └── ApiRegistry.php           ← DI-managed registry: register(), get(), getByTable(), replaceAll(), reset()
 │   ├── Middleware/
 │   │   └── TcaApiMiddleware.php      ← PSR-15 entry point
 │   ├── Dispatcher/
