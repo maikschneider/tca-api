@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Write;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
@@ -247,14 +248,11 @@ final class WriteGroupRelationsTest extends ApiFunctionalTestCase
 
         $registry = $this->getApiRegistry();
         $snapshot = $registry->getAll();
-        $registry->reset();
-        // Register grp-write-colors FIRST so getByTable() returns it before 'colors'
-        $this->registerResource('grp-write-colors', array_replace_recursive($baseConfig, $overrides));
-        foreach ($snapshot as $name => $config) {
-            if ($name !== 'grp-write-colors') {
-                $registry->register($name, $config);
-            }
-        }
+        unset($snapshot['grp-write-colors']);
+        // Place grp-write-colors FIRST so getByTable() returns it before 'colors'
+        $registry->replaceAll(
+            ['grp-write-colors' => ApiDefinition::fromArray(array_replace_recursive($baseConfig, $overrides))] + $snapshot,
+        );
     }
 
     // ── Unregistered foreign table: new objects silently skipped ─────────────

@@ -40,8 +40,9 @@ final class ApiRegistry
         return $this->resources;
     }
 
-    public function reset(): void
+    /** @param array<string, ApiDefinition> $resources */
+    public function replaceAll(array $resources): void
     {
-        $this->resources = [];
+        $this->resources = $resources;
     }
 }

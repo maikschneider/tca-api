@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Write;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -347,7 +348,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
     {
         $registry = $this->getApiRegistry();
         $snapshot = $registry->getAll();
-        $registry->reset();
+        unset($snapshot['colors-with-ownership']);
 
         // Build a color resource config with ownership columns
         $ownedConfig = [
@@ -369,12 +370,10 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
             $ownedConfig['ownership']['setOnCreate'] = $setOnCreate;
         }
 
-        // Register FIRST — Bootstrap::init() will later re-register file-based
+        // Place FIRST — Bootstrap::init() will later re-register file-based
         // resources in-place (preserving order) but never touches this key.
-        $this->registerResource('colors-with-ownership', $ownedConfig);
-
-        foreach ($snapshot as $name => $config) {
-            $registry->register($name, $config);
-        }
+        $registry->replaceAll(
+            ['colors-with-ownership' => ApiDefinition::fromArray($ownedConfig)] + $snapshot,
+        );
     }
 }
