@@ -26,6 +26,7 @@
 - **Pagination** — Offset-based pagination with Hydra `PartialCollectionView` links
 - **Validation** — Required, maxLength, minLength, and regex validators with structured 422 error responses
 - **Access control** — Per-operation roles: `PUBLIC`, `FE_USER`, `FE_GROUP`, `BE_USER`, `BE_ADMIN`, `OWNER` (record-level ownership), or custom callables
+- **Write privilege model** — Actor-aware write context with configurable execution strategy, per-table access control, system-table deny list, and structured audit logging
 - **Relation handling** — Shallow stubs or fully embedded related records (configurable depth); create new related records inline on POST/PUT/PATCH
 - **Userinfo endpoint** — Expose the authenticated FE user's own record at a configurable URL
 - **OpenAPI + Swagger UI** — Auto-generated OpenAPI 3.1.0 spec and interactive Swagger UI served directly from the API prefix
@@ -155,6 +156,7 @@ Access to both endpoints is controlled by the `tca_api.openApiExposed` and `tca_
 | `itemsPerPage`    | Default page size for list operations            |
 | `maxItemsPerPage` | Upper limit for `itemsPerPage`; when set, the requested page size is clamped to this value. No limit when omitted |
 | `storagePid`      | Page ID for newly created records                |
+| `writeMode`       | Write execution strategy: `acting_user` (default) or `system_admin` — see [Write privilege model](#write-privilege-model) |
 
 ### Column visibility
 
@@ -385,6 +387,131 @@ Backend admins bypass ownership checks by default. Set `beAdminBypass: false` to
 - `setOnCreate` without a logged-in FE user → column is not set (no injection if user is null)
 - Ownership columns are always stripped from client input regardless of `groups` config
 - `OWNER` is only meaningful on `update` and `delete`; using it on `list`/`show` will always deny (no single record to compare against)
+
+## Write privilege model
+
+Write operations (create, update, delete) pass through a **write privilege model** that controls execution strategy, enforces table-level access control, and logs every mutation with the actor's identity.
+
+### Write modes
+
+Each resource has a configurable **write mode** that determines how writes are executed:
+
+| Mode | Value | Description |
+|------|-------|-------------|
+| **Acting user** | `acting_user` | **Default.** Tracks the real authenticated user (FE or BE) for audit purposes. The actor's identity is embedded in the DataHandler username. |
+| **System admin** | `system_admin` | Opt-in. Uses a synthetic backend admin (`uid=0, admin=1`) with no user identity. Only for trusted, internal APIs. |
+
+Configure per resource in the `general` section:
+
+```php
+return [
+    'general' => [
+        'table'        => 'tx_myext_domain_model_article',
+        'resourceName' => 'articles',
+        'resourceType' => 'Article',
+        'operations'   => ['list', 'show', 'create', 'update', 'delete'],
+        'writeMode'    => 'acting_user',   // default — tracks real user
+    ],
+];
+```
+
+To opt into system admin mode for an internal resource:
+
+```php
+'general' => [
+    'table'        => 'tx_myext_domain_model_internal',
+    'resourceName' => 'internal-records',
+    'resourceType' => 'InternalRecord',
+    'operations'   => ['list', 'create'],
+    'writeMode'    => 'system_admin',      // explicit opt-in
+],
+```
+
+> **⚠ Warning:** `system_admin` mode bypasses TYPO3 access control. Only enable for internal APIs where the calling application is fully trusted.
+
+### Actor resolution
+
+The write context resolves the acting user automatically from the request:
+
+1. **Frontend user** — if `frontend.user` is present with a valid UID → `actorType = 'fe_user'`
+2. **Backend user** — if `$GLOBALS['BE_USER']` is authenticated → `actorType = 'be_user'`
+3. **No user** — falls back to `actorType = 'system'` with system admin mode forced
+
+In `acting_user` mode, the DataHandler's internal username encodes the real actor for traceability:
+
+```
+_tca_api[fe_user:42:johndoe]
+_tca_api[be_user:1:admin]
+```
+
+### Table access control
+
+A built-in table access control layer prevents writes to security-sensitive system tables. This applies regardless of write mode.
+
+#### Denied tables (built-in)
+
+The following tables are **always blocked** from API writes:
+
+| Table | Reason |
+|-------|--------|
+| `be_users` | Backend user credentials |
+| `be_groups` | Backend permission groups |
+| `be_sessions` | Active backend sessions |
+| `fe_sessions` | Active frontend sessions |
+| `sys_filemounts` | File system mount points |
+| `sys_be_shortcuts` | Backend user shortcuts |
+| `sys_action` | System actions |
+| `sys_log` | System audit log |
+
+#### Custom allow/deny lists
+
+Extend the table access control via `Services.yaml`:
+
+```yaml
+services:
+  MaikSchneider\TcaApi\Security\TableAccessControl:
+    arguments:
+      # Only these tables are writable (empty = all non-denied)
+      $allowList:
+        - tx_myext_domain_model_article
+        - tx_myext_domain_model_comment
+      # Additional tables to deny (merged with built-in deny list)
+      $denyList:
+        - pages
+        - tt_content
+```
+
+**Precedence:** deny list always wins over allow list. A table in both lists is denied.
+
+### Audit logging
+
+Every write operation is logged via PSR-3 with structured context data:
+
+```
+INFO TCA API write operation
+  operation: create
+  table: tx_myext_domain_model_article
+  uid: NEW_primary
+  actor_type: fe_user
+  actor_uid: 42
+  actor_username: johndoe
+  write_mode: acting_user
+```
+
+Denied writes are logged at `WARNING` level:
+
+```
+WARNING TCA API write denied
+  operation: write
+  table: be_users
+  actor_type: fe_user
+  actor_uid: 42
+  actor_username: johndoe
+  write_mode: acting_user
+  reason: Table blocked by access control policy
+```
+
+Logs are written to TYPO3's logging framework and can be routed to any PSR-3 compatible handler.
 
 ## Validation
 
