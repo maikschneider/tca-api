@@ -103,7 +103,7 @@ final class ColumnDefinitionTest extends TestCase
         ColumnDefinition::fromArray(['type' => $type]);
     }
 
-    public static function invalidTypeProvider(): iterable
+    public static function invalidTypeProvider(): \Generator
     {
         yield 'non-string' => [123];
         yield 'unknown type' => ['blob'];
@@ -126,7 +126,7 @@ final class ColumnDefinitionTest extends TestCase
         ColumnDefinition::fromArray(['embed' => $embed]);
     }
 
-    public static function invalidEmbedProvider(): iterable
+    public static function invalidEmbedProvider(): \Generator
     {
         yield 'string' => ['deep'];
         yield 'integer' => [2];
@@ -150,7 +150,7 @@ final class ColumnDefinitionTest extends TestCase
         ColumnDefinition::fromArray(['callback' => $callback]);
     }
 
-    public static function invalidCallbackProvider(): iterable
+    public static function invalidCallbackProvider(): \Generator
     {
         yield 'string' => ['myFunction'];
         yield 'single-element array' => [['App\\MyClass']];
