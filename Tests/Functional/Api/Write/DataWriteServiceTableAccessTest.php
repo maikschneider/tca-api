@@ -7,7 +7,6 @@ namespace MaikSchneider\TcaApi\Tests\Functional\Api\Write;
 use MaikSchneider\TcaApi\DataAccess\DataWriteService;
 use MaikSchneider\TcaApi\Security\WriteContext;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Functional tests for the DataWriteService table access control (assertTableAccess).
@@ -23,7 +22,7 @@ final class DataWriteServiceTableAccessTest extends ApiFunctionalTestCase
     {
         parent::setUp();
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
-        $this->writeService = GeneralUtility::makeInstance(DataWriteService::class);
+        $this->writeService = $this->get(DataWriteService::class);
     }
 
     // ── processDataMap: denied tables ────────────────────────────────────────
