@@ -28,7 +28,7 @@
 - **Access control** — Per-operation roles: `PUBLIC`, `FE_USER`, `FE_GROUP`, `BE_USER`, `BE_ADMIN`, `OWNER` (record-level ownership), or custom callables
 - **Relation handling** — Shallow stubs or fully embedded related records (configurable depth); create new related records inline on POST/PUT/PATCH
 - **Userinfo endpoint** — Expose the authenticated FE user's own record at a configurable URL
-- **OpenAPI + Swagger UI** — Auto-generated OpenAPI 3.0 spec and interactive Swagger UI served directly from the API prefix
+- **OpenAPI + Swagger UI** — Auto-generated OpenAPI 3.1.0 spec and interactive Swagger UI served directly from the API prefix
 - **PSR-14 events** — Hook into the request lifecycle with Before/AfterOperation and Before/AfterWrite events
 - **TYPO3 DataHandler** — Write operations use TYPO3's DataHandler for safe, consistent data manipulation
 - **Extensible handler pipeline** — Register custom operation handlers or override built-in ones from any extension
@@ -132,7 +132,7 @@ DELETE /_api/articles/1            → Delete item
 
 ## OpenAPI spec & Swagger UI
 
-The extension generates a live **OpenAPI 3.0 JSON spec** from the registered resources and exposes two additional endpoints:
+The extension generates a live **OpenAPI 3.1.0 JSON spec** from the registered resources and exposes two additional endpoints:
 
 | Endpoint | Description |
 |---|---|
