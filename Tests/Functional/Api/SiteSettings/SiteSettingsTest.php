@@ -45,5 +45,7 @@ final class SiteSettingsTest extends ApiFunctionalTestCase
 
         self::assertSame(405, $response->getStatusCode());
         self::assertSame('', $response->getHeaderLine('Access-Control-Allow-Origin'));
+        self::assertSame('', $response->getHeaderLine('Access-Control-Allow-Credentials'));
+        self::assertStringNotContainsString('Origin', $response->getHeaderLine('Vary'));
     }
 }
