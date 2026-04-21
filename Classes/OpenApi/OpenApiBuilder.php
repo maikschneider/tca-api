@@ -10,6 +10,7 @@ use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use TYPO3\CMS\Core\Site\Entity\SiteSettings;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 readonly class OpenApiBuilder
 {
@@ -19,7 +20,7 @@ readonly class OpenApiBuilder
 
     public function build(): array
     {
-        $resources = ApiRegistry::getAll();
+        $resources = $this->filterAllowedResources(ApiRegistry::getAll());
 
         $info = [
             'title' => $this->settings->get('tca_api.apiSpecTitle'),
@@ -37,6 +38,31 @@ readonly class OpenApiBuilder
         ];
 
         return $spec;
+    }
+
+    /**
+     * Filter resources by the site-level allowedResources setting.
+     *
+     * @param array<string, ApiDefinition> $resources
+     * @return array<string, ApiDefinition>
+     */
+    private function filterAllowedResources(array $resources): array
+    {
+        $allowed = GeneralUtility::trimExplode(
+            ',',
+            (string)$this->settings->get('tca_api.allowedResources', ''),
+            true,
+        );
+
+        if ($allowed === []) {
+            return $resources;
+        }
+
+        return array_filter(
+            $resources,
+            static fn (string $name): bool => \in_array($name, $allowed, true),
+            ARRAY_FILTER_USE_KEY,
+        );
     }
 
     /** @param array<string, ApiDefinition> $resources */
@@ -110,7 +136,9 @@ readonly class OpenApiBuilder
                         ],
                     ],
                 ],
-                '403' => ['description' => 'Forbidden'],
+                '400' => $this->errorResponse('Bad request'),
+                '403' => $this->errorResponse('Forbidden'),
+                '500' => $this->errorResponse('Internal server error'),
             ],
         ];
     }
@@ -125,9 +153,9 @@ readonly class OpenApiBuilder
                 [
                     'name' => 'fields',
                     'in' => 'query',
-                    'style' => 'deepObject',
+                    'description' => 'Sparse fieldset: only return the specified columns (plus @type, @id, uid)',
                     'explode' => true,
-                    'schema' => ['type' => 'object', 'additionalProperties' => ['type' => 'array', 'items' => ['type' => 'string']]],
+                    'schema' => ['type' => 'array', 'items' => ['type' => 'string']],
                 ],
             ],
             'responses' => [
@@ -139,8 +167,9 @@ readonly class OpenApiBuilder
                         ],
                     ],
                 ],
-                '403' => ['description' => 'Forbidden'],
-                '404' => ['description' => 'Not found'],
+                '403' => $this->errorResponse('Forbidden'),
+                '404' => $this->errorResponse('Not found'),
+                '500' => $this->errorResponse('Internal server error'),
             ],
         ];
     }
@@ -171,7 +200,9 @@ readonly class OpenApiBuilder
                         ],
                     ],
                 ],
-                '403' => ['description' => 'Forbidden'],
+                '400' => $this->errorResponse('Bad request (e.g. malformed JSON)'),
+                '403' => $this->errorResponse('Forbidden'),
+                '409' => $this->errorResponse('Conflict'),
                 '422' => [
                     'description' => 'Validation error',
                     'content' => [
@@ -180,6 +211,7 @@ readonly class OpenApiBuilder
                         ],
                     ],
                 ],
+                '500' => $this->errorResponse('Internal server error'),
             ],
         ];
     }
@@ -209,8 +241,10 @@ readonly class OpenApiBuilder
                         ],
                     ],
                 ],
-                '403' => ['description' => 'Forbidden'],
-                '404' => ['description' => 'Not found'],
+                '400' => $this->errorResponse('Bad request (e.g. malformed JSON)'),
+                '403' => $this->errorResponse('Forbidden'),
+                '404' => $this->errorResponse('Not found'),
+                '409' => $this->errorResponse('Conflict'),
                 '422' => [
                     'description' => 'Validation error',
                     'content' => [
@@ -219,6 +253,7 @@ readonly class OpenApiBuilder
                         ],
                     ],
                 ],
+                '500' => $this->errorResponse('Internal server error'),
             ],
         ];
     }
@@ -231,8 +266,10 @@ readonly class OpenApiBuilder
             'x-typo3-access-role' => $this->accessRoleValue($config->securityRole('delete')),
             'responses' => [
                 '204' => ['description' => 'Deleted'],
-                '403' => ['description' => 'Forbidden'],
-                '404' => ['description' => 'Not found'],
+                '403' => $this->errorResponse('Forbidden'),
+                '404' => $this->errorResponse('Not found'),
+                '405' => $this->errorResponse('Method not allowed'),
+                '500' => $this->errorResponse('Internal server error'),
             ],
         ];
     }
@@ -281,9 +318,9 @@ readonly class OpenApiBuilder
         $params[] = [
             'name' => 'fields',
             'in' => 'query',
-            'style' => 'deepObject',
+            'description' => 'Sparse fieldset: only return the specified columns (plus @type, @id, uid)',
             'explode' => true,
-            'schema' => ['type' => 'object', 'additionalProperties' => ['type' => 'array', 'items' => ['type' => 'string']]],
+            'schema' => ['type' => 'array', 'items' => ['type' => 'string']],
         ];
 
         return $params;
@@ -293,9 +330,23 @@ readonly class OpenApiBuilder
     private function buildSchemas(array $resources): array
     {
         $schemas = [
+            'HydraError' => [
+                'type' => 'object',
+                'properties' => [
+                    '@context' => ['type' => 'string', 'example' => 'http://www.w3.org/ns/hydra/context.jsonld'],
+                    '@type' => ['type' => 'string', 'example' => 'hydra:Error'],
+                    'hydra:title' => ['type' => 'string'],
+                    'hydra:description' => ['type' => 'string'],
+                ],
+                'required' => ['@type', 'hydra:title', 'hydra:description'],
+            ],
             'ValidationError' => [
                 'type' => 'object',
                 'properties' => [
+                    '@context' => ['type' => 'string', 'example' => 'http://www.w3.org/ns/hydra/context.jsonld'],
+                    '@type' => ['type' => 'string', 'example' => 'hydra:Error'],
+                    'hydra:title' => ['type' => 'string', 'example' => 'Validation Failed'],
+                    'hydra:description' => ['type' => 'string'],
                     'violations' => [
                         'type' => 'array',
                         'items' => [
@@ -475,5 +526,17 @@ readonly class OpenApiBuilder
 
         // Return only the inner pattern, strip delimiter and any trailing flags
         return substr($phpPattern, 1, $lastDelimiter - 1);
+    }
+
+    private function errorResponse(string $description): array
+    {
+        return [
+            'description' => $description,
+            'content' => [
+                'application/ld+json' => [
+                    'schema' => ['$ref' => '#/components/schemas/HydraError'],
+                ],
+            ],
+        ];
     }
 }
