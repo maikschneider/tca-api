@@ -188,7 +188,7 @@ final class DataRepository
 
     private function applyPidConstraint(QueryBuilder $qb, ApiDefinition $config): void
     {
-        if ($config->getStoragePid()) {
+        if ($config->getStoragePid() !== null) {
             $qb->andWhere($qb->expr()->eq('pid', $qb->createNamedParameter($config->getStoragePid(), Connection::PARAM_INT)));
         }
     }
