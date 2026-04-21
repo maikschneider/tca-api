@@ -135,10 +135,12 @@ final class DataWriteService
         $user = GeneralUtility::makeInstance(BackendUserAuthentication::class);
 
         if ($context->mode === WriteMode::ACTING_USER) {
+            // Sanitize username for safe embedding in synthetic BE user record
+            $safeUsername = str_replace(['[', ']', ':'], ['_', '_', '_'], $context->actorUsername);
             $user->user = [
                 'uid' => 0,
                 'admin' => 1,
-                'username' => sprintf('_tca_api[%s:%d:%s]', $context->actorType, $context->actorUid, $context->actorUsername),
+                'username' => sprintf('_tca_api[%s:%d:%s]', $context->actorType, $context->actorUid, $safeUsername),
             ];
         } else {
             $user->user = ['uid' => 0, 'admin' => 1, 'username' => '_tca_api_system'];
@@ -152,11 +154,9 @@ final class DataWriteService
     private function assertTableAccess(string $operation, string $table, WriteContext $context): void
     {
         if (!$this->tableAccessControl->isWriteAllowed($table)) {
-            $this->auditLogger->logDenied($operation, $table, $context, 'Table blocked by access control policy');
-            throw new \RuntimeException(
-                sprintf('Write access denied for table "%s". This table is blocked by the TCA API table access control policy.', $table),
-                1713680400,
-            );
+            $reason = 'Table blocked by access control policy';
+            $this->auditLogger->logDenied($operation, $table, $context, $reason);
+            $this->tableAccessControl->assertWriteAllowed($table);
         }
     }
 

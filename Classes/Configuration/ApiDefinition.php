@@ -128,7 +128,12 @@ final readonly class ApiDefinition
         // Parse write mode configuration. Default: ACTING_USER (respects user identity).
         // Opt-in: 'system_admin' for trusted internal APIs that bypass user context.
         $rawWriteMode = $general['writeMode'] ?? 'acting_user';
-        $writeMode = WriteMode::tryFrom($rawWriteMode) ?? WriteMode::ACTING_USER;
+        $writeMode = WriteMode::tryFrom($rawWriteMode);
+        if ($writeMode === null) {
+            throw new \InvalidArgumentException(
+                sprintf('Invalid writeMode "%s" in TcaApi config for %s. Valid values: acting_user, system_admin', $rawWriteMode, $general['table']),
+            );
+        }
 
         return new self(
             table:                  $general['table'],
