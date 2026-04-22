@@ -14,30 +14,28 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 readonly class OpenApiBuilder
 {
-    public function __construct(private SiteSettings $settings)
+    public function __construct(private ApiRegistry $apiRegistry)
     {
     }
 
-    public function build(): array
+    public function build(SiteSettings $settings): array
     {
-        $resources = $this->filterAllowedResources(ApiRegistry::getAll());
+        $resources = $this->filterAllowedResources($this->apiRegistry->getAll(), $settings);
 
         $info = [
-            'title' => $this->settings->get('tca_api.apiSpecTitle'),
-            'version' => $this->settings->get('tca_api.apiSpecVersion'),
-            'description' => $this->settings->get('tca_api.apiSpecDescription'),
+            'title' => $settings->get('tca_api.apiSpecTitle'),
+            'version' => $settings->get('tca_api.apiSpecVersion'),
+            'description' => $settings->get('tca_api.apiSpecDescription'),
         ];
 
-        $spec = [
+        return [
             'openapi' => '3.1.0',
             'info' => $info,
-            'paths' => $this->buildPaths($resources),
+            'paths' => $this->buildPaths($resources, $settings),
             'components' => [
                 'schemas' => $this->buildSchemas($resources),
             ],
         ];
-
-        return $spec;
     }
 
     /**
@@ -46,11 +44,11 @@ readonly class OpenApiBuilder
      * @param array<string, ApiDefinition> $resources
      * @return array<string, ApiDefinition>
      */
-    private function filterAllowedResources(array $resources): array
+    private function filterAllowedResources(array $resources, SiteSettings $settings): array
     {
         $allowed = GeneralUtility::trimExplode(
             ',',
-            (string)$this->settings->get('tca_api.allowedResources', ''),
+            (string)$settings->get('tca_api.allowedResources', ''),
             true,
         );
 
@@ -66,13 +64,13 @@ readonly class OpenApiBuilder
     }
 
     /** @param array<string, ApiDefinition> $resources */
-    private function buildPaths(array $resources): array
+    private function buildPaths(array $resources, SiteSettings $settings): array
     {
         $paths = [];
 
         foreach ($resources as $resourceName => $config) {
-            $collectionPath = $this->settings->get('tca_api.apiPrefix') . $resourceName;
-            $itemPath = $this->settings->get('tca_api.apiPrefix') . $resourceName . '/{uid}';
+            $collectionPath = $settings->get('tca_api.apiPrefix') . $resourceName;
+            $itemPath = $settings->get('tca_api.apiPrefix') . $resourceName . '/{uid}';
 
             $collectionItem = [];
             if ($config->hasOperation('list')) {

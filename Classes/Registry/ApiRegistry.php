@@ -5,23 +5,27 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Registry;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 
+#[Autoconfigure(public: true)]
 final class ApiRegistry
 {
-    /** @var array<string, ApiDefinition> */
+    /**
+     * @var array<string, ApiDefinition>
+     */
     private static array $resources = [];
 
-    public static function register(string $resourceName, ApiDefinition $definition): void
+    public function register(string $resourceName, ApiDefinition $definition): void
     {
         self::$resources[$resourceName] = $definition;
     }
 
-    public static function get(string $resourceName): ?ApiDefinition
+    public function get(string $resourceName): ?ApiDefinition
     {
         return self::$resources[$resourceName] ?? null;
     }
 
-    public static function getByTable(string $table): ?ApiDefinition
+    public function getByTable(string $table): ?ApiDefinition
     {
         foreach (self::$resources as $definition) {
             if ($definition->table === $table) {
@@ -33,12 +37,18 @@ final class ApiRegistry
     }
 
     /** @return array<string, ApiDefinition> */
-    public static function getAll(): array
+    public function getAll(): array
     {
         return self::$resources;
     }
 
-    public static function reset(): void
+    /** @param array<string, ApiDefinition> $resources */
+    public function replaceAll(array $resources): void
+    {
+        self::$resources = $resources;
+    }
+
+    public function reset(): void
     {
         self::$resources = [];
     }

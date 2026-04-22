@@ -49,6 +49,7 @@ final class ResourceSerializer
         private readonly TcaSchemaFactory $schemaFactory,
         private readonly DataRepository $dataRepository,
         private readonly FileRepository $fileRepository,
+        private readonly ApiRegistry $apiRegistry,
         private readonly CacheTagCollector $cacheTagCollector,
     ) {
     }
@@ -590,10 +591,10 @@ final class ResourceSerializer
         }
 
         if ($columnDef?->resourceName !== null) {
-            return ApiRegistry::get($columnDef->resourceName);
+            return $this->apiRegistry->get($columnDef->resourceName);
         }
 
-        return ApiRegistry::getByTable($foreignTable);
+        return $this->apiRegistry->getByTable($foreignTable);
     }
 
     /** Returns the TcaSchema for a table, cached to avoid repeated factory calls per collection row. */
