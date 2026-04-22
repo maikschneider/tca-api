@@ -20,9 +20,9 @@ final readonly class CacheDefinition
      * @param string[] $parametersToIgnore  Query parameters that bypass caching entirely
      */
     public function __construct(
-        public readonly bool $enabled = false,
-        public readonly int $lifetime = self::DEFAULT_LIFETIME,
-        public readonly array $parametersToIgnore = [],
+        public bool $enabled = false,
+        public int $lifetime = self::DEFAULT_LIFETIME,
+        public array $parametersToIgnore = [],
     ) {
     }
 

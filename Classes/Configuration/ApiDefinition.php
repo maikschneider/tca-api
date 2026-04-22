@@ -390,7 +390,7 @@ final readonly class ApiDefinition
             );
         }
         try {
-            $cache = $rawCache !== [] ? CacheDefinition::fromArray($rawCache) : new CacheDefinition();
+            $cache = CacheDefinition::fromArray($rawCache);
         } catch (\InvalidArgumentException $e) {
             throw new \InvalidArgumentException(
                 sprintf('TcaApi config for "%s": %s', $label, $e->getMessage()),
