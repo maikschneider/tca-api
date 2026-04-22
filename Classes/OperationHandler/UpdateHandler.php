@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\OperationHandler;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\DataWriteService;
+use MaikSchneider\TcaApi\DataAccess\RelationInputResolver;
 use MaikSchneider\TcaApi\Event\AfterWriteEvent;
 use MaikSchneider\TcaApi\Event\BeforeWriteEvent;
+use MaikSchneider\TcaApi\Security\WriteContextFactory;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
 use MaikSchneider\TcaApi\Validation\FieldValidator;
@@ -30,15 +33,17 @@ class UpdateHandler implements OperationHandlerInterface
         private readonly ResponseFactoryInterface $responseFactory,
         private readonly FieldValidator $fieldValidator,
         private readonly EventDispatcherInterface $eventDispatcher,
+        private readonly RelationInputResolver $relationResolver,
+        private readonly WriteContextFactory $writeContextFactory,
     ) {
     }
 
-    public function supports(ServerRequestInterface $request, string $operation, array $config): bool
+    public function supports(ServerRequestInterface $request, string $operation, ApiDefinition $config): bool
     {
         return $operation === 'update';
     }
 
-    public function handle(ServerRequestInterface $request, array $config): ResponseInterface
+    public function handle(ServerRequestInterface $request, ApiDefinition $config): ResponseInterface
     {
         $uid     = (int)$request->getAttribute('tca_api.uid');
         $partial = (bool)$request->getAttribute('tca_api.partial', false);
@@ -51,34 +56,48 @@ class UpdateHandler implements OperationHandlerInterface
         return 10;
     }
 
-    private function doHandle(ServerRequestInterface $request, array $config, int $uid, bool $partial = false): ResponseInterface
+    private function doHandle(ServerRequestInterface $request, ApiDefinition $config, int $uid, bool $partial = false): ResponseInterface
     {
-        $table = $config['general']['table'];
-
-        if ($this->dataRepository->findById($table, $uid, $config) === null) {
+        if ($this->dataRepository->findById($config->table, $uid, $config) === null) {
             return $this->responseFactory->createResponse(404)
                 ->withHeader('Content-Type', 'application/ld+json');
         }
 
-        $raw  = (string)$request->getBody();
-        $body = $raw !== '' ? (json_decode($raw, true, 512, JSON_THROW_ON_ERROR) ?? []) : [];
+        $raw = (string)$request->getBody();
+        try {
+            $body = $raw !== '' ? (json_decode($raw, true, 512, JSON_THROW_ON_ERROR) ?? []) : [];
+        } catch (\JsonException) {
+            return $this->hydraResponseBuilder->buildError(400, 'Request body is not valid JSON.', 'Bad Request');
+        }
 
         $violations = $this->fieldValidator->validate($body, $config, $partial);
         if ($violations !== []) {
             return $this->hydraResponseBuilder->buildValidationError($violations);
         }
 
-        $data = $this->filterWritableColumns($body, $config);
+        // Resolve relation fields. Security + validation on nested child objects
+        // is enforced inside resolve(); violations bubble up here.
+        $resolved = $this->relationResolver->resolve($body, $config->table, $config->storagePid ?? 0, $request);
+        if ($resolved->violations !== []) {
+            return $this->hydraResponseBuilder->buildValidationError($resolved->violations);
+        }
 
-        $beforeEvent = new BeforeWriteEvent($table, 'update', $data);
+        $data = $this->filterWritableColumns($resolved->scalarBody, $config);
+
+        $beforeEvent = new BeforeWriteEvent($config->table, 'update', $data);
         $this->eventDispatcher->dispatch($beforeEvent);
         $data = $beforeEvent->getData();
 
-        $this->writeService->update($table, $uid, $data);
-        $this->eventDispatcher->dispatch(new AfterWriteEvent($table, 'update', $uid));
+        // Single DataHandler call: parent update + any new related records.
+        $dataMap      = [$config->table => [$uid => $data]] + $resolved->extraDataMap;
+        $writeContext = $this->writeContextFactory->fromRequest($request, $config->writeMode);
+        $this->writeService->processDataMap($dataMap, $writeContext);
 
-        $row     = $this->dataRepository->findById($table, $uid, $config);
-        $baseUrl = '/_api/' . $config['general']['resourceName'];
+        $this->eventDispatcher->dispatch(new AfterWriteEvent($config->table, 'update', $uid));
+
+        $row       = $this->dataRepository->findById($config->table, $uid, $config);
+        $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
+        $baseUrl   = $apiPrefix . '/' . $config->resourceName;
 
         return $this->hydraResponseBuilder->buildItem(
             $this->serializer->serialize($row, $config, $baseUrl),

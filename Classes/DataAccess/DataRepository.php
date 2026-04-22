@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\DataAccess;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Filter\FilterInterface;
 use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 
@@ -14,6 +16,9 @@ final class DataRepository
     /** @var array<string, FilterInterface>|null */
     private ?array $filterMap = null;
 
+    /**
+     * @param iterable<FilterInterface> $filterHandlers
+     */
     public function __construct(
         private readonly ConnectionPool $connectionPool,
         #[TaggedIterator('tca_api.filter')]
@@ -47,7 +52,7 @@ final class DataRepository
         return $indexed;
     }
 
-    public function findById(string $table, int $uid, array $config): ?array
+    public function findById(string $table, int $uid, ApiDefinition $config): ?array
     {
         $qb = $this->connectionPool->getQueryBuilderForTable($table);
         $qb->select('*')
@@ -61,7 +66,7 @@ final class DataRepository
         return $qb->executeQuery()->fetchAssociative() ?: null;
     }
 
-    public function findCollection(string $table, array $constraints, int $limit, int $offset, array $order, array $config): array
+    public function findCollection(string $table, array $constraints, int $limit, int $offset, array $order, ApiDefinition $config): array
     {
         $qb = $this->connectionPool->getQueryBuilderForTable($table);
         $qb->select('*')
@@ -87,7 +92,7 @@ final class DataRepository
         return $qb->executeQuery()->fetchAllAssociative();
     }
 
-    public function count(string $table, array $constraints, array $config): int
+    public function count(string $table, array $constraints, ApiDefinition $config): int
     {
         $qb = $this->connectionPool->getQueryBuilderForTable($table);
         $qb->count('uid')
@@ -181,29 +186,11 @@ final class DataRepository
         return $grouped;
     }
 
-    private function applyPidConstraint(QueryBuilder $qb, array $config): void
+    private function applyPidConstraint(QueryBuilder $qb, ApiDefinition $config): void
     {
-        $pids = $this->resolvePids($config);
-        if ($pids !== []) {
-            $qb->andWhere($qb->expr()->in('pid', array_map(
-                fn (int $pid) => $qb->createNamedParameter($pid),
-                $pids,
-            )));
+        if ($config->storagePid !== null) {
+            $qb->andWhere($qb->expr()->eq('pid', $qb->createNamedParameter($config->storagePid, Connection::PARAM_INT)));
         }
-    }
-
-    /**
-     * Normalises the 'storagePid' config value (int or int[]) to a flat int[].
-     * Returns [] when no storagePid is configured.
-     */
-    private function resolvePids(array $config): array
-    {
-        $raw = $config['general']['storagePid'] ?? null;
-        if ($raw === null) {
-            return [];
-        }
-
-        return array_map('intval', is_array($raw) ? $raw : [$raw]);
     }
 
     private function applyFilterConstraint(QueryBuilder $qb, string $column, array $filter): void

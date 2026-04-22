@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\OperationHandler;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 
 /**
@@ -14,13 +15,13 @@ use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
  */
 trait ColumnFilterTrait
 {
-    private function filterWritableColumns(array $body, array $config): array
+    private function filterWritableColumns(array $body, ApiDefinition $config): array
     {
         $result = [];
 
-        if (!TcaColumnDiscovery::isExplicitMode($config)) {
+        if (!$config->isExplicitMode) {
             // Default mode: accept all exposable TCA columns present in the body
-            foreach (TcaColumnDiscovery::getExposableColumnNames($config['general']['table']) as $column) {
+            foreach (TcaColumnDiscovery::getExposableColumnNames($config->table) as $column) {
                 if (\array_key_exists($column, $body)) {
                     $value = $body[$column];
                     $result[$column] = \is_array($value) ? implode(',', $value) : $value;
@@ -28,8 +29,8 @@ trait ColumnFilterTrait
             }
         } else {
             // Explicit mode
-            foreach ($config['columns'] as $column => $columnConfig) {
-                if (!TcaColumnDiscovery::isColumnWritable($columnConfig)) {
+            foreach ($config->columns as $column => $columnDef) {
+                if (!$columnDef->isWritable()) {
                     continue;
                 }
 
@@ -42,8 +43,8 @@ trait ColumnFilterTrait
 
         // Strip ownership columns — server-managed and never client-writable
         foreach (array_unique(array_filter([
-            $config['ownership']['column'] ?? null,
-            $config['ownership']['setOnCreate'] ?? null,
+            $config->ownershipColumn,
+            $config->ownershipSetOnCreate,
         ])) as $col) {
             unset($result[$col]);
         }

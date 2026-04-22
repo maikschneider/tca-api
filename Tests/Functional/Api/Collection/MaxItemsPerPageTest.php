@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Collection;
 
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -23,11 +22,10 @@ final class MaxItemsPerPageTest extends ApiFunctionalTestCase
             'resourceName' => self::RESOURCE,
             'resourceType' => 'Article',
             'operations' => ['list', 'show'],
-            'itemsPerPage' => 20,
             'maxItemsPerPage' => 2,
         ],
         'columns' => [
-            'title' => ['groups' => ['list', 'show'], 'required' => false],
+            'title' => ['groups' => ['list', 'show']],
         ],
         'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
     ];
@@ -37,7 +35,7 @@ final class MaxItemsPerPageTest extends ApiFunctionalTestCase
         parent::setUp();
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles.csv');
-        ApiRegistry::register(self::RESOURCE, self::CONFIG);
+        $this->registerResource(self::RESOURCE, self::CONFIG);
     }
 
     public function testRequestedItemsPerPageIsClampedToMax(): void
@@ -62,7 +60,7 @@ final class MaxItemsPerPageTest extends ApiFunctionalTestCase
         // Register a resource without maxItemsPerPage — no clamping is applied
         $config = self::CONFIG;
         unset($config['general']['maxItemsPerPage']);
-        ApiRegistry::register('uncapped-articles', $config);
+        $this->registerResource('uncapped-articles', $config);
 
         $response = $this->executeApiRequest('/_api/uncapped-articles', ['itemsPerPage' => 999]);
         $body = $this->decodeResponseBody($response);

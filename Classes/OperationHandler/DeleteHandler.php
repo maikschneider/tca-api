@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\OperationHandler;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\DataWriteService;
 use MaikSchneider\TcaApi\Event\AfterWriteEvent;
 use MaikSchneider\TcaApi\Event\BeforeWriteEvent;
+use MaikSchneider\TcaApi\Security\WriteContextFactory;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -22,19 +24,20 @@ class DeleteHandler implements OperationHandlerInterface
         private readonly DataRepository $dataRepository,
         private readonly ResponseFactoryInterface $responseFactory,
         private readonly EventDispatcherInterface $eventDispatcher,
+        private readonly WriteContextFactory $writeContextFactory,
     ) {
     }
 
-    public function supports(ServerRequestInterface $request, string $operation, array $config): bool
+    public function supports(ServerRequestInterface $request, string $operation, ApiDefinition $config): bool
     {
         return $operation === 'delete';
     }
 
-    public function handle(ServerRequestInterface $request, array $config): ResponseInterface
+    public function handle(ServerRequestInterface $request, ApiDefinition $config): ResponseInterface
     {
         $uid = (int)$request->getAttribute('tca_api.uid');
 
-        return $this->doHandle($config, $uid);
+        return $this->doHandle($request, $config, $uid);
     }
 
     public function getPriority(): int
@@ -42,18 +45,17 @@ class DeleteHandler implements OperationHandlerInterface
         return 10;
     }
 
-    private function doHandle(array $config, int $uid): ResponseInterface
+    private function doHandle(ServerRequestInterface $request, ApiDefinition $config, int $uid): ResponseInterface
     {
-        $table = $config['general']['table'];
-
-        if ($this->dataRepository->findById($table, $uid, $config) === null) {
+        if ($this->dataRepository->findById($config->table, $uid, $config) === null) {
             return $this->responseFactory->createResponse(404)
                 ->withHeader('Content-Type', 'application/ld+json');
         }
 
-        $this->eventDispatcher->dispatch(new BeforeWriteEvent($table, 'delete', []));
-        $this->writeService->delete($table, $uid);
-        $this->eventDispatcher->dispatch(new AfterWriteEvent($table, 'delete', $uid));
+        $writeContext = $this->writeContextFactory->fromRequest($request, $config->writeMode);
+        $this->eventDispatcher->dispatch(new BeforeWriteEvent($config->table, 'delete', []));
+        $this->writeService->delete($config->table, $uid, $writeContext);
+        $this->eventDispatcher->dispatch(new AfterWriteEvent($config->table, 'delete', $uid));
 
         return $this->responseFactory->createResponse(204);
     }

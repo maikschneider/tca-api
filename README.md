@@ -17,18 +17,19 @@
 
 ## Features
 
-- **Full CRUD** — List, show, create, update (PUT & PATCH), and delete operations
+- **Full CRUD** — List, show, create, update and delete operations
 - **Hydra JSON-LD** — Responses follow the [Hydra](https://www.hydra-cg.com/) specification (`application/ld+json`)
 - **Configuration-driven** — Expose tables by registering a PHP configuration array; no custom controllers needed
-- **Serialization groups** — Use `groups` to control which columns appear per operation (`list`, `show`, `create`, `update`)
-- **Filtering** — Exact, partial, word-start, range, full-text search, and many-to-many filter strategies via query parameters; extensible via `FilterInterface`
+- **Serialization groups** — Use `groups` to control which columns appear per operation
+- **Filtering** — Exact, partial, word-start, range, full-text search, and many-to-many filter strategies via query parameters; configurable defaults and private (non-overrideable) filters; extensible via `FilterInterface`
 - **Sorting** — Configurable allowed sort columns with defaults
 - **Pagination** — Offset-based pagination with Hydra `PartialCollectionView` links
 - **Validation** — Required, maxLength, minLength, and regex validators with structured 422 error responses
 - **Access control** — Per-operation roles: `PUBLIC`, `FE_USER`, `FE_GROUP`, `BE_USER`, `BE_ADMIN`, `OWNER` (record-level ownership), or custom callables
-- **Relation handling** — Shallow stubs or fully embedded related records (configurable depth)
+- **Write privilege model** — Actor-aware write context with configurable execution strategy, per-table access control, system-table deny list, and structured audit logging
+- **Relation handling** — Shallow stubs or fully embedded related records (configurable depth); create new related records inline on POST/PUT/PATCH
 - **Userinfo endpoint** — Expose the authenticated FE user's own record at a configurable URL
-- **OpenAPI + Swagger UI** — Auto-generated OpenAPI 3.0 spec and interactive Swagger UI served directly from the API prefix
+- **OpenAPI + Swagger UI** — Auto-generated OpenAPI 3.1.0 spec and interactive Swagger UI served directly from the API prefix
 - **PSR-14 events** — Hook into the request lifecycle with Before/AfterOperation and Before/AfterWrite events
 - **TYPO3 DataHandler** — Write operations use TYPO3's DataHandler for safe, consistent data manipulation
 - **Extensible handler pipeline** — Register custom operation handlers or override built-in ones from any extension
@@ -69,8 +70,9 @@ This exposes the following site settings, configurable per site in the TYPO3 bac
 | `tca_api.apiSpecDescription` | *(empty)* | Description shown in the OpenAPI spec and Swagger UI |
 | `tca_api.apiSpecVersion` | `1.0.0` | Version string in the OpenAPI spec info block |
 | `tca_api.swaggerUiEnabled` | `PUBLIC` | Who may access the Swagger UI (`PUBLIC`, `FE_USER`, `BE_USER`, `BE_ADMIN`, `NONE`) |
-| `tca_api.corsEnabled` | `false` | Add CORS headers to API responses |
+| `tca_api.corsEnabled` | `false` | Enable CORS support — adds headers to all API responses and handles `OPTIONS` preflight requests with a `204` response |
 | `tca_api.corsOrigin` | `*` | Value for `Access-Control-Allow-Origin` |
+| `tca_api.corsAllowCredentials` | `false` | Include `Access-Control-Allow-Credentials: true` header (required when the client sends cookies or `Authorization` headers cross-origin) |
 
 ## Quick start
 
@@ -81,6 +83,8 @@ Place a PHP file in `Configuration/TcaApi/` inside any active TYPO3 extension. *
 **Zero-config (sane defaults):** omit `columns` entirely and all non-system TCA columns are auto-exposed for read and write:
 
 ```php
+<?php
+
 use MaikSchneider\TcaApi\Enum\AccessRole;
 
 return [
@@ -90,7 +94,7 @@ return [
         'resourceType' => 'Article',
         'operations'   => ['list', 'show', 'create', 'update', 'delete'],
         'itemsPerPage' => 20,
-        'defaultPid'   => 1,
+        'storagePid'   => 1,
     ],
     'security' => [
         'list'   => AccessRole::PUBLIC,
@@ -132,7 +136,7 @@ DELETE /_api/articles/1            → Delete item
 
 ## OpenAPI spec & Swagger UI
 
-The extension generates a live **OpenAPI 3.0 JSON spec** from the registered resources and exposes two additional endpoints:
+The extension generates a live **OpenAPI 3.1.0 JSON spec** from the registered resources and exposes two additional endpoints:
 
 | Endpoint | Description |
 |---|---|
@@ -145,16 +149,17 @@ Access to both endpoints is controlled by the `tca_api.openApiExposed` and `tca_
 
 ### General
 
-| Key             | Description                                      |
-|-----------------|--------------------------------------------------|
-| `table`         | TYPO3 database table name                        |
-| `resourceName`  | URL slug used in `/_api/{resourceName}`           |
-| `resourceType`  | JSON-LD `@type` value                            |
-| `type`          | Set to `'userinfo'` to create a [userinfo endpoint](#userinfo-endpoint) |
-| `operations`    | Array of enabled operations: `list`, `show`, `create`, `update`, `delete` |
-| `itemsPerPage`  | Default page size for list operations            |
+| Key               | Description                                      |
+|-------------------|--------------------------------------------------|
+| `table`           | TYPO3 database table name                        |
+| `resourceName`    | URL slug used in `/_api/{resourceName}`           |
+| `resourceType`    | JSON-LD `@type` value                            |
+| `type`            | Set to `'userinfo'` to create a [userinfo endpoint](#userinfo-endpoint) |
+| `operations`      | Array of enabled operations: `list`, `show`, `create`, `update`, `delete` |
+| `itemsPerPage`    | Default page size for list operations            |
 | `maxItemsPerPage` | Upper limit for `itemsPerPage`; when set, the requested page size is clamped to this value. No limit when omitted |
-| `defaultPid`    | Page ID for newly created records                |
+| `storagePid`      | Page ID for newly created records                |
+| `writeMode`       | Write execution strategy: `acting_user` (default) or `system_admin` — see [Write privilege model](#write-privilege-model) |
 
 ### Column visibility
 
@@ -246,6 +251,28 @@ use MaikSchneider\TcaApi\Filter\WordStartFilter;
 | `MmFilter` | Subquery via MM intermediate table | `mm_table`, `mm_local_key`, `mm_foreign_key`, `mm_constraints` (derived from TCA when omitted) |
 
 For `MmFilter`, if the options array is omitted the extension derives the MM config from TCA automatically (requires a valid `MM` key on the field).
+
+#### Default values and private filters
+
+Two options available on any filter definition control server-side defaults and enforcement:
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `default` | `string` | Value applied when the filter is absent from the request URL params |
+| `private` | `bool` | When `true`, the default always applies — user-supplied values are ignored; the filter is also excluded from the OpenAPI spec |
+
+```php
+'filters' => [
+    // Overrideable default — applied when ?filters[color_id] is absent
+    'color_id' => [ExactFilter::class, ['default' => '1']],
+
+    // Private filter — default always applies, cannot be overridden via URL,
+    // and does not appear in the OpenAPI spec
+    'deleted' => [ExactFilter::class, ['default' => '0', 'private' => true]],
+],
+```
+
+A private filter without a `default` has no effect (no value to enforce).
 
 #### Range filter example
 
@@ -364,6 +391,131 @@ Backend admins bypass ownership checks by default. Set `beAdminBypass: false` to
 - Ownership columns are always stripped from client input regardless of `groups` config
 - `OWNER` is only meaningful on `update` and `delete`; using it on `list`/`show` will always deny (no single record to compare against)
 
+## Write privilege model
+
+Write operations (create, update, delete) pass through a **write privilege model** that controls execution strategy, enforces table-level access control, and logs every mutation with the actor's identity.
+
+### Write modes
+
+Each resource has a configurable **write mode** that determines how writes are executed:
+
+| Mode | Value | Description |
+|------|-------|-------------|
+| **Acting user** | `acting_user` | **Default.** Tracks the real authenticated user (FE or BE) for audit purposes. The actor's identity is embedded in the DataHandler username. |
+| **System admin** | `system_admin` | Opt-in. Uses a synthetic backend admin (`uid=0, admin=1`) with no user identity. Only for trusted, internal APIs. |
+
+Configure per resource in the `general` section:
+
+```php
+return [
+    'general' => [
+        'table'        => 'tx_myext_domain_model_article',
+        'resourceName' => 'articles',
+        'resourceType' => 'Article',
+        'operations'   => ['list', 'show', 'create', 'update', 'delete'],
+        'writeMode'    => 'acting_user',   // default — tracks real user
+    ],
+];
+```
+
+To opt into system admin mode for an internal resource:
+
+```php
+'general' => [
+    'table'        => 'tx_myext_domain_model_internal',
+    'resourceName' => 'internal-records',
+    'resourceType' => 'InternalRecord',
+    'operations'   => ['list', 'create'],
+    'writeMode'    => 'system_admin',      // explicit opt-in
+],
+```
+
+> **⚠ Warning:** `system_admin` mode bypasses TYPO3 access control. Only enable for internal APIs where the calling application is fully trusted.
+
+### Actor resolution
+
+The write context resolves the acting user automatically from the request:
+
+1. **Frontend user** — if `frontend.user` is present with a valid UID → `actorType = 'fe_user'`
+2. **Backend user** — if `$GLOBALS['BE_USER']` is authenticated → `actorType = 'be_user'`
+3. **No user** — falls back to `actorType = 'system'` with system admin mode forced
+
+In `acting_user` mode, the DataHandler's internal username encodes the real actor for traceability:
+
+```
+_tca_api[fe_user:42:johndoe]
+_tca_api[be_user:1:admin]
+```
+
+### Table access control
+
+A built-in table access control layer prevents writes to security-sensitive system tables. This applies regardless of write mode.
+
+#### Denied tables (built-in)
+
+The following tables are **always blocked** from API writes:
+
+| Table | Reason |
+|-------|--------|
+| `be_users` | Backend user credentials |
+| `be_groups` | Backend permission groups |
+| `be_sessions` | Active backend sessions |
+| `fe_sessions` | Active frontend sessions |
+| `sys_filemounts` | File system mount points |
+| `sys_be_shortcuts` | Backend user shortcuts |
+| `sys_action` | System actions |
+| `sys_log` | System audit log |
+
+#### Custom allow/deny lists
+
+Extend the table access control via `Services.yaml`:
+
+```yaml
+services:
+  MaikSchneider\TcaApi\Security\TableAccessControl:
+    arguments:
+      # Only these tables are writable (empty = all non-denied)
+      $allowList:
+        - tx_myext_domain_model_article
+        - tx_myext_domain_model_comment
+      # Additional tables to deny (merged with built-in deny list)
+      $denyList:
+        - pages
+        - tt_content
+```
+
+**Precedence:** deny list always wins over allow list. A table in both lists is denied.
+
+### Audit logging
+
+Every write operation is logged via PSR-3 with structured context data:
+
+```
+INFO TCA API write operation
+  operation: create
+  table: tx_myext_domain_model_article
+  uid: NEW_primary
+  actor_type: fe_user
+  actor_uid: 42
+  actor_username: johndoe
+  write_mode: acting_user
+```
+
+Denied writes are logged at `WARNING` level:
+
+```
+WARNING TCA API write denied
+  operation: write
+  table: be_users
+  actor_type: fe_user
+  actor_uid: 42
+  actor_username: johndoe
+  write_mode: acting_user
+  reason: Table blocked by access control policy
+```
+
+Logs are written to TYPO3's logging framework and can be routed to any PSR-3 compatible handler.
+
 ## Validation
 
 Configure validators per column:
@@ -444,6 +596,49 @@ The related resource must be registered in the `ApiRegistry` for embedding to wo
 | `inline` / `select`  | `foreign_field` back-reference        | Yes       |
 | Any + `MM`           | Intermediate MM table                 | Yes       |
 | `type=group` + `MM`  | Column holds count, relations in MM   | Yes       |
+
+### Creating related records on write
+
+On POST, PUT, and PATCH you can create new related records inline by passing an assoc array instead of a UID. Three forms are accepted per relation field:
+
+```json
+{ "color_id": 1 }                          // existing record — link by UID
+{ "color_id": { "name": "Red" } }          // new record — created atomically
+{ "categories": [1, { "title": "New" }] }  // mixed — link existing + create new
+```
+
+These forms work across the supported TCA relation types, with one important limitation for `group` fields noted below:
+
+| TCA type | Example |
+|---|---|
+| `select` + single value | `"color_id": { "name": "Red" }` |
+| `category` / `select` + MM | `"categories": [1, { "title": "New" }]` |
+| `group` (single-table `allowed`) | `"tags": [3, { "name": "New Tag" }]` |
+| `inline` + `foreign_field` | `"related_items": [{ "name": "Child" }]` |
+
+For `type=group`, inline creation of new related records is only supported when `allowed` contains exactly one table. Multi-table `group` relations still support linking existing records by UID, but not creating new related records inline.
+**Atomicity:** all records (parent + new children) are created in a single DataHandler call, so cross-references resolve correctly and no partial writes occur.
+
+**Ownership:** if the related table has an `ownership` config, the ownership column is automatically injected and cannot be overridden by the client.
+
+**Security gate:** new sub-records can only be created for tables that have their own entry in ApiRegistry. Objects for unregistered foreign tables are silently skipped; existing UID references still work.
+
+#### Inline relations (`type=inline` + `foreign_field`)
+
+Inline children carry a back-pointer column to the parent (`foreign_field`). The extension sets this column automatically via DataHandler's `writeForeignField` mechanism — you do not need to include the parent UID in the child object:
+
+```json
+POST /_api/articles
+{
+  "title": "My Article",
+  "images": [
+    { "caption": "Photo 1" },
+    { "caption": "Photo 2" }
+  ]
+}
+```
+
+On PATCH, new inline children are **appended**; existing children are left untouched.
 
 ## Virtual properties
 
@@ -591,6 +786,8 @@ The dispatcher routes each request through a **handler pipeline** — a prioriti
 ### Interface
 
 ```php
+<?php
+
 use MaikSchneider\TcaApi\OperationHandler\OperationHandlerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -621,6 +818,8 @@ Before the handler loop, the dispatcher sets the following attributes on the PSR
 ### Writing a custom handler
 
 ```php
+<?php
+
 use MaikSchneider\TcaApi\OperationHandler\OperationHandlerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -672,6 +871,8 @@ Every filter strategy is a class that implements `FilterInterface`. The extensio
 ### Interface
 
 ```php
+<?php
+
 use MaikSchneider\TcaApi\Filter\FilterInterface;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 

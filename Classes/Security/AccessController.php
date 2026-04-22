@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Security;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
@@ -11,7 +12,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final class AccessController
 {
-    public function isAllowed(AccessRole|array $requiredRole, ServerRequestInterface $request, array $record = [], array $config = []): bool
+    /**
+     * @param AccessRole|array{0: AccessRole, 1?: array<int>}|array{0: class-string, 1: string} $requiredRole
+     */
+    public function isAllowed(AccessRole|array $requiredRole, ServerRequestInterface $request, array $record = [], ?ApiDefinition $config = null): bool
     {
         if (is_array($requiredRole)) {
             if ($requiredRole[0] instanceof AccessRole) {
@@ -32,15 +36,14 @@ final class AccessController
         };
     }
 
-    private function isOwner(ServerRequestInterface $request, array $record, array $config): bool
+    private function isOwner(ServerRequestInterface $request, array $record, ?ApiDefinition $config): bool
     {
-        $ownerColumn = $config['ownership']['column'] ?? null;
+        $ownerColumn = $config?->ownershipColumn;
         if ($ownerColumn === null) {
             return false;
         }
 
-        $beAdminBypass = $config['ownership']['beAdminBypass'] ?? true;
-        if ($beAdminBypass && $this->isBackendAdmin()) {
+        if ($config->ownershipBeAdminBypass && $this->isBackendAdmin()) {
             return true;
         }
 

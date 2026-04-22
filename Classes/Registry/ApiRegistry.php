@@ -4,36 +4,51 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Registry;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
+
+#[Autoconfigure(public: true)]
 final class ApiRegistry
 {
+    /**
+     * @var array<string, ApiDefinition>
+     */
     private static array $resources = [];
 
-    public static function register(string $resourceName, array $config): void
+    public function register(string $resourceName, ApiDefinition $definition): void
     {
-        self::$resources[$resourceName] = $config;
+        self::$resources[$resourceName] = $definition;
     }
 
-    public static function get(string $resourceName): ?array
+    public function get(string $resourceName): ?ApiDefinition
     {
         return self::$resources[$resourceName] ?? null;
     }
 
-    public static function getByTable(string $table): ?array
+    public function getByTable(string $table): ?ApiDefinition
     {
-        foreach (self::$resources as $config) {
-            if (($config['general']['table'] ?? '') === $table) {
-                return $config;
+        foreach (self::$resources as $definition) {
+            if ($definition->table === $table) {
+                return $definition;
             }
         }
+
         return null;
     }
 
-    public static function getAll(): array
+    /** @return array<string, ApiDefinition> */
+    public function getAll(): array
     {
         return self::$resources;
     }
 
-    public static function reset(): void
+    /** @param array<string, ApiDefinition> $resources */
+    public function replaceAll(array $resources): void
+    {
+        self::$resources = $resources;
+    }
+
+    public function reset(): void
     {
         self::$resources = [];
     }
