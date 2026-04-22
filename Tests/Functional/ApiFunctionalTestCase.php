@@ -7,7 +7,6 @@ namespace MaikSchneider\TcaApi\Tests\Functional;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Loader\ApiDefinitionLoader;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
-use MaikSchneider\TcaApi\Registry\HandlerRegistry;
 use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Core\Http\Stream;
 use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequest;
@@ -26,10 +25,6 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
 
     protected function setUp(): void
     {
-        // Reset static registries before TYPO3 boots so ext_localconf.php
-        // re-populates them fresh, preventing accumulation across test classes.
-        HandlerRegistry::reset();
-
         parent::setUp();
 
         // Static backing store persists across DI containers; reset before
