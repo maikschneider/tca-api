@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Configuration;
 
+use MaikSchneider\TcaApi\Cache\CacheDefinition;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Enum\WriteMode;
 use TYPO3\CMS\Core\Utility\MathUtility;
@@ -47,6 +48,7 @@ final readonly class ApiDefinition
         public readonly array $virtualProperties,
         public readonly bool $isExplicitMode,
         public readonly WriteMode $writeMode = WriteMode::ACTING_USER,
+        public readonly CacheDefinition $cache = new CacheDefinition(),
     ) {
     }
 
@@ -380,6 +382,23 @@ final readonly class ApiDefinition
             );
         }
 
+        // ── cache ────────────────────────────────────────────────────────
+        $rawCache = $raw['cache'] ?? [];
+        if (!\is_array($rawCache)) {
+            throw new \InvalidArgumentException(
+                sprintf('TcaApi config for "%s": "cache" must be an array.', $label),
+            );
+        }
+        try {
+            $cache = $rawCache !== [] ? CacheDefinition::fromArray($rawCache) : new CacheDefinition();
+        } catch (\InvalidArgumentException $e) {
+            throw new \InvalidArgumentException(
+                sprintf('TcaApi config for "%s": %s', $label, $e->getMessage()),
+                0,
+                $e,
+            );
+        }
+
         // ── writeMode ───────────────────────────────────────────────────
         $rawWriteMode = $general['writeMode'] ?? 'acting_user';
         if (!\is_string($rawWriteMode)) {
@@ -414,6 +433,7 @@ final readonly class ApiDefinition
             virtualProperties:      $virtualProperties,
             isExplicitMode:         $isExplicitMode,
             writeMode:              $writeMode,
+            cache:                  $cache,
         );
     }
 }

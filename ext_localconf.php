@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use MaikSchneider\TcaApi\Cache\CacheInvalidationHook;
 use MaikSchneider\TcaApi\Loader\ApiDefinitionLoader;
 use MaikSchneider\TcaApi\OperationHandler\CreateHandler;
 use MaikSchneider\TcaApi\OperationHandler\DeleteHandler;
@@ -20,3 +21,9 @@ HandlerRegistry::register(DeleteHandler::class);
 HandlerRegistry::register(GetUserInfoHandler::class);
 
 GeneralUtility::makeInstance(ApiDefinitionLoader::class)->load();
+
+// ── API response cache ──────────────────────────────────────────────────────
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['tca_api'] ??= [];
+
+$GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['clearCachePostProc']['tca_api']
+    = CacheInvalidationHook::class . '->clearCachePostProc';

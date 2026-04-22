@@ -15,6 +15,25 @@ services:
   MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor:
     public: true
 
+  # ── Cache services ─────────────────────────────────────────────────
+  cache.tca_api:
+    class: TYPO3\CMS\Core\Cache\Frontend\FrontendInterface
+    factory: ['@TYPO3\CMS\Core\Cache\CacheManager', 'getCache']
+    arguments: ['tca_api']
+
+  MaikSchneider\TcaApi\Cache\CacheTagCollector:
+    public: true
+
+  MaikSchneider\TcaApi\Cache\CacheInvalidationHook:
+    public: true
+    arguments:
+      $cache: '@cache.tca_api'
+
+  MaikSchneider\TcaApi\Dispatcher\RequestDispatcher:
+    arguments:
+      $cache: '@cache.tca_api'
+
+  # ── Testing ────────────────────────────────────────────────────────
   MaikSchneider\TcaApi\Testing\EventCollector:
     public: true
     tags:
