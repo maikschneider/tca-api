@@ -32,7 +32,7 @@ final class CacheInvalidationHook
 
         $cacheTags = [];
         foreach ($tags as $tag => $value) {
-            if (\is_string($tag) && $tag !== '') {
+            if ($tag !== '') {
                 $cacheTags[] = $tag;
             }
         }
