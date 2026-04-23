@@ -42,6 +42,38 @@ final readonly class ApiDefinitionLoader
         foreach ($definitions as $resourceName => $config) {
             $this->apiRegistry->register($resourceName, ApiDefinition::fromArray($config));
         }
+
+        $this->validateDefinitions($definitions);
+    }
+
+    /**
+     * Validates the set of definitions that were just loaded from Configuration/TcaApi/.
+     * Scoped to this set only — resources registered outside load() (e.g. in tests) are
+     * intentionally excluded to avoid false positives.
+     *
+     * Checks that any column with an explicit resourceName actually points to a registered resource.
+     *
+     * @param array<string, mixed> $definitions Raw definition arrays keyed by resourceName
+     */
+    private function validateDefinitions(array $definitions): void
+    {
+        foreach (array_keys($definitions) as $resourceName) {
+            $definition = $this->apiRegistry->get($resourceName);
+            if ($definition === null) {
+                continue;
+            }
+
+            foreach ($definition->columns as $columnName => $columnDef) {
+                if ($columnDef->resourceName !== null && $this->apiRegistry->get($columnDef->resourceName) === null) {
+                    throw new \InvalidArgumentException(sprintf(
+                        "Column '%s' in resource '%s' sets resourceName '%s', but no resource with that name is registered.",
+                        $columnName,
+                        $resourceName,
+                        $columnDef->resourceName,
+                    ));
+                }
+            }
+        }
     }
 
     private function collectDefinitions(): array

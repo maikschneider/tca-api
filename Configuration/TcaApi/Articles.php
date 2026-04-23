@@ -29,6 +29,7 @@ return [
         ],
         'color_id' => [
             'groups' => ['list', 'show', 'create', 'update'],
+            'resourceName' => 'colors',
         ],
         'categories' => [
             'groups' => ['list', 'show', 'create', 'update'],

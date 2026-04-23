@@ -4,16 +4,12 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Write;
 
-use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
  * Functional tests for writing relation fields via POST / PUT / PATCH.
- *
  * color_id and categories now have groups including 'create'/'update' in Articles.php config.
- * All tests must fail until the config and write pipeline are updated.
- *
  * Fixture baseline:
  *   Article 1 → color_id=1 (Red), categories=[1 (PHP), 2 (TYPO3)]
  *   Article 2 → color_id=2 (Blue), categories=[3 (API)]
@@ -23,22 +19,63 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
  */
 final class WriteRelationsTest extends ApiFunctionalTestCase
 {
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
-        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/colors.csv');
-        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/sys_categories.csv');
-        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles.csv');
-        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/sys_category_record_mm.csv');
-        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_users.csv');
-    }
+    private const BASE_COLOR_CONFIG = [
+        'general' => [
+            'table' => 'tx_myext_domain_model_color',
+            'resourceName' => 'relation-write-colors',
+            'resourceType' => 'Color',
+            'operations' => ['list', 'show'],
+            'storagePid' => 1,
+        ],
+        'security' => [
+            'create' => AccessRole::FE_USER,
+        ],
+    ];
+
+    private const BASE_CATEGORY_CONFIG = [
+        'general' => [
+            'table' => 'sys_category',
+            'resourceName' => 'relation-write-categories',
+            'resourceType' => 'SysCategory',
+            'operations' => ['list', 'show'],
+            'itemsPerPage' => 20,
+        ],
+        'columns' => [
+            'title' => [
+                'groups' => ['list', 'show'],
+            ],
+        ],
+        'security' => [
+            'create' => AccessRole::FE_USER,
+            'update' => AccessRole::FE_USER,
+        ],
+    ];
+
+    private const BASE_ARTICLE_CONFIG = [
+        'general' => [
+            'table' => 'tx_myext_domain_model_article',
+            'resourceName' => 'relation-write-articles',
+            'resourceType' => 'Article',
+            'operations' => ['list', 'show', 'create', 'update'],
+            'storagePid' => 1,
+        ],
+        'columns' => [
+            'title' => ['groups' => ['list', 'show', 'create', 'update'], 'required' => true],
+            'color_id' => ['groups' => ['list', 'show', 'create', 'update'], 'resourceName' => 'relation-write-colors'],
+            'categories' => ['groups' => ['list', 'show', 'create'], 'resourceName' => 'relation-write-categories'],
+        ],
+        'security' => [
+            'create' => AccessRole::FE_USER,
+            'update' => AccessRole::FE_USER,
+        ],
+        'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
+    ];
 
     // ── hasOne (color_id) ────────────────────────────────────────────────────
 
     public function testPostWithColorIdSetsColor(): void
     {
-        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/relation-write-articles', 1, [
             'title' => 'Colored Article',
             'color_id' => 1,
         ]);
@@ -51,13 +88,13 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
 
     public function testPostWithColorIdPersistedInDatabase(): void
     {
-        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/relation-write-articles', 1, [
             'title' => 'Persisted Color',
             'color_id' => 2,
         ]);
         $uid = $this->decodeResponseBody($response)['uid'];
 
-        $getResponse = $this->executeApiRequest('/_api/articles/' . $uid);
+        $getResponse = $this->executeApiRequest('/_api/relation-write-articles/' . $uid);
         $body = $this->decodeResponseBody($getResponse);
 
         self::assertSame(2, $body['color']['uid']);
@@ -66,7 +103,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
     public function testPutUpdatesColorId(): void
     {
         // Article 1 has color_id=1 (Red) → update to color_id=2 (Blue)
-        $response = $this->executeApiWriteRequestAs('PUT', '/_api/articles/1', 1, [
+        $response = $this->executeApiWriteRequestAs('PUT', '/_api/relation-write-articles/1', 1, [
             'title' => 'First Article',
             'color_id' => 2,
         ]);
@@ -78,7 +115,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
     public function testPatchWithZeroColorIdRemovesColor(): void
     {
         // Article 1 has color_id=1 → patch to color_id=0 (remove)
-        $response = $this->executeApiWriteRequestAs('PATCH', '/_api/articles/1', 1, [
+        $response = $this->executeApiWriteRequestAs('PATCH', '/_api/relation-write-articles/1', 1, [
             'color_id' => 0,
         ]);
         $body = $this->decodeResponseBody($response);
@@ -91,7 +128,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
 
     public function testPostWithCategoriesSetsCategoryRelations(): void
     {
-        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/relation-write-articles', 1, [
             'title' => 'Categorized Article',
             'categories' => [1, 2],
         ]);
@@ -103,7 +140,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
 
     public function testPostWithCategoriesResponseContainsCategoryUids(): void
     {
-        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/relation-write-articles', 1, [
             'title' => 'PHP Article',
             'categories' => [1],
         ]);
@@ -116,7 +153,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
     public function testPutWithCategoriesReplacesCategoryRelations(): void
     {
         // Article 1 has categories [1, 2] → PUT replaces with [3]
-        $response = $this->executeApiWriteRequestAs('PUT', '/_api/articles/1', 1, [
+        $response = $this->executeApiWriteRequestAs('PUT', '/_api/relation-write-articles/1', 1, [
             'title' => 'First Article',
             'categories' => [3],
         ]);
@@ -129,7 +166,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
     public function testPatchWithEmptyCategoriesRemovesAllCategories(): void
     {
         // Article 1 has categories [1, 2] → patch with [] removes them
-        $response = $this->executeApiWriteRequestAs('PATCH', '/_api/articles/1', 1, [
+        $response = $this->executeApiWriteRequestAs('PATCH', '/_api/relation-write-articles/1', 1, [
             'categories' => [],
         ]);
         $body = $this->decodeResponseBody($response);
@@ -140,11 +177,11 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
 
     public function testPatchCategoriesPersistedInDatabase(): void
     {
-        $this->executeApiWriteRequestAs('PATCH', '/_api/articles/3', 1, [
+        $this->executeApiWriteRequestAs('PATCH', '/_api/relation-write-articles/3', 1, [
             'categories' => [2],
         ]);
 
-        $body = $this->decodeResponseBody($this->executeApiRequest('/_api/articles/3'));
+        $body = $this->decodeResponseBody($this->executeApiRequest('/_api/relation-write-articles/3'));
 
         self::assertCount(1, $body['categories']);
         self::assertSame(2, $body['categories'][0]['uid']);
@@ -154,8 +191,8 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
 
     public function testPostWithNewColorObjectCreatesColorAndLinks(): void
     {
-        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
-            'title'    => 'Fresh Color Article',
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/relation-write-articles', 1, [
+            'title' => 'Fresh Color Article',
             'color_id' => ['name' => 'Fresh'],
         ]);
         $body = $this->decodeResponseBody($response);
@@ -168,13 +205,13 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
 
     public function testPostWithNewColorObjectColorPersistedInDatabase(): void
     {
-        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
-            'title'    => 'Persisted New Color',
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/relation-write-articles', 1, [
+            'title' => 'Persisted New Color',
             'color_id' => ['name' => 'PersistMe'],
         ]);
         $articleUid = $this->decodeResponseBody($response)['uid'];
 
-        $getBody = $this->decodeResponseBody($this->executeApiRequest('/_api/articles/' . $articleUid));
+        $getBody = $this->decodeResponseBody($this->executeApiRequest('/_api/relation-write-articles/' . $articleUid));
 
         self::assertSame('Color', $getBody['color']['@type']);
         self::assertGreaterThan(2, $getBody['color']['uid']);
@@ -183,8 +220,8 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
     public function testPutWithNewColorObjectReplacesRelation(): void
     {
         // Article 1 currently has color_id=1 (Red)
-        $response = $this->executeApiWriteRequestAs('PUT', '/_api/articles/1', 1, [
-            'title'    => 'First Article',
+        $response = $this->executeApiWriteRequestAs('PUT', '/_api/relation-write-articles/1', 1, [
+            'title' => 'First Article',
             'color_id' => ['name' => 'Replaced'],
         ]);
         $body = $this->decodeResponseBody($response);
@@ -198,8 +235,8 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
 
     public function testPostWithNewCategoryObjectCreatesCategoryAndLinks(): void
     {
-        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
-            'title'      => 'New Cat Article',
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/relation-write-articles', 1, [
+            'title' => 'New Cat Article',
             'categories' => [['title' => 'Inline Category']],
         ]);
         $body = $this->decodeResponseBody($response);
@@ -211,8 +248,8 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
 
     public function testPostWithMixedCategoriesMixesNewAndExisting(): void
     {
-        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
-            'title'      => 'Mixed Cat Article',
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/relation-write-articles', 1, [
+            'title' => 'Mixed Cat Article',
             'categories' => [1, ['title' => 'Mixed New']],
         ]);
         $body = $this->decodeResponseBody($response);
@@ -232,7 +269,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
     public function testPatchWithMixedCategoriesLinksNewAndExisting(): void
     {
         // Article 3 has no categories → patch with 1 existing + 1 new
-        $response = $this->executeApiWriteRequestAs('PATCH', '/_api/articles/3', 1, [
+        $response = $this->executeApiWriteRequestAs('PATCH', '/_api/relation-write-articles/3', 1, [
             'categories' => [2, ['title' => 'Patch New Cat']],
         ]);
         $body = $this->decodeResponseBody($response);
@@ -244,15 +281,17 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         self::assertContains(2, $uids);
     }
 
+    // ── Sub-entity ownership injection (prepareChildData) ─────────────────────
+
     public function testPostWithNewCategoryObjectCategoryPersistedInDatabase(): void
     {
-        $response   = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
-            'title'      => 'Persist Cat Article',
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/relation-write-articles', 1, [
+            'title' => 'Persist Cat Article',
             'categories' => [['title' => 'PersistCat']],
         ]);
         $articleUid = $this->decodeResponseBody($response)['uid'];
 
-        $getBody = $this->decodeResponseBody($this->executeApiRequest('/_api/articles/' . $articleUid));
+        $getBody = $this->decodeResponseBody($this->executeApiRequest('/_api/relation-write-articles/' . $articleUid));
 
         self::assertCount(1, $getBody['categories']);
         self::assertSame('SysCategory', $getBody['categories'][0]['@type']);
@@ -262,8 +301,8 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
     public function testPutWithNewCategoryObjectReplacesCategoryRelations(): void
     {
         // Article 1 has categories [1, 2] → PUT replaces with 1 new category
-        $response = $this->executeApiWriteRequestAs('PUT', '/_api/articles/1', 1, [
-            'title'      => 'First Article',
+        $response = $this->executeApiWriteRequestAs('PUT', '/_api/relation-write-articles/1', 1, [
+            'title' => 'First Article',
             'categories' => [['title' => 'PutNewCat']],
         ]);
         $body = $this->decodeResponseBody($response);
@@ -273,15 +312,13 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         self::assertGreaterThan(3, $body['categories'][0]['uid'], 'New category UID should be > 3');
     }
 
-    // ── Sub-entity ownership injection (prepareChildData) ─────────────────────
-
     public function testPostNewSubEntityGetsOwnerColumnInjected(): void
     {
         // Register Colors with ownership.column = 'hex' so FE user UID is injected there
-        $this->configureColorsWithOwnership('hex');
+        $this->registerResource('relation-write-colors', array_merge(self::BASE_COLOR_CONFIG, ['ownership' => ['column' => 'hex']]));
 
-        $response   = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
-            'title'    => 'Owner Article',
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/relation-write-articles', 1, [
+            'title' => 'Owner Article',
             'color_id' => ['name' => 'OwnedColor'],
         ]);
         $colorUid = $this->decodeResponseBody($response)['color']['uid'];
@@ -298,10 +335,10 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
     public function testPostNewSubEntityClientOwnershipValueIsStripped(): void
     {
         // Client attempts to set hex='hacker' — server must overwrite with FE user UID
-        $this->configureColorsWithOwnership('hex');
+        $this->registerResource('relation-write-colors', array_merge(self::BASE_COLOR_CONFIG, ['ownership' => ['column' => 'hex']]));
 
-        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
-            'title'    => 'Strip Client Value',
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/relation-write-articles', 1, [
+            'title' => 'Strip Client Value',
             'color_id' => ['name' => 'Color', 'hex' => 'hacker'],
         ]);
         $colorUid = $this->decodeResponseBody($response)['color']['uid'];
@@ -318,10 +355,13 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
     {
         // ownership.column = 'hex', ownership.setOnCreate = 'foreign_article_id'
         // Both must receive the FE user UID (1) on creation
-        $this->configureColorsWithOwnership('hex', 'foreign_article_id');
+        $this->registerResource(
+            'relation-write-colors',
+            array_merge(self::BASE_COLOR_CONFIG, ['ownership' => ['column' => 'hex', 'setOnCreate' => 'foreign_article_id']])
+        );
 
-        $response = $this->executeApiWriteRequestAs('POST', '/_api/articles', 1, [
-            'title'    => 'SetOnCreate Article',
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/relation-write-articles', 1, [
+            'title' => 'SetOnCreate Article',
             'color_id' => ['name' => 'TrackColor'],
         ]);
         $colorUid = $this->decodeResponseBody($response)['color']['uid'];
@@ -335,49 +375,22 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         self::assertSame(1, (int)$colorRow['foreign_article_id'], 'ownership.setOnCreate must receive FE user UID');
     }
 
-    /**
-     * Ensure a color resource with ownership columns is returned FIRST by
-     * ApiRegistry::getByTable() — even after Bootstrap::init() re-runs
-     * ext_localconf.php during executeFrontendSubRequest().
-     *
-     * Bootstrap re-registers file-based resources (articles, colors, …) but
-     * never touches 'colors-with-ownership' (no matching TcaApi PHP file).
-     * PHP arrays preserve insertion order on key-updates, so our owned
-     * resource stays at index 0 and getByTable() returns it before 'colors'.
-     */
-    private function configureColorsWithOwnership(string $ownerColumn, ?string $setOnCreate = null): void
+    protected function setUp(): void
     {
-        $registry = $this->getApiRegistry();
-        $snapshot = $registry->getAll();
-        unset($snapshot['colors-with-ownership']);
+        parent::setUp();
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/colors.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/sys_categories.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/sys_category_record_mm.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_users.csv');
+        $this->registerResources();
+    }
 
-        // Build a color resource config with ownership columns
-        $ownedConfig = [
-            'general' => [
-                'table'        => 'tx_myext_domain_model_color',
-                'resourceName' => 'colors-with-ownership',
-                'resourceType' => 'Color',
-                'operations'   => ['list', 'show', 'create'],
-            ],
-            'columns' => [
-                'name'               => ['groups' => ['list', 'show', 'create']],
-                'hex'                => ['groups' => ['list', 'show', 'create']],
-                'foreign_article_id' => ['groups' => ['create']],
-            ],
-            'security' => [
-                'create' => AccessRole::FE_USER,
-            ],
-            'ownership' => ['column' => $ownerColumn],
-        ];
-
-        if ($setOnCreate !== null) {
-            $ownedConfig['ownership']['setOnCreate'] = $setOnCreate;
-        }
-
-        // Place FIRST — Bootstrap::init() will later re-register file-based
-        // resources in-place (preserving order) but never touches this key.
-        $registry->replaceAll(
-            ['colors-with-ownership' => ApiDefinition::fromArray($ownedConfig)] + $snapshot,
-        );
+    private function registerResources(): void
+    {
+        $this->registerResource('relation-write-colors', self::BASE_COLOR_CONFIG);
+        $this->registerResource('relation-write-articles', self::BASE_ARTICLE_CONFIG);
+        $this->registerResource('relation-write-categories', self::BASE_CATEGORY_CONFIG);
     }
 }

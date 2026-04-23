@@ -66,7 +66,7 @@ final class WriteGroupRelationsTest extends ApiFunctionalTestCase
             ],
             'columns' => [
                 'title'          => ['groups' => ['list', 'show', 'create', 'update'], 'required' => true],
-                'related_colors' => ['groups' => ['list', 'show', 'create', 'update'], 'embed' => true],
+                'related_colors' => ['groups' => ['list', 'show', 'create', 'update'], 'embed' => true, 'resourceName' => 'grp-write-colors'],
                 'related_items'  => ['groups' => ['list', 'show', 'create', 'update']],
             ],
             'security' => [

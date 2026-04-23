@@ -70,7 +70,7 @@ final class WriteInlineRelationsTest extends ApiFunctionalTestCase
             ],
             'columns' => [
                 'title'                => ['groups' => ['list', 'show', 'create', 'update'], 'required' => true],
-                'related_items_inline' => ['groups' => ['list', 'show', 'create', 'update']],
+                'related_items_inline' => ['groups' => ['list', 'show', 'create', 'update'], 'resourceName' => 'inline-colors'],
             ],
             'security' => [
                 'create' => AccessRole::FE_USER,
