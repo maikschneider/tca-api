@@ -6,7 +6,7 @@ namespace MaikSchneider\TcaApi\OperationHandler;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Security\WriteContext;
-use Psr\Http\Message\UploadedFileInterface;
+use TYPO3\CMS\Core\Http\UploadedFile;
 use TYPO3\CMS\Core\Utility\StringUtility;
 
 /**
@@ -22,7 +22,7 @@ trait FileUploadTrait
     /**
      * Validate all uploaded files against their column upload constraints.
      *
-     * @param array<string, UploadedFileInterface|list<UploadedFileInterface>> $uploadedFiles
+     * @param array<string, UploadedFile|list<UploadedFile>> $uploadedFiles
      * @return list<array{propertyPath: string, message: string, code: string}>
      */
     private function validateUploads(array $uploadedFiles, ApiDefinition $config): array
@@ -37,7 +37,7 @@ trait FileUploadTrait
 
             $files = \is_array($fileOrFiles) ? $fileOrFiles : [$fileOrFiles];
             foreach ($files as $file) {
-                if (!$file instanceof UploadedFileInterface) {
+                if (!$file instanceof UploadedFile) {
                     continue;
                 }
                 array_push(
@@ -57,7 +57,7 @@ trait FileUploadTrait
      * uid_foreign is intentionally absent — DataHandler sets it when processing
      * the inline attachment in attachFileReferences().
      *
-     * @param array<string, UploadedFileInterface|list<UploadedFileInterface>> $uploadedFiles
+     * @param array<string, UploadedFile|list<UploadedFile>> $uploadedFiles
      * @return array<string, array<string, array>> column → [refKey → refData]
      */
     private function storeUploadedFiles(array $uploadedFiles, ApiDefinition $config): array
@@ -73,7 +73,7 @@ trait FileUploadTrait
             $files = \is_array($fileOrFiles) ? $fileOrFiles : [$fileOrFiles];
 
             foreach ($files as $file) {
-                if (!$file instanceof UploadedFileInterface || $file->getError() !== \UPLOAD_ERR_OK) {
+                if (!$file instanceof UploadedFile || $file->getError() !== \UPLOAD_ERR_OK) {
                     continue;
                 }
 

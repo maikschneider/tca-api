@@ -17,16 +17,19 @@ final readonly class UploadDefinition
     private const VALID_DUPLICATION = ['rename', 'replace', 'cancel'];
 
     /**
-     * @param string   $folder      FAL storage reference, e.g. '1:/uploads/'
-     * @param string[] $allowed     MIME types or wildcards ('image/*'); empty = unrestricted
-     * @param int|null $maxSize     Maximum file size in bytes; null = unlimited
-     * @param string   $duplication How to handle filename collisions: 'rename'|'replace'|'cancel'
+     * @param string   $folder             FAL storage reference, e.g. '1:/uploads/'
+     * @param string[] $allowed            Exact MIME types (e.g. 'image/jpeg'); empty = unrestricted.
+     *                                     Wildcards are NOT supported — use allowedExtensions for broad restrictions.
+     * @param int|null $maxSize            Maximum file size in bytes; null = unlimited
+     * @param string   $duplication        How to handle filename collisions: 'rename'|'replace'|'cancel'
+     * @param string[] $allowedExtensions  Allowed file extensions (e.g. 'jpg', 'pdf'); empty = unrestricted
      */
     public function __construct(
         public readonly string $folder,
         public readonly array $allowed,
         public readonly ?int $maxSize,
         public readonly string $duplication,
+        public readonly array $allowedExtensions = [],
     ) {
     }
 
@@ -95,11 +98,25 @@ final readonly class UploadDefinition
             );
         }
 
+        // ── allowedExtensions ────────────────────────────────────────────
+        $allowedExtensions = $raw['allowedExtensions'] ?? [];
+        if (!\is_array($allowedExtensions)) {
+            throw new \InvalidArgumentException('Upload config "allowedExtensions" must be an array of file extension strings.');
+        }
+        foreach ($allowedExtensions as $index => $ext) {
+            if (!\is_string($ext) || $ext === '') {
+                throw new \InvalidArgumentException(
+                    sprintf('Upload config "allowedExtensions[%s]" must be a non-empty string.', $index),
+                );
+            }
+        }
+
         return new self(
-            folder:      $folder,
-            allowed:     array_values($allowed),
-            maxSize:     $maxSize,
-            duplication: $duplication,
+            folder:             $folder,
+            allowed:            array_values($allowed),
+            maxSize:            $maxSize,
+            duplication:        $duplication,
+            allowedExtensions:  array_values($allowedExtensions),
         );
     }
 

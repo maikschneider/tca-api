@@ -140,8 +140,9 @@ final class FileUploadTest extends ApiFunctionalTestCase
 
     public function testMultipartRespectsScalarFieldValidation(): void
     {
-        // Title too short (minLength=3) — scalar validator should still fire
-        $file = $this->createUploadedFile('data', 'photo.jpg', 'image/jpeg');
+        // JPEG magic bytes so MIME validation passes; title is too short (minLength=3)
+        // so the scalar validator should fire and return MIN_LENGTH.
+        $file = $this->createUploadedFile("\xFF\xD8\xFF\xE0" . str_repeat("\x00", 96), 'photo.jpg', 'image/jpeg');
 
         $response = $this->executeApiMultipartWriteRequestAs(
             method:   'POST',

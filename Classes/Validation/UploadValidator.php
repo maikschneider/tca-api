@@ -5,10 +5,15 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Validation;
 
 use MaikSchneider\TcaApi\Configuration\UploadDefinition;
-use Psr\Http\Message\UploadedFileInterface;
+use TYPO3\CMS\Core\Http\UploadedFile;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
+use TYPO3\CMS\Extbase\Validation\Validator\FileExtensionValidator;
+use TYPO3\CMS\Extbase\Validation\Validator\FileSizeValidator;
+use TYPO3\CMS\Extbase\Validation\Validator\MimeTypeValidator;
 
 /**
- * Validates a PSR-7 uploaded file against an UploadDefinition constraint set.
+ * Validates a TYPO3 UploadedFile against an UploadDefinition constraint set
+ * using TYPO3's built-in Extbase validators.
  *
  * Returns violation arrays in the same format as FieldValidator so callers
  * can merge all violations before sending a single 422 response.
@@ -19,7 +24,7 @@ final class UploadValidator
      * @return list<array{propertyPath: string, message: string, code: string}>
      */
     public function validate(
-        UploadedFileInterface $file,
+        UploadedFile $file,
         UploadDefinition $upload,
         string $column,
     ): array {
@@ -32,38 +37,31 @@ final class UploadValidator
             )];
         }
 
-        $violations = [];
-
-        // ── MIME type ────────────────────────────────────────────────────
-        if ($upload->allowed !== []) {
-            $mime = $file->getClientMediaType() ?? '';
-            if (!$this->mimeMatches($mime, $upload->allowed)) {
-                $violations[] = $this->buildViolation(
-                    $column,
-                    sprintf(
-                        "File type '%s' is not allowed for '%s'. Allowed: %s.",
-                        $mime !== '' ? $mime : 'unknown',
-                        $column,
-                        implode(', ', $upload->allowed),
-                    ),
-                    'UPLOAD_MIME_TYPE',
-                );
-            }
+        // TYPO3 validators read from the actual file on disk via finfo.
+        // If the UploadedFile was created from a stream (e.g. in tests) and has
+        // no real temporary path, write the stream content to a real temp file so
+        // validators can access it. The temp file is removed after validation.
+        $tmpCreated = null;
+        if ($file->getTemporaryFileName() === null) {
+            $tmpCreated = tempnam(sys_get_temp_dir(), 'tca_api_upload_');
+            $stream     = $file->getStream();
+            $stream->rewind();
+            file_put_contents($tmpCreated, (string)$stream);
+            // Re-wrap as a file-path-based UploadedFile so validators can call getTemporaryFileName()
+            $file = new UploadedFile(
+                $tmpCreated,
+                $file->getSize(),
+                $file->getError(),
+                $file->getClientFilename(),
+                $file->getClientMediaType(),
+            );
         }
 
-        // ── File size ────────────────────────────────────────────────────
-        if ($upload->maxSize !== null) {
-            $size = $file->getSize();
-            if ($size !== null && $size > $upload->maxSize) {
-                $violations[] = $this->buildViolation(
-                    $column,
-                    sprintf(
-                        "File for '%s' exceeds the maximum allowed size of %s.",
-                        $column,
-                        $this->formatBytes($upload->maxSize),
-                    ),
-                    'UPLOAD_MAX_SIZE',
-                );
+        try {
+            $violations = $this->runValidators($file, $upload, $column);
+        } finally {
+            if ($tmpCreated !== null && file_exists($tmpCreated)) {
+                unlink($tmpCreated);
             }
         }
 
@@ -71,40 +69,57 @@ final class UploadValidator
     }
 
     /**
-     * Check whether a MIME type matches any entry in the allowlist.
-     * Supports wildcard suffixes such as 'image/*'.
+     * @return list<array{propertyPath: string, message: string, code: string}>
      */
-    private function mimeMatches(string $mime, array $allowed): bool
+    private function runValidators(UploadedFile $file, UploadDefinition $upload, string $column): array
     {
-        $mime = strtolower($mime);
-        foreach ($allowed as $pattern) {
-            $pattern = strtolower($pattern);
-            if ($pattern === $mime) {
-                return true;
-            }
-            // 'image/*' → match any 'image/...'
-            if (str_ends_with($pattern, '/*')) {
-                $base = substr($pattern, 0, -2);
-                if (str_starts_with($mime, $base . '/')) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
+        $violations = [];
 
-    private function formatBytes(int $bytes): string
-    {
-        if ($bytes >= 1_073_741_824) {
-            return round($bytes / 1_073_741_824, 1) . ' GB';
+        // ── MIME type ────────────────────────────────────────────────────
+        // MimeTypeValidator reads the actual file content via finfo — not the
+        // client-provided media type. ignoreFileExtensionCheck is enabled so
+        // extension checking can be handled separately via FileExtensionValidator.
+        // Plain-string messages are used (no LLL: prefix) so that the validator
+        // can operate without a bootstrapped localization stack.
+        if ($upload->allowed !== []) {
+            $validator = GeneralUtility::makeInstance(MimeTypeValidator::class);
+            $validator->setOptions([
+                'allowedMimeTypes'        => $upload->allowed,
+                'ignoreFileExtensionCheck' => true,
+                'notAllowedMessage'        => 'The file type is not allowed.',
+            ]);
+            foreach ($validator->validate($file)->getErrors() as $error) {
+                $violations[] = $this->buildViolation($column, $error->getMessage(), 'UPLOAD_MIME_TYPE');
+            }
         }
-        if ($bytes >= 1_048_576) {
-            return round($bytes / 1_048_576, 1) . ' MB';
+
+        // ── File size ────────────────────────────────────────────────────
+        // FileSizeValidator expects a size string (e.g. '5242880B'); converting
+        // the stored bytes integer to the 'NB' format satisfies its format check.
+        if ($upload->maxSize !== null) {
+            $validator = GeneralUtility::makeInstance(FileSizeValidator::class);
+            $validator->setOptions([
+                'maximum'       => $upload->maxSize . 'B',
+                'exceedMessage' => 'The file exceeds the maximum allowed size.',
+            ]);
+            foreach ($validator->validate($file)->getErrors() as $error) {
+                $violations[] = $this->buildViolation($column, $error->getMessage(), 'UPLOAD_MAX_SIZE');
+            }
         }
-        if ($bytes >= 1_024) {
-            return round($bytes / 1_024, 1) . ' KB';
+
+        // ── File extension ───────────────────────────────────────────────
+        if ($upload->allowedExtensions !== []) {
+            $validator = GeneralUtility::makeInstance(FileExtensionValidator::class);
+            $validator->setOptions([
+                'allowedFileExtensions' => $upload->allowedExtensions,
+                'notAllowedMessage'     => 'The file extension is not allowed.',
+            ]);
+            foreach ($validator->validate($file)->getErrors() as $error) {
+                $violations[] = $this->buildViolation($column, $error->getMessage(), 'UPLOAD_EXTENSION');
+            }
         }
-        return $bytes . ' B';
+
+        return $violations;
     }
 
     /** @return array{propertyPath: string, message: string, code: string} */

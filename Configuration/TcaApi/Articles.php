@@ -47,7 +47,7 @@ return [
             'processor' => FileProcessor::class,
             'upload'    => [
                 'folder'  => '1:/user_upload/',
-                'allowed' => ['application/pdf', 'text/csv', 'image/*'],
+                'allowed' => ['application/pdf', 'text/csv', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'],
                 'maxSize' => '20M',
             ],
         ],
