@@ -25,7 +25,7 @@ The ``general`` key defines the basic resource properties:
             'resourceType' => 'Article',
             'operations'   => ['list', 'show', 'create', 'update', 'delete'],
             'itemsPerPage' => 20,
-            'defaultPid'   => 1,
+            'storagePid'   => 1,
         ],
     ];
 
@@ -51,11 +51,40 @@ The ``general`` key defines the basic resource properties:
    * - ``maxItemsPerPage``
      - Upper limit for ``itemsPerPage``; when set, the requested page size is
        clamped to this value. No limit when omitted.
-   * - ``defaultPid``
+   * - ``storagePid``
      - Page ID for newly created records.
+   * - ``writeMode``
+     - Write execution strategy. ``acting_user`` (default) — DataHandler runs
+       under the authenticated user identity, preserving the actor for audit
+       purposes. ``system_admin`` — uses a synthetic backend-admin context,
+       bypassing all TYPO3 ACL boundaries. Only enable for fully trusted,
+       internal-only APIs.
+
+Write mode
+==========
+
+By default, write operations (create, update, delete) run under the
+**acting-user** context — TYPO3's DataHandler preserves the caller's identity
+for audit purposes. Set ``writeMode`` to ``system_admin`` to bypass TYPO3 ACL
+checks entirely. Only use this for trusted, back-channel APIs.
+
+..  code-block:: php
+
+    'general' => [
+        'table'        => 'tx_myext_domain_model_article',
+        'resourceName' => 'articles',
+        'resourceType' => 'Article',
+        'operations'   => ['create', 'update', 'delete'],
+        'writeMode'    => 'system_admin',   // default: 'acting_user'
+    ],
+
+..  warning::
+
+    ``system_admin`` mode bypasses all TYPO3 access-control restrictions on
+    writes. Never use it for public-facing endpoints.
 
 Minimal example (zero-config)
-=============================
+==============================
 
 Omit ``columns`` entirely and all non-system TCA columns are auto-exposed for
 read and write:

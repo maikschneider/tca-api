@@ -173,6 +173,19 @@ Behaviour notes
 -  ``OWNER`` is only meaningful on ``update`` and ``delete``; using it on
    ``list``/``show`` will always deny (no single record to compare against).
 
+Table write restrictions
+========================
+
+The API enforces a built-in **deny list** for tables that must never be written
+through the API regardless of security configuration. Attempting to write to
+any of these tables returns **403 Forbidden**:
+
+- ``be_users``, ``be_groups``, ``be_sessions``
+- ``fe_sessions``
+- ``sys_filemounts``, ``sys_be_shortcuts``, ``sys_action``, ``sys_log``
+
+This protection is unconditional and cannot be overridden by configuration.
+
 Denied access
 =============
 

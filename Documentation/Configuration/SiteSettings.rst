@@ -97,3 +97,13 @@ CORS
 
     Value for the ``Access-Control-Allow-Origin`` header. Use ``*`` to allow
     all origins.
+
+..  confval:: tca_api.corsAllowCredentials
+    :type: bool
+    :default: ``false``
+
+    When enabled, adds ``Access-Control-Allow-Credentials: true`` to CORS
+    responses. Required when the frontend sends cookies or ``Authorization``
+    headers with cross-origin requests. Note: browsers reject credentialed
+    requests when ``corsOrigin`` is ``*`` — set it to the specific origin
+    instead.

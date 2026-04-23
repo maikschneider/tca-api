@@ -103,5 +103,43 @@ built-in processors:
            'processor' => TypoLinkProcessor::class,
        ],
 
+``ImageProcessor``
+   Serialises image file references (FAL) with crop-variant support. Returns
+   the same base fields as ``FileProcessor`` plus a ``cropVariants`` map that
+   contains a processed URL, width, and height for every crop variant
+   configured on the field.
+
+   ..  code-block:: php
+
+       use MaikSchneider\TcaApi\Serializer\FileProcessing\ImageProcessor;
+
+       'hero_image' => [
+           'groups'    => ['list', 'show'],
+           'processor' => ImageProcessor::class,
+       ],
+
+   Example output:
+
+   ..  code-block:: json
+
+       {
+           "hero_image": {
+               "publicUrl": "/fileadmin/hero.jpg",
+               "metadata": {
+                   "title": "Hero",
+                   "alternative": "A hero image",
+                   "description": null,
+                   "copyright": "© 2026"
+               },
+               "cropVariants": {
+                   "default": {
+                       "publicUrl": "/fileadmin/_processed_/hero_c.jpg",
+                       "width": 1024,
+                       "height": 512
+                   }
+               }
+           }
+       }
+
 Custom processors must implement
 :php:`MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface`.
