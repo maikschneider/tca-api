@@ -7,6 +7,7 @@ namespace MaikSchneider\TcaApi\OperationHandler;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\DataWriteService;
+use MaikSchneider\TcaApi\DataAccess\FileUploadService;
 use MaikSchneider\TcaApi\DataAccess\RelationInputResolver;
 use MaikSchneider\TcaApi\Event\AfterWriteEvent;
 use MaikSchneider\TcaApi\Event\BeforeWriteEvent;
@@ -14,6 +15,7 @@ use MaikSchneider\TcaApi\Security\WriteContextFactory;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
 use MaikSchneider\TcaApi\Validation\FieldValidator;
+use MaikSchneider\TcaApi\Validation\UploadValidator;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -24,6 +26,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 class UpdateHandler implements OperationHandlerInterface
 {
     use ColumnFilterTrait;
+    use FileUploadTrait;
 
     public function __construct(
         private readonly DataWriteService $writeService,
@@ -35,6 +38,8 @@ class UpdateHandler implements OperationHandlerInterface
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly RelationInputResolver $relationResolver,
         private readonly WriteContextFactory $writeContextFactory,
+        private readonly FileUploadService $fileUploadService,
+        private readonly UploadValidator $uploadValidator,
     ) {
     }
 
@@ -63,11 +68,27 @@ class UpdateHandler implements OperationHandlerInterface
                 ->withHeader('Content-Type', 'application/ld+json');
         }
 
-        $raw = (string)$request->getBody();
-        try {
-            $body = $raw !== '' ? (json_decode($raw, true, 512, JSON_THROW_ON_ERROR) ?? []) : [];
-        } catch (\JsonException) {
-            return $this->hydraResponseBuilder->buildError(400, 'Request body is not valid JSON.', 'Bad Request');
+        $isMultipart = str_contains(
+            strtolower($request->getHeaderLine('Content-Type')),
+            'multipart/',
+        );
+
+        if ($isMultipart) {
+            $body          = (array)($request->getParsedBody() ?? []);
+            $uploadedFiles = $request->getUploadedFiles();
+
+            $violations = $this->validateUploads($uploadedFiles, $config);
+            if ($violations !== []) {
+                return $this->hydraResponseBuilder->buildValidationError($violations);
+            }
+        } else {
+            $raw = (string)$request->getBody();
+            try {
+                $body = $raw !== '' ? (json_decode($raw, true, 512, JSON_THROW_ON_ERROR) ?? []) : [];
+            } catch (\JsonException) {
+                return $this->hydraResponseBuilder->buildError(400, 'Request body is not valid JSON.', 'Bad Request');
+            }
+            $uploadedFiles = [];
         }
 
         $violations = $this->fieldValidator->validate($body, $config, $partial);
@@ -84,14 +105,25 @@ class UpdateHandler implements OperationHandlerInterface
 
         $data = $this->filterWritableColumns($resolved->scalarBody, $config);
 
+        // Store uploaded files in FAL now (validation already passed).
+        // Absent file fields in PATCH leave existing references untouched (PATCH semantics).
+        $storedFiles = $uploadedFiles !== [] ? $this->storeUploadedFiles($uploadedFiles, $config) : [];
+
         $beforeEvent = new BeforeWriteEvent($config->table, 'update', $data);
         $this->eventDispatcher->dispatch($beforeEvent);
         $data = $beforeEvent->getData();
 
-        // Single DataHandler call: parent update + any new related records.
+        // Call 1: update parent record and any new related records (no file columns).
         $dataMap      = [$config->table => [$uid => $data]] + $resolved->extraDataMap;
         $writeContext = $this->writeContextFactory->fromRequest($request, $config->writeMode);
         $this->writeService->processDataMap($dataMap, $writeContext);
+
+        // Call 2: attach file references with the now-guaranteed real parent UID.
+        // Keeping this as a separate call (even though $uid is already real) ensures
+        // DataHandler correctly sets uid_foreign and updates the column count.
+        if ($storedFiles !== []) {
+            $this->attachFileReferences($storedFiles, $config, $uid, $writeContext);
+        }
 
         $this->eventDispatcher->dispatch(new AfterWriteEvent($config->table, 'update', $uid));
 

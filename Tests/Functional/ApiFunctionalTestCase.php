@@ -9,6 +9,7 @@ use MaikSchneider\TcaApi\Loader\ApiDefinitionLoader;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Core\Http\Stream;
+use TYPO3\CMS\Core\Http\UploadedFile;
 use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequest;
 use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequestContext;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
@@ -147,6 +148,56 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
                 ->withAddedHeader('Content-Type', 'application/json')
                 ->withBody($body),
             (new InternalRequestContext())->withFrontendUserId($feUserId),
+        );
+    }
+
+    /**
+     * Execute a multipart/form-data write request as a specific frontend user.
+     *
+     * @param array<string, string>                          $fields   Scalar form fields
+     * @param array<string, UploadedFile|list<UploadedFile>> $files    Uploaded files keyed by field name
+     */
+    protected function executeApiMultipartWriteRequestAs(
+        string $method,
+        string $path,
+        int $feUserId,
+        array $fields = [],
+        array $files = [],
+    ): ResponseInterface {
+        $uri      = 'http://localhost' . $path;
+        $boundary = 'testboundary' . uniqid();
+
+        $request = (new InternalRequest($uri))
+            ->withMethod($method)
+            ->withAddedHeader('Content-Type', 'multipart/form-data; boundary=' . $boundary)
+            ->withParsedBody($fields)
+            ->withUploadedFiles($files);
+
+        return $this->executeFrontendSubRequest(
+            $request,
+            (new InternalRequestContext())->withFrontendUserId($feUserId),
+        );
+    }
+
+    /**
+     * Create a PSR-7 UploadedFile from raw content for use in test multipart requests.
+     */
+    protected function createUploadedFile(
+        string $content,
+        string $filename,
+        string $mimeType,
+        int $error = \UPLOAD_ERR_OK,
+    ): UploadedFile {
+        $stream = new Stream('php://temp', 'rw');
+        $stream->write($content);
+        $stream->rewind();
+
+        return new UploadedFile(
+            $stream,
+            \strlen($content),
+            $error,
+            $filename,
+            $mimeType,
         );
     }
 

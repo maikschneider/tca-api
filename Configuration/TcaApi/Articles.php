@@ -35,11 +35,21 @@ return [
             'groups' => ['list', 'show', 'create', 'update'],
         ],
         'profile_photo' => [
-            'groups' => ['list', 'show'],
+            'groups' => ['list', 'show', 'create', 'update'],
+            'upload' => [
+                'folder'  => '1:/user_upload/',
+                'allowed' => ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+                'maxSize' => '5M',
+            ],
         ],
         'downloads' => [
-            'groups'    => ['list', 'show'],
+            'groups'    => ['list', 'show', 'create', 'update'],
             'processor' => FileProcessor::class,
+            'upload'    => [
+                'folder'  => '1:/user_upload/',
+                'allowed' => ['application/pdf', 'text/csv', 'image/*'],
+                'maxSize' => '20M',
+            ],
         ],
         'article_url' => [
             'groups'    => ['list', 'show'],
@@ -58,8 +68,8 @@ return [
     'security' => [
         'list'   => AccessRole::PUBLIC,
         'show'   => AccessRole::PUBLIC,
-        'create' => AccessRole::FE_USER,
-        'update' => AccessRole::FE_USER,
+        'create' => AccessRole::PUBLIC,
+        'update' => AccessRole::PUBLIC,
         'delete' => AccessRole::BE_ADMIN,
     ],
 ];

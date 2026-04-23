@@ -1,2 +1,13 @@
 parameters:
-	ignoreErrors: []
+	ignoreErrors:
+		-
+			message: '#^Instanceof between Psr\\Http\\Message\\UploadedFileInterface and Psr\\Http\\Message\\UploadedFileInterface will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 2
+			path: Classes/OperationHandler/CreateHandler.php
+
+		-
+			message: '#^Instanceof between Psr\\Http\\Message\\UploadedFileInterface and Psr\\Http\\Message\\UploadedFileInterface will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 2
+			path: Classes/OperationHandler/UpdateHandler.php

@@ -28,6 +28,7 @@ final readonly class ColumnDefinition
         public readonly array $validators    = [],
         public readonly ?string $column        = null,
         public readonly mixed $callback      = null,
+        public readonly ?UploadDefinition $upload = null,
     ) {
     }
 
@@ -226,6 +227,15 @@ final readonly class ColumnDefinition
             throw new \InvalidArgumentException('Column config "resourceType" must be a string.');
         }
 
+        // ── upload ───────────────────────────────────────────────────────
+        $upload = null;
+        if (\array_key_exists('upload', $raw)) {
+            if (!\is_array($raw['upload'])) {
+                throw new \InvalidArgumentException('Column config "upload" must be an array.');
+            }
+            $upload = UploadDefinition::fromArray($raw['upload']);
+        }
+
         return new self(
             groups:       $groups,
             type:         $type,
@@ -237,6 +247,7 @@ final readonly class ColumnDefinition
             validators:   $validators,
             column:       $column,
             callback:     $callback,
+            upload:       $upload,
         );
     }
 }
