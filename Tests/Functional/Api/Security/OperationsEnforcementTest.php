@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Security;
 
+use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -55,6 +56,9 @@ final class OperationsEnforcementTest extends ApiFunctionalTestCase
             ],
             'columns' => [
                 'title' => ['groups' => ['list', 'show', 'create', 'update']],
+            ],
+            'security' => [
+                'create' => AccessRole::PUBLIC,
             ],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);

@@ -54,11 +54,15 @@ final readonly class ApiDefinition
 
     /**
      * Returns the required access role for the given operation.
-     * Falls back to AccessRole::PUBLIC when the operation is not configured.
+     *
+     * Default when the operation is not explicitly configured in security:
+     *   list, show → AccessRole::PUBLIC  (read operations are public by default)
+     *   create, update, delete → AccessRole::DISABLED  (write operations require explicit config)
      */
     public function securityRole(string $operation): mixed
     {
-        return $this->security[$operation] ?? AccessRole::PUBLIC;
+        return $this->security[$operation]
+            ?? (\in_array($operation, self::READ_OPERATIONS, true) ? AccessRole::PUBLIC : AccessRole::DISABLED);
     }
 
     public function hasOperation(string $operation): bool
@@ -83,6 +87,9 @@ final readonly class ApiDefinition
 
     /** Valid operation identifiers used across operations, groups, and security keys. */
     private const VALID_OPERATIONS = ['list', 'show', 'create', 'update', 'delete'];
+
+    /** Read operations that default to PUBLIC when not explicitly configured in security. */
+    private const READ_OPERATIONS = ['list', 'show'];
 
     /** Allowed values for general.type. */
     private const VALID_GENERAL_TYPES = ['userinfo'];

@@ -299,25 +299,37 @@ A private filter without a `default` has no effect (no value to enforce).
 
 ### Security
 
-Assign an access role per operation:
+Assign an access role per operation. `list` and `show` default to `PUBLIC`; write operations default to `DISABLED` and must be explicitly configured:
 
 ```php
 use MaikSchneider\TcaApi\Enum\AccessRole;
 
 'security' => [
-    'list'   => AccessRole::PUBLIC,     // No authentication required
-    'show'   => AccessRole::PUBLIC,
+    // list and show are PUBLIC by default — only specify to restrict them
     'create' => AccessRole::FE_USER,    // Requires a logged-in frontend user
     'update' => AccessRole::OWNER,      // Only the record owner may update
     'delete' => AccessRole::OWNER,
 ],
 ```
 
+#### Defaults
+
+Write operations are **disabled by default**. You must explicitly configure security for `create`, `update`, and `delete`:
+
+| Operation | Default |
+|---|---|
+| `list` | `PUBLIC` — accessible without authentication |
+| `show` | `PUBLIC` — accessible without authentication |
+| `create` | `DISABLED` — returns 403 until explicitly configured |
+| `update` | `DISABLED` — returns 403 until explicitly configured |
+| `delete` | `DISABLED` — returns 403 until explicitly configured |
+
 #### Available roles
 
 | Role | Description |
 |---|---|
 | `PUBLIC` | No authentication required |
+| `DISABLED` | Always denied — used as the default for write operations |
 | `FE_USER` | Any authenticated frontend user |
 | `FE_GROUP` | Any FE user with at least one group; use `[AccessRole::FE_GROUP, [1,2]]` to restrict to specific group IDs |
 | `BE_USER` | Any authenticated backend user |

@@ -48,6 +48,9 @@ final class WriteInlineRelationsTest extends ApiFunctionalTestCase
                 'storagePid'   => 1,
             ],
             'columns' => ['name' => ['groups' => ['list', 'show', 'create']]],
+            'security' => [
+                'create' => AccessRole::FE_USER,
+            ],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ];
 
@@ -67,7 +70,7 @@ final class WriteInlineRelationsTest extends ApiFunctionalTestCase
             ],
             'columns' => [
                 'title'                => ['groups' => ['list', 'show', 'create', 'update'], 'required' => true],
-                'related_items_inline' => ['groups' => ['list', 'show', 'create', 'update']],
+                'related_items_inline' => ['groups' => ['list', 'show', 'create', 'update'], 'resourceName' => 'inline-colors'],
             ],
             'security' => [
                 'create' => AccessRole::FE_USER,
@@ -231,6 +234,9 @@ final class WriteInlineRelationsTest extends ApiFunctionalTestCase
                 'operations'   => ['list', 'show', 'create'],
             ],
             'columns' => ['name' => ['groups' => ['list', 'show', 'create']]],
+            'security' => [
+                'create' => AccessRole::FE_USER,
+            ],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ];
 

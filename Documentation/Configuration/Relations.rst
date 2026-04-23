@@ -79,6 +79,42 @@ is 1.
     The related resource must be registered in the ``ApiRegistry`` for embedding
     to work.
 
+Writing nested objects
+======================
+
+When a create or update request contains a related record as an **object**
+(rather than a UID), TCA API creates the child record in-line. The child
+table must have a registered resource in the API registry.
+
+..  code-block:: json
+
+    {
+        "title": "My Article",
+        "color_id": { "name": "Red" }
+    }
+
+By default the child resource is looked up by the **foreign table** name from
+TCA. When multiple resources are registered for the same DB table, use the
+``resourceName`` column option to pin the lookup to a specific resource:
+
+..  code-block:: php
+
+    'columns' => [
+        'color_id' => [
+            'groups'       => ['list', 'show', 'create', 'update'],
+            'resourceName' => 'colors',   // look up "colors" resource, not by table
+        ],
+    ],
+
+This also controls which resource's ``security.create`` role is enforced on the
+nested write and which resource's column config is used for validation.
+
+..  note::
+
+    If ``resourceName`` is set but no matching resource is registered, TCA API
+    throws an ``\InvalidArgumentException`` at load time (validated in
+    :php:`ApiDefinitionLoader`).
+
 Supported relation types
 ========================
 

@@ -159,7 +159,91 @@ final class ApiDefinitionTest extends TestCase
         ApiDefinition::fromArray($cfg);
     }
 
-    // ── Invalid operations ──────────────────────────────────────────────
+    // ── securityRole() defaults ─────────────────────────────────────────
+
+    #[Test]
+    public function securityRoleForListDefaultsToPublic(): void
+    {
+        $def = ApiDefinition::fromArray(self::minimalConfig());
+
+        self::assertSame(AccessRole::PUBLIC, $def->securityRole('list'));
+    }
+
+    #[Test]
+    public function securityRoleForShowDefaultsToPublic(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['operations'] = ['show'];
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertSame(AccessRole::PUBLIC, $def->securityRole('show'));
+    }
+
+    #[Test]
+    public function securityRoleForCreateDefaultsToDisabled(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['operations'] = ['create'];
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertSame(AccessRole::DISABLED, $def->securityRole('create'));
+    }
+
+    #[Test]
+    public function securityRoleForUpdateDefaultsToDisabled(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['operations'] = ['update'];
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertSame(AccessRole::DISABLED, $def->securityRole('update'));
+    }
+
+    #[Test]
+    public function securityRoleForDeleteDefaultsToDisabled(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['operations'] = ['delete'];
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertSame(AccessRole::DISABLED, $def->securityRole('delete'));
+    }
+
+    #[Test]
+    public function securityRoleReturnsExplicitlyConfiguredRole(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['operations'] = ['create', 'list'];
+        $cfg['security'] = [
+            'create' => AccessRole::FE_USER,
+            'list'   => AccessRole::BE_ADMIN,
+        ];
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertSame(AccessRole::FE_USER, $def->securityRole('create'));
+        self::assertSame(AccessRole::BE_ADMIN, $def->securityRole('list'));
+    }
+
+    #[Test]
+    public function securityRoleExplicitDisabledOverridesReadDefault(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['security'] = ['list' => AccessRole::DISABLED];
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertSame(AccessRole::DISABLED, $def->securityRole('list'));
+    }
+
+    #[Test]
+    public function securityRoleExplicitPublicOverridesWriteDefault(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['operations'] = ['create'];
+        $cfg['security'] = ['create' => AccessRole::PUBLIC];
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertSame(AccessRole::PUBLIC, $def->securityRole('create'));
+    }
 
     #[Test]
     public function operationsNotArrayThrows(): void

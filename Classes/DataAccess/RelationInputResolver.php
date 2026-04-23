@@ -63,16 +63,17 @@ final readonly class RelationInputResolver
 
     /**
      * @param array $body  Raw decoded request body
-     * @param string $table Parent table name
+     * @param ApiDefinition $parentDefinition Parent resource definition
      * @param int $pid Storage PID for created sub-records
      * @param ServerRequestInterface $request Current HTTP request (used for child security checks)
      */
     public function resolve(
         array $body,
-        string $table,
+        ApiDefinition $parentDefinition,
         int $pid,
         ServerRequestInterface $request,
     ): ResolvedInput {
+        $table = $parentDefinition->table;
         $feUser       = $request->getAttribute('frontend.user');
         $feUserRow    = $feUser?->user;
         $scalarBody   = [];
@@ -105,7 +106,7 @@ final readonly class RelationInputResolver
                     continue;
                 }
 
-                $subConfig = $this->apiRegistry->getByTable($foreignTable);
+                $subConfig = $this->resolveChildConfig($foreignTable, $col, $parentDefinition);
                 if ($subConfig === null) {
                     continue;
                 }
@@ -146,7 +147,7 @@ final readonly class RelationInputResolver
             // is placed in the parent's field. DataHandler's remapStack resolves it.
             if (!array_is_list($value)) {
                 if ($foreignTable !== '') {
-                    $subConfig = $this->apiRegistry->getByTable($foreignTable);
+                    $subConfig = $this->resolveChildConfig($foreignTable, $col, $parentDefinition);
                     if ($subConfig !== null) {
                         // Child security check
                         $childViolation = $this->checkChildSecurity($subConfig, $request, $col, null);
@@ -177,7 +178,7 @@ final readonly class RelationInputResolver
             // are included in the UID list. DataHandler's remapStack resolves them.
             $effectiveFt = $this->effectiveForeignTable($type, $tcaConfig);
             if ($effectiveFt !== '') {
-                $subConfig    = $this->apiRegistry->getByTable($effectiveFt);
+                $subConfig    = $this->resolveChildConfig($effectiveFt, $col, $parentDefinition);
                 $resolvedUids = [];
                 foreach ($value as $index => $item) {
                     if (is_array($item) && !array_is_list($item) && $subConfig !== null) {
@@ -315,6 +316,29 @@ final readonly class RelationInputResolver
             }
         }
         return $objects;
+    }
+
+    /**
+     * Resolve the ApiDefinition for a child relation.
+     * Checks the parent column's resourceName first; falls back to getByTable().
+     * Throws when resourceName is set but no matching resource is registered.
+     */
+    private function resolveChildConfig(string $foreignTable, string $columnName, ApiDefinition $parentDefinition): ?ApiDefinition
+    {
+        $columnDef = $parentDefinition->getColumn($columnName);
+        if ($columnDef?->resourceName !== null) {
+            $resolved = $this->apiRegistry->get($columnDef->resourceName);
+            if ($resolved === null) {
+                throw new \InvalidArgumentException(sprintf(
+                    "Column '%s' in resource '%s' sets resourceName '%s', but no resource with that name is registered.",
+                    $columnName,
+                    $parentDefinition->resourceName,
+                    $columnDef->resourceName,
+                ));
+            }
+            return $resolved;
+        }
+        return $this->apiRegistry->getByTable($foreignTable);
     }
 
     /**

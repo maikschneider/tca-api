@@ -28,6 +28,7 @@ final class AccessController
 
         return match ($requiredRole) {
             AccessRole::PUBLIC   => true,
+            AccessRole::DISABLED => false,
             AccessRole::FE_USER  => $this->hasFrontendUser($request),
             AccessRole::FE_GROUP => $this->hasFrontendUserInGroups($request, []),
             AccessRole::BE_USER  => $this->hasBackendUser(),

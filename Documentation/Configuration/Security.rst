@@ -8,6 +8,40 @@ The ``security`` section assigns an access role to each operation. Access is
 checked by the :php:`AccessController` before the request reaches the operation
 handler.
 
+Default access roles
+====================
+
+Operations not listed in ``security`` fall back to sensible defaults:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 15 15 70
+
+   * - Operation
+     - Default
+     - Explanation
+   * - ``list``
+     - ``PUBLIC``
+     - Read operations are publicly accessible without authentication.
+   * - ``show``
+     - ``PUBLIC``
+     - Read operations are publicly accessible without authentication.
+   * - ``create``
+     - ``DISABLED``
+     - Write operations are **disabled** until explicitly configured.
+   * - ``update``
+     - ``DISABLED``
+     - Write operations are **disabled** until explicitly configured.
+   * - ``delete``
+     - ``DISABLED``
+     - Write operations are **disabled** until explicitly configured.
+
+..  important::
+
+    Listing an operation in ``general.operations`` is not enough to enable it.
+    Write operations (``create``, ``update``, ``delete``) also require an
+    explicit ``security`` entry. Without one they return **403 Forbidden**.
+
 Access roles
 ============
 
@@ -19,6 +53,9 @@ Access roles
      - Description
    * - ``AccessRole::PUBLIC``
      - No authentication required. Anyone can access the endpoint.
+   * - ``AccessRole::DISABLED``
+     - Always denied regardless of authentication. Used as the implicit default
+       for write operations that have no explicit security configuration.
    * - ``AccessRole::FE_USER``
      - Requires a logged-in frontend user.
    * - ``AccessRole::FE_GROUP``
@@ -40,8 +77,7 @@ Configuration
     use MaikSchneider\TcaApi\Enum\AccessRole;
 
     'security' => [
-        'list'   => AccessRole::PUBLIC,
-        'show'   => AccessRole::PUBLIC,
+        // list and show are PUBLIC by default — only specify to restrict them
         'create' => AccessRole::FE_USER,
         'update' => AccessRole::OWNER,      // Only the record owner may update
         'delete' => AccessRole::OWNER,
