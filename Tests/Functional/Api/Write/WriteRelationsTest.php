@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Write;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -362,6 +363,9 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
                 'name'               => ['groups' => ['list', 'show', 'create']],
                 'hex'                => ['groups' => ['list', 'show', 'create']],
                 'foreign_article_id' => ['groups' => ['create']],
+            ],
+            'security' => [
+                'create' => AccessRole::FE_USER,
             ],
             'ownership' => ['column' => $ownerColumn],
         ];

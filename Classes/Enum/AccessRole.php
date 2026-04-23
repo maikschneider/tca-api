@@ -7,6 +7,7 @@ namespace MaikSchneider\TcaApi\Enum;
 enum AccessRole: string
 {
     case PUBLIC = 'PUBLIC';
+    case DISABLED = 'DISABLED';
     case FE_USER = 'FE_USER';
     case FE_GROUP = 'FE_GROUP';
     case BE_USER = 'BE_USER';

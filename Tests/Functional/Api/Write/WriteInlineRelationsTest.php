@@ -48,6 +48,9 @@ final class WriteInlineRelationsTest extends ApiFunctionalTestCase
                 'storagePid'   => 1,
             ],
             'columns' => ['name' => ['groups' => ['list', 'show', 'create']]],
+            'security' => [
+                'create' => AccessRole::FE_USER,
+            ],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ];
 
@@ -231,6 +234,9 @@ final class WriteInlineRelationsTest extends ApiFunctionalTestCase
                 'operations'   => ['list', 'show', 'create'],
             ],
             'columns' => ['name' => ['groups' => ['list', 'show', 'create']]],
+            'security' => [
+                'create' => AccessRole::FE_USER,
+            ],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ];
 

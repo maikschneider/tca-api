@@ -107,7 +107,15 @@ readonly class OpenApiBuilder
 
     private function accessRoleValue(mixed $role): string
     {
-        return $role instanceof AccessRole ? $role->value : 'PUBLIC';
+        if ($role instanceof AccessRole) {
+            return $role->value;
+        }
+        // [AccessRole::FE_GROUP, groupIds] tuple
+        if (\is_array($role) && $role[0] instanceof AccessRole) {
+            return $role[0]->value;
+        }
+        // [class-string, method] callable
+        return 'CALLABLE';
     }
 
     /**
