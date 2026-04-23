@@ -32,6 +32,7 @@
 - **OpenAPI + Swagger UI** — Auto-generated OpenAPI 3.1.0 spec and interactive Swagger UI served directly from the API prefix
 - **PSR-14 events** — Hook into the request lifecycle with Before/AfterOperation and Before/AfterWrite events
 - **TYPO3 DataHandler** — Write operations use TYPO3's DataHandler for safe, consistent data manipulation
+- **Response caching** — Tag-based HTTP response caching for `list` and `show` operations with automatic invalidation via the TYPO3 DataHandler hook; configurable TTL and per-request bypass
 - **Extensible handler pipeline** — Register custom operation handlers or override built-in ones from any extension
 
 ## Requirements
@@ -390,6 +391,54 @@ Backend admins bypass ownership checks by default. Set `beAdminBypass: false` to
 - `setOnCreate` without a logged-in FE user → column is not set (no injection if user is null)
 - Ownership columns are always stripped from client input regardless of `groups` config
 - `OWNER` is only meaningful on `update` and `delete`; using it on `list`/`show` will always deny (no single record to compare against)
+
+### Caching
+
+Enable tag-based HTTP response caching for `list` and `show` operations per resource:
+
+```php
+'cache' => [
+    'enabled'            => true,
+    'lifetime'           => 3600,        // TTL in seconds (default: 86400 — 24 h)
+    'parametersToIgnore' => ['preview'], // bypass cache when ?preview=… is present
+],
+```
+
+#### How it works
+
+- On a **cache miss**: the response body is stored with per-record tags (`{table}_{uid}`). Two headers are added: `X-TCA-API-Cache: MISS` and `X-Cache-Tags: articles_1,articles_2`.
+- On a **cache hit**: the stored body is returned immediately with `X-TCA-API-Cache: HIT`. No handler or serializer runs.
+- **Bypass**: when any parameter listed in `parametersToIgnore` is present in the request (top-level _or_ nested under `filters[…]`), the cache is skipped entirely for that request.
+
+#### Cache invalidation
+
+Invalidation fires automatically via a DataHandler `clearCachePostProc` hook. When a record is **saved or deleted through the TYPO3 backend**, all cached responses tagged for the affected table are flushed.
+
+> **Note:** Write operations performed through the API itself (`create`, `update`, `delete`) do **not** trigger this hook. Cached `list`/`show` responses will remain valid until the next DataHandler operation touches the same table or the TTL expires. If your application writes records via the API and reads them back immediately, configure a short `lifetime` or disable caching for that resource.
+
+#### Cache backend
+
+By default the `tca_api` cache uses `Typo3DatabaseBackend` (stored in `cf_tca_api` / `cf_tca_api_tags` database tables). For production use, configure a faster backend in `config/system/additional.php`:
+
+```php
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['tca_api'] = [
+    'backend'  => \TYPO3\CMS\Core\Cache\Backend\FileBackend::class,
+    'frontend' => \TYPO3\CMS\Core\Cache\Frontend\VariableFrontend::class,
+    'options'  => ['defaultLifetime' => 86400],
+];
+```
+
+#### Multi-site note
+
+Cache keys are scoped by resource name and query parameters but **not** by TYPO3 site. In multi-site setups where two sites use the same resource name (`articles`) with different `storagePid` or different records, their cache entries will collide. Use distinct `resourceName` values per site or disable caching until this is addressed.
+
+#### Caching config reference
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `enabled` | `bool` | `false` | Enable caching for this resource |
+| `lifetime` | `int` | `86400` | Cache TTL in seconds. Must be a positive integer |
+| `parametersToIgnore` | `string[]` | `[]` | Query parameters whose presence bypasses the cache entirely |
 
 ## Write privilege model
 
