@@ -75,4 +75,84 @@ final class OpenApiSpecTest extends ApiFunctionalTestCase
         self::assertArrayHasKey('downloads', $articleReadProperties);
         self::assertArrayHasKey('article_url', $articleReadProperties);
     }
+
+    public function testSpecContainsHydraErrorSchema(): void
+    {
+        $response = $this->executeApiRequest('/_api/openapi.json');
+        self::assertSame(200, $response->getStatusCode());
+
+        $body = $this->decodeResponseBody($response);
+        $schemas = $body['components']['schemas'];
+
+        self::assertArrayHasKey('HydraError', $schemas);
+        self::assertSame('object', $schemas['HydraError']['type']);
+        self::assertArrayHasKey('hydra:title', $schemas['HydraError']['properties']);
+        self::assertArrayHasKey('hydra:description', $schemas['HydraError']['properties']);
+        self::assertContains('@type', $schemas['HydraError']['required']);
+        self::assertContains('hydra:title', $schemas['HydraError']['required']);
+        self::assertContains('hydra:description', $schemas['HydraError']['required']);
+    }
+
+    public function testSpecContainsValidationErrorSchema(): void
+    {
+        $response = $this->executeApiRequest('/_api/openapi.json');
+        self::assertSame(200, $response->getStatusCode());
+
+        $body = $this->decodeResponseBody($response);
+        $schemas = $body['components']['schemas'];
+
+        self::assertArrayHasKey('ValidationError', $schemas);
+        self::assertArrayHasKey('violations', $schemas['ValidationError']['properties']);
+        self::assertSame('array', $schemas['ValidationError']['properties']['violations']['type']);
+    }
+
+    public function testErrorResponsesReferenceHydraErrorSchema(): void
+    {
+        $response = $this->executeApiRequest('/_api/openapi.json');
+        self::assertSame(200, $response->getStatusCode());
+
+        $body = $this->decodeResponseBody($response);
+        $paths = $body['paths'];
+
+        // Check list operation has error responses
+        $listResponses = $paths['/_api/articles']['get']['responses'];
+        self::assertArrayHasKey('400', $listResponses);
+        self::assertArrayHasKey('403', $listResponses);
+        self::assertArrayHasKey('500', $listResponses);
+        self::assertSame(
+            '#/components/schemas/HydraError',
+            $listResponses['403']['content']['application/ld+json']['schema']['$ref'],
+        );
+
+        // Check create operation has error responses
+        $createResponses = $paths['/_api/articles']['post']['responses'];
+        self::assertArrayHasKey('400', $createResponses);
+        self::assertArrayHasKey('403', $createResponses);
+        self::assertArrayHasKey('409', $createResponses);
+        self::assertArrayHasKey('422', $createResponses);
+        self::assertArrayHasKey('500', $createResponses);
+    }
+
+    public function testFieldsQueryParamUsesArraySchema(): void
+    {
+        $response = $this->executeApiRequest('/_api/openapi.json');
+        self::assertSame(200, $response->getStatusCode());
+
+        $body = $this->decodeResponseBody($response);
+
+        // Check the show operation fields parameter
+        $showParams = $body['paths']['/_api/articles/{uid}']['get']['parameters'];
+        $fieldsParam = null;
+        foreach ($showParams as $param) {
+            if ($param['name'] === 'fields') {
+                $fieldsParam = $param;
+                break;
+            }
+        }
+
+        self::assertNotNull($fieldsParam, 'fields parameter should exist on show operation');
+        self::assertSame('array', $fieldsParam['schema']['type']);
+        self::assertSame('string', $fieldsParam['schema']['items']['type']);
+        self::assertArrayNotHasKey('style', $fieldsParam);
+    }
 }

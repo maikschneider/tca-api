@@ -20,6 +20,7 @@ final class HydraResponseBuilder
         string $collectionId,
         int $page,
         int $itemsPerPage,
+        array $queryParams = [],
     ): ResponseInterface {
         $body = [
             '@context' => 'http://www.w3.org/ns/hydra/context.jsonld',
@@ -27,7 +28,7 @@ final class HydraResponseBuilder
             '@id' => $collectionId,
             'hydra:totalItems' => $totalItems,
             'hydra:member' => $members,
-            'hydra:view' => $this->buildView($collectionId, $page, $itemsPerPage, $totalItems),
+            'hydra:view' => $this->buildView($collectionId, $page, $itemsPerPage, $totalItems, $queryParams),
         ];
 
         $response = $this->responseFactory->createResponse(200)
@@ -79,11 +80,11 @@ final class HydraResponseBuilder
         return $response;
     }
 
-    private function buildView(string $collectionId, int $page, int $itemsPerPage, int $totalItems): array
+    private function buildView(string $collectionId, int $page, int $itemsPerPage, int $totalItems, array $queryParams = []): array
     {
         $lastPage = (int)ceil($totalItems / $itemsPerPage);
 
-        $link = static fn (int $p) => $collectionId . '?page=' . $p . '&itemsPerPage=' . $itemsPerPage;
+        $link = static fn (int $p) => $collectionId . '?' . http_build_query(array_merge($queryParams, ['page' => $p]));
 
         return [
             '@type' => 'hydra:PartialCollectionView',

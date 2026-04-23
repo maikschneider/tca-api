@@ -5,17 +5,12 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Security;
 
 use MaikSchneider\TcaApi\Enum\AccessRole;
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequest;
 use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequestContext;
 
 /**
  * Functional tests for FE_GROUP access role.
- *
- * RED phase: AccessRole::FE_GROUP does not exist yet. AccessController treats all
- * array values as PHP callables [ClassName, 'method'] and cannot distinguish
- * [AccessRole::FE_GROUP, [1, 2]] from a callable.
  *
  * Target config format:
  *   [AccessRole::FE_GROUP, [1, 2]]  — user must be member of group 1 OR 2
@@ -42,10 +37,9 @@ final class FrontendGroupAccessTest extends ApiFunctionalTestCase
             'resourceName' => self::RESOURCE,
             'resourceType' => 'Article',
             'operations'   => ['list', 'show', 'create'],
-            'itemsPerPage' => 20,
         ],
         'columns' => [
-            'title' => ['groups' => ['list', 'show', 'create', 'update'], 'required' => false],
+            'title' => ['groups' => ['list', 'show', 'create', 'update']],
         ],
         'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
     ];
@@ -63,7 +57,7 @@ final class FrontendGroupAccessTest extends ApiFunctionalTestCase
 
     public function testUserInRequiredGroupGetsAccess(): void
     {
-        ApiRegistry::register(self::RESOURCE, array_merge(self::BASE_CONFIG, [
+        $this->registerResource(self::RESOURCE, array_merge(self::BASE_CONFIG, [
             'security' => ['show' => [AccessRole::FE_GROUP, [1]]],
         ]));
 
@@ -77,7 +71,7 @@ final class FrontendGroupAccessTest extends ApiFunctionalTestCase
 
     public function testUserNotInRequiredGroupIsDenied(): void
     {
-        ApiRegistry::register(self::RESOURCE, array_merge(self::BASE_CONFIG, [
+        $this->registerResource(self::RESOURCE, array_merge(self::BASE_CONFIG, [
             'security' => ['show' => [AccessRole::FE_GROUP, [1]]],
         ]));
 
@@ -91,7 +85,7 @@ final class FrontendGroupAccessTest extends ApiFunctionalTestCase
 
     public function testUnauthenticatedUserIsDeniedByGroupRestriction(): void
     {
-        ApiRegistry::register(self::RESOURCE, array_merge(self::BASE_CONFIG, [
+        $this->registerResource(self::RESOURCE, array_merge(self::BASE_CONFIG, [
             'security' => ['show' => [AccessRole::FE_GROUP, [1]]],
         ]));
 
@@ -104,7 +98,7 @@ final class FrontendGroupAccessTest extends ApiFunctionalTestCase
 
     public function testUserInAnyOfMultipleAllowedGroupsGetsAccess(): void
     {
-        ApiRegistry::register(self::RESOURCE, array_merge(self::BASE_CONFIG, [
+        $this->registerResource(self::RESOURCE, array_merge(self::BASE_CONFIG, [
             'security' => ['show' => [AccessRole::FE_GROUP, [1, 2]]],
         ]));
 
@@ -119,7 +113,7 @@ final class FrontendGroupAccessTest extends ApiFunctionalTestCase
     public function testUserInNonListedGroupIsDenied(): void
     {
         // uid=20 is in group 1 only; required group is 3
-        ApiRegistry::register(self::RESOURCE, array_merge(self::BASE_CONFIG, [
+        $this->registerResource(self::RESOURCE, array_merge(self::BASE_CONFIG, [
             'security' => ['show' => [AccessRole::FE_GROUP, [3]]],
         ]));
 
@@ -134,7 +128,7 @@ final class FrontendGroupAccessTest extends ApiFunctionalTestCase
     public function testUserInMultipleGroupsMatchesOneOfAllowed(): void
     {
         // uid=22 is in groups 1+2; config requires group 2 only
-        ApiRegistry::register(self::RESOURCE, array_merge(self::BASE_CONFIG, [
+        $this->registerResource(self::RESOURCE, array_merge(self::BASE_CONFIG, [
             'security' => ['show' => [AccessRole::FE_GROUP, [2]]],
         ]));
 
@@ -150,7 +144,7 @@ final class FrontendGroupAccessTest extends ApiFunctionalTestCase
 
     public function testBareFeGroupAcceptsUserWithAnyGroup(): void
     {
-        ApiRegistry::register(self::RESOURCE, array_merge(self::BASE_CONFIG, [
+        $this->registerResource(self::RESOURCE, array_merge(self::BASE_CONFIG, [
             'security' => ['show' => AccessRole::FE_GROUP],
         ]));
 
@@ -164,7 +158,7 @@ final class FrontendGroupAccessTest extends ApiFunctionalTestCase
 
     public function testBareFeGroupDeniesUserWithNoGroups(): void
     {
-        ApiRegistry::register(self::RESOURCE, array_merge(self::BASE_CONFIG, [
+        $this->registerResource(self::RESOURCE, array_merge(self::BASE_CONFIG, [
             'security' => ['show' => AccessRole::FE_GROUP],
         ]));
 
@@ -178,7 +172,7 @@ final class FrontendGroupAccessTest extends ApiFunctionalTestCase
 
     public function testBareFeGroupDeniesUnauthenticatedUser(): void
     {
-        ApiRegistry::register(self::RESOURCE, array_merge(self::BASE_CONFIG, [
+        $this->registerResource(self::RESOURCE, array_merge(self::BASE_CONFIG, [
             'security' => ['show' => AccessRole::FE_GROUP],
         ]));
 
@@ -191,7 +185,7 @@ final class FrontendGroupAccessTest extends ApiFunctionalTestCase
 
     public function test403ResponseFormatIsHydraError(): void
     {
-        ApiRegistry::register(self::RESOURCE, array_merge(self::BASE_CONFIG, [
+        $this->registerResource(self::RESOURCE, array_merge(self::BASE_CONFIG, [
             'security' => ['show' => [AccessRole::FE_GROUP, [1]]],
         ]));
 

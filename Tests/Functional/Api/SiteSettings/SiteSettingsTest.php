@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\SiteSettings;
 
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
+use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequest;
 
 /**
  * Verifies site-level settings that can be tested with the default site fixture.
  *
- * Covers: openApiExposed, defaultItemsPerPage, no CORS by default.
+ * Covers: openApiExposed, defaultItemsPerPage, no CORS by default, OPTIONS without CORS.
  */
 final class SiteSettingsTest extends ApiFunctionalTestCase
 {
@@ -33,5 +34,18 @@ final class SiteSettingsTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/openapi.json');
 
         self::assertSame(200, $response->getStatusCode());
+    }
+
+    public function testOptionsReturns405WhenCorsDisabled(): void
+    {
+        $request = (new InternalRequest('http://localhost/_api/articles'))
+            ->withMethod('OPTIONS');
+
+        $response = $this->executeFrontendSubRequest($request);
+
+        self::assertSame(405, $response->getStatusCode());
+        self::assertSame('', $response->getHeaderLine('Access-Control-Allow-Origin'));
+        self::assertSame('', $response->getHeaderLine('Access-Control-Allow-Credentials'));
+        self::assertStringNotContainsString('Origin', $response->getHeaderLine('Vary'));
     }
 }

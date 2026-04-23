@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Serialization;
 
-use MaikSchneider\TcaApi\Enum\AccessRole;
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 use MaikSchneider\TcaApi\Tests\Functional\Fixtures\TestDisplayNameCallable;
 use MaikSchneider\TcaApi\Tests\Functional\Fixtures\TestStaticValueProcessor;
@@ -23,7 +21,6 @@ final class VirtualPropertiesTest extends ApiFunctionalTestCase
             'resourceName' => 'people',
             'resourceType' => 'Person',
             'operations' => ['list', 'show'],
-            'itemsPerPage' => 20,
         ],
         'columns' => [
             'title' => ['groups' => ['list', 'show']],
@@ -34,15 +31,11 @@ final class VirtualPropertiesTest extends ApiFunctionalTestCase
             'allowed' => ['uid'],
             'default' => ['uid' => 'asc'],
         ],
-        'security' => [
-            'list' => AccessRole::PUBLIC,
-            'show' => AccessRole::PUBLIC,
-        ],
     ];
 
     public function testGetItemReturns200(): void
     {
-        ApiRegistry::register('people', self::BASE_CONFIG);
+        $this->registerResource('people', self::BASE_CONFIG);
 
         $response = $this->executeApiRequest('/_api/people/10');
 
@@ -51,7 +44,7 @@ final class VirtualPropertiesTest extends ApiFunctionalTestCase
 
     public function testGetItemResponseContainsDisplayNameKey(): void
     {
-        ApiRegistry::register('people', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('people', array_merge(self::BASE_CONFIG, [
             'virtualProperties' => [
                 'displayName' => [
                     'callback' => [TestDisplayNameCallable::class, 'displayName'],
@@ -68,7 +61,7 @@ final class VirtualPropertiesTest extends ApiFunctionalTestCase
 
     public function testDisplayNameConcatenatesLastNameAndFirstName(): void
     {
-        ApiRegistry::register('people', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('people', array_merge(self::BASE_CONFIG, [
             'virtualProperties' => [
                 'displayName' => [
                     'callback' => [TestDisplayNameCallable::class, 'displayName'],
@@ -85,7 +78,7 @@ final class VirtualPropertiesTest extends ApiFunctionalTestCase
 
     public function testVirtualPropertyAppearsAfterRealColumns(): void
     {
-        ApiRegistry::register('people', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('people', array_merge(self::BASE_CONFIG, [
             'virtualProperties' => [
                 'displayName' => [
                     'callback' => [TestDisplayNameCallable::class, 'displayName'],
@@ -105,7 +98,7 @@ final class VirtualPropertiesTest extends ApiFunctionalTestCase
 
     public function testVirtualPropertyWithShowGroupExcludedFromList(): void
     {
-        ApiRegistry::register('people', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('people', array_merge(self::BASE_CONFIG, [
             'virtualProperties' => [
                 'displayName' => [
                     'callback' => [TestDisplayNameCallable::class, 'displayName'],
@@ -122,7 +115,7 @@ final class VirtualPropertiesTest extends ApiFunctionalTestCase
 
     public function testVirtualPropertyWithShowGroupIncludedInShow(): void
     {
-        ApiRegistry::register('people', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('people', array_merge(self::BASE_CONFIG, [
             'virtualProperties' => [
                 'displayName' => [
                     'callback' => [TestDisplayNameCallable::class, 'displayName'],
@@ -139,7 +132,7 @@ final class VirtualPropertiesTest extends ApiFunctionalTestCase
 
     public function testVirtualPropertyWithNoGroupsExcludedInExplicitMode(): void
     {
-        ApiRegistry::register('people', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('people', array_merge(self::BASE_CONFIG, [
             'virtualProperties' => [
                 'displayName' => [
                     'callback' => [TestDisplayNameCallable::class, 'displayName'],
@@ -157,7 +150,7 @@ final class VirtualPropertiesTest extends ApiFunctionalTestCase
 
     public function testProcessorBasedVirtualPropertyExcludedByVisibilityGate(): void
     {
-        ApiRegistry::register('people', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('people', array_merge(self::BASE_CONFIG, [
             'virtualProperties' => [
                 'computedValue' => [
                     'processor' => TestStaticValueProcessor::class,
@@ -175,7 +168,7 @@ final class VirtualPropertiesTest extends ApiFunctionalTestCase
 
     public function testResourceWithoutVirtualPropertiesSerializesNormally(): void
     {
-        ApiRegistry::register('people', self::BASE_CONFIG);
+        $this->registerResource('people', self::BASE_CONFIG);
 
         $response = $this->executeApiRequest('/_api/people/10');
 

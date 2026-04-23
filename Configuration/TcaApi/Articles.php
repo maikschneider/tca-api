@@ -14,6 +14,7 @@ return [
         'resourceName' => 'articles',
         'resourceType' => 'Article',
         'operations' => ['list', 'show', 'create', 'update', 'delete'],
+        'storagePid' => 1,
     ],
     'columns' => [
         'title' => [

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Utility;
 
 /**
- * Static utility for TCA introspection — column discovery and explicit-mode detection.
+ * Static utility for TCA introspection — column discovery.
  */
 final class TcaColumnDiscovery
 {
@@ -60,64 +60,5 @@ final class TcaColumnDiscovery
         }
 
         return self::$columnNameCache[$table] = $result;
-    }
-
-    /**
-     * Returns true when any column config entry has 'groups' set,
-     * meaning the developer has opted into explicit visibility control.
-     *
-     * Columns with only 'processor', 'type', 'embed', etc. do NOT trigger explicit mode.
-     */
-    public static function isExplicitMode(array $config): bool
-    {
-        foreach ($config['columns'] ?? [] as $columnConfig) {
-            if (\array_key_exists('groups', $columnConfig)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Returns true when the column should accept write operations (create/update).
-     *
-     * @param string $operation 'create', 'update', or '' for any-write check
-     */
-    public static function isColumnWritable(array $columnConfig, string $operation = ''): bool
-    {
-        $groups = $columnConfig['groups'] ?? [];
-
-        if ($operation !== '') {
-            return \in_array($operation, $groups, true);
-        }
-
-        return \in_array('create', $groups, true) || \in_array('update', $groups, true);
-    }
-
-    /**
-     * Returns true when the column should be included in read responses for $operation.
-     * In explicit mode without an operation context (e.g. OpenAPI), includes if any read
-     * operation group ('list' or 'show') is present.
-     *
-     * @param string $operation 'list', 'show', or '' for any-read check (OpenAPI)
-     */
-    public static function isColumnReadable(array $columnConfig, string $operation = ''): bool
-    {
-        $groups = $columnConfig['groups'] ?? [];
-
-        if ($operation !== '') {
-            return \in_array($operation, $groups, true);
-        }
-
-        return \in_array('list', $groups, true) || \in_array('show', $groups, true);
-    }
-
-    /**
-     * Clears the static column name cache. Useful in tests that modify TCA between runs.
-     */
-    public static function clearCache(): void
-    {
-        self::$columnNameCache = [];
     }
 }

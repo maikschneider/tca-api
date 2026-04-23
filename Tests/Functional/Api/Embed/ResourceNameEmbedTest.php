@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Embed;
 
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -41,16 +40,15 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
     /** Explicit mode: exposes name only. */
     private function registerColorsV1(): void
     {
-        ApiRegistry::register('rn-colors-v1', [
+        $this->registerResource('rn-colors-v1', [
             'general' => [
                 'table'        => self::COLOR_TABLE,
                 'resourceName' => 'rn-colors-v1',
                 'resourceType' => 'ColorV1',
                 'operations'   => ['list', 'show'],
-                'itemsPerPage' => 20,
             ],
             'columns' => [
-                'name' => ['groups' => ['list', 'show'], 'required' => false],
+                'name' => ['groups' => ['list', 'show']],
             ],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
@@ -59,17 +57,16 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
     /** Explicit mode: exposes name + hex. */
     private function registerColorsV2(): void
     {
-        ApiRegistry::register('rn-colors-v2', [
+        $this->registerResource('rn-colors-v2', [
             'general' => [
                 'table'        => self::COLOR_TABLE,
                 'resourceName' => 'rn-colors-v2',
                 'resourceType' => 'ColorV2',
                 'operations'   => ['list', 'show'],
-                'itemsPerPage' => 20,
             ],
             'columns' => [
-                'name' => ['groups' => ['list', 'show'], 'required' => false],
-                'hex'  => ['groups' => ['list', 'show'], 'required' => false],
+                'name' => ['groups' => ['list', 'show']],
+                'hex'  => ['groups' => ['list', 'show']],
             ],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
@@ -78,17 +75,16 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
     /** Register the article resource; $colorIdOverride replaces the default color_id column config. */
     private function registerArticleResource(array $colorIdOverride = []): void
     {
-        ApiRegistry::register('rn-articles', [
+        $this->registerResource('rn-articles', [
             'general' => [
                 'table'        => self::ARTICLE_TABLE,
                 'resourceName' => 'rn-articles',
                 'resourceType' => 'Article',
                 'operations'   => ['list', 'show'],
-                'itemsPerPage' => 20,
             ],
             'columns' => array_merge([
-                'title'    => ['groups' => ['list', 'show'], 'required' => false],
-                'color_id' => ['groups' => ['list', 'show'], 'required' => false],
+                'title'    => ['groups' => ['list', 'show']],
+                'color_id' => ['groups' => ['list', 'show']],
             ], $colorIdOverride),
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
@@ -101,7 +97,7 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
         $this->registerColorsV1(); // registered first — would be returned by getByTable() without override
         $this->registerColorsV2();
         $this->registerArticleResource([
-            'color_id' => ['groups' => ['list', 'show'], 'required' => false, 'embed' => true, 'resourceName' => 'rn-colors-v2'],
+            'color_id' => ['groups' => ['list', 'show'], 'embed' => true, 'resourceName' => 'rn-colors-v2'],
         ]);
 
         $response = $this->executeApiRequest('/_api/rn-articles/50');
@@ -117,7 +113,7 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerColorsV1(); // only v1 — no hex column
         $this->registerArticleResource([
-            'color_id' => ['groups' => ['list', 'show'], 'required' => false, 'embed' => true],
+            'color_id' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         $response = $this->executeApiRequest('/_api/rn-articles/50');
@@ -132,7 +128,7 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
         $this->registerColorsV1();
         $this->registerColorsV2(); // registered second — would NOT be returned by getByTable()
         $this->registerArticleResource([
-            'color_id' => ['groups' => ['list', 'show'], 'required' => false, 'embed' => true, 'resourceName' => 'rn-colors-v1'],
+            'color_id' => ['groups' => ['list', 'show'], 'embed' => true, 'resourceName' => 'rn-colors-v1'],
         ]);
 
         $response = $this->executeApiRequest('/_api/rn-articles/50');
@@ -147,7 +143,7 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
         $this->registerColorsV1();
         $this->registerColorsV2();
         $this->registerArticleResource([
-            'color_id' => ['groups' => ['list', 'show'], 'required' => false, 'embed' => true, 'resourceName' => 'rn-colors-v2'],
+            'color_id' => ['groups' => ['list', 'show'], 'embed' => true, 'resourceName' => 'rn-colors-v2'],
         ]);
 
         $response = $this->executeApiRequest('/_api/rn-articles/50');
@@ -166,7 +162,7 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
         // The default 'colors' registration only exposes 'name' (explicit mode); the synthesized config
         // exposes all columns including 'hex'.
         $this->registerArticleResource([
-            'color_id' => ['groups' => ['list', 'show'], 'required' => false, 'embed' => true, 'resourceName' => 'rn-colors-nonexistent'],
+            'color_id' => ['groups' => ['list', 'show'], 'embed' => true, 'resourceName' => 'rn-colors-nonexistent'],
         ]);
 
         $response = $this->executeApiRequest('/_api/rn-articles/50');
@@ -183,7 +179,7 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
     {
         // 'resourceName' points to a non-existent key but embed is absent → depth=0 → stub returned.
         $this->registerArticleResource([
-            'color_id' => ['groups' => ['list', 'show'], 'required' => false, 'resourceName' => 'rn-colors-nonexistent'],
+            'color_id' => ['groups' => ['list', 'show'], 'resourceName' => 'rn-colors-nonexistent'],
         ]);
 
         $response = $this->executeApiRequest('/_api/rn-articles/50');
@@ -199,7 +195,7 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
     {
         // buildDefaultConfig() uses $foreignTable as resourceType when no resourceType override given.
         $this->registerArticleResource([
-            'color_id' => ['groups' => ['list', 'show'], 'required' => false, 'embed' => true, 'resourceName' => 'rn-colors-nonexistent'],
+            'color_id' => ['groups' => ['list', 'show'], 'embed' => true, 'resourceName' => 'rn-colors-nonexistent'],
         ]);
 
         $response = $this->executeApiRequest('/_api/rn-articles/50');
@@ -212,7 +208,7 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
     {
         // uid=52 has color_id=0 — serializeHasOne() returns null before registry lookup.
         $this->registerArticleResource([
-            'color_id' => ['groups' => ['list', 'show'], 'required' => false, 'embed' => true, 'resourceName' => 'rn-colors-nonexistent'],
+            'color_id' => ['groups' => ['list', 'show'], 'embed' => true, 'resourceName' => 'rn-colors-nonexistent'],
         ]);
 
         $response = $this->executeApiRequest('/_api/rn-articles/52');
@@ -227,7 +223,7 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
     {
         $this->registerColorsV1();
         $this->registerArticleResource([
-            'color_id' => ['groups' => ['list', 'show'], 'required' => false, 'embed' => true],
+            'color_id' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
         $response = $this->executeApiRequest('/_api/rn-articles/50');
@@ -258,17 +254,16 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
         // all TCA columns exposed (name + hex) without a registered color endpoint.
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles_group.csv');
 
-        ApiRegistry::register('rn-group-articles', [
+        $this->registerResource('rn-group-articles', [
             'general' => [
                 'table'        => self::ARTICLE_TABLE,
                 'resourceName' => 'rn-group-articles',
                 'resourceType' => 'Article',
                 'operations'   => ['list', 'show'],
-                'itemsPerPage' => 20,
             ],
             'columns' => [
-                'title'          => ['groups' => ['list', 'show'], 'required' => false],
-                'related_colors' => ['groups' => ['list', 'show'], 'required' => false, 'embed' => true, 'resourceName' => 'rn-colors-nonexistent'],
+                'title'          => ['groups' => ['list', 'show']],
+                'related_colors' => ['groups' => ['list', 'show'], 'embed' => true, 'resourceName' => 'rn-colors-nonexistent'],
             ],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);

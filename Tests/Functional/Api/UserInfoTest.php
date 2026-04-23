@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api;
 
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -23,12 +22,13 @@ final class UserInfoTest extends ApiFunctionalTestCase
 
     private function registerUserinfoResource(array $columnOverrides = []): void
     {
-        ApiRegistry::register('me', [
+        $this->registerResource('me', [
             'general' => [
                 'type'         => 'userinfo',
                 'table'        => 'fe_users',
                 'resourceName' => 'me',
                 'resourceType' => 'FeUser',
+                'operations'   => [],
             ],
             'columns' => array_merge([
                 'username' => ['groups' => ['list', 'show']],

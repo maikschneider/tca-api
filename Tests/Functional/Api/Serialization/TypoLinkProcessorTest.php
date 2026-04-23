@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Serialization;
 
-use MaikSchneider\TcaApi\Enum\AccessRole;
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
@@ -34,7 +32,6 @@ final class TypoLinkProcessorTest extends ApiFunctionalTestCase
             'resourceName' => 'link-articles',
             'resourceType' => 'Article',
             'operations' => ['list', 'show'],
-            'itemsPerPage' => 20,
         ],
         'columns' => [
             'title' => ['groups' => ['list', 'show']],
@@ -46,10 +43,6 @@ final class TypoLinkProcessorTest extends ApiFunctionalTestCase
         'order' => [
             'allowed' => ['uid'],
             'default' => ['uid' => 'asc'],
-        ],
-        'security' => [
-            'list' => AccessRole::PUBLIC,
-            'show' => AccessRole::PUBLIC,
         ],
     ];
 
@@ -64,7 +57,7 @@ final class TypoLinkProcessorTest extends ApiFunctionalTestCase
 
     public function testExternalUrlReturnedAsIs(): void
     {
-        ApiRegistry::register('link-articles', self::BASE_CONFIG);
+        $this->registerResource('link-articles', self::BASE_CONFIG);
 
         $response = $this->executeApiRequest('/_api/link-articles/110');
         $body = $this->decodeResponseBody($response);
@@ -78,7 +71,7 @@ final class TypoLinkProcessorTest extends ApiFunctionalTestCase
 
     public function testPageLinkResolvesToAbsoluteUrl(): void
     {
-        ApiRegistry::register('link-articles', self::BASE_CONFIG);
+        $this->registerResource('link-articles', self::BASE_CONFIG);
 
         $response = $this->executeApiRequest('/_api/link-articles/111');
         $body = $this->decodeResponseBody($response);
@@ -93,7 +86,7 @@ final class TypoLinkProcessorTest extends ApiFunctionalTestCase
 
     public function testEmptyLinkFieldSerializesAsNull(): void
     {
-        ApiRegistry::register('link-articles', self::BASE_CONFIG);
+        $this->registerResource('link-articles', self::BASE_CONFIG);
 
         $response = $this->executeApiRequest('/_api/link-articles/112');
         $body = $this->decodeResponseBody($response);
@@ -107,7 +100,7 @@ final class TypoLinkProcessorTest extends ApiFunctionalTestCase
 
     public function testColumnWithoutProcessorReturnsRawValue(): void
     {
-        ApiRegistry::register('link-articles', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('link-articles', array_merge(self::BASE_CONFIG, [
             'columns' => [
                 'title' => ['groups' => ['list', 'show']],
                 'article_url' => ['groups' => ['list', 'show']],
@@ -127,7 +120,7 @@ final class TypoLinkProcessorTest extends ApiFunctionalTestCase
 
     public function testVirtualPropertyWithProcessorKeyIsInvoked(): void
     {
-        ApiRegistry::register('link-articles', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('link-articles', array_merge(self::BASE_CONFIG, [
             'virtualProperties' => [
                 'resolvedLink' => [
                     'groups' => ['show'],

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\SiteSettings;
 
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -126,12 +125,13 @@ final class SiteSettingsCustomPrefixTest extends ApiFunctionalTestCase
 
     public function testUserinfoIdUsesCustomPrefix(): void
     {
-        ApiRegistry::register('me', [
+        $this->registerResource('me', [
             'general' => [
                 'type'         => 'userinfo',
                 'table'        => 'fe_users',
                 'resourceName' => 'me',
                 'resourceType' => 'FeUser',
+                'operations'   => [],
             ],
             'columns' => [
                 'username' => ['groups' => ['list', 'show']],

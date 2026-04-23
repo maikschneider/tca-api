@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Serializer\FileProcessing;
 
+use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use TYPO3\CMS\Core\Resource\FileReference;
 
 final class FileProcessor implements FileProcessorInterface
 {
-    public function process(FileReference $fileReference, array $columnConfig): array
+    public function process(FileReference $fileReference, ColumnDefinition $columnConfig): array
     {
         return [
             'publicUrl' => $fileReference->getPublicUrl(),

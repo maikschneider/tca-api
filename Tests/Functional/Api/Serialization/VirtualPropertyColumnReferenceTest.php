@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Serialization;
 
-use MaikSchneider\TcaApi\Enum\AccessRole;
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Serializer\FileProcessing\FileProcessor;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 use MaikSchneider\TcaApi\Tests\Functional\Fixtures\TestDisplayNameCallable;
@@ -32,7 +30,6 @@ final class VirtualPropertyColumnReferenceTest extends ApiFunctionalTestCase
             'resourceName'  => 'file-articles',
             'resourceType'  => 'FileArticle',
             'operations'    => ['list', 'show'],
-            'itemsPerPage'  => 20,
         ],
         'columns' => [
             'title'         => ['groups' => ['list', 'show']],
@@ -42,17 +39,13 @@ final class VirtualPropertyColumnReferenceTest extends ApiFunctionalTestCase
             'allowed' => ['uid'],
             'default' => ['uid' => 'asc'],
         ],
-        'security' => [
-            'list' => AccessRole::PUBLIC,
-            'show' => AccessRole::PUBLIC,
-        ],
     ];
 
     // ── Scalar column reference ───────────────────────────────────────────────
 
     public function testScalarColumnReferenceKeyAppearsInResponse(): void
     {
-        ApiRegistry::register('file-articles', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('file-articles', array_merge(self::BASE_CONFIG, [
             'virtualProperties' => [
                 'titleCopy' => [
                     'column'    => 'title',
@@ -70,7 +63,7 @@ final class VirtualPropertyColumnReferenceTest extends ApiFunctionalTestCase
 
     public function testScalarColumnReferenceForwardsRawValueToProcessor(): void
     {
-        ApiRegistry::register('file-articles', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('file-articles', array_merge(self::BASE_CONFIG, [
             'virtualProperties' => [
                 'titleCopy' => [
                     'column'    => 'title',
@@ -88,7 +81,7 @@ final class VirtualPropertyColumnReferenceTest extends ApiFunctionalTestCase
 
     public function testProcessorWithoutColumnReceivesNull(): void
     {
-        ApiRegistry::register('file-articles', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('file-articles', array_merge(self::BASE_CONFIG, [
             'virtualProperties' => [
                 'noSource' => [
                     'processor' => TestEchoProcessor::class,
@@ -107,7 +100,7 @@ final class VirtualPropertyColumnReferenceTest extends ApiFunctionalTestCase
 
     public function testFileColumnReferenceReturnsArray(): void
     {
-        ApiRegistry::register('file-articles', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('file-articles', array_merge(self::BASE_CONFIG, [
             'virtualProperties' => [
                 'thumbnail' => [
                     'column' => 'profile_photo',
@@ -125,7 +118,7 @@ final class VirtualPropertyColumnReferenceTest extends ApiFunctionalTestCase
 
     public function testFileColumnReferenceHasPublicUrlKey(): void
     {
-        ApiRegistry::register('file-articles', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('file-articles', array_merge(self::BASE_CONFIG, [
             'virtualProperties' => [
                 'thumbnail' => [
                     'column' => 'profile_photo',
@@ -142,7 +135,7 @@ final class VirtualPropertyColumnReferenceTest extends ApiFunctionalTestCase
 
     public function testFileColumnReferenceWithExplicitFileProcessorOmitsCropVariants(): void
     {
-        ApiRegistry::register('file-articles', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('file-articles', array_merge(self::BASE_CONFIG, [
             'virtualProperties' => [
                 'thumbnail' => [
                     'column'    => 'profile_photo',
@@ -161,7 +154,7 @@ final class VirtualPropertyColumnReferenceTest extends ApiFunctionalTestCase
 
     public function testFileColumnReferenceReturnsNullWhenNoFileLinked(): void
     {
-        ApiRegistry::register('file-articles', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('file-articles', array_merge(self::BASE_CONFIG, [
             'virtualProperties' => [
                 'thumbnail' => [
                     'column' => 'profile_photo',
@@ -182,7 +175,7 @@ final class VirtualPropertyColumnReferenceTest extends ApiFunctionalTestCase
 
     public function testCallbackVirtualPropertyWithColumnKeyStillReceivesResultAndRow(): void
     {
-        ApiRegistry::register('file-articles', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('file-articles', array_merge(self::BASE_CONFIG, [
             'virtualProperties' => [
                 'displayName' => [
                     'column'   => 'title',
@@ -205,7 +198,7 @@ final class VirtualPropertyColumnReferenceTest extends ApiFunctionalTestCase
 
     public function testUnknownColumnReferenceDoesNotThrowAndReturnsNull(): void
     {
-        ApiRegistry::register('file-articles', array_merge(self::BASE_CONFIG, [
+        $this->registerResource('file-articles', array_merge(self::BASE_CONFIG, [
             'virtualProperties' => [
                 'mystery' => [
                     'column'    => 'nonexistent_column',

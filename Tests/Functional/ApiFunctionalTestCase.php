@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Loader\ApiDefinitionLoader;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Core\Http\Stream;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequest;
 use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequestContext;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
@@ -27,10 +27,18 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
     {
         parent::setUp();
 
-        // Tests frequently register temporary resources in static ApiRegistry.
-        // Reset and reload baseline definitions to prevent cross-test leakage.
-        ApiRegistry::reset();
-        GeneralUtility::makeInstance(ApiDefinitionLoader::class)->load();
+        // Static backing store persists across DI containers; reset before
+        // reloading baseline definitions to prevent cross-test leakage.
+        $this->getApiRegistry()->reset();
+        $this->get(ApiDefinitionLoader::class)->load();
+    }
+
+    /**
+     * Return the DI-managed ApiRegistry instance.
+     */
+    protected function getApiRegistry(): ApiRegistry
+    {
+        return $this->get(ApiRegistry::class);
     }
 
     /**
@@ -161,6 +169,15 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
                 ->withAddedHeader('Content-Type', 'application/json')
                 ->withBody($body),
         );
+    }
+
+    /**
+     * Normalise a raw config array and register it in ApiRegistry.
+     * Use this in tests instead of accessing the registry directly.
+     */
+    protected function registerResource(string $name, array $rawConfig): void
+    {
+        $this->getApiRegistry()->register($name, ApiDefinition::fromArray($rawConfig));
     }
 
     /**

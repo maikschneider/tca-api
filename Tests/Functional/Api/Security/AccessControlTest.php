@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Security;
 
 use MaikSchneider\TcaApi\Enum\AccessRole;
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -26,13 +25,12 @@ final class AccessControlTest extends ApiFunctionalTestCase
             'resourceName' => 'be-articles',
             'resourceType' => 'Article',
             'operations'   => ['list', 'show', 'create', 'update', 'delete'],
-            'itemsPerPage' => 20,
+            'storagePid' => 1,
         ],
         'columns' => [
             'title' => [
-                'type'     => 'string',
-                'groups'   => ['list', 'show', 'create', 'update'],
-                'required' => false,
+                'type'   => 'string',
+                'groups' => ['list', 'show', 'create', 'update'],
             ],
         ],
         'order' => [
@@ -47,13 +45,12 @@ final class AccessControlTest extends ApiFunctionalTestCase
             'resourceName' => 'group-articles',
             'resourceType' => 'Article',
             'operations'   => ['list', 'show', 'create', 'update', 'delete'],
-            'itemsPerPage' => 20,
+            'storagePid' => 1,
         ],
         'columns' => [
             'title' => [
-                'type'     => 'string',
-                'groups'   => ['list', 'show', 'create', 'update'],
-                'required' => false,
+                'type'   => 'string',
+                'groups' => ['list', 'show', 'create', 'update'],
             ],
         ],
         'order' => [
@@ -175,9 +172,8 @@ final class AccessControlTest extends ApiFunctionalTestCase
 
     public function testBeUserRoleDeniesWithoutAuth(): void
     {
-        ApiRegistry::register('be-articles', array_merge(self::BE_USER_CONFIG, [
+        $this->registerResource('be-articles', array_merge(self::BE_USER_CONFIG, [
             'security' => [
-                'list'   => AccessRole::PUBLIC,
                 'show'   => AccessRole::BE_USER,
                 'create' => AccessRole::BE_USER,
                 'update' => AccessRole::BE_USER,
@@ -192,7 +188,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
 
     public function testBeUserRoleDeniesWithFeUserOnly(): void
     {
-        ApiRegistry::register('be-articles', array_merge(self::BE_USER_CONFIG, [
+        $this->registerResource('be-articles', array_merge(self::BE_USER_CONFIG, [
             'security' => [
                 'show' => AccessRole::BE_USER,
             ],
@@ -205,7 +201,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
 
     public function testBeUserRoleGrantsAccessToNonAdminBackendUser(): void
     {
-        ApiRegistry::register('be-articles', array_merge(self::BE_USER_CONFIG, [
+        $this->registerResource('be-articles', array_merge(self::BE_USER_CONFIG, [
             'security' => [
                 'show' => AccessRole::BE_USER,
             ],
@@ -218,7 +214,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
 
     public function testBeUserRoleGrantsAccessToAdminBackendUser(): void
     {
-        ApiRegistry::register('be-articles', array_merge(self::BE_USER_CONFIG, [
+        $this->registerResource('be-articles', array_merge(self::BE_USER_CONFIG, [
             'security' => [
                 'show' => AccessRole::BE_USER,
             ],
@@ -231,7 +227,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
 
     public function testBeUserRoleCreateDeniedWithoutAuth(): void
     {
-        ApiRegistry::register('be-articles', array_merge(self::BE_USER_CONFIG, [
+        $this->registerResource('be-articles', array_merge(self::BE_USER_CONFIG, [
             'security' => [
                 'create' => AccessRole::BE_USER,
             ],
@@ -244,7 +240,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
 
     public function testBeUserRoleCreateSucceedsWithBackendUser(): void
     {
-        ApiRegistry::register('be-articles', array_merge(self::BE_USER_CONFIG, [
+        $this->registerResource('be-articles', array_merge(self::BE_USER_CONFIG, [
             'security' => [
                 'create' => AccessRole::BE_USER,
             ],
@@ -257,7 +253,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
 
     public function testBeUserRoleUpdateSucceedsWithBackendUser(): void
     {
-        ApiRegistry::register('be-articles', array_merge(self::BE_USER_CONFIG, [
+        $this->registerResource('be-articles', array_merge(self::BE_USER_CONFIG, [
             'security' => [
                 'update' => AccessRole::BE_USER,
             ],
@@ -270,7 +266,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
 
     public function testBeUserRoleDeleteSucceedsWithBackendUser(): void
     {
-        ApiRegistry::register('be-articles', array_merge(self::BE_USER_CONFIG, [
+        $this->registerResource('be-articles', array_merge(self::BE_USER_CONFIG, [
             'security' => [
                 'delete' => AccessRole::BE_USER,
             ],
@@ -285,7 +281,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
 
     public function testFeGroupRoleDeniesWithoutAuth(): void
     {
-        ApiRegistry::register('group-articles', array_merge(self::FE_GROUP_CONFIG, [
+        $this->registerResource('group-articles', array_merge(self::FE_GROUP_CONFIG, [
             'security' => [
                 'show' => AccessRole::FE_GROUP,
             ],
@@ -301,7 +297,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_users_with_groups.csv');
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_groups.csv');
 
-        ApiRegistry::register('group-articles', array_merge(self::FE_GROUP_CONFIG, [
+        $this->registerResource('group-articles', array_merge(self::FE_GROUP_CONFIG, [
             'security' => [
                 'show' => AccessRole::FE_GROUP,
             ],
@@ -318,7 +314,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_users_with_groups.csv');
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_groups.csv');
 
-        ApiRegistry::register('group-articles', array_merge(self::FE_GROUP_CONFIG, [
+        $this->registerResource('group-articles', array_merge(self::FE_GROUP_CONFIG, [
             'security' => [
                 'show' => AccessRole::FE_GROUP,
             ],
@@ -335,7 +331,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_users_with_groups.csv');
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_groups.csv');
 
-        ApiRegistry::register('group-articles', array_merge(self::FE_GROUP_CONFIG, [
+        $this->registerResource('group-articles', array_merge(self::FE_GROUP_CONFIG, [
             'security' => [
                 'show' => AccessRole::FE_GROUP,
             ],
@@ -354,7 +350,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_users_with_groups.csv');
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_groups.csv');
 
-        ApiRegistry::register('group-articles', array_merge(self::FE_GROUP_CONFIG, [
+        $this->registerResource('group-articles', array_merge(self::FE_GROUP_CONFIG, [
             'security' => [
                 'show' => [AccessRole::FE_GROUP, [1]],
             ],
@@ -371,7 +367,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_users_with_groups.csv');
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_groups.csv');
 
-        ApiRegistry::register('group-articles', array_merge(self::FE_GROUP_CONFIG, [
+        $this->registerResource('group-articles', array_merge(self::FE_GROUP_CONFIG, [
             'security' => [
                 'show' => [AccessRole::FE_GROUP, [3]],
             ],
@@ -385,7 +381,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
 
     public function testFeGroupWithSpecificIdsDeniesWithoutAuth(): void
     {
-        ApiRegistry::register('group-articles', array_merge(self::FE_GROUP_CONFIG, [
+        $this->registerResource('group-articles', array_merge(self::FE_GROUP_CONFIG, [
             'security' => [
                 'show' => [AccessRole::FE_GROUP, [1]],
             ],
@@ -398,7 +394,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
 
     public function testFeGroupWriteOperationDeniesWithoutAuth(): void
     {
-        ApiRegistry::register('group-articles', array_merge(self::FE_GROUP_CONFIG, [
+        $this->registerResource('group-articles', array_merge(self::FE_GROUP_CONFIG, [
             'security' => [
                 'create' => AccessRole::FE_GROUP,
             ],
@@ -414,7 +410,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_users_with_groups.csv');
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_groups.csv');
 
-        ApiRegistry::register('group-articles', array_merge(self::FE_GROUP_CONFIG, [
+        $this->registerResource('group-articles', array_merge(self::FE_GROUP_CONFIG, [
             'security' => [
                 'create' => AccessRole::FE_GROUP,
             ],

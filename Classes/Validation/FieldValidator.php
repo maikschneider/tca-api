@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Validation;
 
-use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 
 final class FieldValidator
 {
@@ -16,19 +16,19 @@ final class FieldValidator
      *
      * @return list<array{propertyPath: string, message: string, code: string}>
      */
-    public function validate(array $body, array $config, bool $partial = false): array
+    public function validate(array $body, ApiDefinition $config, bool $partial = false): array
     {
         $violations = [];
 
-        if (!TcaColumnDiscovery::isExplicitMode($config)) {
+        if (!$config->isExplicitMode) {
             // Default mode: only run declared validators — no required-check unless configured
-            foreach ($config['columns'] ?? [] as $column => $columnConfig) {
+            foreach ($config->columns as $column => $columnDef) {
                 $provided = \array_key_exists($column, $body);
                 if ($partial && !$provided) {
                     continue;
                 }
                 if ($provided) {
-                    foreach ($columnConfig['validators'] ?? [] as $validatorConfig) {
+                    foreach ($columnDef->validators as $validatorConfig) {
                         $violation = $this->applyValidator($validatorConfig, $column, $body[$column]);
                         if ($violation !== null) {
                             $violations[] = $violation;
@@ -40,8 +40,8 @@ final class FieldValidator
         }
 
         // Explicit mode
-        foreach ($config['columns'] as $column => $columnConfig) {
-            if (!TcaColumnDiscovery::isColumnWritable($columnConfig)) {
+        foreach ($config->columns as $column => $columnDef) {
+            if (!$columnDef->isWritable()) {
                 continue;
             }
 
@@ -52,7 +52,7 @@ final class FieldValidator
             }
 
             // required check
-            if ($columnConfig['required'] ?? false) {
+            if ($columnDef->required) {
                 if (!$provided || $body[$column] === '' || $body[$column] === null) {
                     $violations[] = $this->buildViolation($column, "Field '$column' is required.", 'REQUIRED');
                     continue;
@@ -61,7 +61,7 @@ final class FieldValidator
 
             // declared validators
             if ($provided) {
-                foreach ($columnConfig['validators'] ?? [] as $validatorConfig) {
+                foreach ($columnDef->validators as $validatorConfig) {
                     $violation = $this->applyValidator($validatorConfig, $column, $body[$column]);
                     if ($violation !== null) {
                         $violations[] = $violation;
