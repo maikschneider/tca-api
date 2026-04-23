@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Serializer;
 
+use MaikSchneider\TcaApi\Cache\CacheTagCollector;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
@@ -49,6 +50,7 @@ final class ResourceSerializer
         private readonly DataRepository $dataRepository,
         private readonly FileRepository $fileRepository,
         private readonly ApiRegistry $apiRegistry,
+        private readonly CacheTagCollector $cacheTagCollector,
     ) {
     }
 
@@ -73,6 +75,8 @@ final class ResourceSerializer
         $uid            = (int)$row['uid'];
         $schema         = $this->getSchema($config->table);
         $columnMap      = $this->resolveColumnMap($config);
+
+        $this->cacheTagCollector->addTag($config->table . '_' . $uid);
 
         // Derive the API prefix from $baseUrl by stripping the resource name portion.
         // e.g. '/_api/articles' → '/_api', '/custom-api/articles' → '/custom-api'

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Dispatcher;
 
+use MaikSchneider\TcaApi\Cache\CacheTagCollector;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\Enum\AccessRole;
@@ -17,6 +18,7 @@ use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Site\Entity\SiteSettings;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\PathUtility;
@@ -36,6 +38,8 @@ final class RequestDispatcher
         private readonly ApiRegistry $apiRegistry,
         private readonly HandlerRegistry $handlerRegistry,
         private readonly OpenApiBuilder $openApiBuilder,
+        private readonly CacheTagCollector $cacheTagCollector,
+        private readonly FrontendInterface $cache,
     ) {
     }
 
@@ -105,13 +109,56 @@ final class RequestDispatcher
 
         $request = $this->withRequestAttributes($request, $method, $uid, $operation, $config, $siteSettings);
 
-        foreach ($this->handlerRegistry->getHandlers() as $handler) {
-            if ($handler->supports($request, $operation, $config)) {
-                return $handler->handle($request, $config);
+        // ── Cache: check for hit on cacheable read operations ────────────
+        $cacheKey = null;
+        if ($config->cache->enabled && \in_array($operation, ['list', 'show'], true)) {
+            $cacheKey = $this->buildCacheKey($operation, $config, $request);
+        }
+
+        if ($cacheKey !== null) {
+            $cached = $this->cache->get($cacheKey);
+            if ($cached !== false) {
+                $response = $this->responseFactory->createResponse(200)
+                    ->withHeader('Content-Type', 'application/ld+json')
+                    ->withHeader('X-TCA-API-Cache', 'HIT');
+                $response->getBody()->write((string)$cached);
+                return $response;
             }
         }
 
-        return $this->methodNotAllowed($operation);
+        // ── Activate cache tag collection for cache-miss path ────────────
+        if ($cacheKey !== null) {
+            $this->cacheTagCollector->activate();
+        }
+
+        $response = null;
+        foreach ($this->handlerRegistry->getHandlers() as $handler) {
+            if ($handler->supports($request, $operation, $config)) {
+                $response = $handler->handle($request, $config);
+                break;
+            }
+        }
+
+        if ($response === null) {
+            $this->cacheTagCollector->reset();
+            return $this->methodNotAllowed($operation);
+        }
+
+        // ── Cache: store response and attach tags on miss ────────────────
+        if ($cacheKey !== null) {
+            $body = (string)$response->getBody();
+            $tags = $this->cacheTagCollector->getTags();
+            $this->cacheTagCollector->reset();
+
+            $this->cache->set($cacheKey, $body, $tags, $config->cache->lifetime);
+
+            $response = $response->withHeader('X-TCA-API-Cache', 'MISS');
+            if ($tags !== []) {
+                $response = $response->withHeader('X-Cache-Tags', implode(',', $tags));
+            }
+        }
+
+        return $response;
     }
 
     private function resolveOperation(string $method, ?int $uid, ApiDefinition $config): ?string
@@ -234,6 +281,38 @@ final class RequestDispatcher
             ->withHeader('Content-Type', 'text/html; charset=utf-8');
         $response->getBody()->write($html);
         return $response;
+    }
+
+    /**
+     * Generate a deterministic cache key from operation, resource, and relevant query parameters.
+     *
+     * Returns null when an ignored parameter is present in the request (= bypass caching).
+     */
+    private function buildCacheKey(string $operation, ApiDefinition $config, ServerRequestInterface $request): ?string
+    {
+        $queryParams = $request->getQueryParams();
+        $ignoredParams = $config->cache->parametersToIgnore;
+
+        // If any ignored parameter is present, bypass caching entirely
+        foreach ($ignoredParams as $ignored) {
+            if (isset($queryParams[$ignored]) || (isset($queryParams['filters']) && \is_array($queryParams['filters']) && isset($queryParams['filters'][$ignored]))) {
+                return null;
+            }
+        }
+
+        // Build a deterministic set of relevant parameters
+        $relevant = [];
+        foreach (['page', 'itemsPerPage', 'filters', 'order', 'fields'] as $key) {
+            if (isset($queryParams[$key])) {
+                $relevant[$key] = $queryParams[$key];
+            }
+        }
+        ksort($relevant);
+
+        $uid = $request->getAttribute('tca_api.uid');
+        $uidPart = $uid !== null ? ':' . $uid : '';
+
+        return md5($operation . ':' . $config->resourceName . $uidPart . ':' . json_encode($relevant, JSON_THROW_ON_ERROR));
     }
 
     private function notFound(): ResponseInterface
