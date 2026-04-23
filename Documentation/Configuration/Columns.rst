@@ -64,7 +64,11 @@ All keys are optional.
      - ``true`` or ``['depth' => N]`` — inline related records instead of shallow
        stubs. See :ref:`relations`.
    * - ``resourceName``
-     - Override related resource name for relation columns.
+     - Override the related resource used for relation columns. Normally TCA
+       API looks up the child resource by its DB ``foreign_table``. Set this
+       when multiple resources are registered for the same table, or to
+       explicitly control which resource's security and column config applies
+       to nested writes. See :ref:`relations` for a full example.
    * - ``processor``
      - Column processor class. Does **not** trigger explicit mode. See
        :ref:`column-processors`.
