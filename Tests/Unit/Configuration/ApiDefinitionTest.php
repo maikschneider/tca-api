@@ -245,7 +245,6 @@ final class ApiDefinitionTest extends TestCase
         self::assertSame(AccessRole::PUBLIC, $def->securityRole('create'));
     }
 
-
     #[Test]
     public function operationsNotArrayThrows(): void
     {
