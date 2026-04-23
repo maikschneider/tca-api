@@ -68,8 +68,8 @@ return [
     'security' => [
         'list'   => AccessRole::PUBLIC,
         'show'   => AccessRole::PUBLIC,
-        'create' => AccessRole::PUBLIC,
-        'update' => AccessRole::PUBLIC,
+        'create' => AccessRole::FE_USER,
+        'update' => AccessRole::FE_USER,
         'delete' => AccessRole::BE_ADMIN,
     ],
 ];
