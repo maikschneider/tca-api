@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Collection;
 
-use MaikSchneider\TcaApi\Enum\AccessRole;
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
+use MaikSchneider\TcaApi\Filter\SearchFilter;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -27,7 +26,6 @@ final class SearchFilterTest extends ApiFunctionalTestCase
             'resourceName' => 'search-people',
             'resourceType' => 'Person',
             'operations'   => ['list'],
-            'itemsPerPage' => 20,
         ],
         'columns' => [
             'title'      => ['groups' => ['list', 'show']],
@@ -36,17 +34,16 @@ final class SearchFilterTest extends ApiFunctionalTestCase
         ],
         'filters' => [
             'search' => [
-                'strategy' => 'search',
-                'columns'  => ['first_name', 'last_name'],
-                'match'    => 'partial',
+                SearchFilter::class,
+                [
+                    'columns' => ['first_name', 'last_name'],
+                    'match'   => 'partial',
+                ],
             ],
         ],
         'order' => [
             'allowed' => ['uid'],
             'default' => ['uid' => 'asc'],
-        ],
-        'security' => [
-            'list' => AccessRole::PUBLIC,
         ],
     ];
 
@@ -55,7 +52,7 @@ final class SearchFilterTest extends ApiFunctionalTestCase
         parent::setUp();
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles_search.csv');
-        ApiRegistry::register('search-people', self::RESOURCE_CONFIG);
+        $this->registerResource('search-people', self::RESOURCE_CONFIG);
     }
 
     public function testSearchAliMatchesTwoRecords(): void

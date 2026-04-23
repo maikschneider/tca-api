@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Embed;
 
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -38,13 +37,12 @@ final class HasManyEmbedTest extends ApiFunctionalTestCase
 
     private function registerCategoryResource(): void
     {
-        ApiRegistry::register('hm-categories', [
+        $this->registerResource('hm-categories', [
             'general' => [
                 'table'        => self::CATEGORY_TABLE,
                 'resourceName' => 'hm-categories',
                 'resourceType' => 'Category',
                 'operations'   => ['list', 'show'],
-                'itemsPerPage' => 20,
             ],
             'columns' => [
                 'title' => ['groups' => ['list', 'show']],
@@ -55,13 +53,12 @@ final class HasManyEmbedTest extends ApiFunctionalTestCase
 
     private function registerArticleResource(array $columnOverrides = []): void
     {
-        ApiRegistry::register('hm-articles', [
+        $this->registerResource('hm-articles', [
             'general' => [
                 'table'        => self::ARTICLE_TABLE,
                 'resourceName' => 'hm-articles',
                 'resourceType' => 'Article',
                 'operations'   => ['list', 'show'],
-                'itemsPerPage' => 20,
             ],
             'columns' => array_merge([
                 'title'      => ['groups' => ['list', 'show']],

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Dispatcher;
 
+use MaikSchneider\TcaApi\Cache\CacheTagCollector;
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Event\BeforeOperationEvent;
@@ -16,6 +18,7 @@ use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Site\Entity\SiteSettings;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\PathUtility;
@@ -31,7 +34,12 @@ final class RequestDispatcher
         private readonly AccessController $accessController,
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly EventDispatcherInterface $eventDispatcher,
-        private readonly DataRepository $dataRepository
+        private readonly DataRepository $dataRepository,
+        private readonly ApiRegistry $apiRegistry,
+        private readonly HandlerRegistry $handlerRegistry,
+        private readonly OpenApiBuilder $openApiBuilder,
+        private readonly CacheTagCollector $cacheTagCollector,
+        private readonly FrontendInterface $cache,
     ) {
     }
 
@@ -40,7 +48,7 @@ final class RequestDispatcher
         $method        = strtoupper($request->getMethod());
         $prefixWithout = rtrim((string)$siteSettings->get('tca_api.apiPrefix'), '/');
         $segments      = explode('/', trim(substr($request->getUri()->getPath(), \strlen($prefixWithout)), '/'));
-        $resource      = $segments[0] ?? '';
+        $resource      = $segments[0];
         $uid           = isset($segments[1]) && $segments[1] !== '' ? (int)$segments[1] : null;
 
         if ($resource === self::RESOURCE_OPENAPI) {
@@ -69,11 +77,11 @@ final class RequestDispatcher
             return $this->serveSwaggerUi($prefixWithout);
         }
 
-        if (!$this->isResourceAllowed($resource, $siteSettings)) {
+        if (!$this->isResourceInSiteAllowed($resource, $siteSettings)) {
             return $this->notFound();
         }
 
-        $config = ApiRegistry::get($resource);
+        $config = $this->apiRegistry->get($resource);
         if ($config === null) {
             return $this->notFound();
         }
@@ -83,11 +91,8 @@ final class RequestDispatcher
             return $this->methodNotAllowed();
         }
 
-        if ($operation !== 'userinfo') {
-            $allowedOps = $config['general']['operations'] ?? [];
-            if (!\in_array($operation, $allowedOps, true)) {
-                return $this->methodNotAllowed($operation);
-            }
+        if ($operation !== 'userinfo' && !$config->hasOperation($operation)) {
+            return $this->methodNotAllowed($operation);
         }
 
         $existingRecord = $this->resolveExistingRecord($operation, $uid, $config);
@@ -104,27 +109,70 @@ final class RequestDispatcher
 
         $request = $this->withRequestAttributes($request, $method, $uid, $operation, $config, $siteSettings);
 
-        foreach (HandlerRegistry::getHandlers() as $handler) {
-            if ($handler->supports($request, $operation, $config)) {
-                return $handler->handle($request, $config);
+        // ── Cache: check for hit on cacheable read operations ────────────
+        $cacheKey = null;
+        if ($config->cache->enabled && \in_array($operation, ['list', 'show'], true)) {
+            $cacheKey = $this->buildCacheKey($operation, $config, $request);
+        }
+
+        if ($cacheKey !== null) {
+            $cached = $this->cache->get($cacheKey);
+            if ($cached !== false) {
+                $response = $this->responseFactory->createResponse(200)
+                    ->withHeader('Content-Type', 'application/ld+json')
+                    ->withHeader('X-TCA-API-Cache', 'HIT');
+                $response->getBody()->write((string)$cached);
+                return $response;
             }
         }
 
-        return $this->methodNotAllowed($operation);
+        // ── Activate cache tag collection for cache-miss path ────────────
+        if ($cacheKey !== null) {
+            $this->cacheTagCollector->activate();
+        }
+
+        $response = null;
+        foreach ($this->handlerRegistry->getHandlers() as $handler) {
+            if ($handler->supports($request, $operation, $config)) {
+                $response = $handler->handle($request, $config);
+                break;
+            }
+        }
+
+        if ($response === null) {
+            $this->cacheTagCollector->reset();
+            return $this->methodNotAllowed($operation);
+        }
+
+        // ── Cache: store response and attach tags on miss ────────────────
+        if ($cacheKey !== null) {
+            $body = (string)$response->getBody();
+            $tags = $this->cacheTagCollector->getTags();
+            $this->cacheTagCollector->reset();
+
+            $this->cache->set($cacheKey, $body, $tags, $config->cache->lifetime);
+
+            $response = $response->withHeader('X-TCA-API-Cache', 'MISS');
+            if ($tags !== []) {
+                $response = $response->withHeader('X-Cache-Tags', implode(',', $tags));
+            }
+        }
+
+        return $response;
     }
 
-    private function resolveOperation(string $method, ?int $uid, array $config): ?string
+    private function resolveOperation(string $method, ?int $uid, ApiDefinition $config): ?string
     {
-        if (($config['general']['type'] ?? '') === 'userinfo') {
+        if ($config->isUserInfo()) {
             return $method === 'GET' ? 'userinfo' : null;
         }
 
         return match ($method) {
-            'GET'         => $uid !== null ? 'show' : 'list',
-            'POST'        => $uid === null ? 'create' : null,
+            'GET'          => $uid !== null ? 'show' : 'list',
+            'POST'         => $uid === null ? 'create' : null,
             'PUT', 'PATCH' => $uid !== null ? 'update' : null,
-            'DELETE'      => $uid !== null ? 'delete' : null,
-            default       => null,
+            'DELETE'       => $uid !== null ? 'delete' : null,
+            default        => null,
         };
     }
 
@@ -132,22 +180,22 @@ final class RequestDispatcher
      * Returns the existing record for update/delete, an empty array when no lookup is needed,
      * or false when the record does not exist (→ 404).
      */
-    private function resolveExistingRecord(string $operation, ?int $uid, array $config): array|false
+    private function resolveExistingRecord(string $operation, ?int $uid, ApiDefinition $config): array|false
     {
         if ($uid === null || !\in_array($operation, ['update', 'delete'], true)) {
             return [];
         }
 
-        return $this->dataRepository->findById($config['general']['table'], $uid, $config) ?? false;
+        return $this->dataRepository->findById($config->table, $uid, $config) ?? false;
     }
 
-    private function isResourceAllowed(string $resource, SiteSettings $siteSettings): bool
+    private function isResourceInSiteAllowed(string $resource, SiteSettings $siteSettings): bool
     {
         $allowed = GeneralUtility::trimExplode(',', (string)$siteSettings->get('tca_api.allowedResources', ''), true);
         return $allowed === [] || \in_array($resource, $allowed, true);
     }
 
-    private function checkAccess(string $operation, ServerRequestInterface $request, array $config, array $existingRecord, SiteSettings $siteSettings): ?ResponseInterface
+    private function checkAccess(string $operation, ServerRequestInterface $request, ApiDefinition $config, array $existingRecord, SiteSettings $siteSettings): ?ResponseInterface
     {
         if ($operation === 'userinfo') {
             $feUser = $request->getAttribute('frontend.user');
@@ -157,22 +205,21 @@ final class RequestDispatcher
             return null;
         }
 
-        $requiredRole = $config['security'][$operation] ?? AccessRole::PUBLIC;
-        if (!$this->accessController->isAllowed($requiredRole, $request, $existingRecord)) {
+        $requiredRole = $config->securityRole($operation);
+        if (!$this->accessController->isAllowed($requiredRole, $request, $existingRecord, $config)) {
             return $this->forbidden($operation, $siteSettings);
         }
 
         return null;
     }
 
-    private function withRequestAttributes(ServerRequestInterface $request, string $method, ?int $uid, string $operation, array $config, SiteSettings $siteSettings): ServerRequestInterface
+    private function withRequestAttributes(ServerRequestInterface $request, string $method, ?int $uid, string $operation, ApiDefinition $config, SiteSettings $siteSettings): ServerRequestInterface
     {
         $params = $request->getQueryParams();
         $defaultItemsPerPage = (int)$siteSettings->get('tca_api.defaultItemsPerPage', self::DEFAULT_ITEMS_PER_PAGE);
-        $itemsPerPage = (int)($params['itemsPerPage'] ?? $config['general']['itemsPerPage'] ?? $defaultItemsPerPage);
-        $maxItemsPerPage = $config['general']['maxItemsPerPage'] ?? null;
-        if ($maxItemsPerPage !== null) {
-            $itemsPerPage = min($itemsPerPage, (int)$maxItemsPerPage);
+        $itemsPerPage = max(1, (int)($params['itemsPerPage'] ?? $config->itemsPerPage ?? $defaultItemsPerPage));
+        if ($config->maxItemsPerPage !== null) {
+            $itemsPerPage = min($itemsPerPage, $config->maxItemsPerPage);
         }
 
         return $request
@@ -188,8 +235,7 @@ final class RequestDispatcher
 
     private function serveOpenApiSpec(SiteSettings $siteSettings): ResponseInterface
     {
-        $openApiBuilder = new OpenApiBuilder($siteSettings);
-        $spec     = $openApiBuilder->build();
+        $spec     = $this->openApiBuilder->build($siteSettings);
         $response = $this->responseFactory->createResponse(200)
             ->withHeader('Content-Type', 'application/json');
         $response->getBody()->write((string)json_encode($spec, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
@@ -235,6 +281,38 @@ final class RequestDispatcher
             ->withHeader('Content-Type', 'text/html; charset=utf-8');
         $response->getBody()->write($html);
         return $response;
+    }
+
+    /**
+     * Generate a deterministic cache key from operation, resource, and relevant query parameters.
+     *
+     * Returns null when an ignored parameter is present in the request (= bypass caching).
+     */
+    private function buildCacheKey(string $operation, ApiDefinition $config, ServerRequestInterface $request): ?string
+    {
+        $queryParams = $request->getQueryParams();
+        $ignoredParams = $config->cache->parametersToIgnore;
+
+        // If any ignored parameter is present, bypass caching entirely
+        foreach ($ignoredParams as $ignored) {
+            if (isset($queryParams[$ignored]) || (isset($queryParams['filters']) && \is_array($queryParams['filters']) && isset($queryParams['filters'][$ignored]))) {
+                return null;
+            }
+        }
+
+        // Build a deterministic set of relevant parameters
+        $relevant = [];
+        foreach (['page', 'itemsPerPage', 'filters', 'order', 'fields'] as $key) {
+            if (isset($queryParams[$key])) {
+                $relevant[$key] = $queryParams[$key];
+            }
+        }
+        ksort($relevant);
+
+        $uid = $request->getAttribute('tca_api.uid');
+        $uidPart = $uid !== null ? ':' . $uid : '';
+
+        return md5($operation . ':' . $config->resourceName . $uidPart . ':' . json_encode($relevant, JSON_THROW_ON_ERROR));
     }
 
     private function notFound(): ResponseInterface

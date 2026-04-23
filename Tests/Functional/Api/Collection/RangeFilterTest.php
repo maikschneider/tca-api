@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Collection;
 
-use MaikSchneider\TcaApi\Enum\AccessRole;
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
+use MaikSchneider\TcaApi\Filter\RangeFilter;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -35,21 +34,17 @@ final class RangeFilterTest extends ApiFunctionalTestCase
             'resourceName' => 'range-articles',
             'resourceType' => 'Article',
             'operations'   => ['list'],
-            'itemsPerPage' => 20,
         ],
         'columns' => [
             'title'    => ['groups' => ['list', 'show']],
             'color_id' => ['groups' => ['list', 'show']],
         ],
         'filters' => [
-            'color_id' => ['strategy' => 'range'],
+            'color_id' => RangeFilter::class,
         ],
         'order' => [
             'allowed' => ['uid', 'color_id'],
             'default' => ['color_id' => 'asc'],
-        ],
-        'security' => [
-            'list' => AccessRole::PUBLIC,
         ],
     ];
 
@@ -58,15 +53,10 @@ final class RangeFilterTest extends ApiFunctionalTestCase
         parent::setUp();
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles_range.csv');
-        ApiRegistry::register('range-articles', self::RESOURCE_CONFIG);
+        $this->registerResource('range-articles', self::RESOURCE_CONFIG);
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
-
-    private function getColorIds(array $body): array
-    {
-        return array_column($body['hydra:member'], 'color');
-    }
 
     private function getUids(array $body): array
     {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\OperationHandler;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\EmbedPreloader;
 use MaikSchneider\TcaApi\Event\AfterOperationEvent;
@@ -34,12 +35,12 @@ class GetUserInfoHandler implements OperationHandlerInterface
     ) {
     }
 
-    public function supports(ServerRequestInterface $request, string $operation, array $config): bool
+    public function supports(ServerRequestInterface $request, string $operation, ApiDefinition $config): bool
     {
         return $operation === 'userinfo';
     }
 
-    public function handle(ServerRequestInterface $request, array $config): ResponseInterface
+    public function handle(ServerRequestInterface $request, ApiDefinition $config): ResponseInterface
     {
         $fields = (array)$request->getAttribute('tca_api.fields', []);
 
@@ -51,15 +52,15 @@ class GetUserInfoHandler implements OperationHandlerInterface
         return 10;
     }
 
-    private function doHandle(ServerRequestInterface $request, array $config, array $fields): ResponseInterface
+    private function doHandle(ServerRequestInterface $request, ApiDefinition $config, array $fields): ResponseInterface
     {
         $feUser = $request->getAttribute('frontend.user');
         $uid    = (int)($feUser->user['uid'] ?? 0);
 
-        $table   = $config['general']['table'];
-        $baseUrl = '/_api/' . $config['general']['resourceName'];
+        $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
+        $baseUrl   = $apiPrefix . '/' . $config->resourceName;
 
-        $row = $this->dataRepository->findById($table, $uid, $config);
+        $row = $this->dataRepository->findById($config->table, $uid, $config);
         if ($row === null) {
             return $this->responseFactory->createResponse(404)
                 ->withHeader('Content-Type', 'application/ld+json');

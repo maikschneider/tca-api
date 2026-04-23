@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Event;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use Psr\EventDispatcher\StoppableEventInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
@@ -20,7 +21,7 @@ final class BeforeOperationEvent implements StoppableEventInterface
     public function __construct(
         private readonly string $operation,
         private readonly ServerRequestInterface $request,
-        private readonly array $config,
+        private readonly ApiDefinition $config,
     ) {
     }
 
@@ -34,7 +35,7 @@ final class BeforeOperationEvent implements StoppableEventInterface
         return $this->request;
     }
 
-    public function getConfig(): array
+    public function getConfig(): ApiDefinition
     {
         return $this->config;
     }

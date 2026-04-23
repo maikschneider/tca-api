@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Embed;
 
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -47,13 +46,12 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
 
     private function registerColorResource(): void
     {
-        ApiRegistry::register('grp-colors', [
+        $this->registerResource('grp-colors', [
             'general' => [
                 'table'        => self::COLOR_TABLE,
                 'resourceName' => 'grp-colors',
                 'resourceType' => 'Color',
                 'operations'   => ['list', 'show'],
-                'itemsPerPage' => 20,
             ],
             'columns' => ['name' => ['groups' => ['list', 'show']]],
             'order'   => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
@@ -62,13 +60,12 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
 
     private function registerArticleResource(array $columnOverrides = []): void
     {
-        ApiRegistry::register('grp-articles', [
+        $this->registerResource('grp-articles', [
             'general' => [
                 'table'        => self::ARTICLE_TABLE,
                 'resourceName' => 'grp-articles',
                 'resourceType' => 'Article',
                 'operations'   => ['list', 'show'],
-                'itemsPerPage' => 20,
             ],
             'columns' => array_merge([
                 'title'          => ['groups' => ['list', 'show']],
@@ -247,13 +244,12 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
 
     private function registerMmArticleResource(array $columnOverrides = []): void
     {
-        ApiRegistry::register('grp-mm-articles', [
+        $this->registerResource('grp-mm-articles', [
             'general' => [
                 'table'        => self::ARTICLE_TABLE,
                 'resourceName' => 'grp-mm-articles',
                 'resourceType' => 'Article',
                 'operations'   => ['list', 'show'],
-                'itemsPerPage' => 20,
             ],
             'columns' => array_merge([
                 'title'                 => ['groups' => ['list', 'show']],

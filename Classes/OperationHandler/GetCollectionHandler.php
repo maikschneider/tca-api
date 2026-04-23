@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\OperationHandler;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\EmbedPreloader;
 use MaikSchneider\TcaApi\Event\AfterOperationEvent;
@@ -26,12 +27,12 @@ class GetCollectionHandler implements OperationHandlerInterface
     ) {
     }
 
-    public function supports(ServerRequestInterface $request, string $operation, array $config): bool
+    public function supports(ServerRequestInterface $request, string $operation, ApiDefinition $config): bool
     {
         return $operation === 'list';
     }
 
-    public function handle(ServerRequestInterface $request, array $config): ResponseInterface
+    public function handle(ServerRequestInterface $request, ApiDefinition $config): ResponseInterface
     {
         $page         = (int)$request->getAttribute('tca_api.page', 1);
         $itemsPerPage = (int)$request->getAttribute('tca_api.items_per_page', 20);
@@ -49,63 +50,93 @@ class GetCollectionHandler implements OperationHandlerInterface
 
     private function doHandle(
         ServerRequestInterface $request,
-        array $config,
+        ApiDefinition $config,
         int $page,
         int $itemsPerPage,
         array $filters = [],
         array $order = [],
         array $fields = [],
     ): ResponseInterface {
-        $table   = $config['general']['table'];
-        $baseUrl = '/_api/' . $config['general']['resourceName'];
-        $offset  = ($page - 1) * $itemsPerPage;
+        $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
+        $baseUrl   = $apiPrefix . '/' . $config->resourceName;
+        $offset    = ($page - 1) * $itemsPerPage;
 
-        $safeFilters = $this->resolveFilters($filters, $config);
+        $safeFilters = $this->resolveFilters($filters, $config, $request);
         $safeOrder   = $this->resolveOrder($order, $config);
 
-        $total     = $this->dataRepository->count($table, $safeFilters, $config);
-        $rows      = $this->dataRepository->findCollection($table, $safeFilters, $itemsPerPage, $offset, $safeOrder, $config);
+        $total     = $this->dataRepository->count($config->table, $safeFilters, $config);
+        $rows      = $this->dataRepository->findCollection($config->table, $safeFilters, $itemsPerPage, $offset, $safeOrder, $config);
         $preloaded = $this->embedPreloader->preload($rows, $config);
         $members   = $this->serializer->serializeCollection($rows, $config, $baseUrl, $fields, $preloaded, 'list');
 
         $event = new AfterOperationEvent('list', $members);
         $this->eventDispatcher->dispatch($event);
 
-        return $this->hydraResponseBuilder->buildCollection($event->getData(), $total, $baseUrl, $page, $itemsPerPage);
+        $queryState = array_diff_key($request->getQueryParams(), ['page' => null]);
+        $queryState['itemsPerPage'] = $itemsPerPage;
+
+        return $this->hydraResponseBuilder->buildCollection($event->getData(), $total, $baseUrl, $page, $itemsPerPage, $queryState);
     }
 
-    private function resolveFilters(array $requested, array $config): array
+    private function resolveFilters(array $requested, ApiDefinition $config, ServerRequestInterface $request): array
     {
-        $declared = $config['filters'] ?? [];
-        $safe     = [];
-        foreach ($requested as $column => $value) {
-            if (isset($declared[$column])) {
-                $safe[$column] = array_merge($declared[$column], [
-                    'value'   => $value,
-                    '_table'  => $config['general']['table'],
-                    '_column' => $column,
-                ]);
+        $safe = [];
+
+        foreach ($config->filters as $column => $filterDef) {
+            [$class, $options] = $this->normalizeFilterDef($column, $filterDef);
+            $isPrivate = (bool)($options['private'] ?? false);
+            $default   = $options['default'] ?? null;
+            $cleanOpts = array_diff_key($options, array_flip(['default', 'private']));
+
+            if ($isPrivate) {
+                $value = $default;
+            } elseif (isset($requested[$column])) {
+                $value = $requested[$column];
+            } elseif ($default !== null) {
+                $value = $default;
+            } else {
+                continue;
             }
+
+            $safe[$column] = array_merge($cleanOpts, [
+                'value'           => $value,
+                '_table'          => $config->table,
+                '_column'         => $column,
+                '_filterClass'    => $class,
+                '_request'        => $request,
+                '_resourceConfig' => $config,
+            ]);
         }
+
         return $safe;
     }
 
-    private function resolveOrder(array $requested, array $config): array
+    private function normalizeFilterDef(string $column, mixed $filterDef): array
     {
-        $allowed = $config['order']['allowed'] ?? [];
-        $default = $config['order']['default'] ?? [];
+        if (is_string($filterDef)) {
+            return [$filterDef, []];
+        }
+        if (is_array($filterDef) && is_string($filterDef[0] ?? null)) {
+            return [$filterDef[0], $filterDef[1] ?? []];
+        }
+        throw new \InvalidArgumentException(
+            sprintf('Invalid filter definition for column "%s": expected a class name or [ClassName, options].', $column),
+        );
+    }
 
+    private function resolveOrder(array $requested, ApiDefinition $config): array
+    {
         if (empty($requested)) {
-            return $default;
+            return $config->defaultOrder;
         }
 
         $safe = [];
         foreach ($requested as $column => $direction) {
-            if (\in_array($column, $allowed, true)) {
+            if (\in_array($column, $config->allowedOrder, true)) {
                 $safe[$column] = \strtolower($direction) === 'desc' ? 'desc' : 'asc';
             }
         }
 
-        return $safe ?: $default;
+        return $safe ?: $config->defaultOrder;
     }
 }

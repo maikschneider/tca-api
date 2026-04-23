@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Security;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
@@ -11,7 +12,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final class AccessController
 {
-    public function isAllowed(AccessRole|array $requiredRole, ServerRequestInterface $request, array $record = []): bool
+    /**
+     * @param AccessRole|array{0: AccessRole, 1?: array<int>}|array{0: class-string, 1: string} $requiredRole
+     */
+    public function isAllowed(AccessRole|array $requiredRole, ServerRequestInterface $request, array $record = [], ?ApiDefinition $config = null): bool
     {
         if (is_array($requiredRole)) {
             if ($requiredRole[0] instanceof AccessRole) {
@@ -28,7 +32,27 @@ final class AccessController
             AccessRole::FE_GROUP => $this->hasFrontendUserInGroups($request, []),
             AccessRole::BE_USER  => $this->hasBackendUser(),
             AccessRole::BE_ADMIN => $this->isBackendAdmin(),
+            AccessRole::OWNER    => $this->isOwner($request, $record, $config),
         };
+    }
+
+    private function isOwner(ServerRequestInterface $request, array $record, ?ApiDefinition $config): bool
+    {
+        $ownerColumn = $config?->ownershipColumn;
+        if ($ownerColumn === null) {
+            return false;
+        }
+
+        if ($config->ownershipBeAdminBypass && $this->isBackendAdmin()) {
+            return true;
+        }
+
+        $feUser = $request->getAttribute('frontend.user');
+        if ($feUser === null || empty($feUser->user['uid'])) {
+            return false;
+        }
+
+        return (int)($record[$ownerColumn] ?? null) === (int)$feUser->user['uid'];
     }
 
     private function hasFrontendUser(ServerRequestInterface $request): bool

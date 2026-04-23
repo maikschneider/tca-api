@@ -4,15 +4,10 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Security;
 
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
  * Functional tests for operations config enforcement.
- *
- * RED phase: RequestDispatcher does not check config['general']['operations'].
- * A resource with operations=['list','show'] still dispatches POST/PUT/PATCH/DELETE
- * to the handlers instead of returning 405 Method Not Allowed.
  *
  * Target behaviour:
  *   - Operations not listed in the operations array → 405 hydra:Error
@@ -36,13 +31,13 @@ final class OperationsEnforcementTest extends ApiFunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/fe_users.csv');
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/be_users.csv');
 
-        ApiRegistry::register(self::READONLY, [
+        $this->registerResource(self::READONLY, [
             'general' => [
                 'table'        => 'tx_myext_domain_model_article',
                 'resourceName' => self::READONLY,
                 'resourceType' => 'Article',
                 'operations'   => ['list', 'show'],
-                'itemsPerPage' => 20,
+                'storagePid'   => 1,
             ],
             'columns' => [
                 'title' => ['groups' => ['list', 'show']],
@@ -50,16 +45,16 @@ final class OperationsEnforcementTest extends ApiFunctionalTestCase
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
 
-        ApiRegistry::register(self::CREATEONLY, [
+        $this->registerResource(self::CREATEONLY, [
             'general' => [
                 'table'        => 'tx_myext_domain_model_article',
                 'resourceName' => self::CREATEONLY,
                 'resourceType' => 'Article',
                 'operations'   => ['list', 'create'],
-                'itemsPerPage' => 20,
+                'storagePid'   => 1,
             ],
             'columns' => [
-                'title' => ['groups' => ['list', 'show', 'create', 'update'], 'required' => false],
+                'title' => ['groups' => ['list', 'show', 'create', 'update']],
             ],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);

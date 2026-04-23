@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Fixtures;
 
+use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface;
 
 /**
@@ -11,7 +12,7 @@ use MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface;
  */
 final class TestStaticValueProcessor implements ColumnProcessorInterface
 {
-    public function process(mixed $value, array $config, array $context): mixed
+    public function process(mixed $value, ColumnDefinition $config, array $context): mixed
     {
         return 'static-value';
     }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Collection;
 
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
+use MaikSchneider\TcaApi\Filter\MmFilter;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -15,7 +15,7 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
  * These must be auto-derived from the TCA Schema API when omitted.
  *
  * Target simplified config:
- *   'categories' => ['strategy' => 'mm']
+ *   'categories' => MmFilter::class
  *
  * The system must derive from TCA:
  *   - mm_table        → sys_category_record_mm
@@ -42,19 +42,18 @@ final class FilterMmTcaDerivedTest extends ApiFunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/sys_category_record_mm.csv');
 
         // Minimal MM filter config — no mm_table, mm_local_key, mm_foreign_key, mm_constraints
-        ApiRegistry::register(self::RESOURCE, [
+        $this->registerResource(self::RESOURCE, [
             'general' => [
                 'table'        => 'tx_myext_domain_model_article',
                 'resourceName' => self::RESOURCE,
                 'resourceType' => 'Article',
                 'operations'   => ['list'],
-                'itemsPerPage' => 20,
             ],
             'columns' => [
                 'title' => ['groups' => ['list', 'show']],
             ],
             'filters' => [
-                'categories' => ['strategy' => 'mm'],
+                'categories' => MmFilter::class,
             ],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
@@ -113,24 +112,23 @@ final class FilterMmTcaDerivedTest extends ApiFunctionalTestCase
         );
     }
 
-    // ── Articles.php simplified to bare 'strategy' => 'mm' ───────────────────
+    // ── Articles.php simplified to bare MmFilter::class ─────────────────────
     // These tests use the main /articles endpoint after Articles.php is simplified
     // (explicit mm_table etc. removed). They will pass once Articles.php is updated.
 
     public function testArticlesEndpointFiltersByCategoryWithSimplifiedConfig(): void
     {
         // Temporarily register articles with simplified config to simulate Articles.php update
-        ApiRegistry::register('articles-simplified', [
+        $this->registerResource('articles-simplified', [
             'general' => [
                 'table'        => 'tx_myext_domain_model_article',
                 'resourceName' => 'articles-simplified',
                 'resourceType' => 'Article',
                 'operations'   => ['list'],
-                'itemsPerPage' => 20,
             ],
             'columns' => ['title' => ['groups' => ['list', 'show']]],
             'filters' => [
-                'categories' => ['strategy' => 'mm'],
+                'categories' => MmFilter::class,
             ],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);

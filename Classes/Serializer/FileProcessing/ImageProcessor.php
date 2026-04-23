@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Serializer\FileProcessing;
 
+use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use TYPO3\CMS\Core\Imaging\ImageManipulation\CropVariantCollection;
 use TYPO3\CMS\Core\Resource\FileReference;
 use TYPO3\CMS\Core\Resource\ProcessedFile;
@@ -11,11 +12,12 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final class ImageProcessor implements FileProcessorInterface
 {
-    public function process(FileReference $fileReference, array $columnConfig): array
+    public function process(FileReference $fileReference, ColumnDefinition $columnConfig): array
     {
         $base      = GeneralUtility::makeInstance(FileProcessor::class)->process($fileReference, $columnConfig);
-        $maxWidth  = $columnConfig['maxWidth']  ?? 1024;
-        $maxHeight = $columnConfig['maxHeight'] ?? 1024;
+        // @TODO: Make these configurable via ColumnDefinition, maybe with some presets like "thumbnail", "preview", "full"?
+        $maxWidth  = 1024;
+        $maxHeight = 1024;
 
         $base['metadata'] = [
             'title'       => $base['metadata']['title'],

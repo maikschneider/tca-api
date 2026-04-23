@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api;
 
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -27,11 +26,10 @@ final class StoragePidTest extends ApiFunctionalTestCase
             'resourceName' => self::RESOURCE,
             'resourceType' => 'Article',
             'operations'   => ['list', 'show'],
-            'itemsPerPage' => 20,
             'storagePid'   => 42,
         ],
         'columns' => [
-            'title' => ['groups' => ['list', 'show'], 'required' => false],
+            'title' => ['groups' => ['list', 'show']],
         ],
         'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
     ];
@@ -41,7 +39,7 @@ final class StoragePidTest extends ApiFunctionalTestCase
         parent::setUp();
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/pages.csv');
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/articles_multipid.csv');
-        ApiRegistry::register(self::RESOURCE, self::CONFIG);
+        $this->registerResource(self::RESOURCE, self::CONFIG);
     }
 
     // ── Collection ────────────────────────────────────────────────────────────

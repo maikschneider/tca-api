@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Collection;
 
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
+use MaikSchneider\TcaApi\Filter\ExactFilter;
+use MaikSchneider\TcaApi\Filter\PartialFilter;
+use MaikSchneider\TcaApi\Filter\WordStartFilter;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -65,16 +67,15 @@ final class CollectionFilteringTest extends ApiFunctionalTestCase
 
     private function registerPartialArticles(): void
     {
-        ApiRegistry::register('partial-articles', [
+        $this->registerResource('partial-articles', [
             'general' => [
                 'table' => 'tx_myext_domain_model_article',
                 'resourceName' => 'partial-articles',
                 'resourceType' => 'Article',
                 'operations' => ['list'],
-                'itemsPerPage' => 20,
             ],
             'columns' => ['title' => ['type' => 'string', 'groups' => ['list', 'show']]],
-            'filters' => ['title' => ['strategy' => 'partial']],
+            'filters' => ['title' => PartialFilter::class],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
     }
@@ -102,16 +103,15 @@ final class CollectionFilteringTest extends ApiFunctionalTestCase
 
     private function registerWordStartArticles(): void
     {
-        ApiRegistry::register('ws-articles', [
+        $this->registerResource('ws-articles', [
             'general' => [
                 'table' => 'tx_myext_domain_model_article',
                 'resourceName' => 'ws-articles',
                 'resourceType' => 'Article',
                 'operations' => ['list'],
-                'itemsPerPage' => 20,
             ],
             'columns' => ['title' => ['type' => 'string', 'groups' => ['list', 'show']]],
-            'filters' => ['title' => ['strategy' => 'word_start']],
+            'filters' => ['title' => WordStartFilter::class],
             'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
     }
@@ -134,5 +134,115 @@ final class CollectionFilteringTest extends ApiFunctionalTestCase
         $body = $this->decodeResponseBody($response);
 
         self::assertSame(0, $body['hydra:totalItems']);
+    }
+
+    // ── default filter ────────────────────────────────────────────────────────
+
+    private function registerDefaultFilterArticles(): void
+    {
+        $this->registerResource('default-filter-articles', [
+            'general' => [
+                'table' => 'tx_myext_domain_model_article',
+                'resourceName' => 'default-filter-articles',
+                'resourceType' => 'Article',
+                'operations' => ['list'],
+            ],
+            'columns' => ['title' => ['type' => 'string', 'groups' => ['list']], 'color_id' => ['groups' => ['list']]],
+            'filters' => ['color_id' => [ExactFilter::class, ['default' => '1']]],
+            'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
+        ]);
+    }
+
+    public function testDefaultFilterIsAppliedWhenNoUrlParam(): void
+    {
+        $this->registerDefaultFilterArticles();
+        // No filters in URL — default color_id=1 should apply, returning only "First Article"
+        $response = $this->executeApiRequest('/_api/default-filter-articles');
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(1, $body['hydra:totalItems']);
+        self::assertSame('First Article', $body['hydra:member'][0]['title']);
+    }
+
+    public function testDefaultFilterCanBeOverriddenByUser(): void
+    {
+        $this->registerDefaultFilterArticles();
+        // User explicitly sets color_id=2, overriding the default of 1
+        $response = $this->executeApiRequest('/_api/default-filter-articles', ['filters' => ['color_id' => '2']]);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(1, $body['hydra:totalItems']);
+        self::assertSame('Second Article', $body['hydra:member'][0]['title']);
+    }
+
+    // ── private (non-overrideable) filter ─────────────────────────────────────
+
+    private function registerPrivateFilterArticles(): void
+    {
+        $this->registerResource('private-filter-articles', [
+            'general' => [
+                'table' => 'tx_myext_domain_model_article',
+                'resourceName' => 'private-filter-articles',
+                'resourceType' => 'Article',
+                'operations' => ['list'],
+            ],
+            'columns' => ['title' => ['type' => 'string', 'groups' => ['list']], 'color_id' => ['groups' => ['list']]],
+            'filters' => ['color_id' => [ExactFilter::class, ['default' => '1', 'private' => true]]],
+            'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
+        ]);
+    }
+
+    public function testPrivateFilterAlwaysUsesDefaultValue(): void
+    {
+        $this->registerPrivateFilterArticles();
+        // No URL filter — private default color_id=1 applies
+        $response = $this->executeApiRequest('/_api/private-filter-articles');
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(1, $body['hydra:totalItems']);
+        self::assertSame('First Article', $body['hydra:member'][0]['title']);
+    }
+
+    public function testPrivateFilterIgnoresUserSuppliedValue(): void
+    {
+        $this->registerPrivateFilterArticles();
+        // User tries to override with color_id=2, but private filter must ignore it
+        $response = $this->executeApiRequest('/_api/private-filter-articles', ['filters' => ['color_id' => '2']]);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(1, $body['hydra:totalItems']);
+        self::assertSame('First Article', $body['hydra:member'][0]['title']);
+    }
+
+    public function testPrivateFilterIsExcludedFromOpenApiSpec(): void
+    {
+        $this->registerPrivateFilterArticles();
+        $response = $this->executeApiRequest('/_api/openapi.json');
+        self::assertSame(200, $response->getStatusCode());
+
+        $body = $this->decodeResponseBody($response);
+        $paths = $body['paths'] ?? [];
+        $listParams = [];
+        foreach ($paths as $path => $methods) {
+            if (str_contains($path, 'private-filter-articles') && isset($methods['get']['parameters'])) {
+                $listParams = $methods['get']['parameters'];
+                break;
+            }
+        }
+
+        // Find the filters parameter
+        $filtersParam = null;
+        foreach ($listParams as $param) {
+            if ($param['name'] === 'filters') {
+                $filtersParam = $param;
+                break;
+            }
+        }
+
+        // Either no filters param at all, or color_id is not in the properties
+        if ($filtersParam !== null) {
+            $properties = $filtersParam['schema']['properties'] ?? [];
+            self::assertArrayNotHasKey('color_id', $properties, 'Private filter "color_id" must not appear in OpenAPI spec');
+        }
     }
 }

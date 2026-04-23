@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Serializer\Processing;
 
+use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use TYPO3\CMS\Core\LinkHandling\LinkService;
 use TYPO3\CMS\Core\Routing\RouterInterface;
 use TYPO3\CMS\Core\Site\SiteFinder;
@@ -16,7 +17,7 @@ final class TypoLinkProcessor implements ColumnProcessorInterface
     ) {
     }
 
-    public function process(mixed $value, array $config, array $context): mixed
+    public function process(mixed $value, ColumnDefinition $config, array $context): mixed
     {
         if (!\is_string($value) || $value === '') {
             return null;

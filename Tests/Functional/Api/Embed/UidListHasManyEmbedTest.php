@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Embed;
 
-use MaikSchneider\TcaApi\Enum\AccessRole;
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -37,44 +35,34 @@ final class UidListHasManyEmbedTest extends ApiFunctionalTestCase
 
     private function registerFeGroupResource(): void
     {
-        ApiRegistry::register('uidlist-fe-groups', [
+        $this->registerResource('uidlist-fe-groups', [
             'general' => [
                 'table'        => 'fe_groups',
                 'resourceName' => 'uidlist-fe-groups',
                 'resourceType' => 'FeGroup',
                 'operations'   => ['list', 'show'],
-                'itemsPerPage' => 20,
             ],
             'columns' => [
                 'title' => ['groups' => ['list', 'show']],
             ],
-            'order'    => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
-            'security' => [
-                'list' => AccessRole::PUBLIC,
-                'show' => AccessRole::PUBLIC,
-            ],
+            'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
     }
 
     private function registerFeUserResource(array $columnOverrides = []): void
     {
-        ApiRegistry::register('uidlist-fe-users', [
+        $this->registerResource('uidlist-fe-users', [
             'general' => [
                 'table'        => 'fe_users',
                 'resourceName' => 'uidlist-fe-users',
                 'resourceType' => 'FeUser',
                 'operations'   => ['list', 'show'],
-                'itemsPerPage' => 20,
             ],
             'columns' => array_merge([
                 'username'  => ['groups' => ['list', 'show']],
                 'usergroup' => ['groups' => ['list', 'show']],
             ], $columnOverrides),
-            'order'    => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
-            'security' => [
-                'list' => AccessRole::PUBLIC,
-                'show' => AccessRole::PUBLIC,
-            ],
+            'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
     }
 
