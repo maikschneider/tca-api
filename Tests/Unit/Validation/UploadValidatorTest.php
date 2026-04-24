@@ -16,6 +16,10 @@ use TYPO3\CMS\Core\Http\UploadedFile;
  * the actual file on disk via finfo_file(), so each test case writes a temporary
  * file. Temp files are cleaned up in tearDown().
  *
+ * The validator reads allowed extensions from $GLOBALS['TCA'] and derives
+ * MIME types via MimeTypeDetector. The test table 'tx_test_upload' is configured
+ * in setUp() so each test can set up its expected extensions.
+ *
  * MIME type detection is based on file magic bytes, not the client-provided
  * Content-Type header:
  *   - JPEG magic: "\xFF\xD8\xFF\xE0"
@@ -23,6 +27,9 @@ use TYPO3\CMS\Core\Http\UploadedFile;
  */
 final class UploadValidatorTest extends TestCase
 {
+    private const TABLE  = 'tx_test_upload';
+    private const COLUMN = 'file_field';
+
     private UploadValidator $validator;
 
     /** @var list<string> */
@@ -33,10 +40,17 @@ final class UploadValidatorTest extends TestCase
         $this->validator = new UploadValidator();
 
         // Provide the minimal TYPO3_CONF_VARS entries that FileInfo::getMimeType()
-        // accesses when checking the fileExtensionToMimeType mapping. Without this
-        // PHP emits an undefined-index warning inside the TYPO3 core.
+        // accesses when checking the fileExtensionToMimeType mapping.
         $GLOBALS['TYPO3_CONF_VARS']['SYS']['FileInfo']['fileExtensionToMimeType'] ??= [];
         $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS'][\TYPO3\CMS\Core\Type\File\FileInfo::class]['mimeTypeGuessers'] ??= [];
+        // GFX config used when expanding 'common-image-types'
+        $GLOBALS['TYPO3_CONF_VARS']['GFX']['imagefile_ext'] ??= 'gif,jpg,jpeg,tif,tiff,bmp,pcx,tga,png,pdf,ai,svg,webp,avif';
+
+        // Reset TCA for test table
+        $GLOBALS['TCA'][self::TABLE]['columns'][self::COLUMN]['config'] = [
+            'type'    => 'file',
+            'allowed' => '',  // overridden per test via setTcaAllowed()
+        ];
     }
 
     protected function tearDown(): void
@@ -49,6 +63,11 @@ final class UploadValidatorTest extends TestCase
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private function setTcaAllowed(string $allowed): void
+    {
+        $GLOBALS['TCA'][self::TABLE]['columns'][self::COLUMN]['config']['allowed'] = $allowed;
+    }
 
     private function makeFile(
         string $content,
@@ -64,16 +83,13 @@ final class UploadValidatorTest extends TestCase
 
     private function makeUpload(
         string $folder = '1:/uploads/',
-        array $allowed = [],
         ?int $maxSize = null,
-        array $allowedExtensions = [],
+        string $duplication = 'rename',
     ): UploadDefinition {
         return new UploadDefinition(
-            folder:            $folder,
-            allowed:           $allowed,
-            maxSize:           $maxSize,
-            duplication:       'rename',
-            allowedExtensions: $allowedExtensions,
+            folder:      $folder,
+            maxSize:     $maxSize,
+            duplication: $duplication,
         );
     }
 
@@ -89,43 +105,49 @@ final class UploadValidatorTest extends TestCase
         return str_pad('%PDF-1.4', $size, "\x00");
     }
 
+    private function validate(UploadedFile $file, UploadDefinition $upload): array
+    {
+        return $this->validator->validate($file, $upload, self::TABLE, self::COLUMN);
+    }
+
     // ── Upload error ──────────────────────────────────────────────────────────
 
     public function testUploadErrorReturnsViolation(): void
     {
-        // UploadedFile requires a valid path; validator checks error code first and
-        // returns without reading the file, so an empty temp file is sufficient.
+        $this->setTcaAllowed('');
         $file   = $this->makeFile('', 'broken.jpg', 'image/jpeg', \UPLOAD_ERR_NO_FILE);
         $upload = $this->makeUpload();
 
-        $violations = $this->validator->validate($file, $upload, 'image');
+        $violations = $this->validate($file, $upload);
 
         self::assertCount(1, $violations);
         self::assertSame('UPLOAD_ERROR', $violations[0]['code']);
-        self::assertSame('image', $violations[0]['propertyPath']);
+        self::assertSame(self::COLUMN, $violations[0]['propertyPath']);
     }
 
     public function testUploadErrorShortCircuitsOtherChecks(): void
     {
         // File has a disallowed MIME AND upload error — only UPLOAD_ERROR should appear.
+        $this->setTcaAllowed('jpg,jpeg');
         $file   = $this->makeFile('', 'wrong.exe', 'application/exe', \UPLOAD_ERR_NO_FILE);
-        $upload = $this->makeUpload(allowed: ['image/jpeg']);
+        $upload = $this->makeUpload();
 
-        $violations = $this->validator->validate($file, $upload, 'image');
+        $violations = $this->validate($file, $upload);
 
         self::assertCount(1, $violations);
         self::assertSame('UPLOAD_ERROR', $violations[0]['code']);
     }
 
-    // ── MIME type ─────────────────────────────────────────────────────────────
+    // ── MIME type (from TCA allowed extensions) ───────────────────────────────
 
     public function testDisallowedMimeTypeReturnsViolation(): void
     {
-        // PDF magic bytes → finfo detects application/pdf → rejected by image/jpeg restriction
+        // TCA allows only JPEG/PNG → PDF magic bytes should be rejected
+        $this->setTcaAllowed('jpg,jpeg,png');
         $file   = $this->makeFile($this->pdfContent(), 'doc.pdf', 'application/pdf');
-        $upload = $this->makeUpload(allowed: ['image/jpeg', 'image/png']);
+        $upload = $this->makeUpload();
 
-        $violations = $this->validator->validate($file, $upload, 'photo');
+        $violations = $this->validate($file, $upload);
 
         $codes = array_column($violations, 'code');
         self::assertContains('UPLOAD_MIME_TYPE', $codes);
@@ -133,35 +155,58 @@ final class UploadValidatorTest extends TestCase
 
     public function testAllowedMimeTypePassesValidation(): void
     {
-        // JPEG magic bytes → finfo detects image/jpeg → allowed
+        // TCA allows JPEG/PNG → JPEG magic bytes should pass
+        $this->setTcaAllowed('jpg,jpeg,png');
         $file   = $this->makeFile($this->jpegContent(), 'photo.jpg', 'image/jpeg');
-        $upload = $this->makeUpload(allowed: ['image/jpeg', 'image/png']);
+        $upload = $this->makeUpload();
 
-        $violations = $this->validator->validate($file, $upload, 'photo');
+        $violations = $this->validate($file, $upload);
 
         $codes = array_column($violations, 'code');
         self::assertNotContains('UPLOAD_MIME_TYPE', $codes);
     }
 
-    public function testEmptyAllowedListAcceptsAnything(): void
+    public function testEmptyTcaAllowedAcceptsAnything(): void
     {
+        // No TCA restriction → no MIME or extension violation
+        $this->setTcaAllowed('');
         $file   = $this->makeFile($this->pdfContent(), 'anything.pdf', 'application/pdf');
-        $upload = $this->makeUpload(allowed: []);
+        $upload = $this->makeUpload();
 
-        $violations = $this->validator->validate($file, $upload, 'file');
+        $violations = $this->validate($file, $upload);
 
         $codes = array_column($violations, 'code');
         self::assertNotContains('UPLOAD_MIME_TYPE', $codes);
+        self::assertNotContains('UPLOAD_EXTENSION', $codes);
+    }
+
+    public function testCommonImageTypesExpandsToGfxImagefileExt(): void
+    {
+        // 'common-image-types' must expand to GFX.imagefile_ext
+        // We set imagefile_ext to only 'jpg,jpeg' so PDF should be rejected
+        $GLOBALS['TYPO3_CONF_VARS']['GFX']['imagefile_ext'] = 'jpg,jpeg';
+        $this->setTcaAllowed('common-image-types');
+        $file   = $this->makeFile($this->pdfContent(), 'doc.pdf', 'application/pdf');
+        $upload = $this->makeUpload();
+
+        $violations = $this->validate($file, $upload);
+
+        $codes = array_column($violations, 'code');
+        self::assertContains('UPLOAD_MIME_TYPE', $codes);
+
+        // Restore default
+        $GLOBALS['TYPO3_CONF_VARS']['GFX']['imagefile_ext'] = 'gif,jpg,jpeg,tif,tiff,bmp,pcx,tga,png,pdf,ai,svg,webp,avif';
     }
 
     // ── File size ─────────────────────────────────────────────────────────────
 
     public function testFileSizeOverLimitReturnsViolation(): void
     {
+        $this->setTcaAllowed('');
         $file   = $this->makeFile(str_repeat('x', 1_048_577), 'large.jpg', 'image/jpeg');
         $upload = $this->makeUpload(maxSize: 1_048_576);  // 1 MB limit
 
-        $violations = $this->validator->validate($file, $upload, 'image');
+        $violations = $this->validate($file, $upload);
 
         $codes = array_column($violations, 'code');
         self::assertContains('UPLOAD_MAX_SIZE', $codes);
@@ -169,10 +214,11 @@ final class UploadValidatorTest extends TestCase
 
     public function testFileSizeAtLimitPassesValidation(): void
     {
+        $this->setTcaAllowed('');
         $file   = $this->makeFile(str_repeat('x', 1_048_576), 'exact.bin', 'application/octet-stream');
         $upload = $this->makeUpload(maxSize: 1_048_576);  // exactly 1 MB
 
-        $violations = $this->validator->validate($file, $upload, 'image');
+        $violations = $this->validate($file, $upload);
 
         $codes = array_column($violations, 'code');
         self::assertNotContains('UPLOAD_MAX_SIZE', $codes);
@@ -180,23 +226,25 @@ final class UploadValidatorTest extends TestCase
 
     public function testNullMaxSizeAcceptsLargeFiles(): void
     {
+        $this->setTcaAllowed('');
         $file   = $this->makeFile(str_repeat('x', 10_000), 'large.bin', 'application/octet-stream');
         $upload = $this->makeUpload(maxSize: null);
 
-        $violations = $this->validator->validate($file, $upload, 'image');
+        $violations = $this->validate($file, $upload);
 
         $codes = array_column($violations, 'code');
         self::assertNotContains('UPLOAD_MAX_SIZE', $codes);
     }
 
-    // ── File extension ────────────────────────────────────────────────────────
+    // ── File extension (from TCA allowed) ─────────────────────────────────────
 
     public function testDisallowedExtensionReturnsViolation(): void
     {
+        $this->setTcaAllowed('pdf,jpg');
         $file   = $this->makeFile($this->pdfContent(), 'document.exe', 'application/octet-stream');
-        $upload = $this->makeUpload(allowedExtensions: ['pdf', 'jpg']);
+        $upload = $this->makeUpload();
 
-        $violations = $this->validator->validate($file, $upload, 'file');
+        $violations = $this->validate($file, $upload);
 
         $codes = array_column($violations, 'code');
         self::assertContains('UPLOAD_EXTENSION', $codes);
@@ -204,21 +252,23 @@ final class UploadValidatorTest extends TestCase
 
     public function testAllowedExtensionPassesValidation(): void
     {
+        $this->setTcaAllowed('pdf,jpg');
         $file   = $this->makeFile($this->pdfContent(), 'document.pdf', 'application/pdf');
-        $upload = $this->makeUpload(allowedExtensions: ['pdf', 'jpg']);
+        $upload = $this->makeUpload();
 
-        $violations = $this->validator->validate($file, $upload, 'file');
+        $violations = $this->validate($file, $upload);
 
         $codes = array_column($violations, 'code');
         self::assertNotContains('UPLOAD_EXTENSION', $codes);
     }
 
-    public function testEmptyAllowedExtensionsSkipsExtensionCheck(): void
+    public function testEmptyTcaAllowedSkipsExtensionCheck(): void
     {
+        $this->setTcaAllowed('');
         $file   = $this->makeFile($this->pdfContent(), 'document.exe', 'application/octet-stream');
-        $upload = $this->makeUpload(allowedExtensions: []);
+        $upload = $this->makeUpload();
 
-        $violations = $this->validator->validate($file, $upload, 'file');
+        $violations = $this->validate($file, $upload);
 
         $codes = array_column($violations, 'code');
         self::assertNotContains('UPLOAD_EXTENSION', $codes);
@@ -228,11 +278,12 @@ final class UploadValidatorTest extends TestCase
 
     public function testMimeAndSizeViolationsReturnedTogether(): void
     {
-        // PDF content → wrong MIME; also over the size limit
+        // TCA allows only JPEG; also over size limit
+        $this->setTcaAllowed('jpg,jpeg');
         $file   = $this->makeFile($this->pdfContent(2_000_000), 'bad.pdf', 'application/pdf');
-        $upload = $this->makeUpload(allowed: ['image/jpeg'], maxSize: 1_000_000);
+        $upload = $this->makeUpload(maxSize: 1_000_000);
 
-        $violations = $this->validator->validate($file, $upload, 'file');
+        $violations = $this->validate($file, $upload);
 
         $codes = array_column($violations, 'code');
         self::assertContains('UPLOAD_MIME_TYPE', $codes);
@@ -243,14 +294,11 @@ final class UploadValidatorTest extends TestCase
 
     public function testValidFileHasNoViolations(): void
     {
+        $this->setTcaAllowed('jpg,jpeg,png');
         $file   = $this->makeFile($this->jpegContent(1_000), 'photo.jpg', 'image/jpeg');
-        $upload = $this->makeUpload(
-            allowed:           ['image/jpeg'],
-            maxSize:           5_242_880,
-            allowedExtensions: ['jpg', 'jpeg'],
-        );
+        $upload = $this->makeUpload(maxSize: 5_242_880);
 
-        $violations = $this->validator->validate($file, $upload, 'photo');
+        $violations = $this->validate($file, $upload);
 
         self::assertSame([], $violations);
     }

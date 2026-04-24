@@ -498,7 +498,7 @@ readonly class OpenApiBuilder
         if (!$config->isExplicitMode) {
             foreach (TcaColumnDiscovery::getExposableColumnNames($config->table) as $column) {
                 $columnDef  = $config->columns[$column] ?? new ColumnDefinition(groups: null);
-                $properties[$column] = $this->buildMultipartPropertySchema($columnDef);
+                $properties[$column] = $this->buildMultipartPropertySchema($columnDef, $config->table, $column);
                 if ($columnDef->required) {
                     $required[] = $column;
                 }
@@ -508,7 +508,7 @@ readonly class OpenApiBuilder
                 if (!$columnDef->isWritable()) {
                     continue;
                 }
-                $properties[$column] = $this->buildMultipartPropertySchema($columnDef);
+                $properties[$column] = $this->buildMultipartPropertySchema($columnDef, $config->table, $column);
                 if ($columnDef->required) {
                     $required[] = $column;
                 }
@@ -522,12 +522,23 @@ readonly class OpenApiBuilder
         return $schema;
     }
 
-    private function buildMultipartPropertySchema(ColumnDefinition $columnDef): array
+    private function buildMultipartPropertySchema(ColumnDefinition $columnDef, string $table = '', string $column = ''): array
     {
         if ($columnDef->upload !== null) {
             $schema = ['type' => 'string', 'format' => 'binary'];
-            if ($columnDef->upload->allowed !== []) {
-                $schema['description'] = 'Allowed types: ' . implode(', ', $columnDef->upload->allowed);
+            // Derive allowed types description from TCA type=file column config.
+            $tcaAllowed = ($table !== '' && $column !== '')
+                ? ($GLOBALS['TCA'][$table]['columns'][$column]['config']['allowed'] ?? '')
+                : '';
+            if (\is_string($tcaAllowed) && $tcaAllowed !== '' && $tcaAllowed !== 'common-image-types') {
+                $schema['description'] = 'Allowed extensions: ' . $tcaAllowed;
+            }
+            if ($columnDef->upload->maxSize !== null) {
+                $maxMb = round($columnDef->upload->maxSize / 1_048_576, 1);
+                $sizeStr = $maxMb >= 1 ? $maxMb . ' MB' : round($columnDef->upload->maxSize / 1_024, 1) . ' KB';
+                $schema['description'] = ($schema['description'] ?? '') !== ''
+                    ? ($schema['description'] . '; max ' . $sizeStr)
+                    : ('Max size: ' . $sizeStr);
             }
             return $schema;
         }

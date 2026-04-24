@@ -5,15 +5,19 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\DataAccess;
 
 use MaikSchneider\TcaApi\Configuration\UploadDefinition;
-use Psr\Http\Message\UploadedFileInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
+use TYPO3\CMS\Core\Http\UploadedFile;
 use TYPO3\CMS\Core\Resource\DuplicationBehavior;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\ResourceFactory;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
- * Stores a PSR-7 uploaded file into a TYPO3 FAL storage.
+ * Stores a file-backed TYPO3 UploadedFile into a FAL storage.
+ *
+ * The caller (FileUploadTrait) is responsible for ensuring the UploadedFile
+ * is backed by a real file path before calling store() — TYPO3 validators and
+ * ResourceStorage both require getTemporaryFileName() to return a non-null path.
+ * Use FileUploadTrait::ensureFileBacked() to convert stream-based files first.
  *
  * Returns the created sys_file object whose uid can be referenced in a
  * sys_file_reference DataHandler entry.
@@ -27,15 +31,15 @@ final class FileUploadService
     }
 
     /**
-     * Store an uploaded file in the FAL folder defined by $upload.
+     * Store a file-backed UploadedFile in the FAL folder defined by $upload.
      *
-     * @param UploadedFileInterface $file     PSR-7 uploaded file (already validated)
-     * @param UploadDefinition      $upload   Column upload constraints (folder, duplication)
-     * @param string                $filename Sanitised original filename to use in FAL
+     * @param UploadedFile     $file     TYPO3 UploadedFile backed by a real tmp path (already validated)
+     * @param UploadDefinition $upload   Column upload constraints (folder, duplication)
+     * @param string           $filename Sanitised original filename to use in FAL
      * @return File The created sys_file record
      */
     public function store(
-        UploadedFileInterface $file,
+        UploadedFile $file,
         UploadDefinition $upload,
         string $filename,
     ): File {
@@ -46,38 +50,18 @@ final class FileUploadService
             ? $storage->getFolder($folderPath)
             : $storage->createFolder($folderPath);
 
-        $tmpPath = $this->resolveTemporaryPath($file);
-
         $behavior = match ($upload->duplication) {
             'replace' => DuplicationBehavior::REPLACE,
             'cancel'  => DuplicationBehavior::CANCEL,
             default   => DuplicationBehavior::RENAME,
         };
 
-        return $storage->addFile($tmpPath, $folder, $filename, $behavior);
-    }
-
-    /**
-     * Resolve the physical path of the uploaded file's temporary storage.
-     *
-     * PSR-7 implementations backed by a real PHP upload will expose the tmp
-     * path via stream metadata. When that is unavailable (e.g. in-memory
-     * streams during testing), the content is written to a temp file instead.
-     */
-    private function resolveTemporaryPath(UploadedFileInterface $file): string
-    {
-        $stream = $file->getStream();
-        $uri    = $stream->getMetadata('uri');
-
-        if (\is_string($uri) && $uri !== '' && file_exists($uri)) {
-            return $uri;
-        }
-
-        // Fallback: write stream content to a temp file
-        $tmpPath = GeneralUtility::tempnam('tcaapi_upload_');
-        $stream->rewind();
-        file_put_contents($tmpPath, (string)$stream);
-
-        return $tmpPath;
+        // getTemporaryFileName() is guaranteed non-null by ensureFileBacked() in the trait.
+        return $storage->addFile(
+            (string)$file->getTemporaryFileName(),
+            $folder,
+            $filename,
+            $behavior,
+        );
     }
 }

@@ -16,6 +16,11 @@ use TYPO3\CMS\Core\Utility\StringUtility;
  *   - DataWriteService     $writeService
  *   - FileUploadService    $fileUploadService
  *   - UploadValidator      $uploadValidator
+ *
+ * Stream-to-disk conversion is centralised here via ensureFileBacked().
+ * Both the validator and the FAL service require a real file path — TYPO3's
+ * built-in MimeTypeValidator reads file content via finfo, and ResourceStorage
+ * explicitly rejects stream-backed UploadedFile objects.
  */
 trait FileUploadTrait
 {
@@ -40,10 +45,19 @@ trait FileUploadTrait
                 if (!$file instanceof UploadedFile) {
                     continue;
                 }
-                array_push(
-                    $violations,
-                    ...$this->uploadValidator->validate($file, $columnDef->upload, $column),
-                );
+
+                $tmpPath = null;
+                try {
+                    [$backed, $tmpPath] = $this->ensureFileBacked($file);
+                    array_push(
+                        $violations,
+                        ...$this->uploadValidator->validate($backed, $columnDef->upload, $config->table, $column),
+                    );
+                } finally {
+                    if ($tmpPath !== null && file_exists($tmpPath)) {
+                        unlink($tmpPath);
+                    }
+                }
             }
         }
 
@@ -77,10 +91,18 @@ trait FileUploadTrait
                     continue;
                 }
 
-                $filename = $file->getClientFilename() ?? 'upload';
-                $falFile  = $this->fileUploadService->store($file, $columnDef->upload, $filename);
-                $refKey   = StringUtility::getUniqueId('NEW_ref');
+                $tmpPath = null;
+                try {
+                    [$backed, $tmpPath] = $this->ensureFileBacked($file);
+                    $filename = $backed->getClientFilename() ?? 'upload';
+                    $falFile  = $this->fileUploadService->store($backed, $columnDef->upload, $filename);
+                } finally {
+                    if ($tmpPath !== null && file_exists($tmpPath)) {
+                        unlink($tmpPath);
+                    }
+                }
 
+                $refKey = StringUtility::getUniqueId('NEW_ref');
                 $stored[$column][$refKey] = [
                     'uid_local'   => $falFile->getUid(),
                     'tablenames'  => $config->table,
@@ -128,5 +150,42 @@ trait FileUploadTrait
         ];
 
         $this->writeService->processDataMap($dataMap, $writeContext);
+    }
+
+    /**
+     * Ensure an UploadedFile is backed by a real file path on disk.
+     *
+     * TYPO3's MimeTypeValidator and ResourceStorage both require
+     * getTemporaryFileName() to return a non-null path. When the UploadedFile
+     * is backed only by a PHP stream (e.g. in tests), the stream content is
+     * written to a temporary file first.
+     *
+     * Returns a tuple [$file, $tmpPath]:
+     *   - $file    — the (possibly new) UploadedFile with a real path
+     *   - $tmpPath — the path of the created temp file, or null if no temp
+     *                file was created (caller must unlink if non-null)
+     *
+     * @return array{0: UploadedFile, 1: string|null}
+     */
+    private function ensureFileBacked(UploadedFile $file): array
+    {
+        if ($file->getTemporaryFileName() !== null) {
+            return [$file, null];
+        }
+
+        $tmpPath = tempnam(sys_get_temp_dir(), 'tca_api_upload_');
+        $stream  = $file->getStream();
+        $stream->rewind();
+        file_put_contents($tmpPath, (string)$stream);
+
+        $backed = new UploadedFile(
+            $tmpPath,
+            $file->getSize(),
+            $file->getError(),
+            $file->getClientFilename(),
+            $file->getClientMediaType(),
+        );
+
+        return [$backed, $tmpPath];
     }
 }

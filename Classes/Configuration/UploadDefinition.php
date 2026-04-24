@@ -10,6 +10,9 @@ namespace MaikSchneider\TcaApi\Configuration;
  * Presence of this object on a ColumnDefinition marks the column as accepting
  * file uploads via multipart/form-data requests. Absent means the column is
  * read-only for file data (existing behaviour).
+ *
+ * Allowed file types and extensions are read from the TCA column's own
+ * `type=file` configuration at validation time — they are not duplicated here.
  */
 final readonly class UploadDefinition
 {
@@ -17,19 +20,14 @@ final readonly class UploadDefinition
     private const VALID_DUPLICATION = ['rename', 'replace', 'cancel'];
 
     /**
-     * @param string   $folder             FAL storage reference, e.g. '1:/uploads/'
-     * @param string[] $allowed            Exact MIME types (e.g. 'image/jpeg'); empty = unrestricted.
-     *                                     Wildcards are NOT supported — use allowedExtensions for broad restrictions.
-     * @param int|null $maxSize            Maximum file size in bytes; null = unlimited
-     * @param string   $duplication        How to handle filename collisions: 'rename'|'replace'|'cancel'
-     * @param string[] $allowedExtensions  Allowed file extensions (e.g. 'jpg', 'pdf'); empty = unrestricted
+     * @param string   $folder      FAL storage reference, e.g. '1:/uploads/'
+     * @param int|null $maxSize     Maximum file size in bytes; null = unlimited
+     * @param string   $duplication How to handle filename collisions: 'rename'|'replace'|'cancel'
      */
     public function __construct(
         public readonly string $folder,
-        public readonly array $allowed,
         public readonly ?int $maxSize,
         public readonly string $duplication,
-        public readonly array $allowedExtensions = [],
     ) {
     }
 
@@ -54,19 +52,6 @@ final readonly class UploadDefinition
                     $folder,
                 ),
             );
-        }
-
-        // ── allowed ──────────────────────────────────────────────────────
-        $allowed = $raw['allowed'] ?? [];
-        if (!\is_array($allowed)) {
-            throw new \InvalidArgumentException('Upload config "allowed" must be an array of MIME type strings.');
-        }
-        foreach ($allowed as $index => $mime) {
-            if (!\is_string($mime) || $mime === '') {
-                throw new \InvalidArgumentException(
-                    sprintf('Upload config "allowed[%s]" must be a non-empty MIME type string.', $index),
-                );
-            }
         }
 
         // ── maxSize ──────────────────────────────────────────────────────
@@ -98,25 +83,10 @@ final readonly class UploadDefinition
             );
         }
 
-        // ── allowedExtensions ────────────────────────────────────────────
-        $allowedExtensions = $raw['allowedExtensions'] ?? [];
-        if (!\is_array($allowedExtensions)) {
-            throw new \InvalidArgumentException('Upload config "allowedExtensions" must be an array of file extension strings.');
-        }
-        foreach ($allowedExtensions as $index => $ext) {
-            if (!\is_string($ext) || $ext === '') {
-                throw new \InvalidArgumentException(
-                    sprintf('Upload config "allowedExtensions[%s]" must be a non-empty string.', $index),
-                );
-            }
-        }
-
         return new self(
-            folder:             $folder,
-            allowed:            array_values($allowed),
-            maxSize:            $maxSize,
-            duplication:        $duplication,
-            allowedExtensions:  array_values($allowedExtensions),
+            folder:      $folder,
+            maxSize:     $maxSize,
+            duplication: $duplication,
         );
     }
 
@@ -129,7 +99,6 @@ final readonly class UploadDefinition
     private static function parseSize(string $size): int
     {
         $size  = trim($size);
-        $unit  = strtoupper(rtrim($size, 'BbKkMmGg'));
         $num   = (float)$size;
         $upper = strtoupper($size);
 

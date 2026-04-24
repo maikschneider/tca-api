@@ -38,8 +38,8 @@ return [
             'groups' => ['list', 'show', 'create', 'update'],
             'upload' => [
                 'folder'  => '1:/user_upload/',
-                'allowed' => ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
                 'maxSize' => '5M',
+                // Allowed extensions are read from TCA: type=file, allowed='jpg,jpeg,png,gif,webp'
             ],
         ],
         'downloads' => [
@@ -47,8 +47,8 @@ return [
             'processor' => FileProcessor::class,
             'upload'    => [
                 'folder'  => '1:/user_upload/',
-                'allowed' => ['application/pdf', 'text/csv', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'],
                 'maxSize' => '20M',
+                // Allowed extensions are read from TCA: type=file, allowed='pdf,csv,xlsx,docx'
             ],
         ],
         'article_url' => [

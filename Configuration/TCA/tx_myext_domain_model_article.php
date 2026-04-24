@@ -81,7 +81,7 @@ return [
             'config' => [
                 'type'     => 'file',
                 'maxitems' => 1,
-                'allowed'  => 'common-image-types',
+                'allowed'  => 'jpg,jpeg,png,gif,webp',
             ],
         ],
         'downloads' => [
