@@ -6,7 +6,9 @@ namespace MaikSchneider\TcaApi\OperationHandler;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Security\WriteContext;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\UploadedFile;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\StringUtility;
 
 /**
@@ -150,6 +152,43 @@ trait FileUploadTrait
         ];
 
         $this->writeService->processDataMap($dataMap, $writeContext);
+    }
+
+    /**
+     * Delete existing sys_file_reference records for the given columns via DataHandler.
+     *
+     * Must be called before attachFileReferences() on update operations so that
+     * uploading a replacement file replaces prior references instead of appending.
+     * Not needed on create — there are no existing references to clear.
+     *
+     * @param array<string, array<string, array>> $storedFiles column → [refKey → refData]
+     * @param WriteContext                         $writeContext Same context as the parent write
+     */
+    private function deleteExistingFileReferences(
+        array $storedFiles,
+        ApiDefinition $config,
+        int $uid,
+        WriteContext $writeContext,
+    ): void {
+        $connection = GeneralUtility::makeInstance(ConnectionPool::class)
+            ->getConnectionForTable('sys_file_reference');
+
+        foreach (array_keys($storedFiles) as $column) {
+            $existingUids = $connection->select(
+                ['uid'],
+                'sys_file_reference',
+                [
+                    'uid_foreign' => $uid,
+                    'tablenames'  => $config->table,
+                    'fieldname'   => $column,
+                    'deleted'     => 0,
+                ],
+            )->fetchFirstColumn();
+
+            foreach ($existingUids as $refUid) {
+                $this->writeService->delete('sys_file_reference', (int)$refUid, $writeContext);
+            }
+        }
     }
 
     /**

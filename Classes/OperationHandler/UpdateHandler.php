@@ -118,10 +118,10 @@ class UpdateHandler implements OperationHandlerInterface
         $writeContext = $this->writeContextFactory->fromRequest($request, $config->writeMode);
         $this->writeService->processDataMap($dataMap, $writeContext);
 
-        // Call 2: attach file references with the now-guaranteed real parent UID.
-        // Keeping this as a separate call (even though $uid is already real) ensures
-        // DataHandler correctly sets uid_foreign and updates the column count.
+        // Call 2: replace existing file references, then attach the new ones.
+        // Deleting first prevents stale references from accumulating (maxitems=1).
         if ($storedFiles !== []) {
+            $this->deleteExistingFileReferences($storedFiles, $config, $uid, $writeContext);
             $this->attachFileReferences($storedFiles, $config, $uid, $writeContext);
         }
 

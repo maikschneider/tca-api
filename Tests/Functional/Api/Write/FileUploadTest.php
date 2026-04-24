@@ -336,6 +336,49 @@ final class FileUploadTest extends ApiFunctionalTestCase
         self::assertGreaterThan(0, (int)$refRow['uid_local']);
     }
 
+    // ── Update replaces existing reference (not appends) ──────────────────
+
+    public function testMultipartUpdateReplacesExistingFileReference(): void
+    {
+        // Article 410 already has a profile_photo reference (uid=1 → sys_file uid=1)
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles_with_files.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/sys_file.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/sys_file_reference.csv');
+
+        // Upload a replacement image
+        $jpegContent = "\xFF\xD8\xFF\xE0" . str_repeat("\x00", 96);
+        $file = $this->createUploadedFile($jpegContent, 'new_photo.jpg', 'image/jpeg');
+
+        $response = $this->executeApiMultipartWriteRequestAs(
+            method:   'PUT',
+            path:     '/_api/articles/410',
+            feUserId: 1,
+            fields:   ['title' => 'Replaced Photo'],
+            files:    ['profile_photo' => $file],
+        );
+
+        self::assertSame(200, $response->getStatusCode());
+
+        // There should be exactly 1 active reference — the new one, not 2.
+        $activeRefs = $this->getConnectionPool()
+            ->getConnectionForTable('sys_file_reference')
+            ->select(
+                ['uid', 'uid_local'],
+                'sys_file_reference',
+                [
+                    'uid_foreign' => 410,
+                    'tablenames'  => 'tx_myext_domain_model_article',
+                    'fieldname'   => 'profile_photo',
+                    'deleted'     => 0,
+                ],
+            )
+            ->fetchAllAssociative();
+
+        self::assertCount(1, $activeRefs, 'Only the new reference should be active after replacement');
+        // The new reference should point to a different sys_file than the original (uid=1)
+        self::assertNotSame(1, (int)$activeRefs[0]['uid_local'], 'New reference should point to the newly uploaded file');
+    }
+
     // ── Multi-file upload to a single column ────────────────────────────────
 
     public function testMultipartCreateWithMultipleFilesOnSingleColumn(): void
