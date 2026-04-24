@@ -243,4 +243,193 @@ final class FileUploadTest extends ApiFunctionalTestCase
         // 200 OK is expected (record exists in articles.csv)
         self::assertSame(200, $response->getStatusCode());
     }
+
+    // ── Happy path: create with file upload stores FAL reference ─────────────
+
+    public function testMultipartCreateStoresFileAndCreatesReference(): void
+    {
+        // JPEG magic bytes so MIME + extension validation passes
+        $jpegContent = "\xFF\xD8\xFF\xE0" . str_repeat("\x00", 96);
+        $file = $this->createUploadedFile($jpegContent, 'photo.jpg', 'image/jpeg');
+
+        $response = $this->executeApiMultipartWriteRequestAs(
+            method:   'POST',
+            path:     '/_api/articles',
+            feUserId: 1,
+            fields:   ['title' => 'Upload Test'],
+            files:    ['profile_photo' => $file],
+        );
+
+        self::assertSame(201, $response->getStatusCode());
+
+        $body = $this->decodeResponseBody($response);
+        self::assertSame('Article', $body['@type']);
+        self::assertSame('Upload Test', $body['title']);
+
+        // Verify a sys_file record was created in FAL
+        $createdUid = (int)$body['uid'];
+        self::assertGreaterThan(0, $createdUid);
+
+        $refRow = $this->getConnectionPool()
+            ->getConnectionForTable('sys_file_reference')
+            ->select(
+                ['uid', 'uid_local', 'uid_foreign', 'fieldname', 'tablenames'],
+                'sys_file_reference',
+                [
+                    'uid_foreign' => $createdUid,
+                    'tablenames'  => 'tx_myext_domain_model_article',
+                    'fieldname'   => 'profile_photo',
+                    'deleted'     => 0,
+                ],
+            )
+            ->fetchAssociative();
+
+        self::assertIsArray($refRow, 'sys_file_reference should exist for the uploaded file');
+        self::assertGreaterThan(0, (int)$refRow['uid_local'], 'uid_local should point to a sys_file record');
+
+        // Verify the sys_file record exists
+        $fileRow = $this->getConnectionPool()
+            ->getConnectionForTable('sys_file')
+            ->select(
+                ['uid', 'name', 'extension'],
+                'sys_file',
+                ['uid' => (int)$refRow['uid_local']],
+            )
+            ->fetchAssociative();
+
+        self::assertIsArray($fileRow, 'sys_file record should exist');
+        self::assertSame('jpg', $fileRow['extension']);
+    }
+
+    // ── Happy path: update with file upload adds new reference ───────────────
+
+    public function testMultipartUpdateStoresFileAndCreatesReference(): void
+    {
+        $jpegContent = "\xFF\xD8\xFF\xE0" . str_repeat("\x00", 96);
+        $file = $this->createUploadedFile($jpegContent, 'avatar.jpg', 'image/jpeg');
+
+        $response = $this->executeApiMultipartWriteRequestAs(
+            method:   'PUT',
+            path:     '/_api/articles/1',
+            feUserId: 1,
+            fields:   ['title' => 'Updated Article'],
+            files:    ['profile_photo' => $file],
+        );
+
+        self::assertSame(200, $response->getStatusCode());
+
+        $refRow = $this->getConnectionPool()
+            ->getConnectionForTable('sys_file_reference')
+            ->select(
+                ['uid', 'uid_local', 'fieldname'],
+                'sys_file_reference',
+                [
+                    'uid_foreign' => 1,
+                    'tablenames'  => 'tx_myext_domain_model_article',
+                    'fieldname'   => 'profile_photo',
+                    'deleted'     => 0,
+                ],
+            )
+            ->fetchAssociative();
+
+        self::assertIsArray($refRow, 'sys_file_reference should exist after update with file upload');
+        self::assertGreaterThan(0, (int)$refRow['uid_local']);
+    }
+
+    // ── Multi-file upload to a single column ────────────────────────────────
+
+    public function testMultipartCreateWithMultipleFilesOnSingleColumn(): void
+    {
+        // downloads column allows pdf — use PDF magic bytes
+        $pdf1 = $this->createUploadedFile('%PDF-1.4' . str_repeat("\x00", 92), 'doc1.pdf', 'application/pdf');
+        $pdf2 = $this->createUploadedFile('%PDF-1.4' . str_repeat("\x00", 92), 'doc2.pdf', 'application/pdf');
+
+        $response = $this->executeApiMultipartWriteRequestAs(
+            method:   'POST',
+            path:     '/_api/articles',
+            feUserId: 1,
+            fields:   ['title' => 'Multi Upload'],
+            files:    ['downloads' => [$pdf1, $pdf2]],
+        );
+
+        self::assertSame(201, $response->getStatusCode());
+
+        $body       = $this->decodeResponseBody($response);
+        $createdUid = (int)$body['uid'];
+        self::assertGreaterThan(0, $createdUid);
+
+        // Verify two sys_file_reference records were created for the downloads column
+        $refRows = $this->getConnectionPool()
+            ->getConnectionForTable('sys_file_reference')
+            ->select(
+                ['uid', 'uid_local', 'fieldname'],
+                'sys_file_reference',
+                [
+                    'uid_foreign' => $createdUid,
+                    'tablenames'  => 'tx_myext_domain_model_article',
+                    'fieldname'   => 'downloads',
+                    'deleted'     => 0,
+                ],
+            )
+            ->fetchAllAssociative();
+
+        self::assertCount(2, $refRows, 'Two sys_file_reference records should exist for multi-file upload');
+    }
+
+    // ── Mixed: file upload + scalar fields in single multipart request ───────
+
+    public function testMultipartCreateWithFileAndScalarFieldsTogether(): void
+    {
+        $jpegContent = "\xFF\xD8\xFF\xE0" . str_repeat("\x00", 96);
+        $pdfContent  = '%PDF-1.4' . str_repeat("\x00", 92);
+
+        $response = $this->executeApiMultipartWriteRequestAs(
+            method:   'POST',
+            path:     '/_api/articles',
+            feUserId: 1,
+            fields:   ['title' => 'Mixed Upload'],
+            files:    [
+                'profile_photo' => $this->createUploadedFile($jpegContent, 'pic.jpg', 'image/jpeg'),
+                'downloads'     => $this->createUploadedFile($pdfContent, 'manual.pdf', 'application/pdf'),
+            ],
+        );
+
+        self::assertSame(201, $response->getStatusCode());
+
+        $body       = $this->decodeResponseBody($response);
+        $createdUid = (int)$body['uid'];
+        self::assertGreaterThan(0, $createdUid);
+
+        // Both columns should have file references
+        $photoRef = $this->getConnectionPool()
+            ->getConnectionForTable('sys_file_reference')
+            ->select(
+                ['uid'],
+                'sys_file_reference',
+                [
+                    'uid_foreign' => $createdUid,
+                    'tablenames'  => 'tx_myext_domain_model_article',
+                    'fieldname'   => 'profile_photo',
+                    'deleted'     => 0,
+                ],
+            )
+            ->fetchAssociative();
+
+        $downloadRef = $this->getConnectionPool()
+            ->getConnectionForTable('sys_file_reference')
+            ->select(
+                ['uid'],
+                'sys_file_reference',
+                [
+                    'uid_foreign' => $createdUid,
+                    'tablenames'  => 'tx_myext_domain_model_article',
+                    'fieldname'   => 'downloads',
+                    'deleted'     => 0,
+                ],
+            )
+            ->fetchAssociative();
+
+        self::assertIsArray($photoRef, 'profile_photo sys_file_reference should exist');
+        self::assertIsArray($downloadRef, 'downloads sys_file_reference should exist');
+    }
 }
