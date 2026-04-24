@@ -25,7 +25,7 @@
 - **Sorting** — Configurable allowed sort columns with defaults
 - **Pagination** — Offset-based pagination with Hydra `PartialCollectionView` links
 - **Validation** — Required, maxLength, minLength, and regex validators with structured 422 error responses
-- **File uploads** — Multipart file upload support for `POST`/`PUT`/`PATCH` endpoints; per-column FAL storage config with size limits, duplication policy, and filename masks; allowed extensions read from TCA `type=file` columns
+- **File uploads** — `multipart/form-data` file uploads on write endpoints with per-column FAL storage, size limits, and filename masks
 - **Access control** — Per-operation roles: `PUBLIC`, `FE_USER`, `FE_GROUP`, `BE_USER`, `BE_ADMIN`, `OWNER` (record-level ownership), or custom callables
 - **Write privilege model** — Actor-aware write context with configurable execution strategy, per-table access control, system-table deny list, and structured audit logging
 - **Relation handling** — Shallow stubs or fully embedded related records (configurable depth); create new related records inline on POST/PUT/PATCH
@@ -638,7 +638,7 @@ Allowed file extensions are **not** set here — they come from the TCA column's
 | `folder` | Yes | — | FAL storage reference, e.g. `1:/uploads/`. Must start with a storage UID followed by `:/` |
 | `maxSize` | No | unlimited | Max file size. Accepts an integer (bytes) or a string: `5M`, `100K`, `1G` |
 | `duplication` | No | `rename` | Collision handling: `rename` (add suffix), `replace` (overwrite), `cancel` (reject) |
-| `filenameMask` | No | *(original filename)* | Filename template. Placeholders: `{name}`, `{extension}`, `{ext}`, `{contentHash}`, `{nameHash}`, `{timestamp}`, `{unique}` |
+| `filenameMask` | No | *(original filename)* | Filename template with placeholders: `{name}` (base name), `{extension}` (ext without dot), `{ext}` (ext with dot), `{contentHash}` (MD5 of file), `{nameHash}` (MD5 of name), `{timestamp}` (Unix time), `{unique}` (random ID). Example: `{timestamp}_{unique}{ext}` → `1714000000_abc123.jpg` |
 
 ### Sending requests
 
