@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Configuration;
 
+use TYPO3\CMS\Core\Utility\StringUtility;
+
 /**
  * Typed value object for the 'upload' key in a column configuration.
  *
@@ -20,14 +22,16 @@ final readonly class UploadDefinition
     private const VALID_DUPLICATION = ['rename', 'replace', 'cancel'];
 
     /**
-     * @param string   $folder      FAL storage reference, e.g. '1:/uploads/'
-     * @param int|null $maxSize     Maximum file size in bytes; null = unlimited
-     * @param string   $duplication How to handle filename collisions: 'rename'|'replace'|'cancel'
+     * @param string      $folder       FAL storage reference, e.g. '1:/uploads/'
+     * @param int|null    $maxSize      Maximum file size in bytes; null = unlimited
+     * @param string      $duplication  How to handle filename collisions: 'rename'|'replace'|'cancel'
+     * @param string|null $filenameMask Filename template with placeholders; null = use original filename
      */
     public function __construct(
         public readonly string $folder,
         public readonly ?int $maxSize,
         public readonly string $duplication,
+        public readonly ?string $filenameMask = null,
     ) {
     }
 
@@ -83,11 +87,64 @@ final readonly class UploadDefinition
             );
         }
 
+        // ── filenameMask ─────────────────────────────────────────────
+        $filenameMask = $raw['filenameMask'] ?? null;
+        if ($filenameMask !== null) {
+            if (!\is_string($filenameMask) || $filenameMask === '') {
+                throw new \InvalidArgumentException(
+                    'Upload config "filenameMask" must be a non-empty string when provided.',
+                );
+            }
+        }
+
         return new self(
-            folder:      $folder,
-            maxSize:     $maxSize,
-            duplication: $duplication,
+            folder:       $folder,
+            maxSize:      $maxSize,
+            duplication:  $duplication,
+            filenameMask: $filenameMask,
         );
+    }
+
+    /**
+     * Apply the filename mask to an original filename.
+     *
+     * Supported placeholders:
+     *   {name}        — original filename without extension
+     *   {extension}   — file extension without dot (e.g. "jpg")
+     *   {ext}         — file extension with dot (e.g. ".jpg"), empty if none
+     *   {contentHash} — MD5 hash of file content
+     *   {nameHash}    — MD5 hash of original filename (without extension)
+     *   {timestamp}   — current Unix timestamp
+     *   {unique}      — unique ID via StringUtility::getUniqueId()
+     *
+     * Returns the original filename unchanged when no mask is configured.
+     * TYPO3's ResourceStorage::sanitizeFileName() handles final sanitization.
+     *
+     * @param string $originalFilename Client-provided filename (e.g. "photo.jpg")
+     * @param string $filePath         Absolute path to the temporary file on disk
+     */
+    public function applyMask(string $originalFilename, string $filePath): string
+    {
+        if ($this->filenameMask === null) {
+            return $originalFilename;
+        }
+
+        $info      = pathinfo($originalFilename);
+        $name      = $info['filename'] ?? 'upload';
+        $extension = $info['extension'] ?? '';
+        $ext       = $extension !== '' ? '.' . $extension : '';
+
+        $replacements = [
+            '{name}'        => $name,
+            '{extension}'   => $extension,
+            '{ext}'         => $ext,
+            '{contentHash}' => hash_file('md5', $filePath),
+            '{nameHash}'    => hash('md5', $name),
+            '{timestamp}'   => (string)time(),
+            '{unique}'      => StringUtility::getUniqueId(),
+        ];
+
+        return str_replace(array_keys($replacements), array_values($replacements), $this->filenameMask);
     }
 
     /**

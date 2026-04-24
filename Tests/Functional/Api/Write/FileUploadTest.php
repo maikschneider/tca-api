@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Write;
 
+use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -474,5 +475,98 @@ final class FileUploadTest extends ApiFunctionalTestCase
 
         self::assertIsArray($photoRef, 'profile_photo sys_file_reference should exist');
         self::assertIsArray($downloadRef, 'downloads sys_file_reference should exist');
+    }
+
+    // ── filenameMask: stored file uses masked name ──────────────────────────
+
+    public function testMultipartCreateWithFilenameMaskStoresFileWithMaskedName(): void
+    {
+        // Use a unique resource name so ApiDefinitionLoader::load() in the
+        // sub-request bootstrap doesn't overwrite this config with Articles.php.
+        $this->registerResource('masked-articles', [
+            'general' => [
+                'table' => 'tx_myext_domain_model_article',
+                'resourceName' => 'masked-articles',
+                'resourceType' => 'Article',
+                'operations' => ['list', 'show', 'create', 'update', 'delete'],
+                'storagePid' => 1,
+            ],
+            'columns' => [
+                'title' => [
+                    'type' => 'string',
+                    'groups' => ['list', 'show', 'create', 'update'],
+                    'required' => true,
+                    'validators' => [
+                        ['type' => 'maxLength', 'max' => 20],
+                        ['type' => 'minLength', 'min' => 3],
+                        ['type' => 'regex', 'pattern' => '/^[\w\s]+$/u'],
+                    ],
+                ],
+                'profile_photo' => [
+                    'groups' => ['list', 'show', 'create', 'update'],
+                    'upload' => [
+                        'folder'       => '1:/user_upload/',
+                        'maxSize'      => '5M',
+                        'filenameMask' => '{contentHash}{ext}',
+                    ],
+                ],
+            ],
+            'security' => [
+                'list'   => AccessRole::PUBLIC,
+                'show'   => AccessRole::PUBLIC,
+                'create' => AccessRole::FE_USER,
+                'update' => AccessRole::FE_USER,
+                'delete' => AccessRole::BE_ADMIN,
+            ],
+        ]);
+
+        $jpegContent = "\xFF\xD8\xFF\xE0" . str_repeat("\x00", 96);
+        $file = $this->createUploadedFile($jpegContent, 'original-name.jpg', 'image/jpeg');
+
+        $response = $this->executeApiMultipartWriteRequestAs(
+            method:   'POST',
+            path:     '/_api/masked-articles',
+            feUserId: 1,
+            fields:   ['title' => 'Masked Upload'],
+            files:    ['profile_photo' => $file],
+        );
+
+        self::assertSame(201, $response->getStatusCode());
+
+        $body       = $this->decodeResponseBody($response);
+        $createdUid = (int)$body['uid'];
+
+        // Find the sys_file record via the reference
+        $refRow = $this->getConnectionPool()
+            ->getConnectionForTable('sys_file_reference')
+            ->select(
+                ['uid_local'],
+                'sys_file_reference',
+                [
+                    'uid_foreign' => $createdUid,
+                    'tablenames'  => 'tx_myext_domain_model_article',
+                    'fieldname'   => 'profile_photo',
+                    'deleted'     => 0,
+                ],
+            )
+            ->fetchAssociative();
+
+        self::assertIsArray($refRow);
+
+        $fileRow = $this->getConnectionPool()
+            ->getConnectionForTable('sys_file')
+            ->select(
+                ['name', 'extension'],
+                'sys_file',
+                ['uid' => (int)$refRow['uid_local']],
+            )
+            ->fetchAssociative();
+
+        self::assertIsArray($fileRow);
+        self::assertSame('jpg', $fileRow['extension']);
+        // The filename should be the MD5 of the content + .jpg, NOT the original name
+        self::assertStringStartsWith(md5($jpegContent), $fileRow['name']);
+        self::assertStringEndsWith('.jpg', $fileRow['name']);
+        self::assertStringNotContainsString('original-name', $fileRow['name']);
     }
 }

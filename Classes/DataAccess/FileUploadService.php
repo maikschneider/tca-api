@@ -57,8 +57,11 @@ final class FileUploadService
         };
 
         // getTemporaryFileName() is guaranteed non-null by ensureFileBacked() in the trait.
+        $tmpPath  = (string)$file->getTemporaryFileName();
+        $filename = $upload->applyMask($filename, $tmpPath);
+
         return $storage->addFile(
-            (string)$file->getTemporaryFileName(),
+            $tmpPath,
             $folder,
             $filename,
             $behavior,
