@@ -64,8 +64,7 @@ class UpdateHandler implements OperationHandlerInterface
     private function doHandle(ServerRequestInterface $request, ApiDefinition $config, int $uid, bool $partial = false): ResponseInterface
     {
         if ($this->dataRepository->findById($config->table, $uid, $config) === null) {
-            return $this->responseFactory->createResponse(404)
-                ->withHeader('Content-Type', 'application/ld+json');
+            return $this->hydraResponseBuilder->buildError(404, 'Resource not found.', 'Not Found');
         }
 
         $isMultipart = str_contains(

@@ -10,6 +10,7 @@ use MaikSchneider\TcaApi\DataAccess\DataWriteService;
 use MaikSchneider\TcaApi\Event\AfterWriteEvent;
 use MaikSchneider\TcaApi\Event\BeforeWriteEvent;
 use MaikSchneider\TcaApi\Security\WriteContextFactory;
+use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -22,6 +23,7 @@ class DeleteHandler implements OperationHandlerInterface
     public function __construct(
         private readonly DataWriteService $writeService,
         private readonly DataRepository $dataRepository,
+        private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly ResponseFactoryInterface $responseFactory,
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly WriteContextFactory $writeContextFactory,
@@ -48,8 +50,7 @@ class DeleteHandler implements OperationHandlerInterface
     private function doHandle(ServerRequestInterface $request, ApiDefinition $config, int $uid): ResponseInterface
     {
         if ($this->dataRepository->findById($config->table, $uid, $config) === null) {
-            return $this->responseFactory->createResponse(404)
-                ->withHeader('Content-Type', 'application/ld+json');
+            return $this->hydraResponseBuilder->buildError(404, 'Resource not found.', 'Not Found');
         }
 
         $writeContext = $this->writeContextFactory->fromRequest($request, $config->writeMode);

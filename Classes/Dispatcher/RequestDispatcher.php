@@ -132,11 +132,16 @@ final class RequestDispatcher
         }
 
         $response = null;
-        foreach ($this->handlerRegistry->getHandlers() as $handler) {
-            if ($handler->supports($request, $operation, $config)) {
-                $response = $handler->handle($request, $config);
-                break;
+        try {
+            foreach ($this->handlerRegistry->getHandlers() as $handler) {
+                if ($handler->supports($request, $operation, $config)) {
+                    $response = $handler->handle($request, $config);
+                    break;
+                }
             }
+        } catch (\RuntimeException $e) {
+            $this->cacheTagCollector->reset();
+            return $this->hydraResponseBuilder->buildError(500, $e->getMessage(), 'Internal Server Error');
         }
 
         if ($response === null) {
