@@ -25,6 +25,7 @@
 - **Sorting** — Configurable allowed sort columns with defaults
 - **Pagination** — Offset-based pagination with Hydra `PartialCollectionView` links
 - **Validation** — Required, maxLength, minLength, and regex validators with structured 422 error responses
+- **File uploads** — Multipart file upload support for `POST`/`PUT`/`PATCH` endpoints; per-column FAL storage config with size limits, duplication policy, and filename masks; allowed extensions read from TCA `type=file` columns
 - **Access control** — Per-operation roles: `PUBLIC`, `FE_USER`, `FE_GROUP`, `BE_USER`, `BE_ADMIN`, `OWNER` (record-level ownership), or custom callables
 - **Write privilege model** — Actor-aware write context with configurable execution strategy, per-table access control, system-table deny list, and structured audit logging
 - **Relation handling** — Shallow stubs or fully embedded related records (configurable depth); create new related records inline on POST/PUT/PATCH
@@ -200,6 +201,7 @@ Each entry in `columns` maps to a database column. All keys are optional:
 | `resourceName` | Override related resource name for relation columns |
 | `processor`    | Column processor class (does **not** trigger explicit mode) |
 | `validators`   | Array of validation rules (see [Validation](#validation)) |
+| `upload`       | Enable file uploads for this column via `multipart/form-data`; must include at least `folder` (FAL storage ref, e.g. `1:/uploads/`). See [File uploads](#file-uploads) |
 
 ### Filters
 
@@ -604,6 +606,92 @@ Validation failures return **422 Unprocessable Entity**:
     ]
 }
 ```
+
+## File uploads
+
+Columns with an `upload` key accept files via `multipart/form-data` on `POST`, `PUT`, and `PATCH` endpoints. Files are stored in a FAL storage folder and attached as `sys_file_reference` records.
+
+### Configuration
+
+Add an `upload` key to any `type=file` TCA column:
+
+```php
+'columns' => [
+    'profile_photo' => [
+        'groups' => ['list', 'show', 'create', 'update'],
+        'upload' => [
+            'folder'      => '1:/user_upload/',    // required — FAL storage ref
+            'maxSize'     => '5M',                 // optional — int bytes or 5M/100K/1G
+            'duplication' => 'rename',             // optional — rename|replace|cancel
+            'filenameMask' => '{timestamp}_{unique}{ext}',  // optional — see below
+        ],
+    ],
+],
+```
+
+Allowed file extensions are **not** set here — they come from the TCA column's `allowed` config (e.g. `'allowed' => 'jpg,jpeg,png'`).
+
+### Upload config reference
+
+| Key | Required | Default | Description |
+|-----|----------|---------|-------------|
+| `folder` | Yes | — | FAL storage reference, e.g. `1:/uploads/`. Must start with a storage UID followed by `:/` |
+| `maxSize` | No | unlimited | Max file size. Accepts an integer (bytes) or a string: `5M`, `100K`, `1G` |
+| `duplication` | No | `rename` | Collision handling: `rename` (add suffix), `replace` (overwrite), `cancel` (reject) |
+| `filenameMask` | No | *(original filename)* | Filename template. Placeholders: `{name}`, `{extension}`, `{ext}`, `{contentHash}`, `{nameHash}`, `{timestamp}`, `{unique}` |
+
+### Sending requests
+
+```bash
+# Create with a file
+curl -X POST https://example.com/_api/articles \
+  -H "Cookie: fe_typo_user=..." \
+  -F "title=My Article" \
+  -F "profile_photo=@/path/to/photo.jpg"
+
+# PATCH — replace file only; title is preserved
+curl -X PATCH https://example.com/_api/articles/1 \
+  -H "Cookie: fe_typo_user=..." \
+  -F "profile_photo=@/path/to/new-photo.jpg"
+
+# PATCH — text only; existing file reference is preserved
+curl -X PATCH https://example.com/_api/articles/1 \
+  -H "Cookie: fe_typo_user=..." \
+  -F "title=Updated Title"
+
+# Multiple files on one field
+curl -X POST https://example.com/_api/articles \
+  -F "title=My Article" \
+  -F "downloads[]=@/path/to/file1.pdf" \
+  -F "downloads[]=@/path/to/file2.pdf"
+```
+
+### Validation errors
+
+Upload violations return **422 Unprocessable Entity**:
+
+```json
+{
+    "@context": "http://www.w3.org/ns/hydra/context.jsonld",
+    "@type": "hydra:Error",
+    "hydra:title": "Validation Failed",
+    "hydra:description": "1 validation error(s)",
+    "violations": [
+        {
+            "propertyPath": "profile_photo",
+            "message": "The file type is not allowed.",
+            "code": "UPLOAD_MIME_TYPE"
+        }
+    ]
+}
+```
+
+| Code | Meaning |
+|------|---------|
+| `UPLOAD_ERROR` | PHP transport error (upload aborted, temp dir issue, etc.) |
+| `UPLOAD_MIME_TYPE` | MIME type not permitted for this column |
+| `UPLOAD_MAX_SIZE` | File exceeds the configured `maxSize` |
+| `UPLOAD_EXTENSION` | File extension not in the TCA `allowed` list |
 
 ## Relations
 

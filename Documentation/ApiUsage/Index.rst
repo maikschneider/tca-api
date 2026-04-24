@@ -27,13 +27,16 @@ All resources follow a standard REST pattern:
      - Show a single item.
    * - ``POST``
      - ``/_api/articles``
-     - Create a new item. Send JSON body.
+     - Create a new item. Send a JSON body or ``multipart/form-data`` for file
+       uploads.
    * - ``PUT``
      - ``/_api/articles/1``
-     - Full update. All writable fields are expected.
+     - Full update. All writable fields are expected. Use ``multipart/form-data``
+       when uploading files.
    * - ``PATCH``
      - ``/_api/articles/1``
-     - Partial update. Only submitted fields are updated.
+     - Partial update. Only submitted fields are updated. Existing file
+       references are preserved when the upload field is omitted.
    * - ``DELETE``
      - ``/_api/articles/1``
      - Delete an item.
@@ -159,3 +162,12 @@ resources and exposes two additional endpoints:
 Access to both endpoints is controlled by the ``tca_api.openApiExposed`` and
 ``tca_api.swaggerUiEnabled`` site settings respectively. Both default to
 ``PUBLIC``.
+
+File uploads
+============
+
+Columns configured with an ``upload`` key accept files via
+``multipart/form-data`` on ``POST``, ``PUT``, and ``PATCH`` requests. See
+:ref:`file-uploads` for a complete guide including request examples, the
+``upload`` config reference, validation error codes, and filename mask
+placeholders.

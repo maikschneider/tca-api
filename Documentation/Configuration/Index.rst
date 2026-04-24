@@ -24,5 +24,6 @@ TCA API is configured through two mechanisms:
     Security
     Relations
     Validation
+    FileUploads
     Caching
     Userinfo

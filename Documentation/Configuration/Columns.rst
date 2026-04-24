@@ -74,6 +74,10 @@ All keys are optional.
        :ref:`column-processors`.
    * - ``validators``
      - Array of validation rules. See :ref:`validation`.
+   * - ``upload``
+     - Enable file upload for this column via ``multipart/form-data`` requests.
+       Must be an array with at least a ``folder`` key (FAL storage reference,
+       e.g. ``1:/uploads/``). See :ref:`file-uploads` for all options.
 
 ..  _column-processors:
 
