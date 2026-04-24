@@ -17,7 +17,6 @@ use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
 use MaikSchneider\TcaApi\Validation\FieldValidator;
 use MaikSchneider\TcaApi\Validation\UploadValidator;
 use Psr\EventDispatcher\EventDispatcherInterface;
-use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
@@ -33,7 +32,6 @@ class UpdateHandler implements OperationHandlerInterface
         private readonly DataRepository $dataRepository,
         private readonly ResourceSerializer $serializer,
         private readonly HydraResponseBuilder $hydraResponseBuilder,
-        private readonly ResponseFactoryInterface $responseFactory,
         private readonly FieldValidator $fieldValidator,
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly RelationInputResolver $relationResolver,
@@ -64,8 +62,7 @@ class UpdateHandler implements OperationHandlerInterface
     private function doHandle(ServerRequestInterface $request, ApiDefinition $config, int $uid, bool $partial = false): ResponseInterface
     {
         if ($this->dataRepository->findById($config->table, $uid, $config) === null) {
-            return $this->responseFactory->createResponse(404)
-                ->withHeader('Content-Type', 'application/ld+json');
+            return $this->hydraResponseBuilder->buildError(404, 'Resource not found.', 'Not Found');
         }
 
         $isMultipart = str_contains(
