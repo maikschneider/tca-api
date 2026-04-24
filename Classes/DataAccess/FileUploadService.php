@@ -7,7 +7,7 @@ namespace MaikSchneider\TcaApi\DataAccess;
 use MaikSchneider\TcaApi\Configuration\UploadDefinition;
 use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 use TYPO3\CMS\Core\Http\UploadedFile;
-use TYPO3\CMS\Core\Resource\DuplicationBehavior;
+use TYPO3\CMS\Core\Resource\Enum\DuplicationBehavior;
 use TYPO3\CMS\Core\Resource\File;
 use TYPO3\CMS\Core\Resource\StorageRepository;
 
