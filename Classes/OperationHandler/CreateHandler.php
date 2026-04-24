@@ -7,6 +7,7 @@ namespace MaikSchneider\TcaApi\OperationHandler;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\DataWriteService;
+use MaikSchneider\TcaApi\DataAccess\FileUploadService;
 use MaikSchneider\TcaApi\DataAccess\RelationInputResolver;
 use MaikSchneider\TcaApi\Event\AfterWriteEvent;
 use MaikSchneider\TcaApi\Event\BeforeWriteEvent;
@@ -14,6 +15,7 @@ use MaikSchneider\TcaApi\Security\WriteContextFactory;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
 use MaikSchneider\TcaApi\Validation\FieldValidator;
+use MaikSchneider\TcaApi\Validation\UploadValidator;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -23,6 +25,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 class CreateHandler implements OperationHandlerInterface
 {
     use ColumnFilterTrait;
+    use FileUploadTrait;
 
     public function __construct(
         private readonly DataWriteService $writeService,
@@ -33,6 +36,8 @@ class CreateHandler implements OperationHandlerInterface
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly RelationInputResolver $relationResolver,
         private readonly WriteContextFactory $writeContextFactory,
+        private readonly FileUploadService $fileUploadService,
+        private readonly UploadValidator $uploadValidator,
     ) {
     }
 
@@ -43,11 +48,27 @@ class CreateHandler implements OperationHandlerInterface
 
     public function handle(ServerRequestInterface $request, ApiDefinition $config): ResponseInterface
     {
-        $raw = (string)$request->getBody();
-        try {
-            $body = $raw !== '' ? (json_decode($raw, true, 512, JSON_THROW_ON_ERROR) ?? []) : [];
-        } catch (\JsonException) {
-            return $this->hydraResponseBuilder->buildError(400, 'Request body is not valid JSON.', 'Bad Request');
+        $isMultipart = str_contains(
+            strtolower($request->getHeaderLine('Content-Type')),
+            'multipart/',
+        );
+
+        if ($isMultipart) {
+            $body          = (array)($request->getParsedBody() ?? []);
+            $uploadedFiles = $request->getUploadedFiles();
+
+            $violations = $this->validateUploads($uploadedFiles, $config);
+            if ($violations !== []) {
+                return $this->hydraResponseBuilder->buildValidationError($violations);
+            }
+        } else {
+            $raw = (string)$request->getBody();
+            try {
+                $body = $raw !== '' ? (json_decode($raw, true, 512, JSON_THROW_ON_ERROR) ?? []) : [];
+            } catch (\JsonException) {
+                return $this->hydraResponseBuilder->buildError(400, 'Request body is not valid JSON.', 'Bad Request');
+            }
+            $uploadedFiles = [];
         }
 
         $violations = $this->fieldValidator->validate($body, $config);
@@ -78,18 +99,30 @@ class CreateHandler implements OperationHandlerInterface
             }
         }
 
+        // Store uploaded files in FAL now (after validation, before DataHandler).
+        // Returns a map of column → [refKey => refData] for the second DataHandler call.
+        $storedFiles = $uploadedFiles !== [] ? $this->storeUploadedFiles($uploadedFiles, $config) : [];
+
         $beforeEvent = new BeforeWriteEvent($config->table, 'create', $data);
         $this->eventDispatcher->dispatch($beforeEvent);
         $data = $beforeEvent->getData();
 
-        // Single DataHandler call: parent + all related new records atomically.
-        // NEW_xxx placeholders in $data (e.g. color_id, inline column) are resolved
-        // by DataHandler using the records in $resolved->extraDataMap.
+        // Call 1: create the parent record and all related records.
+        // File references are NOT included here because uid_foreign cannot be known
+        // before the parent record exists. DataHandler's NEW_xxx remapping does not
+        // propagate uid_foreign to sys_file_reference for type=file columns.
         $primaryKey   = 'NEW_primary';
         $dataMap      = [$config->table => [$primaryKey => $data]] + $resolved->extraDataMap;
         $writeContext = $this->writeContextFactory->fromRequest($request, $config->writeMode);
         $substMap     = $this->writeService->processDataMap($dataMap, $writeContext);
         $uid          = (int)($substMap[$primaryKey] ?? 0);
+
+        // Call 2: attach file references now that the parent UID is known.
+        // The parent record is updated with the reference placeholders so DataHandler
+        // sets uid_foreign correctly and updates the column count.
+        if ($storedFiles !== [] && $uid > 0) {
+            $this->attachFileReferences($storedFiles, $config, $uid, $writeContext);
+        }
 
         $this->eventDispatcher->dispatch(new AfterWriteEvent($config->table, 'create', $uid));
 

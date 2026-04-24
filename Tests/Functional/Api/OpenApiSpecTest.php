@@ -67,13 +67,24 @@ final class OpenApiSpecTest extends ApiFunctionalTestCase
 
         self::assertArrayHasKey('color_id', $articleWriteProperties);
         self::assertArrayHasKey('categories', $articleWriteProperties);
-        self::assertArrayNotHasKey('profile_photo', $articleWriteProperties);
-        self::assertArrayNotHasKey('downloads', $articleWriteProperties);
+        // profile_photo and downloads are now writable (upload config added)
+        self::assertArrayHasKey('profile_photo', $articleWriteProperties);
+        self::assertArrayHasKey('downloads', $articleWriteProperties);
+        // article_url remains read-only (no 'create'/'update' in groups)
         self::assertArrayNotHasKey('article_url', $articleWriteProperties);
 
         self::assertArrayHasKey('profile_photo', $articleReadProperties);
         self::assertArrayHasKey('downloads', $articleReadProperties);
         self::assertArrayHasKey('article_url', $articleReadProperties);
+
+        // Multipart schema is generated for resources with uploadable columns
+        self::assertArrayHasKey('ArticleWriteMultipart', $schemas);
+        $multipartProperties = $schemas['ArticleWriteMultipart']['properties'];
+        self::assertArrayHasKey('profile_photo', $multipartProperties);
+        self::assertSame('string', $multipartProperties['profile_photo']['type']);
+        self::assertSame('binary', $multipartProperties['profile_photo']['format']);
+        self::assertArrayHasKey('downloads', $multipartProperties);
+        self::assertSame('binary', $multipartProperties['downloads']['format']);
     }
 
     public function testSpecContainsHydraErrorSchema(): void

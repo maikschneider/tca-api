@@ -182,17 +182,24 @@ readonly class OpenApiBuilder
 
     private function buildCreateOperation(string $resourceName, string $resourceType, ApiDefinition $config): array
     {
+        $content = [
+            'application/json' => [
+                'schema' => ['$ref' => '#/components/schemas/' . $resourceType . 'Write'],
+            ],
+        ];
+        if ($this->hasUploadColumns($config, 'create')) {
+            $content['multipart/form-data'] = [
+                'schema' => ['$ref' => '#/components/schemas/' . $resourceType . 'WriteMultipart'],
+            ];
+        }
+
         return [
             'summary' => 'Create ' . $resourceType,
             'operationId' => 'create' . $this->toPascalCase($resourceName),
             'x-typo3-access-role' => $this->accessRoleValue($config->securityRole('create')),
             'requestBody' => [
                 'required' => true,
-                'content' => [
-                    'application/json' => [
-                        'schema' => ['$ref' => '#/components/schemas/' . $resourceType . 'Write'],
-                    ],
-                ],
+                'content'  => $content,
             ],
             'responses' => [
                 '201' => [
@@ -224,7 +231,17 @@ readonly class OpenApiBuilder
 
     private function buildUpdateOperation(string $resourceName, string $resourceType, ApiDefinition $config, bool $partial): array
     {
-        $method = $partial ? 'Partially update' : 'Update';
+        $method  = $partial ? 'Partially update' : 'Update';
+        $content = [
+            'application/json' => [
+                'schema' => ['$ref' => '#/components/schemas/' . $resourceType . 'Write'],
+            ],
+        ];
+        if ($this->hasUploadColumns($config, 'update')) {
+            $content['multipart/form-data'] = [
+                'schema' => ['$ref' => '#/components/schemas/' . $resourceType . 'WriteMultipart'],
+            ];
+        }
 
         return [
             'summary' => $method . ' ' . $resourceType,
@@ -232,11 +249,7 @@ readonly class OpenApiBuilder
             'x-typo3-access-role' => $this->accessRoleValue($config->securityRole('update')),
             'requestBody' => [
                 'required' => true,
-                'content' => [
-                    'application/json' => [
-                        'schema' => ['$ref' => '#/components/schemas/' . $resourceType . 'Write'],
-                    ],
-                ],
+                'content'  => $content,
             ],
             'responses' => [
                 '200' => [
@@ -372,6 +385,9 @@ readonly class OpenApiBuilder
             $schemas[$config->resourceType . 'Read'] = $this->buildReadSchema($config);
             $schemas[$config->resourceType . 'Write'] = $this->buildWriteSchema($config);
             $schemas[$config->resourceType . 'Collection'] = $this->buildCollectionSchema($config->resourceType);
+            if ($this->hasUploadColumns($config)) {
+                $schemas[$config->resourceType . 'WriteMultipart'] = $this->buildMultipartWriteSchema($config);
+            }
         }
 
         return $schemas;
@@ -467,6 +483,85 @@ readonly class OpenApiBuilder
                 ],
             ],
         ];
+    }
+
+    /**
+     * Build the multipart/form-data write schema for a resource.
+     * Identical to the JSON write schema except upload-capable columns are
+     * represented as {type: string, format: binary} per OAS 3.1.
+     */
+    private function buildMultipartWriteSchema(ApiDefinition $config): array
+    {
+        $properties = [];
+        $required   = [];
+
+        if (!$config->isExplicitMode) {
+            foreach (TcaColumnDiscovery::getExposableColumnNames($config->table) as $column) {
+                $columnDef  = $config->columns[$column] ?? new ColumnDefinition(groups: null);
+                $properties[$column] = $this->buildMultipartPropertySchema($columnDef, $config->table, $column);
+                if ($columnDef->required) {
+                    $required[] = $column;
+                }
+            }
+        } else {
+            foreach ($config->columns as $column => $columnDef) {
+                if (!$columnDef->isWritable()) {
+                    continue;
+                }
+                $properties[$column] = $this->buildMultipartPropertySchema($columnDef, $config->table, $column);
+                if ($columnDef->required) {
+                    $required[] = $column;
+                }
+            }
+        }
+
+        $schema = ['type' => 'object', 'properties' => $properties === [] ? new \stdClass() : $properties];
+        if ($required !== []) {
+            $schema['required'] = $required;
+        }
+        return $schema;
+    }
+
+    private function buildMultipartPropertySchema(ColumnDefinition $columnDef, string $table = '', string $column = ''): array
+    {
+        if ($columnDef->upload !== null) {
+            $schema = ['type' => 'string', 'format' => 'binary'];
+            // Derive allowed types description from TCA type=file column config.
+            $tcaAllowed = ($table !== '' && $column !== '')
+                ? ($GLOBALS['TCA'][$table]['columns'][$column]['config']['allowed'] ?? '')
+                : '';
+            if (\is_string($tcaAllowed) && $tcaAllowed !== '' && $tcaAllowed !== 'common-image-types') {
+                $schema['description'] = 'Allowed extensions: ' . $tcaAllowed;
+            }
+            if ($columnDef->upload->maxSize !== null) {
+                $maxMb = round($columnDef->upload->maxSize / 1_048_576, 1);
+                $sizeStr = $maxMb >= 1 ? $maxMb . ' MB' : round($columnDef->upload->maxSize / 1_024, 1) . ' KB';
+                $schema['description'] = ($schema['description'] ?? '') !== ''
+                    ? ($schema['description'] . '; max ' . $sizeStr)
+                    : ('Max size: ' . $sizeStr);
+            }
+            return $schema;
+        }
+
+        $propSchema = $this->buildPropertySchema($columnDef);
+        return array_merge($propSchema, $this->mapValidators($columnDef->validators));
+    }
+
+    /**
+     * Return true when any column in $config has an upload definition and is
+     * writable for the given operation (or any write operation when '' is passed).
+     */
+    private function hasUploadColumns(ApiDefinition $config, string $operation = ''): bool
+    {
+        foreach ($config->columns as $columnDef) {
+            if ($columnDef->upload === null) {
+                continue;
+            }
+            if ($operation === '' || $columnDef->isWritable($operation)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private function buildPropertySchema(ColumnDefinition $columnDef): array
