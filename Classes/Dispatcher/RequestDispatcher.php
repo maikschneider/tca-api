@@ -100,6 +100,10 @@ final class RequestDispatcher
             return $this->notFound();
         }
 
+        if ($existingRecord !== []) {
+            $request = $request->withAttribute('tca_api.existing_record', $existingRecord);
+        }
+
         $accessError = $this->checkAccess($operation, $request, $config, $existingRecord, $siteSettings);
         if ($accessError !== null) {
             return $accessError;

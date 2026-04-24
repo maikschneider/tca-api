@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\OperationHandler;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
-use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\DataWriteService;
+use MaikSchneider\TcaApi\Event\AfterOperationEvent;
 use MaikSchneider\TcaApi\Event\AfterWriteEvent;
 use MaikSchneider\TcaApi\Event\BeforeWriteEvent;
 use MaikSchneider\TcaApi\Security\WriteContextFactory;
@@ -22,7 +22,6 @@ class DeleteHandler implements OperationHandlerInterface
 {
     public function __construct(
         private readonly DataWriteService $writeService,
-        private readonly DataRepository $dataRepository,
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly ResponseFactoryInterface $responseFactory,
         private readonly EventDispatcherInterface $eventDispatcher,
@@ -49,7 +48,11 @@ class DeleteHandler implements OperationHandlerInterface
 
     private function doHandle(ServerRequestInterface $request, ApiDefinition $config, int $uid): ResponseInterface
     {
-        if ($this->dataRepository->findById($config->table, $uid, $config) === null) {
+        // Record existence was already verified by RequestDispatcher::resolveExistingRecord()
+        // and passed via request attribute. We don't need to query again.
+        $existingRecord = $request->getAttribute('tca_api.existing_record');
+        if ($existingRecord === null) {
+            // Fallback: this should not happen in normal flow, but we handle it gracefully
             return $this->hydraResponseBuilder->buildError(404, 'Resource not found.', 'Not Found');
         }
 
@@ -57,6 +60,9 @@ class DeleteHandler implements OperationHandlerInterface
         $this->eventDispatcher->dispatch(new BeforeWriteEvent($config->table, 'delete', []));
         $this->writeService->delete($config->table, $uid, $writeContext);
         $this->eventDispatcher->dispatch(new AfterWriteEvent($config->table, 'delete', $uid));
+
+        // Dispatch AfterOperationEvent for consistency with other handlers
+        $this->eventDispatcher->dispatch(new AfterOperationEvent('delete', ['uid' => $uid, 'table' => $config->table]));
 
         return $this->responseFactory->createResponse(204);
     }

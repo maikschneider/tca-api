@@ -9,6 +9,7 @@ use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\DataWriteService;
 use MaikSchneider\TcaApi\DataAccess\FileUploadService;
 use MaikSchneider\TcaApi\DataAccess\RelationInputResolver;
+use MaikSchneider\TcaApi\Event\AfterOperationEvent;
 use MaikSchneider\TcaApi\Event\AfterWriteEvent;
 use MaikSchneider\TcaApi\Event\BeforeWriteEvent;
 use MaikSchneider\TcaApi\Security\WriteContextFactory;
@@ -54,7 +55,7 @@ class CreateHandler implements OperationHandlerInterface
         );
 
         if ($isMultipart) {
-            $body          = (array)($request->getParsedBody() ?? []);
+            $body = (array)($request->getParsedBody() ?? []);
             $uploadedFiles = $request->getUploadedFiles();
 
             $violations = $this->validateUploads($uploadedFiles, $config);
@@ -86,7 +87,7 @@ class CreateHandler implements OperationHandlerInterface
 
         $feUser = $request->getAttribute('frontend.user');
 
-        $data        = $this->filterWritableColumns($resolved->scalarBody, $config);
+        $data = $this->filterWritableColumns($resolved->scalarBody, $config);
         $data['pid'] = $config->storagePid ?? 0;
 
         if ($feUser !== null && !empty($feUser->user['uid'])) {
@@ -111,11 +112,19 @@ class CreateHandler implements OperationHandlerInterface
         // File references are NOT included here because uid_foreign cannot be known
         // before the parent record exists. DataHandler's NEW_xxx remapping does not
         // propagate uid_foreign to sys_file_reference for type=file columns.
-        $primaryKey   = 'NEW_primary';
-        $dataMap      = [$config->table => [$primaryKey => $data]] + $resolved->extraDataMap;
+        $primaryKey = 'NEW_primary';
+        $dataMap = [$config->table => [$primaryKey => $data]] + $resolved->extraDataMap;
         $writeContext = $this->writeContextFactory->fromRequest($request, $config->writeMode);
-        $substMap     = $this->writeService->processDataMap($dataMap, $writeContext);
-        $uid          = (int)($substMap[$primaryKey] ?? 0);
+        $substMap = $this->writeService->processDataMap($dataMap, $writeContext);
+        $uid = (int)($substMap[$primaryKey] ?? 0);
+
+        if ($uid <= 0) {
+            return $this->hydraResponseBuilder->buildError(
+                500,
+                'Record creation failed: no UID returned by DataHandler.',
+                'Internal Server Error',
+            );
+        }
 
         // Call 2: attach file references now that the parent UID is known.
         // The parent record is updated with the reference placeholders so DataHandler
@@ -126,14 +135,19 @@ class CreateHandler implements OperationHandlerInterface
 
         $this->eventDispatcher->dispatch(new AfterWriteEvent($config->table, 'create', $uid));
 
-        $row       = $this->dataRepository->findById($config->table, $uid, $config);
+        $row = $this->dataRepository->findById($config->table, $uid, $config);
         $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
-        $baseUrl   = $apiPrefix . '/' . $config->resourceName;
-        $location  = $baseUrl . '/' . $uid;
+        $baseUrl = $apiPrefix . '/' . $config->resourceName;
+        $location = $baseUrl . '/' . $uid;
 
-        return $this->hydraResponseBuilder->buildItem(
-            $this->serializer->serialize($row, $config, $baseUrl),
-        )->withStatus(201)->withHeader('Location', $location);
+        $serialized = $this->serializer->serialize($row, $config, $baseUrl);
+
+        $event = new AfterOperationEvent('create', $serialized);
+        $this->eventDispatcher->dispatch($event);
+
+        return $this->hydraResponseBuilder->buildItem($event->getData())
+            ->withStatus(201)
+            ->withHeader('Location', $location);
     }
 
     public function getPriority(): int
