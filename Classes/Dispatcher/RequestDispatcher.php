@@ -141,7 +141,10 @@ final class RequestDispatcher
             }
         } catch (\RuntimeException $e) {
             $this->cacheTagCollector->reset();
-            return $this->hydraResponseBuilder->buildError(500, $e->getMessage(), 'Internal Server Error');
+            $description = (bool)$siteSettings->get('tca_api.debugMode', false)
+                ? $e->getMessage()
+                : 'An internal error occurred';
+            return $this->hydraResponseBuilder->buildError(500, $description, 'Internal Server Error');
         }
 
         if ($response === null) {
