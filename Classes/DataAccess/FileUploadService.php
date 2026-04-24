@@ -9,7 +9,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 use TYPO3\CMS\Core\Http\UploadedFile;
 use TYPO3\CMS\Core\Resource\DuplicationBehavior;
 use TYPO3\CMS\Core\Resource\File;
-use TYPO3\CMS\Core\Resource\ResourceFactory;
+use TYPO3\CMS\Core\Resource\StorageRepository;
 
 /**
  * Stores a file-backed TYPO3 UploadedFile into a FAL storage.
@@ -26,7 +26,7 @@ use TYPO3\CMS\Core\Resource\ResourceFactory;
 final class FileUploadService
 {
     public function __construct(
-        private readonly ResourceFactory $resourceFactory,
+        private readonly StorageRepository $storageRepository,
     ) {
     }
 
@@ -45,7 +45,7 @@ final class FileUploadService
     ): File {
         [$storageUid, $folderPath] = explode(':/', $upload->folder, 2);
 
-        $storage = $this->resourceFactory->getStorageObject((int)$storageUid);
+        $storage = $this->storageRepository->getStorageObject((int)$storageUid);
         $folder  = $storage->hasFolder($folderPath)
             ? $storage->getFolder($folderPath)
             : $storage->createFolder($folderPath);
