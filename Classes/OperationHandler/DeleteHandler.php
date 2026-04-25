@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\OperationHandler;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
-use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\DataWriteService;
+use MaikSchneider\TcaApi\Event\AfterOperationEvent;
 use MaikSchneider\TcaApi\Event\AfterWriteEvent;
 use MaikSchneider\TcaApi\Event\BeforeWriteEvent;
 use MaikSchneider\TcaApi\Security\WriteContextFactory;
@@ -22,7 +22,6 @@ class DeleteHandler implements OperationHandlerInterface
 {
     public function __construct(
         private readonly DataWriteService $writeService,
-        private readonly DataRepository $dataRepository,
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly ResponseFactoryInterface $responseFactory,
         private readonly EventDispatcherInterface $eventDispatcher,
@@ -39,17 +38,9 @@ class DeleteHandler implements OperationHandlerInterface
     {
         $uid = (int)$request->getAttribute('tca_api.uid');
 
-        return $this->doHandle($request, $config, $uid);
-    }
-
-    public function getPriority(): int
-    {
-        return 10;
-    }
-
-    private function doHandle(ServerRequestInterface $request, ApiDefinition $config, int $uid): ResponseInterface
-    {
-        if ($this->dataRepository->findById($config->table, $uid, $config) === null) {
+        // Use the record already fetched by RequestDispatcher (avoids redundant DB query).
+        $existingRecord = $request->getAttribute('tca_api.existing_record');
+        if ($existingRecord === null || $existingRecord === []) {
             return $this->hydraResponseBuilder->buildError(404, 'Resource not found.', 'Not Found');
         }
 
@@ -58,6 +49,14 @@ class DeleteHandler implements OperationHandlerInterface
         $this->writeService->delete($config->table, $uid, $writeContext);
         $this->eventDispatcher->dispatch(new AfterWriteEvent($config->table, 'delete', $uid));
 
+        $event = new AfterOperationEvent('delete', []);
+        $this->eventDispatcher->dispatch($event);
+
         return $this->responseFactory->createResponse(204);
+    }
+
+    public function getPriority(): int
+    {
+        return 10;
     }
 }

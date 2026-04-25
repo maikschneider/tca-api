@@ -107,7 +107,8 @@ final class RequestDispatcher
 
         $this->eventDispatcher->dispatch(new BeforeOperationEvent($operation, $request, $config));
 
-        $request = $this->withRequestAttributes($request, $method, $uid, $operation, $config, $siteSettings);
+        $request = $this->withRequestAttributes($request, $method, $uid, $operation, $config, $siteSettings)
+            ->withAttribute('tca_api.existing_record', $existingRecord);
 
         // ── Cache: check for hit on cacheable read operations ────────────
         $cacheKey = null;
