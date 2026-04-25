@@ -31,3 +31,4 @@ parameters:
 						tca_api.filters: mixed
 						tca_api.order: mixed
 						tca_api.partial: mixed
+						tca_api.existing_record: array|null

@@ -9,6 +9,7 @@ use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\DataWriteService;
 use MaikSchneider\TcaApi\DataAccess\FileUploadService;
 use MaikSchneider\TcaApi\DataAccess\RelationInputResolver;
+use MaikSchneider\TcaApi\Event\AfterOperationEvent;
 use MaikSchneider\TcaApi\Event\AfterWriteEvent;
 use MaikSchneider\TcaApi\Event\BeforeWriteEvent;
 use MaikSchneider\TcaApi\Security\WriteContextFactory;
@@ -26,6 +27,7 @@ class UpdateHandler implements OperationHandlerInterface
 {
     use ColumnFilterTrait;
     use FileUploadTrait;
+    use WriteOperationTrait;
 
     public function __construct(
         private readonly DataWriteService $writeService,
@@ -51,60 +53,25 @@ class UpdateHandler implements OperationHandlerInterface
         $uid     = (int)$request->getAttribute('tca_api.uid');
         $partial = (bool)$request->getAttribute('tca_api.partial', false);
 
-        return $this->doHandle($request, $config, $uid, $partial);
-    }
-
-    public function getPriority(): int
-    {
-        return 10;
-    }
-
-    private function doHandle(ServerRequestInterface $request, ApiDefinition $config, int $uid, bool $partial = false): ResponseInterface
-    {
-        if ($this->dataRepository->findById($config->table, $uid, $config) === null) {
+        // Use the record already fetched by RequestDispatcher (avoids redundant DB query).
+        $existingRecord = $request->getAttribute('tca_api.existing_record');
+        if ($existingRecord === null || $existingRecord === []) {
             return $this->hydraResponseBuilder->buildError(404, 'Resource not found.', 'Not Found');
         }
 
-        $isMultipart = str_contains(
-            strtolower($request->getHeaderLine('Content-Type')),
-            'multipart/',
-        );
-
-        if ($isMultipart) {
-            $body          = (array)($request->getParsedBody() ?? []);
-            $uploadedFiles = $request->getUploadedFiles();
-
-            $violations = $this->validateUploads($uploadedFiles, $config);
-            if ($violations !== []) {
-                return $this->hydraResponseBuilder->buildValidationError($violations);
-            }
-        } else {
-            $raw = (string)$request->getBody();
-            try {
-                $body = $raw !== '' ? (json_decode($raw, true, 512, JSON_THROW_ON_ERROR) ?? []) : [];
-            } catch (\JsonException) {
-                return $this->hydraResponseBuilder->buildError(400, 'Request body is not valid JSON.', 'Bad Request');
-            }
-            $uploadedFiles = [];
+        $parsed = $this->parseBody($request, $config);
+        if ($parsed instanceof ResponseInterface) {
+            return $parsed;
         }
 
-        $violations = $this->fieldValidator->validate($body, $config, $partial);
-        if ($violations !== []) {
-            return $this->hydraResponseBuilder->buildValidationError($violations);
+        $result = $this->validateAndResolve($parsed['body'], $parsed['uploadedFiles'], $config, $request, $partial);
+        if ($result instanceof ResponseInterface) {
+            return $result;
         }
 
-        // Resolve relation fields. Security + validation on nested child objects
-        // is enforced inside resolve(); violations bubble up here.
-        $resolved = $this->relationResolver->resolve($body, $config, $config->storagePid ?? 0, $request);
-        if ($resolved->violations !== []) {
-            return $this->hydraResponseBuilder->buildValidationError($resolved->violations);
-        }
-
-        $data = $this->filterWritableColumns($resolved->scalarBody, $config);
-
-        // Store uploaded files in FAL now (validation already passed).
-        // Absent file fields in PATCH leave existing references untouched (PATCH semantics).
-        $storedFiles = $uploadedFiles !== [] ? $this->storeUploadedFiles($uploadedFiles, $config) : [];
+        $data        = $result['data'];
+        $resolved    = $result['resolved'];
+        $storedFiles = $result['storedFiles'];
 
         $beforeEvent = new BeforeWriteEvent($config->table, 'update', $data);
         $this->eventDispatcher->dispatch($beforeEvent);
@@ -128,8 +95,16 @@ class UpdateHandler implements OperationHandlerInterface
         $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
         $baseUrl   = $apiPrefix . '/' . $config->resourceName;
 
-        return $this->hydraResponseBuilder->buildItem(
-            $this->serializer->serialize($row, $config, $baseUrl),
-        );
+        $serialized = $this->serializer->serialize($row, $config, $baseUrl);
+
+        $event = new AfterOperationEvent('update', $serialized);
+        $this->eventDispatcher->dispatch($event);
+
+        return $this->hydraResponseBuilder->buildItem($event->getData());
+    }
+
+    public function getPriority(): int
+    {
+        return 10;
     }
 }
