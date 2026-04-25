@@ -117,6 +117,14 @@ class CreateHandler implements OperationHandlerInterface
         $substMap     = $this->writeService->processDataMap($dataMap, $writeContext);
         $uid          = (int)($substMap[$primaryKey] ?? 0);
 
+
+        if ($uid <= 0) {
+            return $this->hydraResponseBuilder->buildError(
+                500,
+                'Record creation failed: no UID returned by DataHandler.',
+                'Internal Server Error',
+            );
+        }
         // Call 2: attach file references now that the parent UID is known.
         // The parent record is updated with the reference placeholders so DataHandler
         // sets uid_foreign correctly and updates the column count.
