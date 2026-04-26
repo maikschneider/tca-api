@@ -13,3 +13,5 @@ config/system
 .tscache
 package-lock.json
 Resources/Public/JavaScript/*.js.map
+.claude
+Plans/*.md
