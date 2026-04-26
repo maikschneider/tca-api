@@ -183,4 +183,70 @@ final class RangeFilterTest extends ApiFunctionalTestCase
         self::assertSame(0, $body['hydra:totalItems']);
         self::assertSame([], $body['hydra:member']);
     }
+
+    // ── non-integer comparison (issue #45) ────────────────────────────────────
+
+    /**
+     * Lexicographic range on a varchar column. Before the bug fix, the value
+     * was always cast to int, which collapsed every string to 0 and made
+     * string ranges (and dates serialised as strings) effectively unusable.
+     *
+     * Fixture title order (lexicographic):
+     *   "Range Article 10"  (uid 400)
+     *   "Range Article 100" (uid 402)
+     *   "Range Article 150" (uid 403)
+     *   "Range Article 200" (uid 404)
+     *   "Range Article 300" (uid 405)
+     *   "Range Article 50"  (uid 401)
+     */
+    public function testStringRangeAppliesLexicographicComparison(): void
+    {
+        $this->getApiRegistry()->reset();
+        $this->registerResource('range-articles', [
+            ...self::RESOURCE_CONFIG,
+            'filters' => ['title' => RangeFilter::class],
+            'order'   => [
+                'allowed' => ['uid', 'title'],
+                'default' => ['title' => 'asc'],
+            ],
+        ]);
+
+        $response = $this->executeApiRequest('/_api/range-articles', [
+            'filters' => ['title' => ['gte' => 'Range Article 2']],
+        ]);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(3, $body['hydra:totalItems']);
+        self::assertSame([404, 405, 401], $this->getUids($body));
+    }
+
+    /**
+     * The `type` option forces a specific cast, which is needed when a
+     * digit-only string must be preserved as a string (e.g. zero-padded
+     * codes) or when DBAL needs a non-integer parameter type.
+     */
+    public function testExplicitStringTypeOptionDisablesIntegerCoercion(): void
+    {
+        $this->getApiRegistry()->reset();
+        $this->registerResource('range-articles', [
+            ...self::RESOURCE_CONFIG,
+            'filters' => [
+                'title' => [RangeFilter::class, ['type' => 'string']],
+            ],
+            'order' => [
+                'allowed' => ['uid', 'title'],
+                'default' => ['title' => 'asc'],
+            ],
+        ]);
+
+        $response = $this->executeApiRequest('/_api/range-articles', [
+            'filters' => ['title' => ['lt' => 'Range Article 2']],
+        ]);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(3, $body['hydra:totalItems']);
+        self::assertSame([400, 402, 403], $this->getUids($body));
+    }
 }

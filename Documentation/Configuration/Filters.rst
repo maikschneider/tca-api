@@ -30,8 +30,12 @@ Built-in filter classes
      - ``WHERE column LIKE value%``
      - —
    * - ``RangeFilter``
-     - Numeric operators on a column
-     - Value must be ``['gte'=>…, 'lte'=>…, 'gt'=>…, 'lt'=>…]``
+     - Comparison operators on a column (numeric, string or date)
+     - Value must be ``['gte'=>…, 'lte'=>…, 'gt'=>…, 'lt'=>…]``. The bound
+       parameter type is inferred from the column's TCA configuration
+       (``number``, ``datetime``, …); the optional ``type``
+       (``int`` | ``float`` | ``string`` | ``date`` | ``datetime``) overrides
+       it.
    * - ``SearchFilter``
      - ``OR`` across multiple columns (LIKE)
      - ``columns`` (required), ``match`` (``partial`` | ``word_start``, default
@@ -118,6 +122,37 @@ Range filter
     ],
 
 Usage: ``?filters[year][gte]=2020&filters[year][lte]=2024``
+
+The bound DBAL parameter type is resolved in this order:
+
+1. The explicit ``type`` filter option (escape hatch — see below).
+2. The TCA configuration of the column:
+
+   * ``type: number`` (integer format) → ``int``
+   * ``type: number, format: decimal`` → ``float``
+   * ``type: datetime`` without ``dbType`` (UNIX timestamp column) → ``int``
+   * ``type: datetime`` with ``dbType`` (native ``DATE``/``DATETIME``/``TIME``)
+     → ``string``
+   * ``type: input, eval: …,int,…`` → ``int``
+
+3. Autodetection from the request value (integers stay integers, decimal /
+   numeric strings are bound as strings, non-numeric strings such as ISO
+   dates are bound as strings).
+
+Use the ``type`` option to override TCA-inferred and autodetected types — for
+example to keep digit-only strings (zero-padded SKU codes) intact, or to
+force a specific cast on a column whose TCA type does not map cleanly:
+
+..  code-block:: php
+
+    'filters' => [
+        'created_at' => [RangeFilter::class, ['type' => 'date']],   // ?filters[created_at][gte]=2024-01-01
+        'price'      => [RangeFilter::class, ['type' => 'float']],  // ?filters[price][lte]=99.99
+        'sku'        => [RangeFilter::class, ['type' => 'string']], // preserves leading zeros
+    ],
+
+Supported ``type`` values: ``int``, ``float``, ``string``, ``date``,
+``datetime`` (``date`` and ``datetime`` are aliases of ``string``).
 
 Custom filters
 ==============
