@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Unit\Serializer;
 
 use MaikSchneider\TcaApi\Serializer\GroupFieldSerializer;
-use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 

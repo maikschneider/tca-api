@@ -7,7 +7,6 @@ namespace MaikSchneider\TcaApi\Serializer;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Utility\UidListParser;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -19,13 +18,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * handling. Multi-table groups parse the "tablename_uid" prefix format
  * and return shallow stubs.
  */
-final class GroupFieldSerializer
+final readonly class GroupFieldSerializer
 {
-    private const DEFAULT_API_PREFIX = '/_api';
-
     public function __construct(
-        private readonly DataRepository $dataRepository,
-        private readonly ApiRegistry $apiRegistry,
+        private DataRepository $dataRepository
     ) {
     }
 
