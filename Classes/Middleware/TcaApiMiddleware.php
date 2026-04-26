@@ -43,31 +43,36 @@ final class TcaApiMiddleware implements MiddlewareInterface
         $corsEnabled = (bool)$settings->get('tca_api.corsEnabled', false);
 
         if ($corsEnabled && strtoupper($request->getMethod()) === 'OPTIONS') {
-            return $this->buildPreflightResponse($settings);
+            return $this->buildPreflightResponse($request, $settings);
         }
 
         $request = $request->withAttribute('tca_api.api_prefix', $apiPrefix);
         $response = $this->dispatcher->dispatch($request, $settings);
 
         if ($corsEnabled) {
-            $response = $this->addCorsHeaders($response, $settings);
+            $response = $this->addCorsHeaders($response, $request, $settings);
         }
 
         return $response;
     }
 
-    private function buildPreflightResponse(SiteSettings $settings): ResponseInterface
+    private function buildPreflightResponse(ServerRequestInterface $request, SiteSettings $settings): ResponseInterface
     {
         $response = $this->responseFactory->createResponse(204);
-        $response = $this->addCorsHeaders($response, $settings);
+        $response = $this->addCorsHeaders($response, $request, $settings);
         $response = $response->withHeader('Access-Control-Max-Age', '86400');
 
         return $response;
     }
 
-    private function addCorsHeaders(ResponseInterface $response, SiteSettings $settings): ResponseInterface
+    private function addCorsHeaders(ResponseInterface $response, ServerRequestInterface $request, SiteSettings $settings): ResponseInterface
     {
         $origin = (string)$settings->get('tca_api.corsOrigin', '*');
+        $corsAllowCredentials = (bool)$settings->get('tca_api.corsAllowCredentials', false);
+
+        if ($corsAllowCredentials && $origin === '*') {
+            $origin = $request->getHeaderLine('Origin') ?: '*';
+        }
 
         $response = $response
             ->withHeader('Access-Control-Allow-Origin', $origin)
@@ -75,7 +80,7 @@ final class TcaApiMiddleware implements MiddlewareInterface
             ->withHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
             ->withHeader('Vary', 'Origin');
 
-        if ((bool)$settings->get('tca_api.corsAllowCredentials', false)) {
+        if ($corsAllowCredentials) {
             $response = $response->withHeader('Access-Control-Allow-Credentials', 'true');
         }
 
