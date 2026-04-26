@@ -30,8 +30,10 @@ Built-in filter classes
      - ``WHERE column LIKE value%``
      - —
    * - ``RangeFilter``
-     - Numeric operators on a column
-     - Value must be ``['gte'=>…, 'lte'=>…, 'gt'=>…, 'lt'=>…]``
+     - Comparison operators on a column (numeric, string or date)
+     - Value must be ``['gte'=>…, 'lte'=>…, 'gt'=>…, 'lt'=>…]``. Optional
+       ``type`` (``int`` | ``float`` | ``string`` | ``date`` | ``datetime``)
+       forces the cast; otherwise the value type is autodetected.
    * - ``SearchFilter``
      - ``OR`` across multiple columns (LIKE)
      - ``columns`` (required), ``match`` (``partial`` | ``word_start``, default
@@ -118,6 +120,24 @@ Range filter
     ],
 
 Usage: ``?filters[year][gte]=2020&filters[year][lte]=2024``
+
+By default the value type is detected from the request: integers stay integers,
+decimal/numeric strings are bound as strings (DBAL handles the cast), and
+non-numeric strings (such as dates) are bound as strings. Use the ``type``
+option to override autodetection — for example to compare against a date or
+decimal column, or to keep digit-only strings (zero-padded codes, etc.)
+intact:
+
+..  code-block:: php
+
+    'filters' => [
+        'created_at' => [RangeFilter::class, ['type' => 'date']],   // ?filters[created_at][gte]=2024-01-01
+        'price'      => [RangeFilter::class, ['type' => 'float']],  // ?filters[price][lte]=99.99
+        'sku'        => [RangeFilter::class, ['type' => 'string']], // preserves leading zeros
+    ],
+
+Supported ``type`` values: ``int``, ``float``, ``string``, ``date``,
+``datetime`` (``date`` and ``datetime`` are aliases of ``string``).
 
 Custom filters
 ==============

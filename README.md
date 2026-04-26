@@ -249,7 +249,7 @@ use MaikSchneider\TcaApi\Filter\WordStartFilter;
 | `ExactFilter` | `WHERE column = value` | — |
 | `PartialFilter` | `WHERE column LIKE %value%` | — |
 | `WordStartFilter` | `WHERE column LIKE value%` | — |
-| `RangeFilter` | Numeric operators on a column | `value` must be `['gte'=>…, 'lte'=>…, 'gt'=>…, 'lt'=>…]` |
+| `RangeFilter` | Comparison operators on a column (numeric, string or date) | `value` must be `['gte'=>…, 'lte'=>…, 'gt'=>…, 'lt'=>…]`. Optional `type` (`int`\|`float`\|`string`\|`date`\|`datetime`) overrides autodetection (e.g. `?filters[created_at][gte]=2024-01-01`) |
 | `SearchFilter` | `OR` across multiple columns (LIKE) | `columns` (required), `match` (`partial`\|`word_start`, default `partial`) |
 | `MmFilter` | Subquery via MM intermediate table | `mm_table`, `mm_local_key`, `mm_foreign_key`, `mm_constraints` (derived from TCA when omitted) |
 
