@@ -383,11 +383,14 @@ readonly class OpenApiBuilder
 
         foreach ($resources as $resourceName => $config) {
             $schemas[$config->resourceType . 'Read'] = $this->buildReadSchema($config);
-            $schemas[$config->resourceType . 'Write'] = $this->buildWriteSchema($config);
-            $schemas[$config->resourceType . 'Collection'] = $this->buildCollectionSchema($config->resourceType);
-            if ($this->hasUploadColumns($config)) {
-                $schemas[$config->resourceType . 'WriteMultipart'] = $this->buildMultipartWriteSchema($config);
+            $hasWriteOperations = $config->hasOperation('create') || $config->hasOperation('update');
+            if ($hasWriteOperations) {
+                $schemas[$config->resourceType . 'Write'] = $this->buildWriteSchema($config);
+                if ($this->hasUploadColumns($config)) {
+                    $schemas[$config->resourceType . 'WriteMultipart'] = $this->buildMultipartWriteSchema($config);
+                }
             }
+            $schemas[$config->resourceType . 'Collection'] = $this->buildCollectionSchema($config->resourceType);
         }
 
         return $schemas;

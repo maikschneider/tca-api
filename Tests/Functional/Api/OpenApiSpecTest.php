@@ -144,6 +144,19 @@ final class OpenApiSpecTest extends ApiFunctionalTestCase
         self::assertArrayHasKey('500', $createResponses);
     }
 
+    public function testReadOnlyResourceHasNoWriteSchema(): void
+    {
+        $response = $this->executeApiRequest('/_api/openapi.json');
+        self::assertSame(200, $response->getStatusCode());
+
+        $body = $this->decodeResponseBody($response);
+        $schemas = $body['components']['schemas'];
+
+        // Color resource has only list/show operations — no write schemas should be generated
+        self::assertArrayNotHasKey('ColorWrite', $schemas);
+        self::assertArrayNotHasKey('ColorWriteMultipart', $schemas);
+    }
+
     public function testFieldsQueryParamUsesArraySchema(): void
     {
         $response = $this->executeApiRequest('/_api/openapi.json');
