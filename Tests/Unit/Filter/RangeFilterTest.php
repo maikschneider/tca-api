@@ -10,14 +10,21 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use TYPO3\CMS\Core\Database\Query\Expression\ExpressionBuilder;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
+use TYPO3\CMS\Core\Schema\Field\FieldTypeInterface;
+use TYPO3\CMS\Core\Schema\TcaSchema;
+use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 
 /**
  * Unit tests for RangeFilter.
  *
  * The filter is exercised through a mocked QueryBuilder; we capture the
  * arguments passed to createNamedParameter() to verify that the correct
- * scalar value and DBAL ParameterType are produced for ints, floats,
- * numeric strings and dates — including overrides via the `type` option.
+ * scalar value and DBAL ParameterType are produced. Type resolution has
+ * three layers, tested in order of precedence:
+ *
+ *   1. Explicit `type` option in the filter config (override).
+ *   2. TCA column configuration (`number`/`datetime`/`input eval=int`).
+ *   3. Autodetection from the request value.
  */
 final class RangeFilterTest extends TestCase
 {
@@ -26,6 +33,9 @@ final class RangeFilterTest extends TestCase
 
     /** @var QueryBuilder&\PHPUnit\Framework\MockObject\MockObject */
     private QueryBuilder $qb;
+
+    /** @var TcaSchemaFactory&\PHPUnit\Framework\MockObject\MockObject */
+    private TcaSchemaFactory $schemaFactory;
 
     protected function setUp(): void
     {
@@ -45,16 +55,43 @@ final class RangeFilterTest extends TestCase
                 return ':p' . count($this->captured);
             },
         );
+
+        // Default: schema factory reports no schema → autodetection only.
+        $this->schemaFactory = $this->createMock(TcaSchemaFactory::class);
+        $this->schemaFactory->method('has')->willReturn(false);
     }
 
-    // ── autodetection ────────────────────────────────────────────────────
+    private function newFilter(): RangeFilter
+    {
+        return new RangeFilter($this->schemaFactory);
+    }
+
+    /**
+     * Wire the schema factory mock to expose a single column with the given
+     * raw TCA `config` array.
+     */
+    private function withTcaColumn(string $table, string $column, array $config): void
+    {
+        $field = $this->createMock(FieldTypeInterface::class);
+        $field->method('getConfiguration')->willReturn($config);
+
+        $schema = $this->createMock(TcaSchema::class);
+        $schema->method('hasField')->willReturnCallback(static fn (string $c): bool => $c === $column);
+        $schema->method('getField')->willReturnCallback(
+            static fn (string $c): FieldTypeInterface => $field,
+        );
+
+        $this->schemaFactory = $this->createMock(TcaSchemaFactory::class);
+        $this->schemaFactory->method('has')->willReturnCallback(static fn (string $t): bool => $t === $table);
+        $this->schemaFactory->method('get')->willReturnCallback(static fn (string $t): TcaSchema => $schema);
+    }
+
+    // ── value autodetection (no TCA, no explicit type) ───────────────────
 
     #[Test]
     public function nativeIntIsBoundAsInteger(): void
     {
-        $filter = new RangeFilter();
-
-        $filter->apply($this->qb, 'tstamp', ['value' => ['gte' => 1700000000]]);
+        $this->newFilter()->apply($this->qb, 'tstamp', ['value' => ['gte' => 1700000000]]);
 
         self::assertCount(1, $this->captured);
         self::assertSame(1700000000, $this->captured[0]['value']);
@@ -64,9 +101,7 @@ final class RangeFilterTest extends TestCase
     #[Test]
     public function digitOnlyStringIsBoundAsInteger(): void
     {
-        $filter = new RangeFilter();
-
-        $filter->apply($this->qb, 'tstamp', ['value' => ['gte' => '1700000000']]);
+        $this->newFilter()->apply($this->qb, 'tstamp', ['value' => ['gte' => '1700000000']]);
 
         self::assertSame(1700000000, $this->captured[0]['value']);
         self::assertSame(ParameterType::INTEGER, $this->captured[0]['type']);
@@ -75,9 +110,7 @@ final class RangeFilterTest extends TestCase
     #[Test]
     public function nativeFloatIsBoundAsString(): void
     {
-        $filter = new RangeFilter();
-
-        $filter->apply($this->qb, 'price', ['value' => ['lte' => 99.99]]);
+        $this->newFilter()->apply($this->qb, 'price', ['value' => ['lte' => 99.99]]);
 
         self::assertSame('99.99', $this->captured[0]['value']);
         self::assertSame(ParameterType::STRING, $this->captured[0]['type']);
@@ -86,9 +119,7 @@ final class RangeFilterTest extends TestCase
     #[Test]
     public function decimalStringIsBoundAsString(): void
     {
-        $filter = new RangeFilter();
-
-        $filter->apply($this->qb, 'price', ['value' => ['lte' => '99.99']]);
+        $this->newFilter()->apply($this->qb, 'price', ['value' => ['lte' => '99.99']]);
 
         self::assertSame('99.99', $this->captured[0]['value']);
         self::assertSame(ParameterType::STRING, $this->captured[0]['type']);
@@ -97,9 +128,7 @@ final class RangeFilterTest extends TestCase
     #[Test]
     public function dateStringIsBoundAsString(): void
     {
-        $filter = new RangeFilter();
-
-        $filter->apply($this->qb, 'created_at', ['value' => ['gte' => '2024-01-01']]);
+        $this->newFilter()->apply($this->qb, 'created_at', ['value' => ['gte' => '2024-01-01']]);
 
         self::assertSame('2024-01-01', $this->captured[0]['value']);
         self::assertSame(ParameterType::STRING, $this->captured[0]['type']);
@@ -108,24 +137,172 @@ final class RangeFilterTest extends TestCase
     #[Test]
     public function negativeNumericStringIsBoundAsString(): void
     {
-        $filter = new RangeFilter();
+        $this->newFilter()->apply($this->qb, 'amount', ['value' => ['gt' => '-5']]);
 
-        $filter->apply($this->qb, 'amount', ['value' => ['gt' => '-5']]);
-
-        // ctype_digit returns false for negative numbers, so it falls through
-        // to the numeric-string branch — DBAL is happy with STRING here.
+        // ctype_digit returns false for negatives → falls through to the
+        // numeric-string branch and DBAL handles the cast.
         self::assertSame('-5', $this->captured[0]['value']);
         self::assertSame(ParameterType::STRING, $this->captured[0]['type']);
     }
 
-    // ── explicit type hint ───────────────────────────────────────────────
+    // ── TCA-driven detection ─────────────────────────────────────────────
+
+    #[Test]
+    public function tcaNumberDefaultIsTreatedAsInteger(): void
+    {
+        $this->withTcaColumn('tx_test', 'fe_user_id', ['type' => 'number']);
+
+        $this->newFilter()->apply($this->qb, 'fe_user_id', [
+            'value'   => ['gte' => '12.9'],
+            '_table'  => 'tx_test',
+            '_column' => 'fe_user_id',
+        ]);
+
+        self::assertSame(12, $this->captured[0]['value']);
+        self::assertSame(ParameterType::INTEGER, $this->captured[0]['type']);
+    }
+
+    #[Test]
+    public function tcaNumberDecimalIsTreatedAsFloat(): void
+    {
+        $this->withTcaColumn('tx_test', 'price', [
+            'type'   => 'number',
+            'format' => 'decimal',
+        ]);
+
+        $this->newFilter()->apply($this->qb, 'price', [
+            'value'   => ['lte' => '99.99'],
+            '_table'  => 'tx_test',
+            '_column' => 'price',
+        ]);
+
+        self::assertSame('99.99', $this->captured[0]['value']);
+        self::assertSame(ParameterType::STRING, $this->captured[0]['type']);
+    }
+
+    #[Test]
+    public function tcaDatetimeWithoutDbTypeIsTreatedAsInteger(): void
+    {
+        // datetime without dbType is stored as a UNIX timestamp.
+        $this->withTcaColumn('tx_test', 'tstamp', ['type' => 'datetime']);
+
+        $this->newFilter()->apply($this->qb, 'tstamp', [
+            'value'   => ['gte' => '1704067200'],
+            '_table'  => 'tx_test',
+            '_column' => 'tstamp',
+        ]);
+
+        self::assertSame(1704067200, $this->captured[0]['value']);
+        self::assertSame(ParameterType::INTEGER, $this->captured[0]['type']);
+    }
+
+    #[Test]
+    public function tcaDatetimeWithDbTypeIsTreatedAsString(): void
+    {
+        // datetime with dbType is a native DATE/DATETIME column.
+        $this->withTcaColumn('tx_test', 'created_at', [
+            'type'   => 'datetime',
+            'dbType' => 'datetime',
+        ]);
+
+        $this->newFilter()->apply($this->qb, 'created_at', [
+            'value'   => ['gte' => '2024-01-01 00:00:00'],
+            '_table'  => 'tx_test',
+            '_column' => 'created_at',
+        ]);
+
+        self::assertSame('2024-01-01 00:00:00', $this->captured[0]['value']);
+        self::assertSame(ParameterType::STRING, $this->captured[0]['type']);
+    }
+
+    #[Test]
+    public function tcaInputWithEvalIntIsTreatedAsInteger(): void
+    {
+        $this->withTcaColumn('tx_test', 'count', [
+            'type' => 'input',
+            'eval' => 'trim,int',
+        ]);
+
+        $this->newFilter()->apply($this->qb, 'count', [
+            'value'   => ['gte' => '42'],
+            '_table'  => 'tx_test',
+            '_column' => 'count',
+        ]);
+
+        self::assertSame(42, $this->captured[0]['value']);
+        self::assertSame(ParameterType::INTEGER, $this->captured[0]['type']);
+    }
+
+    #[Test]
+    public function tcaInputWithoutEvalIntFallsBackToAutodetection(): void
+    {
+        $this->withTcaColumn('tx_test', 'note', [
+            'type' => 'input',
+            'eval' => 'trim',
+        ]);
+
+        $this->newFilter()->apply($this->qb, 'note', [
+            'value'   => ['gte' => '2024-01-01'],
+            '_table'  => 'tx_test',
+            '_column' => 'note',
+        ]);
+
+        self::assertSame('2024-01-01', $this->captured[0]['value']);
+        self::assertSame(ParameterType::STRING, $this->captured[0]['type']);
+    }
+
+    #[Test]
+    public function unknownTcaTypeFallsBackToAutodetection(): void
+    {
+        $this->withTcaColumn('tx_test', 'data', ['type' => 'json']);
+
+        $this->newFilter()->apply($this->qb, 'data', [
+            'value'   => ['gte' => 5],
+            '_table'  => 'tx_test',
+            '_column' => 'data',
+        ]);
+
+        self::assertSame(5, $this->captured[0]['value']);
+        self::assertSame(ParameterType::INTEGER, $this->captured[0]['type']);
+    }
+
+    #[Test]
+    public function missingTcaSchemaFallsBackToAutodetection(): void
+    {
+        // Default mock returns has()=false; just provide the keys.
+        $this->newFilter()->apply($this->qb, 'col', [
+            'value'   => ['gte' => '2024-01-01'],
+            '_table'  => 'tx_unknown',
+            '_column' => 'col',
+        ]);
+
+        self::assertSame('2024-01-01', $this->captured[0]['value']);
+        self::assertSame(ParameterType::STRING, $this->captured[0]['type']);
+    }
+
+    // ── explicit type hint (overrides TCA) ───────────────────────────────
+
+    #[Test]
+    public function explicitTypeOverridesTcaDetection(): void
+    {
+        // TCA says int, but the explicit `string` option wins.
+        $this->withTcaColumn('tx_test', 'sku', ['type' => 'number']);
+
+        $this->newFilter()->apply($this->qb, 'sku', [
+            'value'   => ['gte' => '0042'],
+            'type'    => 'string',
+            '_table'  => 'tx_test',
+            '_column' => 'sku',
+        ]);
+
+        self::assertSame('0042', $this->captured[0]['value']);
+        self::assertSame(ParameterType::STRING, $this->captured[0]['type']);
+    }
 
     #[Test]
     public function explicitIntTypeForcesIntegerCast(): void
     {
-        $filter = new RangeFilter();
-
-        $filter->apply($this->qb, 'price', [
+        $this->newFilter()->apply($this->qb, 'price', [
             'value' => ['gte' => '99.9'],
             'type'  => 'int',
         ]);
@@ -137,9 +314,7 @@ final class RangeFilterTest extends TestCase
     #[Test]
     public function explicitFloatTypeNormalizesValue(): void
     {
-        $filter = new RangeFilter();
-
-        $filter->apply($this->qb, 'price', [
+        $this->newFilter()->apply($this->qb, 'price', [
             'value' => ['lte' => '99.99'],
             'type'  => 'float',
         ]);
@@ -149,27 +324,9 @@ final class RangeFilterTest extends TestCase
     }
 
     #[Test]
-    public function explicitStringTypePreservesDigitString(): void
-    {
-        $filter = new RangeFilter();
-
-        $filter->apply($this->qb, 'code', [
-            'value' => ['gte' => '0042'],
-            'type'  => 'string',
-        ]);
-
-        // Without the type hint a digit-only string would become an int and
-        // lose its leading zeros — the explicit hint is the escape hatch.
-        self::assertSame('0042', $this->captured[0]['value']);
-        self::assertSame(ParameterType::STRING, $this->captured[0]['type']);
-    }
-
-    #[Test]
     public function explicitDateTypeForcesStringEvenForNumericInput(): void
     {
-        $filter = new RangeFilter();
-
-        $filter->apply($this->qb, 'created_at', [
+        $this->newFilter()->apply($this->qb, 'created_at', [
             'value' => ['gte' => '20240101'],
             'type'  => 'date',
         ]);
@@ -183,11 +340,9 @@ final class RangeFilterTest extends TestCase
     #[Test]
     public function allFourOperatorsApplyAndConditions(): void
     {
-        $filter = new RangeFilter();
-
         $this->qb->expects(self::exactly(4))->method('andWhere');
 
-        $filter->apply($this->qb, 'col', [
+        $this->newFilter()->apply($this->qb, 'col', [
             'value' => ['gte' => 1, 'lte' => 10, 'gt' => 0, 'lt' => 11],
         ]);
 
@@ -197,11 +352,9 @@ final class RangeFilterTest extends TestCase
     #[Test]
     public function unknownOperatorIsIgnored(): void
     {
-        $filter = new RangeFilter();
-
         $this->qb->expects(self::once())->method('andWhere');
 
-        $filter->apply($this->qb, 'col', [
+        $this->newFilter()->apply($this->qb, 'col', [
             'value' => ['gte' => 1, 'between' => [1, 10]],
         ]);
     }
@@ -211,11 +364,9 @@ final class RangeFilterTest extends TestCase
     #[Test]
     public function nonArrayValueIsSilentlyIgnored(): void
     {
-        $filter = new RangeFilter();
-
         $this->qb->expects(self::never())->method('andWhere');
 
-        $filter->apply($this->qb, 'col', ['value' => '100']);
+        $this->newFilter()->apply($this->qb, 'col', ['value' => '100']);
 
         self::assertSame([], $this->captured);
     }
@@ -223,19 +374,15 @@ final class RangeFilterTest extends TestCase
     #[Test]
     public function emptyOperatorMapIsNoOp(): void
     {
-        $filter = new RangeFilter();
-
         $this->qb->expects(self::never())->method('andWhere');
 
-        $filter->apply($this->qb, 'col', ['value' => []]);
+        $this->newFilter()->apply($this->qb, 'col', ['value' => []]);
     }
 
     #[Test]
     public function nonStringTypeOptionIsIgnoredAndAutodetectionApplies(): void
     {
-        $filter = new RangeFilter();
-
-        $filter->apply($this->qb, 'col', [
+        $this->newFilter()->apply($this->qb, 'col', [
             'value' => ['gte' => 5],
             'type'  => 42,
         ]);

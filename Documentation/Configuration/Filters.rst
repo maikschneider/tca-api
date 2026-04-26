@@ -31,9 +31,11 @@ Built-in filter classes
      - —
    * - ``RangeFilter``
      - Comparison operators on a column (numeric, string or date)
-     - Value must be ``['gte'=>…, 'lte'=>…, 'gt'=>…, 'lt'=>…]``. Optional
-       ``type`` (``int`` | ``float`` | ``string`` | ``date`` | ``datetime``)
-       forces the cast; otherwise the value type is autodetected.
+     - Value must be ``['gte'=>…, 'lte'=>…, 'gt'=>…, 'lt'=>…]``. The bound
+       parameter type is inferred from the column's TCA configuration
+       (``number``, ``datetime``, …); the optional ``type``
+       (``int`` | ``float`` | ``string`` | ``date`` | ``datetime``) overrides
+       it.
    * - ``SearchFilter``
      - ``OR`` across multiple columns (LIKE)
      - ``columns`` (required), ``match`` (``partial`` | ``word_start``, default
@@ -121,12 +123,25 @@ Range filter
 
 Usage: ``?filters[year][gte]=2020&filters[year][lte]=2024``
 
-By default the value type is detected from the request: integers stay integers,
-decimal/numeric strings are bound as strings (DBAL handles the cast), and
-non-numeric strings (such as dates) are bound as strings. Use the ``type``
-option to override autodetection — for example to compare against a date or
-decimal column, or to keep digit-only strings (zero-padded codes, etc.)
-intact:
+The bound DBAL parameter type is resolved in this order:
+
+1. The explicit ``type`` filter option (escape hatch — see below).
+2. The TCA configuration of the column:
+
+   * ``type: number`` (integer format) → ``int``
+   * ``type: number, format: decimal`` → ``float``
+   * ``type: datetime`` without ``dbType`` (UNIX timestamp column) → ``int``
+   * ``type: datetime`` with ``dbType`` (native ``DATE``/``DATETIME``/``TIME``)
+     → ``string``
+   * ``type: input, eval: …,int,…`` → ``int``
+
+3. Autodetection from the request value (integers stay integers, decimal /
+   numeric strings are bound as strings, non-numeric strings such as ISO
+   dates are bound as strings).
+
+Use the ``type`` option to override TCA-inferred and autodetected types — for
+example to keep digit-only strings (zero-padded SKU codes) intact, or to
+force a specific cast on a column whose TCA type does not map cleanly:
 
 ..  code-block:: php
 
