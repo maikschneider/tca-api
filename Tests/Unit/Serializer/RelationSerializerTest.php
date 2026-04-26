@@ -20,6 +20,14 @@ use PHPUnit\Framework\TestCase;
  */
 final class RelationSerializerTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        // ApiRegistry stores resources in a static array; reset before every test
+        // so registrations from other tests (or functional bootstrapping) cannot
+        // leak in and cause intermittent failures when tests run in random order.
+        (new ApiRegistry())->reset();
+    }
+
     // ── buildStub ────────────────────────────────────────────────────────────
 
     #[Test]
