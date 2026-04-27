@@ -13,7 +13,6 @@ return [
         'table'        => 'tx_myext_domain_model_color',
         'resourceName' => 'colors-grouped',
         'resourceType' => 'ColorGrouped',
-        'operations'   => ['list', 'show'],
         'itemsPerPage' => 20,
     ],
     'columns' => [

@@ -22,7 +22,6 @@ final class ApiDefinitionTest extends TestCase
                 'table' => 'tx_test',
                 'resourceName' => 'tests',
                 'resourceType' => 'Test',
-                'operations' => ['list'],
             ],
         ];
     }
@@ -37,7 +36,7 @@ final class ApiDefinitionTest extends TestCase
         self::assertSame('tx_test', $def->table);
         self::assertSame('tests', $def->resourceName);
         self::assertSame('Test', $def->resourceType);
-        self::assertSame(['list'], $def->operations);
+        self::assertSame(['list', 'show'], $def->operations);
         self::assertNull($def->itemsPerPage);
         self::assertNull($def->maxItemsPerPage);
         self::assertNull($def->type);
@@ -149,14 +148,11 @@ final class ApiDefinitionTest extends TestCase
     }
 
     #[Test]
-    public function missingOperationsThrows(): void
+    public function omittedOperationsDefaultToListAndShow(): void
     {
-        $cfg = self::minimalConfig();
-        unset($cfg['general']['operations']);
+        $def = ApiDefinition::fromArray(self::minimalConfig());
 
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('general.operations');
-        ApiDefinition::fromArray($cfg);
+        self::assertSame(['list', 'show'], $def->operations);
     }
 
     // ── securityRole() defaults ─────────────────────────────────────────

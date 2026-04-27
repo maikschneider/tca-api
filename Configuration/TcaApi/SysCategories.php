@@ -9,7 +9,6 @@ return [
         'table' => 'sys_category',
         'resourceName' => 'sys-categories',
         'resourceType' => 'SysCategory',
-        'operations' => ['list', 'show'],
         'itemsPerPage' => 20,
     ],
     'columns' => [

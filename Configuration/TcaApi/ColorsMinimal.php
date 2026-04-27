@@ -13,7 +13,6 @@ return [
         'table'        => 'tx_myext_domain_model_color',
         'resourceName' => 'colors-minimal',
         'resourceType' => 'ColorMinimal',
-        'operations'   => ['list', 'show'],
         'itemsPerPage' => 20,
     ],
     'security' => [
