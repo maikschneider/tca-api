@@ -47,10 +47,36 @@ final readonly class ApiDefinitionLoader
     }
 
     /**
+     * Scans all active packages for Configuration/TcaApi/*.php files, loads them, and returns an array of raw definition arrays keyed by resourceName.
+     */
+    private function collectDefinitions(): array
+    {
+        $definitions = [];
+        foreach ($this->packageManager->getActivePackages() as $package) {
+            $dir = $package->getPackagePath() . 'Configuration/TcaApi/';
+            if (!is_dir($dir)) {
+                continue;
+            }
+            $finder = Finder::create()->files()->name('*.php')->in($dir)->depth(0)->sortByName();
+            foreach ($finder as $file) {
+                $config = require $file->getPathname();
+                $resourceName = $config['general']['resourceName'] ?? strtolower(basename($file->getFilename()));
+                if (isset($definitions[$resourceName])) {
+                    throw new \InvalidArgumentException(sprintf(
+                        "Duplicate API resource name '%s' detected while loading Configuration/TcaApi definitions. Use unique 'general.resourceName' values to avoid accidental resource shadowing.",
+                        $resourceName
+                    ));
+                }
+                $definitions[$resourceName] = $config;
+            }
+        }
+        return $definitions;
+    }
+
+    /**
      * Validates the set of definitions that were just loaded from Configuration/TcaApi/.
      * Scoped to this set only — resources registered outside load() (e.g. in tests) are
      * intentionally excluded to avoid false positives.
-     *
      * Checks that any column with an explicit resourceName actually points to a registered resource.
      *
      * @param array<string, mixed> $definitions Raw definition arrays keyed by resourceName
@@ -74,24 +100,5 @@ final readonly class ApiDefinitionLoader
                 }
             }
         }
-    }
-
-    private function collectDefinitions(): array
-    {
-        $definitions = [];
-        foreach ($this->packageManager->getActivePackages() as $package) {
-            $dir = $package->getPackagePath() . 'Configuration/TcaApi/';
-            if (!is_dir($dir)) {
-                continue;
-            }
-            $finder = Finder::create()->files()->name('*.php')->in($dir)->depth(0)->sortByName();
-            foreach ($finder as $file) {
-                $config = require $file->getPathname();
-                $resourceName = $config['general']['resourceName']
-                    ?? strtolower(basename($file->getFilename(), '.php'));
-                $definitions[$resourceName] = $config;
-            }
-        }
-        return $definitions;
     }
 }
