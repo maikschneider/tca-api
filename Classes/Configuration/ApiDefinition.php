@@ -121,17 +121,12 @@ final readonly class ApiDefinition
         $label = $general['table']; // for error messages
 
         // ── operations ──────────────────────────────────────────────────
-        if (!\array_key_exists('operations', $general)) {
-            throw new \InvalidArgumentException(
-                sprintf('TcaApi config for "%s" is missing required general.operations.', $label),
-            );
-        }
-        if (!\is_array($general['operations'])) {
+        if (isset($general['operations']) && !\is_array($general['operations'])) {
             throw new \InvalidArgumentException(
                 sprintf('TcaApi config for "%s": general.operations must be an array.', $label),
             );
         }
-        foreach ($general['operations'] as $op) {
+        foreach ($general['operations'] ?? [] as $op) {
             if (!\is_string($op) || !\in_array($op, self::VALID_OPERATIONS, true)) {
                 throw new \InvalidArgumentException(
                     sprintf(
@@ -424,7 +419,7 @@ final readonly class ApiDefinition
             table:                  $general['table'],
             resourceName:           $general['resourceName'],
             resourceType:           $general['resourceType'],
-            operations:             $general['operations'],
+            operations:             $general['operations'] ?? self::READ_OPERATIONS,
             itemsPerPage:           isset($general['itemsPerPage']) ? (int)$general['itemsPerPage'] : null,
             maxItemsPerPage:        isset($general['maxItemsPerPage']) ? (int)$general['maxItemsPerPage'] : null,
             type:                   $generalType,

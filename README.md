@@ -151,16 +151,16 @@ Access to both endpoints is controlled by the `tca_api.openApiExposed` and `tca_
 
 ### General
 
-| Key               | Description                                      |
-|-------------------|--------------------------------------------------|
-| `table`           | TYPO3 database table name                        |
-| `resourceName`    | URL slug used in `/_api/{resourceName}`           |
-| `resourceType`    | JSON-LD `@type` value                            |
-| `type`            | Set to `'userinfo'` to create a [userinfo endpoint](#userinfo-endpoint) |
-| `operations`      | Array of enabled operations: `list`, `show`, `create`, `update`, `delete` |
-| `itemsPerPage`    | Default page size for list operations            |
-| `maxItemsPerPage` | Upper limit for `itemsPerPage`; when set, the requested page size is clamped to this value. No limit when omitted |
-| `storagePid`      | Page ID for newly created records                |
+| Key               | Description                                                                                                               |
+|-------------------|---------------------------------------------------------------------------------------------------------------------------|
+| `table`           | TYPO3 database table name                                                                                                 |
+| `resourceName`    | URL slug used in `/_api/{resourceName}`                                                                                   |
+| `resourceType`    | JSON-LD `@type` value                                                                                                     |
+| `type`            | Set to `'userinfo'` to create a [userinfo endpoint](#userinfo-endpoint)                                                   |
+| `operations`      | Array of enabled operations: `list`, `show`, `create`, `update`, `delete`; defaults to `list` and `show` if not set       |
+| `itemsPerPage`    | Default page size for list operations                                                                                     |
+| `maxItemsPerPage` | Upper limit for `itemsPerPage`; when set, the requested page size is clamped to this value. No limit when omitted         |
+| `storagePid`      | Page ID for newly created records                                                                                         |
 | `writeMode`       | Write execution strategy: `acting_user` (default) or `system_admin` — see [Write privilege model](#write-privilege-model) |
 
 ### Column visibility
