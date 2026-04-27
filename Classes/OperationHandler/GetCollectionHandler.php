@@ -8,6 +8,7 @@ use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\EmbedPreloader;
 use MaikSchneider\TcaApi\Event\AfterOperationEvent;
+use MaikSchneider\TcaApi\Filter\FilterContext;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -98,14 +99,14 @@ class GetCollectionHandler implements OperationHandlerInterface
                 continue;
             }
 
-            $safe[$column] = array_merge($cleanOpts, [
-                'value'           => $value,
-                '_table'          => $config->table,
-                '_column'         => $column,
-                '_filterClass'    => $class,
-                '_request'        => $request,
-                '_resourceConfig' => $config,
-            ]);
+            $safe[$column] = [$class, new FilterContext(
+                value:          $value,
+                table:          $config->table,
+                column:         $column,
+                options:        $cleanOpts,
+                request:        $request,
+                resourceConfig: $config,
+            )];
         }
 
         return $safe;

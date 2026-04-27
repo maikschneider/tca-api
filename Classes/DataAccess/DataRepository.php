@@ -74,8 +74,8 @@ final class DataRepository
 
         $this->applyPidConstraint($qb, $config);
 
-        foreach ($constraints as $column => $filter) {
-            $this->applyFilterConstraint($qb, $column, $filter);
+        foreach ($constraints as [$filterClass, $context]) {
+            $this->resolveFilter($filterClass)->apply($qb, $context);
         }
 
         foreach ($order as $column => $direction) {
@@ -100,8 +100,8 @@ final class DataRepository
 
         $this->applyPidConstraint($qb, $config);
 
-        foreach ($constraints as $column => $filter) {
-            $this->applyFilterConstraint($qb, $column, $filter);
+        foreach ($constraints as [$filterClass, $context]) {
+            $this->resolveFilter($filterClass)->apply($qb, $context);
         }
 
         return (int)$qb->executeQuery()->fetchOne();
@@ -191,11 +191,6 @@ final class DataRepository
         if ($config->storagePid !== null) {
             $qb->andWhere($qb->expr()->eq('pid', $qb->createNamedParameter($config->storagePid, Connection::PARAM_INT)));
         }
-    }
-
-    private function applyFilterConstraint(QueryBuilder $qb, string $column, array $filter): void
-    {
-        $this->resolveFilter($filter['_filterClass'])->apply($qb, $column, $filter);
     }
 
     private function resolveFilter(string $fqcn): FilterInterface

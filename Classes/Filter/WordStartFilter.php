@@ -8,11 +8,11 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 
 final class WordStartFilter implements FilterInterface
 {
-    public function apply(QueryBuilder $qb, string $column, array $filterConfig): void
+    public function apply(QueryBuilder $qb, FilterContext $context): void
     {
-        $value = (string)$filterConfig['value'];
+        $value = (string)$context->value;
         $qb->andWhere($qb->expr()->like(
-            $column,
+            $context->column,
             $qb->createNamedParameter($qb->escapeLikeWildcards($value) . '%'),
         ));
     }

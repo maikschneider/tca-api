@@ -14,19 +14,19 @@ final class MmFilter implements FilterInterface
     ) {
     }
 
-    public function apply(QueryBuilder $qb, string $column, array $filterConfig): void
+    public function apply(QueryBuilder $qb, FilterContext $context): void
     {
-        if (!isset($filterConfig['mm_table'])) {
-            $filterConfig = $this->deriveMmConfigFromTca($filterConfig);
+        if ($context->option('mm_table') === null) {
+            $context = $this->deriveMmConfigFromTca($context);
         }
 
-        $mmTable      = $filterConfig['mm_table'];
-        $mmLocalKey   = $filterConfig['mm_local_key'];
-        $mmForeignKey = $filterConfig['mm_foreign_key'];
-        $value        = (string)$filterConfig['value'];
+        $mmTable      = $context->option('mm_table');
+        $mmLocalKey   = $context->option('mm_local_key');
+        $mmForeignKey = $context->option('mm_foreign_key');
+        $value        = (string)$context->value;
 
         $parts = [sprintf('%s = %s', $qb->quoteIdentifier($mmLocalKey), $qb->createNamedParameter($value))];
-        foreach ($filterConfig['mm_constraints'] ?? [] as $col => $val) {
+        foreach ($context->option('mm_constraints', []) as $col => $val) {
             $parts[] = sprintf('%s = %s', $qb->quoteIdentifier($col), $qb->createNamedParameter($val));
         }
 
@@ -39,23 +39,21 @@ final class MmFilter implements FilterInterface
         $qb->andWhere($qb->expr()->in('uid', '(' . $subSql . ')'));
     }
 
-    private function deriveMmConfigFromTca(array $filter): array
+    private function deriveMmConfigFromTca(FilterContext $context): FilterContext
     {
-        $table  = $filter['_table'];
-        $column = $filter['_column'];
-        $schema = $this->schemaFactory->get($table);
+        $schema = $this->schemaFactory->get($context->table);
 
-        if (!$schema->hasField($column)) {
+        if (!$schema->hasField($context->column)) {
             throw new \InvalidArgumentException(
-                sprintf('Field %s.%s does not exist in TCA.', $table, $column),
+                sprintf('Field %s.%s does not exist in TCA.', $context->table, $context->column),
             );
         }
 
-        $config  = $schema->getField($column)->getConfiguration();
+        $config  = $schema->getField($context->column)->getConfiguration();
         $mmTable = $config['MM'] ?? null;
         if ($mmTable === null) {
             throw new \InvalidArgumentException(
-                sprintf('Cannot derive MM table for %s.%s: no MM key in TCA config.', $table, $column),
+                sprintf('Cannot derive MM table for %s.%s: no MM key in TCA config.', $context->table, $context->column),
             );
         }
 
@@ -63,12 +61,11 @@ final class MmFilter implements FilterInterface
         // In that case uid_local holds the related UID and uid_foreign holds the record UID — reversed from standard MM.
         $hasOppositeField = isset($config['MM_opposite_field']);
 
-        return [
-            'value'          => $filter['value'],
+        return $context->withOptions([
             'mm_table'       => $mmTable,
             'mm_local_key'   => $hasOppositeField ? 'uid_local' : 'uid_foreign',
             'mm_foreign_key' => $hasOppositeField ? 'uid_foreign' : 'uid_local',
             'mm_constraints' => $config['MM_match_fields'] ?? [],
-        ];
+        ]);
     }
 }
