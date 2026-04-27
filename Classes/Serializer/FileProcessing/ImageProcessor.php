@@ -7,11 +7,18 @@ namespace MaikSchneider\TcaApi\Serializer\FileProcessing;
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use TYPO3\CMS\Core\Imaging\ImageManipulation\CropVariantCollection;
 use TYPO3\CMS\Core\Resource\FileReference;
-use TYPO3\CMS\Core\Resource\ProcessedFile;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
+use TYPO3\CMS\Extbase\Service\ImageService;
 
 final class ImageProcessor implements FileProcessorInterface
 {
+    protected ImageService $imageService;
+
+    public function __construct()
+    {
+        $this->imageService = GeneralUtility::makeInstance(ImageService::class);
+    }
+
     public function process(FileReference $fileReference, ColumnDefinition $columnConfig): array
     {
         $base      = GeneralUtility::makeInstance(FileProcessor::class)->process($fileReference, $columnConfig);
@@ -45,14 +52,12 @@ final class ImageProcessor implements FileProcessorInterface
 
         foreach (array_keys($collection->asArray()) as $variantId) {
             $cropArea      = $collection->getCropArea($variantId);
-            $processedFile = $fileReference->getOriginalFile()->process(
-                ProcessedFile::CONTEXT_IMAGECROPSCALEMASK,
-                [
-                    'crop'      => $cropArea,
-                    'maxWidth'  => $maxWidth,
-                    'maxHeight' => $maxHeight,
-                ],
-            );
+            $processingInstructions= [
+                'crop'      => $cropArea->makeAbsoluteBasedOnFile($fileReference->getOriginalFile()),
+                'maxWidth'  => $maxWidth,
+                'maxHeight' => $maxHeight,
+            ];
+            $processedFile = $this->imageService->applyProcessingInstructions($fileReference->getOriginalFile(), $processingInstructions);
 
             $variants[$variantId] = [
                 'publicUrl' => $processedFile->getPublicUrl(),
