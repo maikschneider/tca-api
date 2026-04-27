@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\OperationHandler;
 
+use JsonException;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\DataWriteService;
@@ -32,14 +33,14 @@ class UpdateHandler implements OperationHandlerInterface
     public function __construct(
         private readonly DataWriteService $writeService,
         private readonly DataRepository $dataRepository,
-        private readonly ResourceSerializer $serializer,
-        private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly FieldValidator $fieldValidator,
-        private readonly EventDispatcherInterface $eventDispatcher,
         private readonly RelationInputResolver $relationResolver,
-        private readonly WriteContextFactory $writeContextFactory,
         private readonly FileUploadService $fileUploadService,
         private readonly UploadValidator $uploadValidator,
+        private readonly ResourceSerializer $serializer,
+        private readonly HydraResponseBuilder $hydraResponseBuilder,
+        private readonly EventDispatcherInterface $eventDispatcher,
+        private readonly WriteContextFactory $writeContextFactory
     ) {
     }
 
@@ -48,6 +49,9 @@ class UpdateHandler implements OperationHandlerInterface
         return $operation === 'update';
     }
 
+    /**
+     * @throws JsonException
+     */
     public function handle(ServerRequestInterface $request, ApiDefinition $config): ResponseInterface
     {
         $uid     = (int)$request->getAttribute('tca_api.uid');

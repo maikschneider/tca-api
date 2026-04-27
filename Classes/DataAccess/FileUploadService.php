@@ -45,7 +45,7 @@ final class FileUploadService
     ): File {
         [$storageUid, $folderPath] = explode(':/', $upload->folder, 2);
 
-        $storage = $this->storageRepository->getStorageObject((int)$storageUid);
+        $storage = $this->storageRepository->getStorageObject(max(0, (int)$storageUid));
         $folder  = $storage->hasFolder($folderPath)
             ? $storage->getFolder($folderPath)
             : $storage->createFolder($folderPath);

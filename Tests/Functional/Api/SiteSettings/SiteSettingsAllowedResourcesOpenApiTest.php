@@ -35,7 +35,7 @@ final class SiteSettingsAllowedResourcesOpenApiTest extends ApiFunctionalTestCas
         self::assertContains('/_api/articles', $paths);
 
         // 'colors' is not in allowedResources — must be absent from spec
-        $colorPaths = array_filter($paths, static fn (string $path): bool => str_contains($path, 'colors'));
+        $colorPaths = array_filter($paths, static fn (string|int $path): bool => str_contains((string)$path, 'colors'));
         self::assertSame([], $colorPaths, 'Blocked resource "colors" should not appear in OpenAPI spec');
     }
 

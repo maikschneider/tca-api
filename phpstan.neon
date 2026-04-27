@@ -5,7 +5,7 @@ parameters:
 		parallel:
 				maximumNumberOfProcesses: 5
 
-		level: 6
+		level: 7
 
 		bootstrapFiles:
 				- vendor/autoload.php

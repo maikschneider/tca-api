@@ -22,7 +22,7 @@ final class OpenApiSpecTest extends ApiFunctionalTestCase
     {
         $projectRoot = realpath(__DIR__ . '/../../..');
         $spectralBin = $projectRoot . '/node_modules/.bin/spectral';
-        if (!is_file($spectralBin)) {
+        if (!$projectRoot || !is_file($spectralBin)) {
             self::markTestSkipped('spectral not installed — run npm install');
         }
 

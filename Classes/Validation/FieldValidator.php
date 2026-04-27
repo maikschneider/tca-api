@@ -86,6 +86,9 @@ final class FieldValidator
         };
     }
 
+    /**
+     * @return array{propertyPath: string, message: string, code: string}|null
+     */
     private function validateMaxLength(string $column, mixed $value, int $max): ?array
     {
         if (mb_strlen((string)$value) > $max) {
@@ -95,6 +98,9 @@ final class FieldValidator
         return null;
     }
 
+    /**
+     * @return array{propertyPath: string, message: string, code: string}|null
+     */
     private function validateMinLength(string $column, mixed $value, int $min): ?array
     {
         if (mb_strlen((string)$value) < $min) {
@@ -104,6 +110,9 @@ final class FieldValidator
         return null;
     }
 
+    /**
+     * @return array{propertyPath: string, message: string, code: string}|null
+     */
     private function validateRegex(string $column, mixed $value, string $pattern): ?array
     {
         $result = @preg_match($pattern, (string)$value);

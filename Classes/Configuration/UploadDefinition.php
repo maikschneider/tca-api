@@ -130,7 +130,7 @@ final readonly class UploadDefinition
         }
 
         $info      = pathinfo($originalFilename);
-        $name      = $info['filename'] ?? 'upload';
+        $name      = $info['filename'];
         $extension = $info['extension'] ?? '';
         $ext       = $extension !== '' ? '.' . $extension : '';
 
@@ -138,7 +138,7 @@ final readonly class UploadDefinition
             '{name}'        => $name,
             '{extension}'   => $extension,
             '{ext}'         => $ext,
-            '{contentHash}' => hash_file('md5', $filePath),
+            '{contentHash}' => (string)hash_file('md5', $filePath),
             '{nameHash}'    => hash('md5', $name),
             '{timestamp}'   => (string)time(),
             '{unique}'      => StringUtility::getUniqueId(),

@@ -23,7 +23,7 @@ final class UploadDefinitionTest extends TestCase
 
     private function makeTempFile(string $content = 'test content'): string
     {
-        $path = tempnam(sys_get_temp_dir(), 'tca_api_mask_test_');
+        $path = tempnam(sys_get_temp_dir(), 'tca_api_mask_test_') ?: sys_get_temp_dir() . '/tca_api_mask_test';
         file_put_contents($path, $content);
         $this->tempFiles[] = $path;
         return $path;

@@ -126,7 +126,7 @@ final class WriteInlineRelationsTest extends ApiFunctionalTestCase
         $colorRow = $this->getConnectionPool()
             ->getConnectionForTable(self::COLOR_TABLE)
             ->select(['pid'], self::COLOR_TABLE, ['uid' => $childUid])
-            ->fetchAssociative();
+            ->fetchAssociative() ?: [];
 
         self::assertSame(1, (int)$colorRow['pid']);
     }
