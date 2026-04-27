@@ -75,23 +75,27 @@ expose the same image at different sizes per operation:
 
     'virtualProperties' => [
         'profile_photo_thumb' => [
-            'column'    => 'profile_photo',   // existing type=file column
-            'processor' => FileProcessor::class,
-            'maxWidth'  => 200,
-            'maxHeight' => 200,
-            'groups'    => ['list'],          // small thumb in list only
+            'column'  => 'profile_photo',     // existing type=file column
+            'image'   => [
+                'maxWidth'    => 200,
+                'maxHeight'   => 200,
+                'cropVariant' => 'default',   // single variant → flat publicUrl/width/height
+            ],
+            'groups'  => ['list'],            // small thumb in list only
         ],
         'profile_photo_large' => [
-            'column'    => 'profile_photo',
-            // no processor → ImageProcessor with cropVariants (default)
-            'maxWidth'  => 1600,
-            'maxHeight' => 1200,
-            'groups'    => ['show'],          // full size in show only
+            'column'  => 'profile_photo',
+            'image'   => [
+                'maxWidth'  => 1600,
+                'maxHeight' => 1200,
+                // no cropVariant → all variants returned as cropVariants map
+            ],
+            'groups'  => ['show'],            // full size in show only
         ],
     ],
 
-The virtual property uses its **own** processor and config keys (``maxWidth``,
-``maxHeight``, etc.) — the referenced column's original config is ignored.
+The virtual property uses its **own** ``image`` config — the referenced
+column's original config is ignored.
 
 Visibility gate
 ===============
@@ -135,7 +139,9 @@ Virtual property options reference
    * - ``groups``
      - Array of operations where this virtual property is active (``list``,
        ``show``). Required in explicit mode.
-   * - ``maxWidth``
-     - Maximum width for image processing (used with file column references).
-   * - ``maxHeight``
-     - Maximum height for image processing (used with file column references).
+   * - ``image``
+     - Image processing options applied when the referenced ``column`` is a
+       ``type=file`` column. Accepts the same keys as the column-level ``image``
+       config: ``width``, ``height``, ``minWidth``, ``minHeight``, ``maxWidth``,
+       ``maxHeight``, ``cropVariant``, ``fileExtension``, ``absolute``. See
+       :ref:`image-processor`.

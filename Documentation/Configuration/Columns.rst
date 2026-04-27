@@ -78,6 +78,10 @@ All keys are optional.
      - Enable file upload for this column via ``multipart/form-data`` requests.
        Must be an array with at least a ``folder`` key (FAL storage reference,
        e.g. ``1:/uploads/``). See :ref:`file-uploads` for all options.
+   * - ``image``
+     - Image processing options for ``ImageProcessor`` columns. Controls
+       dimensions, crop variant selection, format conversion, and URL mode.
+       See :ref:`image-processor` for all options.
 
 ..  _column-processors:
 
@@ -111,11 +115,14 @@ built-in processors:
            'processor' => TypoLinkProcessor::class,
        ],
 
+..  _image-processor:
+
 ``ImageProcessor``
-   Serialises image file references (FAL) with crop-variant support. Returns
-   the same base fields as ``FileProcessor`` plus a ``cropVariants`` map that
-   contains a processed URL, width, and height for every crop variant
-   configured on the field.
+   Serialises image file references (FAL) with full crop-variant support and
+   configurable processing options. By default the processor is used for every
+   ``type=file`` TCA column that has no explicit ``processor`` key.
+
+   Options are controlled via the ``image`` sub-key on the column definition:
 
    ..  code-block:: php
 
@@ -123,16 +130,27 @@ built-in processors:
 
        'hero_image' => [
            'groups'    => ['list', 'show'],
-           'processor' => ImageProcessor::class,
+           'processor' => ImageProcessor::class,  // optional — also the default for type=file
+           'image'     => [
+               'maxWidth'      => 1200,
+               'maxHeight'     => 800,
+               'fileExtension' => 'webp',
+               // omit cropVariant → all variants returned as a map
+           ],
        ],
 
-   Example output:
+   **Output mode 1 — all variants** (``cropVariant`` omitted or ``null``):
+
+   Every crop variant stored on the file reference is processed and returned
+   as a ``cropVariants`` map:
 
    ..  code-block:: json
 
        {
            "hero_image": {
                "publicUrl": "/fileadmin/hero.jpg",
+               "mimeType": "image/jpeg",
+               "fileSize": 204800,
                "metadata": {
                    "title": "Hero",
                    "alternative": "A hero image",
@@ -141,13 +159,86 @@ built-in processors:
                },
                "cropVariants": {
                    "default": {
-                       "publicUrl": "/fileadmin/_processed_/hero_c.jpg",
+                       "publicUrl": "/fileadmin/_processed_/hero_c.webp",
                        "width": 1024,
                        "height": 512
+                   },
+                   "mobile": {
+                       "publicUrl": "/fileadmin/_processed_/hero_m.webp",
+                       "width": 375,
+                       "height": 200
                    }
                }
            }
        }
+
+   **Output mode 2 — single variant** (``cropVariant`` set to a variant ID):
+
+   Only that variant is processed and the result is inlined as the top-level
+   image — no ``cropVariants`` key:
+
+   ..  code-block:: php
+
+       'hero_image' => [
+           'groups' => ['list', 'show'],
+           'image'  => [
+               'maxWidth'    => 1200,
+               'cropVariant' => 'default',    // single-variant mode
+           ],
+       ],
+
+   ..  code-block:: json
+
+       {
+           "hero_image": {
+               "publicUrl": "/fileadmin/_processed_/hero_c.webp",
+               "width": 1200,
+               "height": 600,
+               "mimeType": "image/jpeg",
+               "fileSize": 204800,
+               "metadata": { "title": "Hero", "alternative": null, "description": null, "copyright": null }
+           }
+       }
+
+   .. list-table:: ``image`` key reference
+      :header-rows: 1
+      :widths: 20 15 65
+
+      * - Key
+        - Type
+        - Description
+      * - ``width``
+        - ``string``
+        - Target width. Accepts a plain integer (``"400"``), crop-scale
+          (``"400c"``), or scale-down-only (``"400m"``). Mutually usable with
+          ``maxWidth``.
+      * - ``height``
+        - ``string``
+        - Target height — same notation as ``width``.
+      * - ``minWidth``
+        - ``int``
+        - Minimum width in pixels. Must be a positive integer.
+      * - ``minHeight``
+        - ``int``
+        - Minimum height in pixels. Must be a positive integer.
+      * - ``maxWidth``
+        - ``int``
+        - Maximum width in pixels. Must be a positive integer.
+      * - ``maxHeight``
+        - ``int``
+        - Maximum height in pixels. Must be a positive integer.
+      * - ``cropVariant``
+        - ``string``
+        - Crop variant identifier (e.g. ``'default'``, ``'mobile'``). When set,
+          only that variant is processed and the URL is returned as top-level
+          ``publicUrl`` (no ``cropVariants`` key). When omitted, all variants
+          are returned as a ``cropVariants`` map.
+      * - ``fileExtension``
+        - ``string``
+        - Target file extension for format conversion, e.g. ``'webp'``.
+      * - ``absolute``
+        - ``bool``
+        - Force an absolute URL. Default: ``false``.
 
 Custom processors must implement
 :php:`MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface`.

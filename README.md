@@ -82,7 +82,21 @@ This exposes the following site settings, configurable per site in the TYPO3 bac
 
 Place a PHP file in `Configuration/TcaApi/` inside any active TYPO3 extension. **No manual registration is needed** — the extension auto-discovers all `*.php` files from every active package's `Configuration/TcaApi/` directory at boot time and caches the result.
 
-**Zero-config (sane defaults):** omit `columns` entirely and all non-system TCA columns are auto-exposed for read and write:
+**Zero-config (read-only):** the three required keys are enough. `operations` defaults to `['list', 'show']` and both are `PUBLIC` by default — no `security` block needed:
+
+```php
+<?php
+
+return [
+    'general' => [
+        'table'        => 'tx_myext_domain_model_article',
+        'resourceName' => 'articles',
+        'resourceType' => 'Article',
+    ],
+];
+```
+
+To enable write operations, add them explicitly:
 
 ```php
 <?php
@@ -95,12 +109,9 @@ return [
         'resourceName' => 'articles',
         'resourceType' => 'Article',
         'operations'   => ['list', 'show', 'create', 'update', 'delete'],
-        'itemsPerPage' => 20,
         'storagePid'   => 1,
     ],
     'security' => [
-        'list'   => AccessRole::PUBLIC,
-        'show'   => AccessRole::PUBLIC,
         'create' => AccessRole::FE_USER,
         'update' => AccessRole::FE_USER,
         'delete' => AccessRole::BE_ADMIN,
@@ -202,6 +213,7 @@ Each entry in `columns` maps to a database column. All keys are optional:
 | `processor`    | Column processor class (does **not** trigger explicit mode) |
 | `validators`   | Array of validation rules (see [Validation](#validation)) |
 | `upload`       | Enable file uploads for this column via `multipart/form-data`; must include at least `folder` (FAL storage ref, e.g. `1:/uploads/`). See [File uploads](#file-uploads) |
+| `image`        | Image processing options for `ImageProcessor` columns — controls dimensions, crop variant selection, format conversion, and URL mode. See [Image processor config](#image-processor-config) |
 
 ### Filters
 
@@ -838,23 +850,67 @@ The processor receives the column's raw DB value instead of `null`. For **file/i
 ```php
 'virtualProperties' => [
     'profile_photo_thumb' => [
-        'column'    => 'profile_photo',   // existing type=file column
-        'processor' => FileProcessor::class,
-        'maxWidth'  => 200,
-        'maxHeight' => 200,
-        'groups'    => ['list'],          // small thumb in list only
+        'column'  => 'profile_photo',     // existing type=file column
+        'image'   => [
+            'maxWidth'    => 200,
+            'maxHeight'   => 200,
+            'cropVariant' => 'default',   // single variant → flat publicUrl/width/height
+        ],
+        'groups'  => ['list'],            // small thumb in list only
     ],
     'profile_photo_large' => [
-        'column'    => 'profile_photo',
-        // no processor → ImageProcessor with cropVariants (default)
-        'maxWidth'  => 1600,
-        'maxHeight' => 1200,
-        'groups'    => ['show'],          // full size in show only
+        'column'  => 'profile_photo',
+        'image'   => [
+            'maxWidth'  => 1600,
+            'maxHeight' => 1200,
+            // no cropVariant → all variants returned in cropVariants map
+        ],
+        'groups'  => ['show'],            // full size in show only
     ],
 ],
 ```
 
-The virtual property uses its **own** processor and config keys (`maxWidth`, `maxHeight`, etc.) — the referenced column's original config is ignored.
+The virtual property uses its **own** `image` config — the referenced column's original config is ignored.
+
+#### Image processor config
+
+The `image` key is an array with the following options. All are optional:
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `width` | `string` | Target width. Accepts plain integer (`"400"`), crop-scale (`"400c"`), or scale-down-only (`"400m"`) |
+| `height` | `string` | Target height — same notation as `width` |
+| `minWidth` | `int` | Minimum width in pixels (positive integer) |
+| `minHeight` | `int` | Minimum height in pixels (positive integer) |
+| `maxWidth` | `int` | Maximum width in pixels (positive integer) |
+| `maxHeight` | `int` | Maximum height in pixels (positive integer) |
+| `cropVariant` | `string` | Crop variant identifier. When set, only that variant is processed and the URL is inlined as `publicUrl` (no `cropVariants` key). When omitted, all variants are returned as a `cropVariants` map |
+| `fileExtension` | `string` | Target file extension for format conversion (e.g. `'webp'`) |
+| `absolute` | `bool` | Force an absolute URL. Default: `false` |
+
+**Output modes:**
+
+Without `cropVariant` (or `cropVariant` omitted) — all variants returned:
+```json
+{
+    "publicUrl": "/fileadmin/hero.jpg",
+    "mimeType": "image/jpeg",
+    "cropVariants": {
+        "default": { "publicUrl": "/fileadmin/_processed_/hero_c.jpg", "width": 1024, "height": 512 },
+        "mobile":  { "publicUrl": "/fileadmin/_processed_/hero_m.jpg", "width": 375,  "height": 200 }
+    }
+}
+```
+
+With `cropVariant` set — single variant inlined:
+```json
+{
+    "publicUrl": "/fileadmin/_processed_/hero_c.jpg",
+    "width": 1024,
+    "height": 512,
+    "mimeType": "image/jpeg"
+}
+```
 
 ### Visibility gate
 

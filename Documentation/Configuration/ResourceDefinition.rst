@@ -23,7 +23,7 @@ The ``general`` key defines the basic resource properties:
             'table'        => 'tx_myext_domain_model_article',
             'resourceName' => 'articles',
             'resourceType' => 'Article',
-            'operations'   => ['list', 'show', 'create', 'update', 'delete'],
+            // operations defaults to ['list', 'show'] — omit for read-only resources
             'itemsPerPage' => 20,
             'storagePid'   => 1,
         ],
@@ -45,7 +45,7 @@ The ``general`` key defines the basic resource properties:
      - Set to ``'userinfo'`` to create a :ref:`userinfo endpoint <userinfo>`.
    * - ``operations``
      - Array of enabled operations: ``list``, ``show``, ``create``, ``update``,
-       ``delete``.
+       ``delete``. Defaults to ``['list', 'show']`` when omitted.
    * - ``itemsPerPage``
      - Default page size for list operations (overrides the global site setting).
    * - ``maxItemsPerPage``
@@ -86,8 +86,20 @@ checks entirely. Only use this for trusted, back-channel APIs.
 Minimal example (zero-config)
 ==============================
 
-Omit ``columns`` entirely and all non-system TCA columns are auto-exposed for
-read and write:
+Three keys are all that is needed for a public read-only resource. ``operations``
+defaults to ``['list', 'show']`` and both are ``PUBLIC`` by default:
+
+..  code-block:: php
+
+    return [
+        'general' => [
+            'table'        => 'tx_myext_domain_model_article',
+            'resourceName' => 'articles',
+            'resourceType' => 'Article',
+        ],
+    ];
+
+To enable write operations, add them explicitly and configure security:
 
 ..  code-block:: php
 
@@ -99,10 +111,9 @@ read and write:
             'resourceName' => 'articles',
             'resourceType' => 'Article',
             'operations'   => ['list', 'show', 'create', 'update', 'delete'],
+            'storagePid'   => 1,
         ],
         'security' => [
-            'list'   => AccessRole::PUBLIC,
-            'show'   => AccessRole::PUBLIC,
             'create' => AccessRole::FE_USER,
             'update' => AccessRole::FE_USER,
             'delete' => AccessRole::BE_ADMIN,
