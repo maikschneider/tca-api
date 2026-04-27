@@ -44,10 +44,6 @@ trait FileUploadTrait
 
             $files = \is_array($fileOrFiles) ? $fileOrFiles : [$fileOrFiles];
             foreach ($files as $file) {
-                if (!$file instanceof UploadedFile) {
-                    continue;
-                }
-
                 $tmpPath = null;
                 try {
                     [$backed, $tmpPath] = $this->ensureFileBacked($file);
@@ -89,7 +85,7 @@ trait FileUploadTrait
             $files = \is_array($fileOrFiles) ? $fileOrFiles : [$fileOrFiles];
 
             foreach ($files as $file) {
-                if (!$file instanceof UploadedFile || $file->getError() !== \UPLOAD_ERR_OK) {
+                if ($file->getError() !== \UPLOAD_ERR_OK) {
                     continue;
                 }
 

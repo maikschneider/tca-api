@@ -53,10 +53,10 @@ final class TcaColumnDiscovery
 
         $result = [];
         foreach (array_keys($tca['columns']) as $colName) {
-            if (isset($excluded[$colName]) || str_starts_with($colName, 't3ver_')) {
+            if (isset($excluded[$colName]) || str_starts_with((string)$colName, 't3ver_')) {
                 continue;
             }
-            $result[] = $colName;
+            $result[] = (string)$colName;
         }
 
         return self::$columnNameCache[$table] = $result;

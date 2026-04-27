@@ -326,7 +326,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         $colorRow = $this->getConnectionPool()
             ->getConnectionForTable('tx_myext_domain_model_color')
             ->select(['hex'], 'tx_myext_domain_model_color', ['uid' => $colorUid])
-            ->fetchAssociative();
+            ->fetchAssociative() ?: [];
 
         // FE user uid=1 must be injected into the ownership column
         self::assertSame('1', (string)$colorRow['hex']);
@@ -346,7 +346,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         $colorRow = $this->getConnectionPool()
             ->getConnectionForTable('tx_myext_domain_model_color')
             ->select(['hex'], 'tx_myext_domain_model_color', ['uid' => $colorUid])
-            ->fetchAssociative();
+            ->fetchAssociative() ?: [];
 
         self::assertSame('1', (string)$colorRow['hex'], 'Client hex value must be stripped and replaced by server-injected FE user UID');
     }
@@ -369,7 +369,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         $colorRow = $this->getConnectionPool()
             ->getConnectionForTable('tx_myext_domain_model_color')
             ->select(['hex', 'foreign_article_id'], 'tx_myext_domain_model_color', ['uid' => $colorUid])
-            ->fetchAssociative();
+            ->fetchAssociative() ?: [];
 
         self::assertSame('1', (string)$colorRow['hex'], 'ownership.column must receive FE user UID');
         self::assertSame(1, (int)$colorRow['foreign_article_id'], 'ownership.setOnCreate must receive FE user UID');

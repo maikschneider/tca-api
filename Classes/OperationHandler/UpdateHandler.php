@@ -4,19 +4,16 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\OperationHandler;
 
+use JsonException;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\DataWriteService;
-use MaikSchneider\TcaApi\DataAccess\FileUploadService;
-use MaikSchneider\TcaApi\DataAccess\RelationInputResolver;
 use MaikSchneider\TcaApi\Event\AfterOperationEvent;
 use MaikSchneider\TcaApi\Event\AfterWriteEvent;
 use MaikSchneider\TcaApi\Event\BeforeWriteEvent;
 use MaikSchneider\TcaApi\Security\WriteContextFactory;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
-use MaikSchneider\TcaApi\Validation\FieldValidator;
-use MaikSchneider\TcaApi\Validation\UploadValidator;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -34,12 +31,8 @@ class UpdateHandler implements OperationHandlerInterface
         private readonly DataRepository $dataRepository,
         private readonly ResourceSerializer $serializer,
         private readonly HydraResponseBuilder $hydraResponseBuilder,
-        private readonly FieldValidator $fieldValidator,
         private readonly EventDispatcherInterface $eventDispatcher,
-        private readonly RelationInputResolver $relationResolver,
-        private readonly WriteContextFactory $writeContextFactory,
-        private readonly FileUploadService $fileUploadService,
-        private readonly UploadValidator $uploadValidator,
+        private readonly WriteContextFactory $writeContextFactory
     ) {
     }
 
@@ -48,6 +41,9 @@ class UpdateHandler implements OperationHandlerInterface
         return $operation === 'update';
     }
 
+    /**
+     * @throws JsonException
+     */
     public function handle(ServerRequestInterface $request, ApiDefinition $config): ResponseInterface
     {
         $uid     = (int)$request->getAttribute('tca_api.uid');

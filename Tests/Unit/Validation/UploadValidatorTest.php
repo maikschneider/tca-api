@@ -75,7 +75,7 @@ final class UploadValidatorTest extends TestCase
         string $clientMediaType = 'application/octet-stream',
         int $error = \UPLOAD_ERR_OK,
     ): UploadedFile {
-        $tmpPath = tempnam(sys_get_temp_dir(), 'tca_api_test_');
+        $tmpPath = tempnam(sys_get_temp_dir(), 'tca_api_test_') ?: sys_get_temp_dir() . '/tca_api_test';
         file_put_contents($tmpPath, $content);
         $this->tempFiles[] = $tmpPath;
         return new UploadedFile($tmpPath, \strlen($content), $error, $filename, $clientMediaType);

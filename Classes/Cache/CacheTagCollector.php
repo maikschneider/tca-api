@@ -15,7 +15,7 @@ final class CacheTagCollector
 {
     private bool $active = false;
 
-    /** @var string[] */
+    /** @var array<string, bool> */
     private array $tags = [];
 
     /**
