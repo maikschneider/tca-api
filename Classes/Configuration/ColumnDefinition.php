@@ -29,6 +29,7 @@ final readonly class ColumnDefinition
         public readonly ?string $column        = null,
         public readonly mixed $callback      = null,
         public readonly ?UploadDefinition $upload = null,
+        public readonly ?ImageDefinition $image = null,
     ) {
     }
 
@@ -236,6 +237,23 @@ final readonly class ColumnDefinition
             $upload = UploadDefinition::fromArray($raw['upload']);
         }
 
+        // ── image ─────────────────────────────────────────────────────────
+        $image = null;
+        if (\array_key_exists('image', $raw)) {
+            if (!\is_array($raw['image'])) {
+                throw new \InvalidArgumentException('Column config "image" must be an array.');
+            }
+            try {
+                $image = ImageDefinition::fromArray($raw['image']);
+            } catch (\InvalidArgumentException $e) {
+                throw new \InvalidArgumentException(
+                    sprintf('Column config "image": %s', $e->getMessage()),
+                    0,
+                    $e,
+                );
+            }
+        }
+
         return new self(
             groups:       $groups,
             type:         $type,
@@ -248,6 +266,7 @@ final readonly class ColumnDefinition
             column:       $column,
             callback:     $callback,
             upload:       $upload,
+            image:        $image,
         );
     }
 }
