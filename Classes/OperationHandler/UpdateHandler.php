@@ -8,12 +8,16 @@ use JsonException;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\DataWriteService;
+use MaikSchneider\TcaApi\DataAccess\FileUploadService;
+use MaikSchneider\TcaApi\DataAccess\RelationInputResolver;
 use MaikSchneider\TcaApi\Event\AfterOperationEvent;
 use MaikSchneider\TcaApi\Event\AfterWriteEvent;
 use MaikSchneider\TcaApi\Event\BeforeWriteEvent;
 use MaikSchneider\TcaApi\Security\WriteContextFactory;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
+use MaikSchneider\TcaApi\Validation\FieldValidator;
+use MaikSchneider\TcaApi\Validation\UploadValidator;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -29,6 +33,10 @@ class UpdateHandler implements OperationHandlerInterface
     public function __construct(
         private readonly DataWriteService $writeService,
         private readonly DataRepository $dataRepository,
+        private readonly FieldValidator $fieldValidator,
+        private readonly RelationInputResolver $relationResolver,
+        private readonly FileUploadService $fileUploadService,
+        private readonly UploadValidator $uploadValidator,
         private readonly ResourceSerializer $serializer,
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly EventDispatcherInterface $eventDispatcher,
