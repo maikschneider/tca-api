@@ -1078,38 +1078,34 @@ Every filter strategy is a class that implements `FilterInterface`. The extensio
 ```php
 <?php
 
+use MaikSchneider\TcaApi\Filter\FilterContext;
 use MaikSchneider\TcaApi\Filter\FilterInterface;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 
 final class PublishedAfterFilter implements FilterInterface
 {
-    public function getStrategy(): string
-    {
-        return 'published_after';
-    }
-
-    public function apply(QueryBuilder $qb, string $column, array $filterConfig): void
+    public function apply(QueryBuilder $qb, FilterContext $context): void
     {
         $qb->andWhere($qb->expr()->gte(
-            $column,
-            $qb->createNamedParameter((int)$filterConfig['value']),
+            $context->column,
+            $qb->createNamedParameter((int)$context->value),
         ));
     }
 }
 ```
 
-The `$filterConfig` array always contains:
+`FilterContext` is a typed readonly value object. Its properties are:
 
-| Key | Description |
-|-----|-------------|
-| `value` | Filter value from the request query string |
-| `strategy` | Strategy name as declared in the resource config |
-| `_table` | Resource table name |
-| `_column` | Column name (same as the `$column` parameter) |
-| `_request` | `ServerRequestInterface` — access query params, auth context, headers |
-| `_resourceConfig` | Full resource config (general, columns, filters, order, …) |
+| Property | Type | Description |
+|----------|------|-------------|
+| `value` | `mixed` | Filter value from the request query string |
+| `table` | `string` | Resource table name |
+| `column` | `string` | Column name this filter is applied to |
+| `options` | `array` | Filter-specific options from the resource config |
+| `request` | `ServerRequestInterface\|null` | PSR-7 request — available in HTTP context; `null` in unit tests |
+| `resourceConfig` | `ApiDefinition\|null` | Full resource config — available in HTTP context; `null` in unit tests |
 
-Plus any additional keys declared in the resource's filter config entry.
+Use `$context->option('key', $default)` to read from `options` with a fallback default.
 
 ### Using the custom filter
 
@@ -1129,7 +1125,7 @@ To pass extra config to the filter, use the two-element array form:
 'filters' => [
     'publish_date' => [
         PublishedAfterFilter::class,
-        ['threshold' => 30],   // available in $filterConfig['threshold']
+        ['threshold' => 30],   // available via $context->option('threshold')
     ],
 ],
 ```

@@ -157,24 +157,57 @@ Supported ``type`` values: ``int``, ``float``, ``string``, ``date``,
 Custom filters
 ==============
 
-Implement ``FilterInterface`` to create your own filter strategy:
+Implement ``FilterInterface`` to create your own filter strategy. The extension
+discovers all implementations automatically via Symfony DI — no
+``Services.yaml`` registration is needed.
 
 ..  code-block:: php
 
+    use MaikSchneider\TcaApi\Filter\FilterContext;
     use MaikSchneider\TcaApi\Filter\FilterInterface;
     use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 
-    class MyCustomFilter implements FilterInterface
+    final class PublishedAfterFilter implements FilterInterface
     {
-        public function apply(
-            QueryBuilder $queryBuilder,
-            string $column,
-            mixed $value,
-            array $options = []
-        ): void {
-            // Build custom WHERE clauses
+        public function apply(QueryBuilder $qb, FilterContext $context): void
+        {
+            $qb->andWhere($qb->expr()->gte(
+                $context->column,
+                $qb->createNamedParameter((int)$context->value),
+            ));
         }
     }
+
+``FilterContext`` is a typed readonly value object:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 20 60
+
+   * - Property
+     - Type
+     - Description
+   * - ``value``
+     - ``mixed``
+     - Filter value from the request query string
+   * - ``table``
+     - ``string``
+     - Resource table name
+   * - ``column``
+     - ``string``
+     - Column name this filter is applied to
+   * - ``options``
+     - ``array``
+     - Filter-specific options from the resource config
+   * - ``request``
+     - ``ServerRequestInterface|null``
+     - PSR-7 request — available in HTTP context; ``null`` in unit tests
+   * - ``resourceConfig``
+     - ``ApiDefinition|null``
+     - Full resource config — available in HTTP context; ``null`` in unit tests
+
+Use ``$context->option('key', $default)`` to read from ``options`` with a
+fallback default.
 
 Register it the same way as built-in filters:
 
@@ -182,6 +215,6 @@ Register it the same way as built-in filters:
 
     'filters' => [
         'myColumn' => MyCustomFilter::class,
-        // or with options:
+        // or with options — accessed via $context->option('key')
         'other'    => [MyCustomFilter::class, ['key' => 'value']],
     ],
