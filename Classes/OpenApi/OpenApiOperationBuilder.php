@@ -203,12 +203,10 @@ final readonly class OpenApiOperationBuilder
         if ($config->filters !== []) {
             $filterProperties = [];
             foreach ($config->filters as $field => $filterConfig) {
-                $options = is_array($filterConfig) ? ($filterConfig[1] ?? []) : [];
-                if ($options['private'] ?? false) {
+                if ($filterConfig->isPrivate) {
                     continue;
                 }
-                $filterClass = is_string($filterConfig) ? $filterConfig : ($filterConfig[0] ?? '');
-                $shortName = basename(str_replace('\\', '/', $filterClass)) ?: $filterClass;
+                $shortName = basename(str_replace('\\', '/', $filterConfig->filterClass)) ?: $filterConfig->filterClass;
                 $filterProperties[$field] = ['type' => 'string', 'description' => 'Filter by ' . $field . ' (' . $shortName . ')'];
             }
             $params[] = [

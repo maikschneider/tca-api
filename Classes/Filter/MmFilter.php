@@ -7,7 +7,7 @@ namespace MaikSchneider\TcaApi\Filter;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 
-final class MmFilter implements FilterInterface
+final class MmFilter implements FilterInterface, FilterPreResolvableInterface
 {
     public function __construct(
         private readonly TcaSchemaFactory $schemaFactory,
@@ -37,6 +37,38 @@ final class MmFilter implements FilterInterface
             implode(' AND ', $parts),
         );
         $qb->andWhere($qb->expr()->in('uid', '(' . $subSql . ')'));
+    }
+
+    public function preResolve(FilterDefinition $definition): FilterDefinition
+    {
+        if ($definition->option('mm_table') !== null) {
+            return $definition;
+        }
+
+        // Guard for unit-test / empty-table contexts
+        if ($definition->table === '' || !$this->schemaFactory->has($definition->table)) {
+            return $definition;
+        }
+
+        $schema = $this->schemaFactory->get($definition->table);
+        if (!$schema->hasField($definition->column)) {
+            return $definition;
+        }
+
+        $config  = $schema->getField($definition->column)->getConfiguration();
+        $mmTable = $config['MM'] ?? null;
+        if ($mmTable === null) {
+            return $definition;
+        }
+
+        $hasOppositeField = isset($config['MM_opposite_field']);
+
+        return $definition->withOptions([
+            'mm_table'       => $mmTable,
+            'mm_local_key'   => $hasOppositeField ? 'uid_local' : 'uid_foreign',
+            'mm_foreign_key' => $hasOppositeField ? 'uid_foreign' : 'uid_local',
+            'mm_constraints' => $config['MM_match_fields'] ?? [],
+        ]);
     }
 
     private function deriveMmConfigFromTca(FilterContext $context): FilterContext
