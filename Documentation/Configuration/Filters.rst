@@ -218,3 +218,85 @@ Register it the same way as built-in filters:
         // or with options — accessed via $context->option('key')
         'other'    => [MyCustomFilter::class, ['key' => 'value']],
     ],
+
+Default values and private filters
+===================================
+
+Two meta-keys are available on any filter definition and control server-side
+defaults and enforcement:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 15 15 70
+
+   * - Option
+     - Type
+     - Description
+   * - ``default``
+     - ``mixed``
+     - Value applied when the filter is absent from the request URL params.
+   * - ``private``
+     - ``bool``
+     - When ``true``, ``default`` always applies — user-supplied values are
+       ignored. The filter is also excluded from the OpenAPI spec.
+
+..  code-block:: php
+
+    use MaikSchneider\TcaApi\Filter\ExactFilter;
+
+    'filters' => [
+        // Overrideable default — applied when ?filters[color_id] is absent
+        'color_id' => [ExactFilter::class, ['default' => '1']],
+
+        // Private filter — default always applies, cannot be overridden via
+        // URL, and does not appear in the OpenAPI spec
+        'deleted' => [ExactFilter::class, ['default' => '0', 'private' => true]],
+    ],
+
+A private filter without a ``default`` has no effect.
+
+Boot-time pre-resolution (FilterPreResolvableInterface)
+=======================================================
+
+For filters that need expensive configuration — such as TCA schema lookups —
+implement ``FilterPreResolvableInterface`` in addition to ``FilterInterface``:
+
+..  code-block:: php
+
+    use MaikSchneider\TcaApi\Filter\FilterContext;
+    use MaikSchneider\TcaApi\Filter\FilterDefinition;
+    use MaikSchneider\TcaApi\Filter\FilterInterface;
+    use MaikSchneider\TcaApi\Filter\FilterPreResolvableInterface;
+    use TYPO3\CMS\Core\Database\Query\QueryBuilder;
+
+    final class MyExpensiveFilter implements FilterInterface, FilterPreResolvableInterface
+    {
+        public function preResolve(FilterDefinition $definition): FilterDefinition
+        {
+            // Called once at definition build time (cache miss).
+            // Derive expensive config and bake it in via withOptions().
+            if ($definition->table === '') {
+                return $definition; // guard for unit-test contexts
+            }
+            return $definition->withOptions(['resolved_value' => $this->deriveFromTca($definition)]);
+        }
+
+        public function apply(QueryBuilder $qb, FilterContext $context): void
+        {
+            // $context->option('resolved_value') is already set from preResolve()
+            $qb->andWhere($qb->expr()->eq(
+                $context->column,
+                $qb->createNamedParameter($context->option('resolved_value')),
+            ));
+        }
+    }
+
+``ApiDefinitionLoader`` calls ``preResolve()`` once per filter column during the
+definition build (on cache miss). The returned ``FilterDefinition``, with derived
+options merged in, is stored alongside the ``ApiDefinition`` cache entry.
+Subsequent boots load the pre-resolved definition directly — the TCA lookup does
+not repeat.
+
+``apply()`` must remain safe when ``preResolve()`` was never called (unit-test
+contexts where no loader is involved). Check ``$definition->table === ''`` or
+``$context->option('resolved_value') === null`` as guards.
