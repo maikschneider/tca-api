@@ -1,0 +1,170 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MaikSchneider\TcaApi\Tests\Unit\Serializer;
+
+use GuzzleHttp\Psr7\HttpFactory;
+use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+
+final class HydraResponseBuilderTest extends TestCase
+{
+    private HydraResponseBuilder $builder;
+
+    protected function setUp(): void
+    {
+        $this->builder = new HydraResponseBuilder(new HttpFactory());
+    }
+
+    // ── buildItem() ──────────────────────────────────────────────────────
+
+    #[Test]
+    public function buildItemReturns200WithJsonLdContentType(): void
+    {
+        $response = $this->builder->buildItem(['@type' => 'News', 'uid' => 1]);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('application/ld+json', $response->getHeaderLine('Content-Type'));
+    }
+
+    #[Test]
+    public function buildItemBodyContainsJsonEncodedData(): void
+    {
+        $data     = ['@type' => 'News', 'uid' => 1, 'title' => 'Hello'];
+        $response = $this->builder->buildItem($data);
+
+        $body = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame('News', $body['@type']);
+        self::assertSame(1, $body['uid']);
+        self::assertSame('Hello', $body['title']);
+    }
+
+    // ── buildError() ─────────────────────────────────────────────────────
+
+    #[Test]
+    public function buildErrorReturnsSpecifiedStatusCode(): void
+    {
+        $response = $this->builder->buildError(403, 'Access denied', 'Forbidden');
+
+        self::assertSame(403, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function buildErrorBodyContainsHydraTitleAndDescription(): void
+    {
+        $response = $this->builder->buildError(404, 'Resource not found', 'Not Found');
+
+        $body = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame('hydra:Error', $body['@type']);
+        self::assertSame('Not Found', $body['hydra:title']);
+        self::assertSame('Resource not found', $body['hydra:description']);
+    }
+
+    #[Test]
+    public function buildErrorDefaultTitleIsError(): void
+    {
+        $response = $this->builder->buildError(500, 'Something went wrong');
+
+        $body = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame('Error', $body['hydra:title']);
+    }
+
+    // ── buildValidationError() ───────────────────────────────────────────
+
+    #[Test]
+    public function buildValidationErrorReturns422(): void
+    {
+        $response = $this->builder->buildValidationError([]);
+
+        self::assertSame(422, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function buildValidationErrorBodyContainsViolationsArray(): void
+    {
+        $violations = [
+            ['propertyPath' => 'title', 'message' => 'Too short', 'code' => 'too_short'],
+        ];
+
+        $response = $this->builder->buildValidationError($violations);
+        $body     = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame('hydra:Error', $body['@type']);
+        self::assertSame('Validation Failed', $body['hydra:title']);
+        self::assertCount(1, $body['violations']);
+        self::assertSame('title', $body['violations'][0]['propertyPath']);
+    }
+
+    // ── buildCollection() ────────────────────────────────────────────────
+
+    #[Test]
+    public function buildCollectionReturns200WithJsonLdContentType(): void
+    {
+        $response = $this->builder->buildCollection([], 0, '/api/news', 1, 10);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('application/ld+json', $response->getHeaderLine('Content-Type'));
+    }
+
+    #[Test]
+    public function buildCollectionBodyContainsMembersAndTotalItems(): void
+    {
+        $members  = [['uid' => 1], ['uid' => 2]];
+        $response = $this->builder->buildCollection($members, 50, '/api/news', 1, 10);
+
+        $body = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame('hydra:Collection', $body['@type']);
+        self::assertSame(50, $body['hydra:totalItems']);
+        self::assertCount(2, $body['hydra:member']);
+    }
+
+    #[Test]
+    public function buildCollectionViewContainsFirstAndLastPageLinks(): void
+    {
+        $response = $this->builder->buildCollection([], 30, '/api/news', 1, 10);
+
+        $body = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $view = $body['hydra:view'];
+
+        self::assertSame('hydra:PartialCollectionView', $view['@type']);
+        self::assertStringContainsString('page=1', $view['hydra:first']);
+        self::assertStringContainsString('page=3', $view['hydra:last']);
+    }
+
+    #[Test]
+    public function buildCollectionViewHasNoPreviousOnFirstPage(): void
+    {
+        $response = $this->builder->buildCollection([], 20, '/api/news', 1, 10);
+
+        $body = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertNull($body['hydra:view']['hydra:previous']);
+    }
+
+    #[Test]
+    public function buildCollectionViewHasNoNextOnLastPage(): void
+    {
+        $response = $this->builder->buildCollection([], 10, '/api/news', 1, 10);
+
+        $body = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertNull($body['hydra:view']['hydra:next']);
+    }
+
+    #[Test]
+    public function buildCollectionViewHasPreviousAndNextOnMiddlePage(): void
+    {
+        $response = $this->builder->buildCollection([], 30, '/api/news', 2, 10);
+
+        $body = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertStringContainsString('page=1', $body['hydra:view']['hydra:previous']);
+        self::assertStringContainsString('page=3', $body['hydra:view']['hydra:next']);
+    }
+}
