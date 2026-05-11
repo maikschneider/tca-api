@@ -84,6 +84,8 @@ final readonly class FilterDefinition
     public static function fromRaw(string $table, string $column, mixed $raw, array $filterMap = []): self
     {
         if (\is_string($raw)) {
+            self::assertValidFilterClass($raw, $column);
+
             $def = new self(
                 filterClass: $raw,
                 table:       $table,
@@ -94,6 +96,8 @@ final readonly class FilterDefinition
         }
 
         if (\is_array($raw) && \is_string($raw[0] ?? null)) {
+            self::assertValidFilterClass($raw[0], $column);
+
             if (isset($raw[1]) && !\is_array($raw[1])) {
                 throw new \InvalidArgumentException(
                     sprintf('filter "%s" options (second element) must be an array.', $column),
@@ -123,5 +127,19 @@ final readonly class FilterDefinition
                 $column,
             ),
         );
+    }
+
+    private static function assertValidFilterClass(string $filterClass, string $column): void
+    {
+        if (!class_exists($filterClass)) {
+            throw new \InvalidArgumentException(
+                sprintf('filter "%s": class "%s" does not exist.', $column, $filterClass),
+            );
+        }
+        if (!is_a($filterClass, FilterInterface::class, true)) {
+            throw new \InvalidArgumentException(
+                sprintf('filter "%s": class "%s" does not implement FilterInterface.', $column, $filterClass),
+            );
+        }
     }
 }

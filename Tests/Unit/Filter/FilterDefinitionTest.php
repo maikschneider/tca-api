@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Unit\Filter;
 
+use MaikSchneider\TcaApi\Filter\ExactFilter;
 use MaikSchneider\TcaApi\Filter\FilterDefinition;
+use MaikSchneider\TcaApi\Filter\MmFilter;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -15,9 +17,9 @@ final class FilterDefinitionTest extends TestCase
     #[Test]
     public function fromRawWithClassStringCreatesDefinition(): void
     {
-        $def = FilterDefinition::fromRaw('tx_test', 'title', 'Ns\\ExactFilter');
+        $def = FilterDefinition::fromRaw('tx_test', 'title', ExactFilter::class);
 
-        self::assertSame('Ns\\ExactFilter', $def->filterClass);
+        self::assertSame(ExactFilter::class, $def->filterClass);
         self::assertSame('tx_test', $def->table);
         self::assertSame('title', $def->column);
         self::assertSame([], $def->options);
@@ -30,9 +32,9 @@ final class FilterDefinitionTest extends TestCase
     #[Test]
     public function fromRawWithClassAndOptionsCreatesDefinition(): void
     {
-        $def = FilterDefinition::fromRaw('tx_test', 'tags', ['Ns\\MmFilter', ['mm_table' => 'sys_mm']]);
+        $def = FilterDefinition::fromRaw('tx_test', 'tags', [MmFilter::class, ['mm_table' => 'sys_mm']]);
 
-        self::assertSame('Ns\\MmFilter', $def->filterClass);
+        self::assertSame(MmFilter::class, $def->filterClass);
         self::assertSame(['mm_table' => 'sys_mm'], $def->options);
         self::assertFalse($def->isPrivate);
         self::assertNull($def->default);
@@ -43,9 +45,9 @@ final class FilterDefinitionTest extends TestCase
     #[Test]
     public function fromRawWithClassOnlyArrayCreatesDefinition(): void
     {
-        $def = FilterDefinition::fromRaw('tx_test', 'col', ['Ns\\MyFilter']);
+        $def = FilterDefinition::fromRaw('tx_test', 'col', [ExactFilter::class]);
 
-        self::assertSame('Ns\\MyFilter', $def->filterClass);
+        self::assertSame(ExactFilter::class, $def->filterClass);
         self::assertSame([], $def->options);
     }
 
@@ -54,7 +56,7 @@ final class FilterDefinitionTest extends TestCase
     #[Test]
     public function fromRawStripsPrivateFromOptions(): void
     {
-        $def = FilterDefinition::fromRaw('tx_test', 'col', ['Ns\\F', ['private' => true, 'x' => 1]]);
+        $def = FilterDefinition::fromRaw('tx_test', 'col', [ExactFilter::class, ['private' => true, 'x' => 1]]);
 
         self::assertTrue($def->isPrivate);
         self::assertSame(['x' => 1], $def->options);
@@ -66,7 +68,7 @@ final class FilterDefinitionTest extends TestCase
     #[Test]
     public function fromRawStripsDefaultFromOptions(): void
     {
-        $def = FilterDefinition::fromRaw('tx_test', 'col', ['Ns\\F', ['default' => 'foo', 'x' => 1]]);
+        $def = FilterDefinition::fromRaw('tx_test', 'col', [ExactFilter::class, ['default' => 'foo', 'x' => 1]]);
 
         self::assertSame('foo', $def->default);
         self::assertSame(['x' => 1], $def->options);
@@ -79,13 +81,57 @@ final class FilterDefinitionTest extends TestCase
     public function fromRawStripsBothMetaKeys(): void
     {
         $def = FilterDefinition::fromRaw('tx_test', 'col', [
-            'Ns\\F',
+            ExactFilter::class,
             ['private' => true, 'default' => 'x', 'type' => 'int'],
         ]);
 
         self::assertTrue($def->isPrivate);
         self::assertSame('x', $def->default);
         self::assertSame(['type' => 'int'], $def->options);
+    }
+
+    // ── fromRaw — invalid class-string (non-existent class) ─────────────
+
+    #[Test]
+    public function fromRawWithNonExistentClassThrows(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('filter "col"');
+        $this->expectExceptionMessage('NonExistent\\Filter');
+
+        FilterDefinition::fromRaw('tx_test', 'col', 'NonExistent\\Filter');
+    }
+
+    #[Test]
+    public function fromRawWithArrayShapeNonExistentClassThrows(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('filter "col"');
+        $this->expectExceptionMessage('NonExistent\\Filter');
+
+        FilterDefinition::fromRaw('tx_test', 'col', ['NonExistent\\Filter', []]);
+    }
+
+    // ── fromRaw — class not implementing FilterInterface ─────────────────
+
+    #[Test]
+    public function fromRawWithClassNotImplementingFilterInterfaceThrows(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('filter "col"');
+        $this->expectExceptionMessage(\stdClass::class);
+
+        FilterDefinition::fromRaw('tx_test', 'col', \stdClass::class);
+    }
+
+    #[Test]
+    public function fromRawWithArrayShapeClassNotImplementingFilterInterfaceThrows(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('filter "col"');
+        $this->expectExceptionMessage(\stdClass::class);
+
+        FilterDefinition::fromRaw('tx_test', 'col', [\stdClass::class, []]);
     }
 
     // ── fromRaw — invalid shape ──────────────────────────────────────────
@@ -112,7 +158,7 @@ final class FilterDefinitionTest extends TestCase
     #[Test]
     public function optionReturnsDefaultWhenKeyAbsent(): void
     {
-        $def = FilterDefinition::fromRaw('tx_test', 'col', 'Ns\\F');
+        $def = FilterDefinition::fromRaw('tx_test', 'col', ExactFilter::class);
 
         self::assertNull($def->option('type'));
         self::assertSame('fallback', $def->option('type', 'fallback'));
@@ -121,7 +167,7 @@ final class FilterDefinitionTest extends TestCase
     #[Test]
     public function optionReturnsValueWhenKeyPresent(): void
     {
-        $def = FilterDefinition::fromRaw('tx_test', 'col', ['Ns\\F', ['type' => 'int']]);
+        $def = FilterDefinition::fromRaw('tx_test', 'col', [ExactFilter::class, ['type' => 'int']]);
 
         self::assertSame('int', $def->option('type'));
     }
@@ -131,7 +177,7 @@ final class FilterDefinitionTest extends TestCase
     #[Test]
     public function withOptionsMergesKeysAndReturnsNewInstance(): void
     {
-        $original = FilterDefinition::fromRaw('tx_test', 'col', ['Ns\\F', ['x' => 1]]);
+        $original = FilterDefinition::fromRaw('tx_test', 'col', [ExactFilter::class, ['x' => 1]]);
         $derived  = $original->withOptions(['y' => 2]);
 
         self::assertNotSame($original, $derived);
@@ -142,7 +188,7 @@ final class FilterDefinitionTest extends TestCase
     #[Test]
     public function withOptionsOverwritesExistingKey(): void
     {
-        $original = FilterDefinition::fromRaw('tx_test', 'col', ['Ns\\F', ['type' => 'string']]);
+        $original = FilterDefinition::fromRaw('tx_test', 'col', [ExactFilter::class, ['type' => 'string']]);
         $derived  = $original->withOptions(['type' => 'int']);
 
         self::assertSame('int', $derived->option('type'));
@@ -152,7 +198,7 @@ final class FilterDefinitionTest extends TestCase
     #[Test]
     public function withOptionsPreservesAllOtherProperties(): void
     {
-        $def     = FilterDefinition::fromRaw('tx_test', 'col', ['Ns\\F', ['private' => true, 'default' => 'foo']]);
+        $def     = FilterDefinition::fromRaw('tx_test', 'col', [ExactFilter::class, ['private' => true, 'default' => 'foo']]);
         $derived = $def->withOptions(['x' => 1]);
 
         self::assertSame($def->filterClass, $derived->filterClass);

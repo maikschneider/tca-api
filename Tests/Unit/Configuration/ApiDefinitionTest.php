@@ -7,7 +7,9 @@ namespace MaikSchneider\TcaApi\Tests\Unit\Configuration;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Enum\WriteMode;
+use MaikSchneider\TcaApi\Filter\ExactFilter;
 use MaikSchneider\TcaApi\Filter\FilterDefinition;
+use MaikSchneider\TcaApi\Filter\SearchFilter;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -378,20 +380,20 @@ final class ApiDefinitionTest extends TestCase
     public function filterWithClassStringIsAccepted(): void
     {
         $cfg = self::minimalConfig();
-        $cfg['filters'] = ['title' => 'App\\Filter\\ExactFilter'];
+        $cfg['filters'] = ['title' => ExactFilter::class];
         $def = ApiDefinition::fromArray($cfg);
         self::assertInstanceOf(FilterDefinition::class, $def->filters['title']);
-        self::assertSame('App\\Filter\\ExactFilter', $def->filters['title']->filterClass);
+        self::assertSame(ExactFilter::class, $def->filters['title']->filterClass);
     }
 
     #[Test]
     public function filterWithClassAndOptionsArrayIsAccepted(): void
     {
         $cfg = self::minimalConfig();
-        $cfg['filters'] = ['search' => ['App\\Filter\\SearchFilter', ['columns' => ['title', 'body']]]];
+        $cfg['filters'] = ['search' => [SearchFilter::class, ['columns' => ['title', 'body']]]];
         $def = ApiDefinition::fromArray($cfg);
         self::assertInstanceOf(FilterDefinition::class, $def->filters['search']);
-        self::assertSame('App\\Filter\\SearchFilter', $def->filters['search']->filterClass);
+        self::assertSame(SearchFilter::class, $def->filters['search']->filterClass);
         self::assertSame(['title', 'body'], $def->filters['search']->option('columns'));
     }
 
@@ -399,7 +401,7 @@ final class ApiDefinitionTest extends TestCase
     public function filterWithInvalidOptionsTypeThrows(): void
     {
         $cfg = self::minimalConfig();
-        $cfg['filters'] = ['title' => ['App\\Filter\\ExactFilter', 123]];
+        $cfg['filters'] = ['title' => [ExactFilter::class, 123]];
 
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('filter "title" options');
