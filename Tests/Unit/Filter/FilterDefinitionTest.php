@@ -6,6 +6,7 @@ namespace MaikSchneider\TcaApi\Tests\Unit\Filter;
 
 use MaikSchneider\TcaApi\Filter\ExactFilter;
 use MaikSchneider\TcaApi\Filter\FilterDefinition;
+use MaikSchneider\TcaApi\Filter\FilterPreResolvableInterface;
 use MaikSchneider\TcaApi\Filter\MmFilter;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -206,5 +207,58 @@ final class FilterDefinitionTest extends TestCase
         self::assertSame($def->column, $derived->column);
         self::assertTrue($derived->isPrivate);
         self::assertSame('foo', $derived->default);
+    }
+
+    // ── fromRaw — filterMap preResolve path ──────────────────────────────────
+
+    #[Test]
+    public function fromRawCallsPreResolveWhenFilterMapContainsClass(): void
+    {
+        $extra = new FilterDefinition(
+            filterClass: ExactFilter::class,
+            table:       'tx_test',
+            column:      'col',
+            options:     ['derived_key' => 'derived_value'],
+        );
+
+        $preResolvable = $this->createMock(FilterPreResolvableInterface::class);
+        $preResolvable->method('preResolve')->willReturn($extra);
+
+        $filterMap = [ExactFilter::class => $preResolvable];
+
+        $def = FilterDefinition::fromRaw('tx_test', 'col', ExactFilter::class, $filterMap);
+
+        self::assertSame('derived_value', $def->option('derived_key'));
+    }
+
+    #[Test]
+    public function fromRawCallsPreResolveForArrayShapeWhenFilterMapContainsClass(): void
+    {
+        $extra = new FilterDefinition(
+            filterClass: ExactFilter::class,
+            table:       'tx_test',
+            column:      'col',
+            options:     ['resolved' => true],
+        );
+
+        $preResolvable = $this->createMock(FilterPreResolvableInterface::class);
+        $preResolvable->method('preResolve')->willReturn($extra);
+
+        $filterMap = [ExactFilter::class => $preResolvable];
+
+        $def = FilterDefinition::fromRaw('tx_test', 'col', [ExactFilter::class, ['x' => 1]], $filterMap);
+
+        self::assertTrue($def->option('resolved'));
+    }
+
+    #[Test]
+    public function fromRawUsesOriginalDefWhenFilterMapDoesNotContainClass(): void
+    {
+        $filterMap = []; // ExactFilter not in map
+
+        $def = FilterDefinition::fromRaw('tx_test', 'col', ExactFilter::class, $filterMap);
+
+        self::assertSame(ExactFilter::class, $def->filterClass);
+        self::assertSame([], $def->options);
     }
 }

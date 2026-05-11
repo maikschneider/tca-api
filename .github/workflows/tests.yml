@@ -75,9 +75,13 @@ jobs:
         if: matrix.php-version == '8.4' && matrix.typo3-version == '14.0'
         run: ddev xdebug on
 
+      - name: Run unit tests with coverage
+        if: matrix.php-version == '8.4' && matrix.typo3-version == '14.0'
+        run: ddev exec XDEBUG_MODE=coverage vendor/bin/phpunit --testsuite Unit --coverage-clover coverage.unit.xml
+
       - name: Run functional tests with coverage
         if: matrix.php-version == '8.4' && matrix.typo3-version == '14.0'
-        run: ddev exec XDEBUG_MODE=coverage vendor/bin/phpunit --coverage-clover coverage.xml
+        run: ddev exec XDEBUG_MODE=coverage vendor/bin/phpunit --testsuite Functional --coverage-clover coverage.functional.xml
 
       - name: Run functional tests
         if: "!(matrix.php-version == '8.4' && matrix.typo3-version == '14.0')"
@@ -88,5 +92,4 @@ jobs:
         uses: codecov/codecov-action@v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage.xml
-          flags: functional
+          files: ./coverage.unit.xml,./coverage.functional.xml
