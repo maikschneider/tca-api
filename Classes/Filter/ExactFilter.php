@@ -8,11 +8,11 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 
 final class ExactFilter implements FilterInterface
 {
-    public function apply(QueryBuilder $qb, string $column, array $filterConfig): void
+    public function apply(QueryBuilder $qb, FilterContext $context): void
     {
         $qb->andWhere($qb->expr()->eq(
-            $column,
-            $qb->createNamedParameter((string)$filterConfig['value']),
+            $context->column,
+            $qb->createNamedParameter((string)$context->value),
         ));
     }
 }

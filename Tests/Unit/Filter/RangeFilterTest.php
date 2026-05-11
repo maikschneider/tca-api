@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Unit\Filter;
 
 use Doctrine\DBAL\ParameterType;
+use MaikSchneider\TcaApi\Filter\FilterContext;
 use MaikSchneider\TcaApi\Filter\RangeFilter;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -91,7 +92,7 @@ final class RangeFilterTest extends TestCase
     #[Test]
     public function nativeIntIsBoundAsInteger(): void
     {
-        $this->newFilter()->apply($this->qb, 'tstamp', ['value' => ['gte' => 1700000000]]);
+        $this->newFilter()->apply($this->qb, new FilterContext(value: ['gte' => 1700000000], table: '', column: 'tstamp'));
 
         self::assertCount(1, $this->captured);
         self::assertSame(1700000000, $this->captured[0]['value']);
@@ -101,7 +102,7 @@ final class RangeFilterTest extends TestCase
     #[Test]
     public function digitOnlyStringIsBoundAsInteger(): void
     {
-        $this->newFilter()->apply($this->qb, 'tstamp', ['value' => ['gte' => '1700000000']]);
+        $this->newFilter()->apply($this->qb, new FilterContext(value: ['gte' => '1700000000'], table: '', column: 'tstamp'));
 
         self::assertSame(1700000000, $this->captured[0]['value']);
         self::assertSame(ParameterType::INTEGER, $this->captured[0]['type']);
@@ -110,7 +111,7 @@ final class RangeFilterTest extends TestCase
     #[Test]
     public function nativeFloatIsBoundAsString(): void
     {
-        $this->newFilter()->apply($this->qb, 'price', ['value' => ['lte' => 99.99]]);
+        $this->newFilter()->apply($this->qb, new FilterContext(value: ['lte' => 99.99], table: '', column: 'price'));
 
         self::assertSame('99.99', $this->captured[0]['value']);
         self::assertSame(ParameterType::STRING, $this->captured[0]['type']);
@@ -119,7 +120,7 @@ final class RangeFilterTest extends TestCase
     #[Test]
     public function decimalStringIsBoundAsString(): void
     {
-        $this->newFilter()->apply($this->qb, 'price', ['value' => ['lte' => '99.99']]);
+        $this->newFilter()->apply($this->qb, new FilterContext(value: ['lte' => '99.99'], table: '', column: 'price'));
 
         self::assertSame('99.99', $this->captured[0]['value']);
         self::assertSame(ParameterType::STRING, $this->captured[0]['type']);
@@ -128,7 +129,7 @@ final class RangeFilterTest extends TestCase
     #[Test]
     public function dateStringIsBoundAsString(): void
     {
-        $this->newFilter()->apply($this->qb, 'created_at', ['value' => ['gte' => '2024-01-01']]);
+        $this->newFilter()->apply($this->qb, new FilterContext(value: ['gte' => '2024-01-01'], table: '', column: 'created_at'));
 
         self::assertSame('2024-01-01', $this->captured[0]['value']);
         self::assertSame(ParameterType::STRING, $this->captured[0]['type']);
@@ -137,7 +138,7 @@ final class RangeFilterTest extends TestCase
     #[Test]
     public function negativeNumericStringIsBoundAsString(): void
     {
-        $this->newFilter()->apply($this->qb, 'amount', ['value' => ['gt' => '-5']]);
+        $this->newFilter()->apply($this->qb, new FilterContext(value: ['gt' => '-5'], table: '', column: 'amount'));
 
         // ctype_digit returns false for negatives → falls through to the
         // numeric-string branch and DBAL handles the cast.
@@ -152,11 +153,7 @@ final class RangeFilterTest extends TestCase
     {
         $this->withTcaColumn('tx_test', 'fe_user_id', ['type' => 'number']);
 
-        $this->newFilter()->apply($this->qb, 'fe_user_id', [
-            'value'   => ['gte' => '12.9'],
-            '_table'  => 'tx_test',
-            '_column' => 'fe_user_id',
-        ]);
+        $this->newFilter()->apply($this->qb, new FilterContext(value: ['gte' => '12.9'], table: 'tx_test', column: 'fe_user_id'));
 
         self::assertSame(12, $this->captured[0]['value']);
         self::assertSame(ParameterType::INTEGER, $this->captured[0]['type']);
@@ -170,11 +167,7 @@ final class RangeFilterTest extends TestCase
             'format' => 'decimal',
         ]);
 
-        $this->newFilter()->apply($this->qb, 'price', [
-            'value'   => ['lte' => '99.99'],
-            '_table'  => 'tx_test',
-            '_column' => 'price',
-        ]);
+        $this->newFilter()->apply($this->qb, new FilterContext(value: ['lte' => '99.99'], table: 'tx_test', column: 'price'));
 
         self::assertSame('99.99', $this->captured[0]['value']);
         self::assertSame(ParameterType::STRING, $this->captured[0]['type']);
@@ -186,11 +179,7 @@ final class RangeFilterTest extends TestCase
         // datetime without dbType is stored as a UNIX timestamp.
         $this->withTcaColumn('tx_test', 'tstamp', ['type' => 'datetime']);
 
-        $this->newFilter()->apply($this->qb, 'tstamp', [
-            'value'   => ['gte' => '1704067200'],
-            '_table'  => 'tx_test',
-            '_column' => 'tstamp',
-        ]);
+        $this->newFilter()->apply($this->qb, new FilterContext(value: ['gte' => '1704067200'], table: 'tx_test', column: 'tstamp'));
 
         self::assertSame(1704067200, $this->captured[0]['value']);
         self::assertSame(ParameterType::INTEGER, $this->captured[0]['type']);
@@ -205,11 +194,7 @@ final class RangeFilterTest extends TestCase
             'dbType' => 'datetime',
         ]);
 
-        $this->newFilter()->apply($this->qb, 'created_at', [
-            'value'   => ['gte' => '2024-01-01 00:00:00'],
-            '_table'  => 'tx_test',
-            '_column' => 'created_at',
-        ]);
+        $this->newFilter()->apply($this->qb, new FilterContext(value: ['gte' => '2024-01-01 00:00:00'], table: 'tx_test', column: 'created_at'));
 
         self::assertSame('2024-01-01 00:00:00', $this->captured[0]['value']);
         self::assertSame(ParameterType::STRING, $this->captured[0]['type']);
@@ -223,11 +208,7 @@ final class RangeFilterTest extends TestCase
             'eval' => 'trim,int',
         ]);
 
-        $this->newFilter()->apply($this->qb, 'count', [
-            'value'   => ['gte' => '42'],
-            '_table'  => 'tx_test',
-            '_column' => 'count',
-        ]);
+        $this->newFilter()->apply($this->qb, new FilterContext(value: ['gte' => '42'], table: 'tx_test', column: 'count'));
 
         self::assertSame(42, $this->captured[0]['value']);
         self::assertSame(ParameterType::INTEGER, $this->captured[0]['type']);
@@ -241,11 +222,7 @@ final class RangeFilterTest extends TestCase
             'eval' => 'trim',
         ]);
 
-        $this->newFilter()->apply($this->qb, 'note', [
-            'value'   => ['gte' => '2024-01-01'],
-            '_table'  => 'tx_test',
-            '_column' => 'note',
-        ]);
+        $this->newFilter()->apply($this->qb, new FilterContext(value: ['gte' => '2024-01-01'], table: 'tx_test', column: 'note'));
 
         self::assertSame('2024-01-01', $this->captured[0]['value']);
         self::assertSame(ParameterType::STRING, $this->captured[0]['type']);
@@ -256,11 +233,7 @@ final class RangeFilterTest extends TestCase
     {
         $this->withTcaColumn('tx_test', 'data', ['type' => 'json']);
 
-        $this->newFilter()->apply($this->qb, 'data', [
-            'value'   => ['gte' => 5],
-            '_table'  => 'tx_test',
-            '_column' => 'data',
-        ]);
+        $this->newFilter()->apply($this->qb, new FilterContext(value: ['gte' => 5], table: 'tx_test', column: 'data'));
 
         self::assertSame(5, $this->captured[0]['value']);
         self::assertSame(ParameterType::INTEGER, $this->captured[0]['type']);
@@ -270,11 +243,7 @@ final class RangeFilterTest extends TestCase
     public function missingTcaSchemaFallsBackToAutodetection(): void
     {
         // Default mock returns has()=false; just provide the keys.
-        $this->newFilter()->apply($this->qb, 'col', [
-            'value'   => ['gte' => '2024-01-01'],
-            '_table'  => 'tx_unknown',
-            '_column' => 'col',
-        ]);
+        $this->newFilter()->apply($this->qb, new FilterContext(value: ['gte' => '2024-01-01'], table: 'tx_unknown', column: 'col'));
 
         self::assertSame('2024-01-01', $this->captured[0]['value']);
         self::assertSame(ParameterType::STRING, $this->captured[0]['type']);
@@ -288,12 +257,7 @@ final class RangeFilterTest extends TestCase
         // TCA says int, but the explicit `string` option wins.
         $this->withTcaColumn('tx_test', 'sku', ['type' => 'number']);
 
-        $this->newFilter()->apply($this->qb, 'sku', [
-            'value'   => ['gte' => '0042'],
-            'type'    => 'string',
-            '_table'  => 'tx_test',
-            '_column' => 'sku',
-        ]);
+        $this->newFilter()->apply($this->qb, new FilterContext(value: ['gte' => '0042'], table: 'tx_test', column: 'sku', options: ['type' => 'string']));
 
         self::assertSame('0042', $this->captured[0]['value']);
         self::assertSame(ParameterType::STRING, $this->captured[0]['type']);
@@ -302,10 +266,7 @@ final class RangeFilterTest extends TestCase
     #[Test]
     public function explicitIntTypeForcesIntegerCast(): void
     {
-        $this->newFilter()->apply($this->qb, 'price', [
-            'value' => ['gte' => '99.9'],
-            'type'  => 'int',
-        ]);
+        $this->newFilter()->apply($this->qb, new FilterContext(value: ['gte' => '99.9'], table: '', column: 'price', options: ['type' => 'int']));
 
         self::assertSame(99, $this->captured[0]['value']);
         self::assertSame(ParameterType::INTEGER, $this->captured[0]['type']);
@@ -314,10 +275,7 @@ final class RangeFilterTest extends TestCase
     #[Test]
     public function explicitFloatTypeNormalizesValue(): void
     {
-        $this->newFilter()->apply($this->qb, 'price', [
-            'value' => ['lte' => '99.99'],
-            'type'  => 'float',
-        ]);
+        $this->newFilter()->apply($this->qb, new FilterContext(value: ['lte' => '99.99'], table: '', column: 'price', options: ['type' => 'float']));
 
         self::assertSame('99.99', $this->captured[0]['value']);
         self::assertSame(ParameterType::STRING, $this->captured[0]['type']);
@@ -326,10 +284,7 @@ final class RangeFilterTest extends TestCase
     #[Test]
     public function explicitDateTypeForcesStringEvenForNumericInput(): void
     {
-        $this->newFilter()->apply($this->qb, 'created_at', [
-            'value' => ['gte' => '20240101'],
-            'type'  => 'date',
-        ]);
+        $this->newFilter()->apply($this->qb, new FilterContext(value: ['gte' => '20240101'], table: '', column: 'created_at', options: ['type' => 'date']));
 
         self::assertSame('20240101', $this->captured[0]['value']);
         self::assertSame(ParameterType::STRING, $this->captured[0]['type']);
@@ -342,9 +297,7 @@ final class RangeFilterTest extends TestCase
     {
         $this->qb->expects(self::exactly(4))->method('andWhere');
 
-        $this->newFilter()->apply($this->qb, 'col', [
-            'value' => ['gte' => 1, 'lte' => 10, 'gt' => 0, 'lt' => 11],
-        ]);
+        $this->newFilter()->apply($this->qb, new FilterContext(value: ['gte' => 1, 'lte' => 10, 'gt' => 0, 'lt' => 11], table: '', column: 'col'));
 
         self::assertCount(4, $this->captured);
     }
@@ -354,9 +307,7 @@ final class RangeFilterTest extends TestCase
     {
         $this->qb->expects(self::once())->method('andWhere');
 
-        $this->newFilter()->apply($this->qb, 'col', [
-            'value' => ['gte' => 1, 'between' => [1, 10]],
-        ]);
+        $this->newFilter()->apply($this->qb, new FilterContext(value: ['gte' => 1, 'between' => [1, 10]], table: '', column: 'col'));
     }
 
     // ── guards ───────────────────────────────────────────────────────────
@@ -366,7 +317,7 @@ final class RangeFilterTest extends TestCase
     {
         $this->qb->expects(self::never())->method('andWhere');
 
-        $this->newFilter()->apply($this->qb, 'col', ['value' => '100']);
+        $this->newFilter()->apply($this->qb, new FilterContext(value: '100', table: '', column: 'col'));
 
         self::assertSame([], $this->captured);
     }
@@ -376,16 +327,13 @@ final class RangeFilterTest extends TestCase
     {
         $this->qb->expects(self::never())->method('andWhere');
 
-        $this->newFilter()->apply($this->qb, 'col', ['value' => []]);
+        $this->newFilter()->apply($this->qb, new FilterContext(value: [], table: '', column: 'col'));
     }
 
     #[Test]
     public function nonStringTypeOptionIsIgnoredAndAutodetectionApplies(): void
     {
-        $this->newFilter()->apply($this->qb, 'col', [
-            'value' => ['gte' => 5],
-            'type'  => 42,
-        ]);
+        $this->newFilter()->apply($this->qb, new FilterContext(value: ['gte' => 5], table: '', column: 'col', options: ['type' => 42]));
 
         // Falls through to autodetection: int input → INTEGER param.
         self::assertSame(5, $this->captured[0]['value']);

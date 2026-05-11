@@ -8,27 +8,27 @@ use Doctrine\DBAL\ParameterType;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 
-final class RangeFilter implements FilterInterface
+final class RangeFilter implements FilterInterface, FilterPreResolvableInterface
 {
     public function __construct(
         private readonly TcaSchemaFactory $schemaFactory,
     ) {
     }
 
-    public function apply(QueryBuilder $qb, string $column, array $filterConfig): void
+    public function apply(QueryBuilder $qb, FilterContext $context): void
     {
-        $operators = $filterConfig['value'];
+        $operators = $context->value;
         if (!\is_array($operators)) {
             return;
         }
 
-        $type = $this->resolveType($filterConfig);
+        $type = $this->resolveType($context);
 
         $map = [
-            'gte' => fn (mixed $v) => $qb->expr()->gte($column, $this->namedParam($qb, $v, $type)),
-            'lte' => fn (mixed $v) => $qb->expr()->lte($column, $this->namedParam($qb, $v, $type)),
-            'gt'  => fn (mixed $v) => $qb->expr()->gt($column, $this->namedParam($qb, $v, $type)),
-            'lt'  => fn (mixed $v) => $qb->expr()->lt($column, $this->namedParam($qb, $v, $type)),
+            'gte' => fn (mixed $v) => $qb->expr()->gte($context->column, $this->namedParam($qb, $v, $type)),
+            'lte' => fn (mixed $v) => $qb->expr()->lte($context->column, $this->namedParam($qb, $v, $type)),
+            'gt'  => fn (mixed $v) => $qb->expr()->gt($context->column, $this->namedParam($qb, $v, $type)),
+            'lt'  => fn (mixed $v) => $qb->expr()->lt($context->column, $this->namedParam($qb, $v, $type)),
         ];
 
         foreach ($operators as $op => $value) {
@@ -38,25 +38,36 @@ final class RangeFilter implements FilterInterface
         }
     }
 
+    public function preResolve(FilterDefinition $definition): FilterDefinition
+    {
+        if (\is_string($definition->option('type'))) {
+            return $definition;
+        }
+
+        // Guard for unit-test / empty-table contexts
+        if ($definition->table === '') {
+            return $definition;
+        }
+
+        $detected = $this->detectTypeFromTca($definition->table, $definition->column);
+
+        return $detected !== null ? $definition->withOptions(['type' => $detected]) : $definition;
+    }
+
     /**
      * Resolution order:
      *   1. Explicit `type` option in the filter config (escape hatch)
      *   2. Type inferred from the TCA column configuration
      *   3. null  → fall back to autodetection from the request value
      */
-    private function resolveType(array $filterConfig): ?string
+    private function resolveType(FilterContext $context): ?string
     {
-        if (isset($filterConfig['type']) && \is_string($filterConfig['type'])) {
-            return $filterConfig['type'];
+        $explicit = $context->option('type');
+        if (\is_string($explicit)) {
+            return $explicit;
         }
 
-        $table  = $filterConfig['_table']  ?? null;
-        $column = $filterConfig['_column'] ?? null;
-        if (!\is_string($table) || !\is_string($column)) {
-            return null;
-        }
-
-        return $this->detectTypeFromTca($table, $column);
+        return $this->detectTypeFromTca($context->table, $context->column);
     }
 
     /**

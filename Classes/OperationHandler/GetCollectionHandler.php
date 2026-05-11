@@ -8,6 +8,7 @@ use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\EmbedPreloader;
 use MaikSchneider\TcaApi\Event\AfterOperationEvent;
+use MaikSchneider\TcaApi\Filter\FilterContext;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -83,45 +84,27 @@ class GetCollectionHandler implements OperationHandlerInterface
         $safe = [];
 
         foreach ($config->filters as $column => $filterDef) {
-            [$class, $options] = $this->normalizeFilterDef($column, $filterDef);
-            $isPrivate = (bool)($options['private'] ?? false);
-            $default   = $options['default'] ?? null;
-            $cleanOpts = array_diff_key($options, array_flip(['default', 'private']));
-
-            if ($isPrivate) {
-                $value = $default;
+            if ($filterDef->isPrivate) {
+                $value = $filterDef->default;
             } elseif (isset($requested[$column])) {
                 $value = $requested[$column];
-            } elseif ($default !== null) {
-                $value = $default;
+            } elseif ($filterDef->default !== null) {
+                $value = $filterDef->default;
             } else {
                 continue;
             }
 
-            $safe[$column] = array_merge($cleanOpts, [
-                'value'           => $value,
-                '_table'          => $config->table,
-                '_column'         => $column,
-                '_filterClass'    => $class,
-                '_request'        => $request,
-                '_resourceConfig' => $config,
-            ]);
+            $safe[$column] = [$filterDef->filterClass, new FilterContext(
+                value:          $value,
+                table:          $config->table,
+                column:         $column,
+                options:        $filterDef->options,
+                request:        $request,
+                resourceConfig: $config,
+            )];
         }
 
         return $safe;
-    }
-
-    private function normalizeFilterDef(string $column, mixed $filterDef): array
-    {
-        if (is_string($filterDef)) {
-            return [$filterDef, []];
-        }
-        if (is_array($filterDef) && is_string($filterDef[0] ?? null)) {
-            return [$filterDef[0], $filterDef[1] ?? []];
-        }
-        throw new \InvalidArgumentException(
-            sprintf('Invalid filter definition for column "%s": expected a class name or [ClassName, options].', $column),
-        );
     }
 
     private function resolveOrder(array $requested, ApiDefinition $config): array

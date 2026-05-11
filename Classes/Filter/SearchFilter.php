@@ -8,15 +8,15 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 
 final class SearchFilter implements FilterInterface
 {
-    public function apply(QueryBuilder $qb, string $column, array $filterConfig): void
+    public function apply(QueryBuilder $qb, FilterContext $context): void
     {
-        $columns = $filterConfig['columns'] ?? [];
+        $columns = $context->option('columns', []);
         if ($columns === []) {
             return;
         }
 
-        $value   = (string)$filterConfig['value'];
-        $match   = $filterConfig['match'] ?? 'partial';
+        $value   = (string)$context->value;
+        $match   = $context->option('match', 'partial');
         $escaped = $qb->escapeLikeWildcards($value);
         $pattern = match ($match) {
             'word_start' => $escaped . '%',
