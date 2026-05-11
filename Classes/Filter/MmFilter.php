@@ -7,6 +7,24 @@ namespace MaikSchneider\TcaApi\Filter;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 
+/**
+ * Filter for MM (many-to-many) relations.
+ *
+ * MM config derivation happens at two lifecycle stages:
+ *
+ *  1. **Boot time** — {@see preResolve()} is called once by ApiDefinitionLoader.
+ *     The derived MM config is baked into the cached FilterDefinition, so
+ *     subsequent requests skip the TCA lookup entirely.
+ *
+ *  2. **Request time** — {@see deriveMmConfigFromTca()} is the fallback inside
+ *     {@see apply()} when mm_table is still null on the FilterContext. This
+ *     covers unit tests (where no loader ran preResolve) and manually
+ *     constructed FilterContext instances without pre-resolved options.
+ *
+ * The two methods intentionally duplicate the TCA lookup logic:
+ * preResolve() is the optimisation (resolve once, cache); deriveMmConfigFromTca()
+ * is the safety net ensuring apply() is always self-contained.
+ */
 final class MmFilter implements FilterInterface, FilterPreResolvableInterface
 {
     public function __construct(
@@ -39,6 +57,11 @@ final class MmFilter implements FilterInterface, FilterPreResolvableInterface
         $qb->andWhere($qb->expr()->in('uid', '(' . $subSql . ')'));
     }
 
+    /**
+     * Boot-time pre-resolution: derives MM config from TCA and stores it in the
+     * FilterDefinition so it gets cached with the ApiDefinition. Returns the
+     * definition unchanged when TCA context is unavailable (e.g. unit tests).
+     */
     public function preResolve(FilterDefinition $definition): FilterDefinition
     {
         if ($definition->option('mm_table') !== null) {
@@ -71,6 +94,12 @@ final class MmFilter implements FilterInterface, FilterPreResolvableInterface
         ]);
     }
 
+    /**
+     * Request-time fallback: derives MM config from TCA when preResolve() was
+     * never called (unit tests, manually built contexts). Unlike preResolve(),
+     * this method throws on missing fields or absent MM config since a runtime
+     * call without valid TCA is an unrecoverable configuration error.
+     */
     private function deriveMmConfigFromTca(FilterContext $context): FilterContext
     {
         $schema = $this->schemaFactory->get($context->table);
