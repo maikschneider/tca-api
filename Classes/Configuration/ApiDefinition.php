@@ -7,6 +7,8 @@ namespace MaikSchneider\TcaApi\Configuration;
 use MaikSchneider\TcaApi\Cache\CacheDefinition;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Enum\WriteMode;
+use MaikSchneider\TcaApi\Filter\FilterDefinition;
+use MaikSchneider\TcaApi\Filter\FilterPreResolvableInterface;
 use TYPO3\CMS\Core\Utility\MathUtility;
 
 /**
@@ -24,7 +26,7 @@ final readonly class ApiDefinition
      * @param array<string, ColumnDefinition> $columns
      * @param array<string, ColumnDefinition> $virtualProperties
      * @param array<string, mixed>            $security   keyed by operation name
-     * @param array<string, mixed>            $filters    raw filter definitions, unchanged
+     * @param array<string, FilterDefinition>  $filters    normalised filter definitions
      * @param string[]                        $allowedOrder
      * @param array<string, string>           $defaultOrder
      */
@@ -100,9 +102,10 @@ final readonly class ApiDefinition
     /**
      * Normalises a raw PHP config array, applies all defaults, and validates required fields.
      *
+     * @param array<string, FilterPreResolvableInterface> $filterMap DI-managed filter instances keyed by FQCN.
      * @throws \InvalidArgumentException when required fields are missing or values are invalid.
      */
-    public static function fromArray(array $raw): self
+    public static function fromArray(array $raw, array $filterMap = []): self
     {
         // ── general section (required) ──────────────────────────────────
         $general = $raw['general'] ?? [];
@@ -286,37 +289,22 @@ final readonly class ApiDefinition
                 sprintf('TcaApi config for "%s": "filters" must be an array.', $label),
             );
         }
+        $filters = [];
         foreach ($rawFilters as $filterCol => $filterDef) {
             if (!\is_string($filterCol) || $filterCol === '') {
                 throw new \InvalidArgumentException(
                     sprintf('TcaApi config for "%s": filter key must be a non-empty string.', $label),
                 );
             }
-            // Accepted shapes:
-            //   ExactFilter::class                       — simple class-string
-            //   [SearchFilter::class, ['columns' => …]]  — class-string + options array
-            if (\is_string($filterDef)) {
-                continue;
+            try {
+                $filters[$filterCol] = FilterDefinition::fromRaw($label, $filterCol, $filterDef, $filterMap);
+            } catch (\InvalidArgumentException $e) {
+                throw new \InvalidArgumentException(
+                    sprintf('TcaApi config for "%s": %s', $label, $e->getMessage()),
+                    0,
+                    $e,
+                );
             }
-            if (\is_array($filterDef) && \is_string($filterDef[0] ?? null)) {
-                if (isset($filterDef[1]) && !\is_array($filterDef[1])) {
-                    throw new \InvalidArgumentException(
-                        sprintf(
-                            'TcaApi config for "%s": filter "%s" options (second element) must be an array.',
-                            $label,
-                            $filterCol,
-                        ),
-                    );
-                }
-                continue;
-            }
-            throw new \InvalidArgumentException(
-                sprintf(
-                    'TcaApi config for "%s": filter "%s" must be a class-string or [class-string, options-array].',
-                    $label,
-                    $filterCol,
-                ),
-            );
         }
 
         // ── order ───────────────────────────────────────────────────────
@@ -426,7 +414,7 @@ final readonly class ApiDefinition
             storagePid:             isset($general['storagePid']) && MathUtility::canBeInterpretedAsInteger($general['storagePid']) ? (int)$general['storagePid'] : null,
             columns:                $columns,
             security:               $rawSecurity,
-            filters:                $rawFilters,
+            filters:                $filters,
             allowedOrder:           $allowedOrder,
             defaultOrder:           $defaultOrder,
             ownershipColumn:        $ownershipColumn,

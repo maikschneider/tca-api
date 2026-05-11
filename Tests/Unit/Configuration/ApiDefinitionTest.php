@@ -7,6 +7,7 @@ namespace MaikSchneider\TcaApi\Tests\Unit\Configuration;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Enum\WriteMode;
+use MaikSchneider\TcaApi\Filter\FilterDefinition;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -379,7 +380,8 @@ final class ApiDefinitionTest extends TestCase
         $cfg = self::minimalConfig();
         $cfg['filters'] = ['title' => 'App\\Filter\\ExactFilter'];
         $def = ApiDefinition::fromArray($cfg);
-        self::assertSame('App\\Filter\\ExactFilter', $def->filters['title']);
+        self::assertInstanceOf(FilterDefinition::class, $def->filters['title']);
+        self::assertSame('App\\Filter\\ExactFilter', $def->filters['title']->filterClass);
     }
 
     #[Test]
@@ -388,7 +390,9 @@ final class ApiDefinitionTest extends TestCase
         $cfg = self::minimalConfig();
         $cfg['filters'] = ['search' => ['App\\Filter\\SearchFilter', ['columns' => ['title', 'body']]]];
         $def = ApiDefinition::fromArray($cfg);
-        self::assertSame(['App\\Filter\\SearchFilter', ['columns' => ['title', 'body']]], $def->filters['search']);
+        self::assertInstanceOf(FilterDefinition::class, $def->filters['search']);
+        self::assertSame('App\\Filter\\SearchFilter', $def->filters['search']->filterClass);
+        self::assertSame(['title', 'body'], $def->filters['search']->option('columns'));
     }
 
     #[Test]

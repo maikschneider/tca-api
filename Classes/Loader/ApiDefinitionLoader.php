@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Loader;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\Filter\FilterInterface;
+use MaikSchneider\TcaApi\Filter\FilterPreResolvableInterface;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
 use Symfony\Component\Finder\Finder;
 use TYPO3\CMS\Core\Cache\Frontend\PhpFrontend;
 use TYPO3\CMS\Core\Package\Cache\PackageDependentCacheIdentifier;
@@ -16,13 +19,17 @@ use TYPO3\CMS\Core\Package\PackageManager;
 #[Autoconfigure(public: true)]
 final readonly class ApiDefinitionLoader
 {
+    /**
+     * @param iterable<FilterInterface> $filterHandlers
+     */
     public function __construct(
         private PackageManager $packageManager,
         #[Autowire(service: 'cache.core')]
         private PhpFrontend $cache,
         private ApiRegistry $apiRegistry,
-    ) {
-    }
+        #[TaggedIterator('tca_api.filter')]
+        private iterable $filterHandlers = [],
+    ) {}
 
     public function load(): void
     {
@@ -32,18 +39,37 @@ final readonly class ApiDefinitionLoader
 
         $definitions = $this->cache->require($cacheIdentifier);
         if (!is_array($definitions)) {
-            $definitions = $this->collectDefinitions();
+            $filterMap  = $this->buildResolvableFilterMap();
+            $rawConfigs = $this->collectDefinitions();
+            $definitions = [];
+            foreach ($rawConfigs as $resourceName => $config) {
+                $definitions[$resourceName] = ApiDefinition::fromArray($config, $filterMap);
+            }
             $this->cache->set(
                 $cacheIdentifier,
-                'return ' . var_export($definitions, true) . ';',
+                'return unserialize(' . var_export(serialize($definitions), true) . ');',
             );
         }
 
-        foreach ($definitions as $resourceName => $config) {
-            $this->apiRegistry->register($resourceName, ApiDefinition::fromArray($config));
+        foreach ($definitions as $resourceName => $definition) {
+            $this->apiRegistry->register($resourceName, $definition);
         }
 
         $this->validateDefinitions($definitions);
+    }
+
+    /**
+     * @return array<string, FilterPreResolvableInterface>
+     */
+    private function buildResolvableFilterMap(): array
+    {
+        $map = [];
+        foreach ($this->filterHandlers as $handler) {
+            if ($handler instanceof FilterPreResolvableInterface) {
+                $map[$handler::class] = $handler;
+            }
+        }
+        return $map;
     }
 
     /**
@@ -79,16 +105,11 @@ final readonly class ApiDefinitionLoader
      * intentionally excluded to avoid false positives.
      * Checks that any column with an explicit resourceName actually points to a registered resource.
      *
-     * @param array<string, mixed> $definitions Raw definition arrays keyed by resourceName
+     * @param array<string, ApiDefinition> $definitions
      */
     private function validateDefinitions(array $definitions): void
     {
-        foreach (array_keys($definitions) as $resourceName) {
-            $definition = $this->apiRegistry->get($resourceName);
-            if ($definition === null) {
-                continue;
-            }
-
+        foreach ($definitions as $resourceName => $definition) {
             foreach ($definition->columns as $columnName => $columnDef) {
                 if ($columnDef->resourceName !== null && $this->apiRegistry->get($columnDef->resourceName) === null) {
                     throw new \InvalidArgumentException(sprintf(

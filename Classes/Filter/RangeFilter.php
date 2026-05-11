@@ -8,11 +8,25 @@ use Doctrine\DBAL\ParameterType;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 
-final class RangeFilter implements FilterInterface
+final class RangeFilter implements FilterInterface, FilterPreResolvableInterface
 {
     public function __construct(
         private readonly TcaSchemaFactory $schemaFactory,
-    ) {
+    ) {}
+
+    public function preResolve(FilterDefinition $definition, string $table, string $column): FilterDefinition
+    {
+        if (\is_string($definition->option('type'))) {
+            return $definition;
+        }
+
+        if ($table === '') {
+            return $definition;
+        }
+
+        $detected = $this->detectTypeFromTca($table, $column);
+
+        return $detected !== null ? $definition->withOptions(['type' => $detected]) : $definition;
     }
 
     public function apply(QueryBuilder $qb, FilterContext $context): void
