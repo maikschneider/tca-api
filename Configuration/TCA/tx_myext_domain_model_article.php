@@ -152,5 +152,11 @@ return [
                 'foreign_table' => 'tx_myext_domain_model_color',
             ],
         ],
+        'meta' => [
+            'label' => 'Meta (JSON)',
+            'config' => [
+                'type' => 'json',
+            ],
+        ],
     ],
 ];

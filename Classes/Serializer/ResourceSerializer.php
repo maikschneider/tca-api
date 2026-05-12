@@ -10,6 +10,7 @@ use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use TYPO3\CMS\Core\Schema\Field\FileFieldType;
+use TYPO3\CMS\Core\Schema\Field\JsonFieldType;
 use TYPO3\CMS\Core\Schema\Field\RelationalFieldTypeInterface;
 use TYPO3\CMS\Core\Schema\TcaSchema;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
@@ -103,7 +104,11 @@ final class ResourceSerializer
             }
 
             if (!($field instanceof RelationalFieldTypeInterface)) {
-                $result[$column] = $this->applyColumnProcessor($row[$column] ?? null, $columnDef, $result, $row);
+                $value = $row[$column] ?? null;
+                if ($field instanceof JsonFieldType && $columnDef->processor === null) {
+                    $value = $this->decodeJsonValue($value);
+                }
+                $result[$column] = $this->applyColumnProcessor($value, $columnDef, $result, $row);
                 continue;
             }
 
@@ -206,5 +211,28 @@ final class ResourceSerializer
     private function getSchema(string $table): TcaSchema
     {
         return $this->schemaCache[$table] ??= $this->schemaFactory->get($table);
+    }
+
+    /**
+     * Decode a JSON string from the database into a PHP array/value.
+     * Returns null for null input, falls back to the raw string on invalid JSON.
+     */
+    private function decodeJsonValue(mixed $value): mixed
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (!\is_string($value)) {
+            return $value;
+        }
+
+        $decoded = json_decode($value, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return $value;
+        }
+
+        return $decoded;
     }
 }
