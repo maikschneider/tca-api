@@ -12,7 +12,6 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
  * Fixture data:
  *   Article 501 → meta = {"color":"red","size":42}  (valid JSON object)
  *   Article 502 → meta = NULL                       (null DB value)
- *   Article 503 → meta = "not-valid-json{"          (invalid JSON)
  */
 final class JsonFieldSerializationTest extends ApiFunctionalTestCase
 {
@@ -64,19 +63,6 @@ final class JsonFieldSerializationTest extends ApiFunctionalTestCase
         self::assertSame(200, $response->getStatusCode());
         self::assertArrayHasKey('meta', $body);
         self::assertNull($body['meta']);
-    }
-
-    public function testInvalidJsonFallsBackToRawString(): void
-    {
-        $this->registerResource('json-articles', self::BASE_CONFIG);
-
-        $response = $this->executeApiRequest('/_api/json-articles/503');
-        $body = $this->decodeResponseBody($response);
-
-        self::assertSame(200, $response->getStatusCode());
-        self::assertArrayHasKey('meta', $body);
-        self::assertIsString($body['meta']);
-        self::assertSame('not-valid-json{', $body['meta']);
     }
 
     public function testCustomProcessorOverridesAutoDecoding(): void

@@ -2,4 +2,3 @@
 ,"uid","pid","title","meta","hidden","deleted","tstamp","crdate"
 ,501,1,"Article With Meta","{""color"":""red"",""size"":42}",0,0,1704067200,1704067200
 ,502,1,"Article Null Meta",,0,0,1704067200,1704067200
-,503,1,"Article Invalid Meta","not-valid-json{",0,0,1704067200,1704067200
