@@ -227,7 +227,7 @@ final class ResourceSerializer
             return $value;
         }
 
-        $decoded = json_decode($value, true);
+        $decoded = json_decode($value, true, 512);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
             return $value;
