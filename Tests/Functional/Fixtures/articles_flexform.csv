@@ -2,3 +2,4 @@
 ,"uid","pid","title","pi_flexform","hidden","deleted","tstamp","crdate"
 ,601,1,"Article With FlexForm","<?xml version=""1.0"" encoding=""utf-8"" standalone=""yes""?><T3FlexForms><data><sheet index=""sDEF""><language index=""lDEF""><field index=""settings.myField""><value index=""vDEF"">Hello World</value></field></language></sheet></data></T3FlexForms>",0,0,1704067200,1704067200
 ,602,1,"Article Empty FlexForm","",0,0,1704067200,1704067200
+,603,1,"Article With Invalid FlexForm","<?xml version=""1.0"" encoding=""utf-8"">",0,0,1704067200,1704067200

@@ -68,6 +68,16 @@ final class FlexFormSerializationTest extends ApiFunctionalTestCase
         self::assertNull($body['pi_flexform']);
     }
 
+    public function testInvalidFlexFormResultsRawValue(): void
+    {
+        $this->registerResource('flex-articles', self::BASE_CONFIG);
+        $response = $this->executeApiRequest('/_api/flex-articles/603');
+        $body = $this->decodeResponseBody($response);
+        self::assertSame(200, $response->getStatusCode());
+        self::assertArrayHasKey('pi_flexform', $body);
+        self::assertSame('<?xml version="1.0" encoding="utf-8">', $body['pi_flexform']);
+    }
+
     public function testCustomProcessorOverridesFlexFormDecoding(): void
     {
         $config = self::BASE_CONFIG;

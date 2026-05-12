@@ -255,9 +255,9 @@ final class ResourceSerializer
 
     /**
      * Decode FlexForm XML into an associative array.
-     * Returns null for empty/null input.
+     * Returns null for empty input, original if invalid
      */
-    private function decodeFlexFormValue(mixed $value): ?array
+    private function decodeFlexFormValue(mixed $value): array|string|null
     {
         if ($value === null || $value === '') {
             return null;
@@ -270,7 +270,7 @@ final class ResourceSerializer
         $decoded = GeneralUtility::xml2array($value);
 
         if (!\is_array($decoded)) {
-            return null;
+            return $value;
         }
 
         return $decoded;
