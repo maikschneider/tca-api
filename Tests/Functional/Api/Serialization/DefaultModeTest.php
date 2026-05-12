@@ -119,6 +119,53 @@ final class DefaultModeTest extends ApiFunctionalTestCase
         self::assertSame('Blue', $body['name']);
     }
 
+    // ── Password columns excluded ─────────────────────────────────────────────
+
+    public function testDefaultModeExcludesPasswordColumns(): void
+    {
+        $response = $this->executeApiRequest('/_api/colors-minimal/1');
+
+        self::assertSame(200, $response->getStatusCode());
+
+        $body = $this->decodeResponseBody($response);
+
+        // 'secret_column' is type=password — must never appear in API output
+        self::assertArrayNotHasKey('secret_column', $body);
+        // Normal columns must still be present
+        self::assertArrayHasKey('name', $body);
+    }
+
+    public function testExplicitModeExcludesPasswordColumnsEvenWhenConfigured(): void
+    {
+        $this->registerResource('colors-password-explicit', [
+            'general' => [
+                'table'        => 'tx_myext_domain_model_color',
+                'resourceName' => 'colors-password-explicit',
+                'resourceType' => 'ColorPasswordExplicit',
+            ],
+            'columns' => [
+                'name'          => ['groups' => ['list', 'show']],
+                'secret_column' => ['groups' => ['list', 'show']],
+            ],
+            'security' => [
+                'list' => \MaikSchneider\TcaApi\Enum\AccessRole::PUBLIC,
+                'show' => \MaikSchneider\TcaApi\Enum\AccessRole::PUBLIC,
+            ],
+        ]);
+
+        $response = $this->executeApiRequest('/_api/colors-password-explicit/1');
+
+        self::assertSame(200, $response->getStatusCode());
+
+        $body = $this->decodeResponseBody($response);
+
+        // Password column must be excluded even when explicitly configured
+        self::assertArrayNotHasKey('secret_column', $body);
+        // Normal columns must still be present
+        self::assertArrayHasKey('name', $body);
+        self::assertSame('Red', $body['name']);
+    }
+
     public function testExplicitModeWithEmptyGroupsHidesColumns(): void
     {
         $response = $this->executeApiRequest('/_api/colors-empty-groups/1');

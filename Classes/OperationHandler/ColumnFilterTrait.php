@@ -33,6 +33,10 @@ trait ColumnFilterTrait
                 if (!$columnDef->isWritable()) {
                     continue;
                 }
+                // Password columns must never be accepted via API input.
+                if (($GLOBALS['TCA'][$config->table]['columns'][$column]['config']['type'] ?? '') === 'password') {
+                    continue;
+                }
 
                 if (\array_key_exists($column, $body)) {
                     $value = $body[$column];
