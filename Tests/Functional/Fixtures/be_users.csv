@@ -1,4 +1,4 @@
 "be_users"
 ,"uid","pid","username","password","admin","disable","deleted"
-,1,0,"admin","$argon2i$v=19$m=65536,t=16,p=1$VEg4blFHTmpMUEpObzJnWg$q6hupiNzeDos4sMXBU5yypw+XAlGXYfkggTKYBjqODA",1,0,0
-,2,0,"editor","$argon2i$v=19$m=65536,t=16,p=1$VEg4blFHTmpMUEpObzJnWg$q6hupiNzeDos4sMXBU5yypw+XAlGXYfkggTKYBjqODA",0,0,0
+,2,0,"admin","$argon2i$v=19$m=65536,t=16,p=1$VEg4blFHTmpMUEpObzJnWg$q6hupiNzeDos4sMXBU5yypw+XAlGXYfkggTKYBjqODA",1,0,0
+,3,0,"editor","$argon2i$v=19$m=65536,t=16,p=1$VEg4blFHTmpMUEpObzJnWg$q6hupiNzeDos4sMXBU5yypw+XAlGXYfkggTKYBjqODA",0,0,0
