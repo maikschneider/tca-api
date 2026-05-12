@@ -32,9 +32,7 @@ jobs:
           coverage: none
 
       - name: Install Composer dependencies
-        run: |
-          ddev composer config github-oauth.github.com ${{ secrets.GITHUB_TOKEN }}
-          ddev composer update --with=typo3/cms-core:"^${{ matrix.typo3-version }}"
+        run: composer update --with=typo3/cms-core:"^${{ matrix.typo3-version }})"
 
       - name: Run unit tests
         run: vendor/bin/phpunit --testsuite Unit
