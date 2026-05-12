@@ -118,7 +118,7 @@ final class OwnershipAccessTest extends ApiFunctionalTestCase
         // beAdminBypass defaults to true — BE_ADMIN bypasses ownership check
         $this->registerResource('owned-arts', self::OWNED_CONFIG);
 
-        $response = $this->executeApiWriteRequestAsBackendUser('PUT', '/_api/owned-arts/90', 1, ['title' => 'Admin Update']);
+        $response = $this->executeApiWriteRequestAsBackendUser('PUT', '/_api/owned-arts/90', 2, ['title' => 'Admin Update']);
 
         self::assertSame(200, $response->getStatusCode());
     }
@@ -134,7 +134,7 @@ final class OwnershipAccessTest extends ApiFunctionalTestCase
         $this->registerResource('owned-arts', $config);
 
         // BE_ADMIN uid=1 is not the FE owner — bypass disabled → 403
-        $response = $this->executeApiWriteRequestAsBackendUser('PUT', '/_api/owned-arts/90', 1, ['title' => 'Admin No Bypass']);
+        $response = $this->executeApiWriteRequestAsBackendUser('PUT', '/_api/owned-arts/90', 2, ['title' => 'Admin No Bypass']);
 
         self::assertSame(403, $response->getStatusCode());
     }

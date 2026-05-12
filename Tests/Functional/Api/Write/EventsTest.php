@@ -122,7 +122,7 @@ final class EventsTest extends ApiFunctionalTestCase
 
     public function testEventsOnDelete(): void
     {
-        $this->executeApiWriteRequestAsBackendUser('DELETE', '/_api/articles/3', 1);
+        $this->executeApiWriteRequestAsBackendUser('DELETE', '/_api/articles/3', 2);
 
         // BeforeWriteEvent fires and carries 'delete' operation
         $beforeWrites = EventCollector::getByClass(BeforeWriteEvent::class);
