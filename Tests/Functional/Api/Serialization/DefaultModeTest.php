@@ -135,6 +135,20 @@ final class DefaultModeTest extends ApiFunctionalTestCase
         self::assertArrayHasKey('name', $body);
     }
 
+    public function testDefaultModeListExcludesPasswordColumns(): void
+    {
+        $response = $this->executeApiRequest('/_api/colors-minimal');
+
+        self::assertSame(200, $response->getStatusCode());
+
+        $body = $this->decodeResponseBody($response);
+
+        foreach ($body['hydra:member'] as $member) {
+            self::assertArrayNotHasKey('secret_column', $member);
+            self::assertArrayHasKey('name', $member);
+        }
+    }
+
     public function testExplicitModeExcludesPasswordColumnsEvenWhenConfigured(): void
     {
         $this->registerResource('colors-password-explicit', [
