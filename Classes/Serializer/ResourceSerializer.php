@@ -103,7 +103,11 @@ final class ResourceSerializer
             }
 
             if (!($field instanceof RelationalFieldTypeInterface)) {
-                $result[$column] = $this->applyColumnProcessor($row[$column] ?? null, $columnDef, $result, $row);
+                $value = $row[$column] ?? null;
+                if ($columnDef->processor === null && ($field->getConfiguration()['type'] ?? '') === 'imageManipulation') {
+                    $value = $this->decodeJsonValue($value);
+                }
+                $result[$column] = $this->applyColumnProcessor($value, $columnDef, $result, $row);
                 continue;
             }
 
@@ -200,6 +204,27 @@ final class ResourceSerializer
         $processor = GeneralUtility::makeInstance($processorClass);
 
         return $processor->process($value, $columnDef, ['serializedRow' => $serializedRow, 'rawRow' => $rawRow]);
+    }
+
+    /**
+     * Decode a JSON string to an associative array.
+     *
+     * Returns null when the input is null, the decoded array on valid JSON,
+     * or the original raw string when decoding fails.
+     */
+    private function decodeJsonValue(mixed $value): mixed
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (!\is_string($value)) {
+            return $value;
+        }
+
+        $decoded = json_decode($value, true);
+
+        return json_last_error() === \JSON_ERROR_NONE ? $decoded : $value;
     }
 
     /** Returns the TcaSchema for a table, cached to avoid repeated factory calls per collection row. */
