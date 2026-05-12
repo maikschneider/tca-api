@@ -10,6 +10,7 @@ use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use TYPO3\CMS\Core\Schema\Field\FileFieldType;
+use TYPO3\CMS\Core\Schema\Field\JsonFieldType;
 use TYPO3\CMS\Core\Schema\Field\RelationalFieldTypeInterface;
 use TYPO3\CMS\Core\Schema\TcaSchema;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
@@ -109,9 +110,14 @@ final class ResourceSerializer
 
             if (!($field instanceof RelationalFieldTypeInterface)) {
                 $value = $row[$column] ?? null;
-                if ($columnDef->processor === null && ($field->getConfiguration()['type'] ?? '') === 'imageManipulation') {
+
+                // preprocess JSON data
+                $isProcessorDefined = $columnDef->processor !== null;
+                $isJsonField = $field instanceof JsonFieldType || ($field->getConfiguration()['type'] ?? '') === 'imageManipulation';
+                if (!$isProcessorDefined && $isJsonField) {
                     $value = $this->decodeJsonValue($value);
                 }
+
                 $result[$column] = $this->applyColumnProcessor($value, $columnDef, $result, $row);
                 continue;
             }
@@ -211,11 +217,15 @@ final class ResourceSerializer
         return $processor->process($value, $columnDef, ['serializedRow' => $serializedRow, 'rawRow' => $rawRow]);
     }
 
+    /** Returns the TcaSchema for a table, cached to avoid repeated factory calls per collection row. */
+    private function getSchema(string $table): TcaSchema
+    {
+        return $this->schemaCache[$table] ??= $this->schemaFactory->get($table);
+    }
+
     /**
-     * Decode a JSON string to an associative array.
-     *
-     * Returns null when the input is null, the decoded array on valid JSON,
-     * or the original raw string when decoding fails.
+     * Decode a JSON string from the database into a PHP array/value.
+     * Returns null for null input, falls back to the raw string on invalid JSON.
      */
     private function decodeJsonValue(mixed $value): mixed
     {
@@ -227,14 +237,12 @@ final class ResourceSerializer
             return $value;
         }
 
-        $decoded = json_decode($value, true);
+        $decoded = json_decode($value, true, 512);
 
-        return json_last_error() === \JSON_ERROR_NONE ? $decoded : $value;
-    }
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return $value;
+        }
 
-    /** Returns the TcaSchema for a table, cached to avoid repeated factory calls per collection row. */
-    private function getSchema(string $table): TcaSchema
-    {
-        return $this->schemaCache[$table] ??= $this->schemaFactory->get($table);
+        return $decoded;
     }
 }
