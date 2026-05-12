@@ -1,0 +1,5 @@
+"tx_myext_domain_model_color"
+,"uid","pid","name","hidden","deleted","secret_column","crop_settings"
+,200,1,"Crimson",0,0,"","{""default"":{""cropArea"":{""x"":0,""y"":0,""width"":1,""height"":1},""selectedRatio"":""NaN"",""focusArea"":null}}"
+,201,1,"Azure",0,0,"",""
+,202,1,"Jade",0,0,"","not-valid-json"
