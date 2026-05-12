@@ -70,5 +70,11 @@ return [
                 'default' => 0,
             ],
         ],
+        'secret_column' => [
+            'label' => 'Secret',
+            'config' => [
+                'type' => 'password',
+            ],
+        ],
     ],
 ];

@@ -217,4 +217,95 @@ final class UploadDefinitionTest extends TestCase
             'filenameMask' => 42,
         ]);
     }
+
+    public function testFromArrayRejectsMissingFolder(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        UploadDefinition::fromArray([]);
+    }
+
+    public function testFromArrayRejectsInvalidFolderIdentifier(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        UploadDefinition::fromArray([
+            'folder'       => '/uploads/',
+        ]);
+    }
+
+    // ── fromArray: maxSize parsing ──────────────────────────────────────
+
+    public function testFromArrayParsesMaxSizeAsInteger(): void
+    {
+        $def = UploadDefinition::fromArray([
+            'folder'  => '1:/uploads/',
+            'maxSize' => 1048576,
+        ]);
+
+        self::assertSame(1048576, $def->maxSize);
+    }
+
+    public function testFromArrayRejectsEmptyMaxSize(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        UploadDefinition::fromArray([
+            'folder'  => '1:/uploads/',
+            'maxSize' => '',
+        ]);
+    }
+
+    public function testFromArrayRejectsInvalidMaxSize(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        UploadDefinition::fromArray([
+            'folder'  => '1:/uploads/',
+            'maxSize' => 'foo',
+        ]);
+    }
+
+    public function testFromArrayRejectsNegativeMaxSize(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        UploadDefinition::fromArray([
+            'folder'  => '1:/uploads/',
+            'maxSize' => -1,
+        ]);
+    }
+
+    // ── fromArray: duplication parsing ──────────────────────────────────────
+
+    public function testFromArrayParsesDuplication(): void
+    {
+        $def = UploadDefinition::fromArray([
+            'folder'      => '1:/uploads/',
+            'duplication' => 'rename',
+        ]);
+        self::assertSame('rename', $def->duplication);
+
+        $def = UploadDefinition::fromArray([
+            'folder'      => '1:/uploads/',
+            'duplication' => 'replace',
+        ]);
+        self::assertSame('replace', $def->duplication);
+
+        $def = UploadDefinition::fromArray([
+            'folder'      => '1:/uploads/',
+            'duplication' => 'cancel',
+        ]);
+        self::assertSame('cancel', $def->duplication);
+    }
+
+    public function testFromArrayRejectsInvalidDuplication(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        UploadDefinition::fromArray([
+            'folder'      => '1:/uploads/',
+            'duplication' => 'foo',
+        ]);
+    }
 }
