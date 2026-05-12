@@ -46,6 +46,7 @@ final class ResourceSerializer
         private readonly CacheTagCollector $cacheTagCollector,
         private readonly FileFieldSerializer $fileFieldSerializer,
         private readonly RelationSerializer $relationSerializer,
+        private readonly DateTimeValueFormatter $dateTimeValueFormatter = new DateTimeValueFormatter(),
     ) {
     }
 
@@ -111,8 +112,15 @@ final class ResourceSerializer
             if (!($field instanceof RelationalFieldTypeInterface)) {
                 $value = $row[$column] ?? null;
 
-                // preprocess JSON data
                 $isProcessorDefined = $columnDef->processor !== null;
+
+                // Format datetime fields to ISO 8601
+                if (!$isProcessorDefined && ($field->getConfiguration()['type'] ?? '') === 'datetime') {
+                    $dbType = $field->getConfiguration()['dbType'] ?? null;
+                    $value = $this->dateTimeValueFormatter->format($value, $dbType);
+                }
+
+                // preprocess JSON data
                 $isJsonField = $field instanceof JsonFieldType || ($field->getConfiguration()['type'] ?? '') === 'imageManipulation';
                 if (!$isProcessorDefined && $isJsonField) {
                     $value = $this->decodeJsonValue($value);
