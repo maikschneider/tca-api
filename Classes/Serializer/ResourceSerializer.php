@@ -98,6 +98,11 @@ final class ResourceSerializer
 
             $field = $schema->getField($column);
 
+            // Password columns must never appear in API responses, even when explicitly configured.
+            if (($GLOBALS['TCA'][$config->table]['columns'][$column]['config']['type'] ?? '') === 'password') {
+                continue;
+            }
+
             if ($field instanceof FileFieldType) {
                 $result[$column] = $this->fileFieldSerializer->serialize($column, $field, $columnDef, $config->table, $uid);
                 continue;
@@ -105,9 +110,14 @@ final class ResourceSerializer
 
             if (!($field instanceof RelationalFieldTypeInterface)) {
                 $value = $row[$column] ?? null;
-                if ($field instanceof JsonFieldType && $columnDef->processor === null) {
+
+                // preprocess JSON data
+                $isProcessorDefined = $columnDef->processor !== null;
+                $isJsonField = $field instanceof JsonFieldType || ($field->getConfiguration()['type'] ?? '') === 'imageManipulation';
+                if ($isProcessorDefined && $isJsonField) {
                     $value = $this->decodeJsonValue($value);
                 }
+
                 $result[$column] = $this->applyColumnProcessor($value, $columnDef, $result, $row);
                 continue;
             }

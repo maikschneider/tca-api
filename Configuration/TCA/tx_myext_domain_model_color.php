@@ -70,5 +70,17 @@ return [
                 'default' => 0,
             ],
         ],
+        'secret_column' => [
+            'label' => 'Secret',
+            'config' => [
+                'type' => 'password',
+            ],
+        ],
+        'crop_settings' => [
+            'label' => 'Crop Settings',
+            'config' => [
+                'type' => 'imageManipulation',
+            ],
+        ],
     ],
 ];

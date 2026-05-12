@@ -78,6 +78,9 @@ final readonly class OpenApiSchemasBuilder
                 if (!$columnDef->isReadable()) {
                     continue;
                 }
+                if (self::isPasswordColumn($config->table, $column)) {
+                    continue;
+                }
                 $properties[$column] = $this->buildPropertySchema($columnDef);
             }
         }
@@ -125,6 +128,9 @@ final readonly class OpenApiSchemasBuilder
         } else {
             foreach ($config->columns as $column => $columnDef) {
                 if (!$columnDef->isWritable()) {
+                    continue;
+                }
+                if (self::isPasswordColumn($config->table, $column)) {
                     continue;
                 }
 
@@ -252,6 +258,9 @@ final readonly class OpenApiSchemasBuilder
                 if (!$columnDef->isWritable()) {
                     continue;
                 }
+                if (self::isPasswordColumn($config->table, $column)) {
+                    continue;
+                }
                 $properties[$column] = $this->buildMultipartPropertySchema($columnDef, $config->table, $column);
                 if ($columnDef->required) {
                     $required[] = $column;
@@ -265,6 +274,11 @@ final readonly class OpenApiSchemasBuilder
         }
 
         return $schema;
+    }
+
+    private static function isPasswordColumn(string $table, string $column): bool
+    {
+        return ($GLOBALS['TCA'][$table]['columns'][$column]['config']['type'] ?? '') === 'password';
     }
 
     private function buildMultipartPropertySchema(ColumnDefinition $columnDef, string $table = '', string $column = ''): array
