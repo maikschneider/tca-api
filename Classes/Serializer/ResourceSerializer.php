@@ -8,6 +8,7 @@ use MaikSchneider\TcaApi\Cache\CacheTagCollector;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface;
+use MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use TYPO3\CMS\Core\Schema\Field\FileFieldType;
 use TYPO3\CMS\Core\Schema\Field\JsonFieldType;
@@ -116,6 +117,14 @@ final class ResourceSerializer
                 $isJsonField = $field instanceof JsonFieldType || ($field->getConfiguration()['type'] ?? '') === 'imageManipulation';
                 if (!$isProcessorDefined && $isJsonField) {
                     $value = $this->decodeJsonValue($value);
+                }
+
+                // Auto-apply TypoLinkProcessor for type=link columns without explicit processor
+                $isLinkField = ($GLOBALS['TCA'][$config->table]['columns'][$column]['config']['type'] ?? '') === 'link';
+                if (!$isProcessorDefined && $isLinkField) {
+                    $processor = GeneralUtility::makeInstance(TypoLinkProcessor::class);
+                    $result[$column] = $processor->process($value, $columnDef, ['serializedRow' => $result, 'rawRow' => $row]);
+                    continue;
                 }
 
                 $result[$column] = $this->applyColumnProcessor($value, $columnDef, $result, $row);
