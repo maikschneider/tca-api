@@ -71,6 +71,8 @@ final class DateTimeValueFormatter
         }
 
         $format = self::DB_TYPE_FORMATS[$dbType] ?? self::DB_TYPE_FORMATS['datetime'];
+        // The '!' prefix resets all date/time fields to the Unix epoch before parsing,
+        // ensuring date-only values get T00:00:00 and time-only values get 1970-01-01.
         $date = \DateTimeImmutable::createFromFormat('!' . $format, $stringValue);
 
         if ($date === false) {
