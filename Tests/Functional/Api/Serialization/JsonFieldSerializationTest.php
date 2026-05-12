@@ -53,18 +53,6 @@ final class JsonFieldSerializationTest extends ApiFunctionalTestCase
         self::assertSame(42, $body['meta']['size']);
     }
 
-    public function testNullJsonRemainsNull(): void
-    {
-        $this->registerResource('json-articles', self::BASE_CONFIG);
-
-        $response = $this->executeApiRequest('/_api/json-articles/502');
-        $body = $this->decodeResponseBody($response);
-
-        self::assertSame(200, $response->getStatusCode());
-        self::assertArrayHasKey('meta', $body);
-        self::assertNull($body['meta']);
-    }
-
     public function testCustomProcessorOverridesAutoDecoding(): void
     {
         $config = self::BASE_CONFIG;

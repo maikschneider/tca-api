@@ -114,7 +114,7 @@ final class ResourceSerializer
                 // preprocess JSON data
                 $isProcessorDefined = $columnDef->processor !== null;
                 $isJsonField = $field instanceof JsonFieldType || ($field->getConfiguration()['type'] ?? '') === 'imageManipulation';
-                if ($isProcessorDefined && $isJsonField) {
+                if (!$isProcessorDefined && $isJsonField) {
                     $value = $this->decodeJsonValue($value);
                 }
 
