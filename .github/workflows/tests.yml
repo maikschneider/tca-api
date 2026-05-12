@@ -19,7 +19,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php-version: ["8.2", "8.3", "8.4"]
+        typo3-version: [ "13.4", "14.0" ]
+        php-version: [ "8.2", "8.3", "8.4" ]
 
     steps:
       - uses: actions/checkout@v4
@@ -31,7 +32,7 @@ jobs:
           coverage: none
 
       - name: Install Composer dependencies
-        run: composer update --with=typo3/cms-core:"^14.0"
+        run: composer update --with=typo3/cms-core:"^${{ matrix.typo3-version }}"
 
       - name: Run unit tests
         run: vendor/bin/phpunit --testsuite Unit
@@ -47,8 +48,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup DDEV
         uses: ddev/github-action-setup-ddev@v1
@@ -71,24 +70,49 @@ jobs:
       - name: Init TYPO3
         run: ddev init-typo3
 
+      - name: Run functional tests
+        run: ddev exec vendor/bin/phpunit --testsuite Functional
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup DDEV
+        uses: ddev/github-action-setup-ddev@v1
+        with:
+          autostart: false
+
+      - name: Configure and start DDEV
+        run: |
+          ddev config --project-type=typo3 --php-version=8.4
+          ddev start
+
+      - name: Install Composer dependencies
+        run: |
+          ddev composer config github-oauth.github.com ${{ secrets.GITHUB_TOKEN }}
+          ddev composer update --with=typo3/cms-core:"^14.0"
+
+      - name: Install npm dependencies
+        run: ddev exec npm install
+
+      - name: Init TYPO3
+        run: ddev init-typo3
+
       - name: Enable Xdebug
-        if: matrix.php-version == '8.4' && matrix.typo3-version == '14.0'
         run: ddev xdebug on
 
       - name: Run unit tests with coverage
-        if: matrix.php-version == '8.4' && matrix.typo3-version == '14.0'
         run: ddev exec XDEBUG_MODE=coverage vendor/bin/phpunit --testsuite Unit --coverage-clover coverage.unit.xml
 
       - name: Run functional tests with coverage
-        if: matrix.php-version == '8.4' && matrix.typo3-version == '14.0'
         run: ddev exec XDEBUG_MODE=coverage vendor/bin/phpunit --testsuite Functional --coverage-clover coverage.functional.xml
 
-      - name: Run functional tests
-        if: "!(matrix.php-version == '8.4' && matrix.typo3-version == '14.0')"
-        run: ddev exec vendor/bin/phpunit
-
       - name: Upload coverage reports to Codecov
-        if: matrix.php-version == '8.4' && matrix.typo3-version == '14.0'
         uses: codecov/codecov-action@v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

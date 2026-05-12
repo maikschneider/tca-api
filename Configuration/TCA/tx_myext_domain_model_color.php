@@ -76,5 +76,11 @@ return [
                 'type' => 'password',
             ],
         ],
+        'crop_settings' => [
+            'label' => 'Crop Settings',
+            'config' => [
+                'type' => 'imageManipulation',
+            ],
+        ],
     ],
 ];
