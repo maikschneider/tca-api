@@ -154,7 +154,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
 
     public function testDeleteSucceedsWithBeAdmin(): void
     {
-        $response = $this->executeApiWriteRequestAsBackendUser('DELETE', '/_api/articles/1', 1);
+        $response = $this->executeApiWriteRequestAsBackendUser('DELETE', '/_api/articles/1', 2);
 
         self::assertSame(204, $response->getStatusCode());
     }
@@ -163,7 +163,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
 
     public function testDeleteReturns403WithNonAdminBackendUser(): void
     {
-        $response = $this->executeApiWriteRequestAsBackendUser('DELETE', '/_api/articles/1', 2);
+        $response = $this->executeApiWriteRequestAsBackendUser('DELETE', '/_api/articles/1', 3);
 
         self::assertSame(403, $response->getStatusCode());
     }
@@ -207,7 +207,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
             ],
         ]));
 
-        $response = $this->executeApiRequestAsBackendUser('/_api/be-articles/1', 2);
+        $response = $this->executeApiRequestAsBackendUser('/_api/be-articles/1', 3);
 
         self::assertSame(200, $response->getStatusCode());
     }
@@ -220,7 +220,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
             ],
         ]));
 
-        $response = $this->executeApiRequestAsBackendUser('/_api/be-articles/1', 1);
+        $response = $this->executeApiRequestAsBackendUser('/_api/be-articles/1', 2);
 
         self::assertSame(200, $response->getStatusCode());
     }
@@ -259,7 +259,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
             ],
         ]));
 
-        $response = $this->executeApiWriteRequestAsBackendUser('PUT', '/_api/be-articles/1', 2, ['title' => 'BE Updated']);
+        $response = $this->executeApiWriteRequestAsBackendUser('PUT', '/_api/be-articles/1', 3, ['title' => 'BE Updated']);
 
         self::assertSame(200, $response->getStatusCode());
     }
@@ -272,7 +272,7 @@ final class AccessControlTest extends ApiFunctionalTestCase
             ],
         ]));
 
-        $response = $this->executeApiWriteRequestAsBackendUser('DELETE', '/_api/be-articles/1', 2);
+        $response = $this->executeApiWriteRequestAsBackendUser('DELETE', '/_api/be-articles/1', 3);
 
         self::assertSame(204, $response->getStatusCode());
     }
