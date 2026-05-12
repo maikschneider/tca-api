@@ -56,6 +56,11 @@ final class TcaColumnDiscovery
             if (isset($excluded[$colName]) || str_starts_with((string)$colName, 't3ver_')) {
                 continue;
             }
+            // Password columns must never be exposed — they contain credential hashes.
+            $colType = $tca['columns'][$colName]['config']['type'] ?? '';
+            if ($colType === 'password') {
+                continue;
+            }
             $result[] = (string)$colName;
         }
 
