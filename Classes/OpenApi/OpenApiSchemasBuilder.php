@@ -32,8 +32,8 @@ final readonly class OpenApiSchemasBuilder
                     'metadata'  => [
                         'type' => 'object',
                         'properties' => [
-                            'title'       => ['type' => ['string', 'null']],
-                            'description' => ['type' => ['string', 'null']],
+                            'title'       => ['oneOf' => [['type' => 'string'], ['type' => 'null']]],
+                            'description' => ['oneOf' => [['type' => 'string'], ['type' => 'null']]],
                         ],
                     ],
                 ],
