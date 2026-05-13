@@ -10,7 +10,7 @@ use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 
 final readonly class OpenApiSchemasBuilder
 {
-    /** @param array<string, ApiDefinition> $resources */
+    /** @param ApiDefinition[] $resources */
     public function build(array $resources): array
     {
         $schemas = [
