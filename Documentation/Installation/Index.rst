@@ -15,7 +15,7 @@ Requirements
    * - PHP
      - ^8.2
    * - TYPO3
-     - ^13.4 || ^14.0
+     - ^13.4 || ^14.3
 
 Composer installation
 =====================

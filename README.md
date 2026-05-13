@@ -38,10 +38,10 @@
 
 ## Requirements
 
-| Dependency | Version         |
-|------------|-----------------|
-| PHP        | ^8.2            |
-| TYPO3      | ^13.4 \|\| ^14.0 |
+| Dependency | Version          |
+|------------|------------------|
+| PHP        | ^8.2             |
+| TYPO3      | ^13.4 \|\| ^14.3 |
 
 ## Installation
 

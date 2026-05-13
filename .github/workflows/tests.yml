@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        typo3-version: [ "13.4", "14.0" ]
+        typo3-version: [ "13.4", "14.3" ]
         php-version: [ "8.2", "8.3", "8.4" ]
 
     steps:
@@ -43,7 +43,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        typo3-version: ["13.4", "14.0"]
+        typo3-version: ["13.4", "14.3"]
         php-version: ["8.2", "8.3", "8.4"]
 
     steps:
@@ -95,7 +95,7 @@ jobs:
       - name: Install Composer dependencies
         run: |
           ddev composer config github-oauth.github.com ${{ secrets.GITHUB_TOKEN }}
-          ddev composer update --with=typo3/cms-core:"^14.0"
+          ddev composer update --with=typo3/cms-core:"^14.3"
 
       - name: Install npm dependencies
         run: ddev exec npm install
