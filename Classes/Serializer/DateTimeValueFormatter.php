@@ -65,8 +65,7 @@ final class DateTimeValueFormatter
     {
         $stringValue = (string)$value;
 
-        // Empty strings or zero-like values
-        if ($stringValue === '' || $stringValue === '0000-00-00 00:00:00' || $stringValue === '0000-00-00' || $stringValue === '00:00:00') {
+        if ($stringValue === '') {
             return null;
         }
 
