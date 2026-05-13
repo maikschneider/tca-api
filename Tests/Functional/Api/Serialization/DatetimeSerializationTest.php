@@ -48,7 +48,7 @@ final class DatetimeSerializationTest extends ApiFunctionalTestCase
     {
         $this->registerResource('datetime-articles', self::BASE_CONFIG);
 
-        $response = $this->executeApiRequest('/_api/datetime-articles/601');
+        $response = $this->executeApiRequest('/_api/datetime-articles/701');
         $body = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
