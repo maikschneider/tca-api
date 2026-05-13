@@ -167,5 +167,18 @@ return [
                 ],
             ],
         ],
+        'published_at' => [
+            'label' => 'Published At (Unix timestamp)',
+            'config' => [
+                'type' => 'datetime',
+            ],
+        ],
+        'event_date' => [
+            'label' => 'Event Date (native datetime)',
+            'config' => [
+                'type' => 'datetime',
+                'dbType' => 'datetime',
+            ],
+        ],
     ],
 ];

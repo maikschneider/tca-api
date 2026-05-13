@@ -48,6 +48,7 @@ final class ResourceSerializer
         private readonly CacheTagCollector $cacheTagCollector,
         private readonly FileFieldSerializer $fileFieldSerializer,
         private readonly RelationSerializer $relationSerializer,
+        private readonly DateTimeValueFormatter $dateTimeValueFormatter = new DateTimeValueFormatter(),
     ) {
     }
 
@@ -118,6 +119,12 @@ final class ResourceSerializer
                 // preprocess FlexForm XML data
                 if (!$isProcessorDefined && $field instanceof FlexFormFieldType) {
                     $value = $this->decodeFlexFormValue($value);
+                }
+
+                // Format datetime fields to ISO 8601
+                if (!$isProcessorDefined && ($field->getConfiguration()['type'] ?? '') === 'datetime') {
+                    $dbType = $field->getConfiguration()['dbType'] ?? null;
+                    $value = $this->dateTimeValueFormatter->format($value, $dbType);
                 }
 
                 // preprocess JSON data
