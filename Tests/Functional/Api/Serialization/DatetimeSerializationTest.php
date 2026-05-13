@@ -56,8 +56,8 @@ final class DatetimeSerializationTest extends ApiFunctionalTestCase
         // Unix timestamp (no dbType) → ISO 8601
         self::assertSame('2024-01-01T00:00:00+00:00', $body['published_at']);
 
-        // Native datetime (dbType=datetime) → ISO 8601
-        self::assertSame('2024-06-15T10:30:00+02:00', $body['event_date']);
+        // Native datetime (dbType=datetime) → ISO 8601, always UTC regardless of server timezone
+        self::assertSame('2024-06-15T10:30:00+00:00', $body['event_date']);
     }
 
     public function testEmptyDatetimeValuesAreSerializedAsNull(): void

@@ -63,8 +63,9 @@ final class DateTimeValueFormatterTest extends TestCase
     #[Test]
     public function nativeTimeIsFormattedAsIso8601(): void
     {
-        $result = $this->formatter->format('14:30:00', 'time');
-        self::assertSame('1970-01-01T14:30:00+00:00', $result);
+        self::assertSame('1970-01-01T14:30:00+00:00', $this->formatter->format('14:30:00', 'time'));
+        // midnight is a valid time value, not a zero sentinel
+        self::assertSame('1970-01-01T00:00:00+00:00', $this->formatter->format('00:00:00', 'time'));
     }
 
     #[Test]
@@ -72,7 +73,6 @@ final class DateTimeValueFormatterTest extends TestCase
     {
         self::assertNull($this->formatter->format('0000-00-00 00:00:00', 'datetime'));
         self::assertNull($this->formatter->format('0000-00-00', 'date'));
-        self::assertNull($this->formatter->format('00:00:00', 'time'));
         self::assertNull($this->formatter->format('', 'datetime'));
     }
 

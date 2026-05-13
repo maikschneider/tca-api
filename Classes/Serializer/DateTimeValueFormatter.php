@@ -22,6 +22,9 @@ final class DateTimeValueFormatter
         'time'     => 'H:i:s',
     ];
 
+    /** MySQL zero-date sentinels that map to null (no value stored). */
+    private const ZERO_DATE_SENTINELS = ['0000-00-00 00:00:00', '0000-00-00'];
+
     /**
      * Format a raw datetime value to ISO 8601 (ATOM).
      *
@@ -65,14 +68,15 @@ final class DateTimeValueFormatter
     {
         $stringValue = (string)$value;
 
-        if ($stringValue === '') {
+        if ($stringValue === '' || in_array($stringValue, self::ZERO_DATE_SENTINELS, true)) {
             return null;
         }
 
         $format = self::DB_TYPE_FORMATS[$dbType] ?? self::DB_TYPE_FORMATS['datetime'];
         // The '!' prefix resets all date/time fields to the Unix epoch before parsing,
         // ensuring date-only values get T00:00:00 and time-only values get 1970-01-01.
-        $date = \DateTimeImmutable::createFromFormat('!' . $format, $stringValue);
+        // UTC is used explicitly so output is timezone-independent across all environments.
+        $date = \DateTimeImmutable::createFromFormat('!' . $format, $stringValue, new \DateTimeZone('UTC'));
 
         if ($date === false) {
             // Fallback: return raw value if parsing fails
