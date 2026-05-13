@@ -60,7 +60,11 @@
 		"typo3/cms": {
 			"cms-package-dir": "{$vendor-dir}/typo3/cms",
 			"extension-key": "tca_api",
-			"web-dir": "public"
+			"web-dir": "public",
+			"version": "0.1.0+alpha",
+			"Package": {
+				"providesPackages": {}
+			}
 		}
 	},
 	"scripts": {
