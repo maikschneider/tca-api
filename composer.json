@@ -1,6 +1,6 @@
 {
 	"name": "maikschneider/tca-api",
-	"description": "This package provides an API based on the TYPO3 TCA to facilitate interaction with database and configurations.",
+	"description": "This package provides an REST API based on the TYPO3 TCA — exposes database tables as Hydra JSON-LD resources.",
 	"license": "GPL-2.0-or-later",
 	"type": "library",
 	"keywords": [
@@ -10,7 +10,7 @@
 	"authors": [
 		{
 			"name": "Maik Schneider",
-			"email": "maik.schneider@xima.de",
+			"email": "schneider.maik@me.com",
 			"role": "Developer"
 		}
 	],
