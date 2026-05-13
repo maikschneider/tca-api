@@ -8,9 +8,6 @@ use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
- * Functional tests for ImageProcessor covering buildInstructions() and
- * processSingleVariant() — the two methods not reached by other test suites.
- *
  * Fixture data:
  *   Article 410 → profile_photo = sys_file_reference uid=10 (image/jpeg)
  *     – sys_file_reference has a valid crop JSON with "default" and "mobile" variants
@@ -23,12 +20,12 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
  *   3. Image options (maxWidth, maxHeight, fileExtension):
  *      → buildInstructions() includes those keys.
  */
-final class ImageProcessorCoverageTest extends ApiFunctionalTestCase
+final class ImageProcessorTest extends ApiFunctionalTestCase
 {
     private const BASE_CONFIG = [
         'general' => [
             'table'        => 'tx_myext_domain_model_article',
-            'resourceName' => 'articles',
+            'resourceName' => 'articles-image',
             'resourceType' => 'Article',
             'operations'   => ['list', 'show'],
             'storagePid'   => 1,
@@ -49,6 +46,7 @@ final class ImageProcessorCoverageTest extends ApiFunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles_with_files.csv');
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/sys_file.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/sys_file_metadata.csv');
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/sys_file_reference_with_crop.csv');
     }
 
@@ -66,9 +64,9 @@ final class ImageProcessorCoverageTest extends ApiFunctionalTestCase
             ],
         ];
 
-        $this->registerResource('articles', $config);
+        $this->registerResource('articles-image', $config);
 
-        $response = $this->executeApiRequest('/_api/articles/410');
+        $response = $this->executeApiRequest('/_api/articles-image/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -94,16 +92,16 @@ final class ImageProcessorCoverageTest extends ApiFunctionalTestCase
             ],
         ];
 
-        $this->registerResource('articles', $config);
+        $this->registerResource('articles-image', $config);
 
-        $response = $this->executeApiRequest('/_api/articles/410');
+        $response = $this->executeApiRequest('/_api/articles-image/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('publicUrl', $body['profile_photo']);
         self::assertIsString($body['profile_photo']['publicUrl']);
     }
 
-    public function testSingleCropVariantHasIntegerDimensions(): void
+    public function testSingleCropVariantHasPositiveIntegerDimensions(): void
     {
         $config = self::BASE_CONFIG;
         $config['columns'] = [
@@ -115,13 +113,15 @@ final class ImageProcessorCoverageTest extends ApiFunctionalTestCase
             ],
         ];
 
-        $this->registerResource('articles', $config);
+        $this->registerResource('articles-image', $config);
 
-        $response = $this->executeApiRequest('/_api/articles/410');
+        $response = $this->executeApiRequest('/_api/articles-image/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertIsInt($body['profile_photo']['width']);
+        self::assertGreaterThan(0, $body['profile_photo']['width']);
         self::assertIsInt($body['profile_photo']['height']);
+        self::assertGreaterThan(0, $body['profile_photo']['height']);
     }
 
     public function testSingleCropVariantHasMetadata(): void
@@ -136,9 +136,9 @@ final class ImageProcessorCoverageTest extends ApiFunctionalTestCase
             ],
         ];
 
-        $this->registerResource('articles', $config);
+        $this->registerResource('articles-image', $config);
 
-        $response = $this->executeApiRequest('/_api/articles/410');
+        $response = $this->executeApiRequest('/_api/articles-image/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('metadata', $body['profile_photo']);
@@ -162,9 +162,9 @@ final class ImageProcessorCoverageTest extends ApiFunctionalTestCase
             ],
         ];
 
-        $this->registerResource('articles', $config);
+        $this->registerResource('articles-image', $config);
 
-        $response = $this->executeApiRequest('/_api/articles/410');
+        $response = $this->executeApiRequest('/_api/articles-image/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -185,9 +185,9 @@ final class ImageProcessorCoverageTest extends ApiFunctionalTestCase
             ],
         ];
 
-        $this->registerResource('articles', $config);
+        $this->registerResource('articles-image', $config);
 
-        $response = $this->executeApiRequest('/_api/articles/410');
+        $response = $this->executeApiRequest('/_api/articles-image/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -204,9 +204,9 @@ final class ImageProcessorCoverageTest extends ApiFunctionalTestCase
             ],
         ];
 
-        $this->registerResource('articles', $config);
+        $this->registerResource('articles-image', $config);
 
-        $response = $this->executeApiRequest('/_api/articles/410');
+        $response = $this->executeApiRequest('/_api/articles-image/410');
         $body     = $this->decodeResponseBody($response);
 
         $variants = $body['profile_photo']['cropVariants'];
@@ -223,9 +223,9 @@ final class ImageProcessorCoverageTest extends ApiFunctionalTestCase
             ],
         ];
 
-        $this->registerResource('articles', $config);
+        $this->registerResource('articles-image', $config);
 
-        $response = $this->executeApiRequest('/_api/articles/410');
+        $response = $this->executeApiRequest('/_api/articles-image/410');
         $body     = $this->decodeResponseBody($response);
 
         foreach ($body['profile_photo']['cropVariants'] as $variantId => $variant) {
@@ -253,9 +253,9 @@ final class ImageProcessorCoverageTest extends ApiFunctionalTestCase
             ],
         ];
 
-        $this->registerResource('articles', $config);
+        $this->registerResource('articles-image', $config);
 
-        $response = $this->executeApiRequest('/_api/articles/410');
+        $response = $this->executeApiRequest('/_api/articles-image/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -264,7 +264,9 @@ final class ImageProcessorCoverageTest extends ApiFunctionalTestCase
         self::assertArrayHasKey('width', $body['profile_photo']);
         self::assertArrayHasKey('height', $body['profile_photo']);
         self::assertIsInt($body['profile_photo']['width']);
+        self::assertEquals(200, $body['profile_photo']['width']);
         self::assertIsInt($body['profile_photo']['height']);
+        self::assertGreaterThan(0, $body['profile_photo']['height']);
     }
 
     public function testAllVariantsWithMaxWidthOption(): void
@@ -279,9 +281,9 @@ final class ImageProcessorCoverageTest extends ApiFunctionalTestCase
             ],
         ];
 
-        $this->registerResource('articles', $config);
+        $this->registerResource('articles-image', $config);
 
-        $response = $this->executeApiRequest('/_api/articles/410');
+        $response = $this->executeApiRequest('/_api/articles-image/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -290,7 +292,9 @@ final class ImageProcessorCoverageTest extends ApiFunctionalTestCase
         foreach ($body['profile_photo']['cropVariants'] as $variant) {
             self::assertArrayHasKey('publicUrl', $variant);
             self::assertArrayHasKey('width', $variant);
+            self::assertEquals(300, $variant['width']);
             self::assertArrayHasKey('height', $variant);
+            self::assertIsInt($variant['height']);
         }
     }
 
@@ -308,14 +312,16 @@ final class ImageProcessorCoverageTest extends ApiFunctionalTestCase
             ],
         ];
 
-        $this->registerResource('articles', $config);
+        $this->registerResource('articles-image', $config);
 
-        $response = $this->executeApiRequest('/_api/articles/410');
+        $response = $this->executeApiRequest('/_api/articles-image/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
         self::assertArrayHasKey('width', $body['profile_photo']);
+        self::assertEquals(100, $body['profile_photo']['width']);
         self::assertArrayHasKey('height', $body['profile_photo']);
+        self::assertEquals(100, $body['profile_photo']['height']);
         self::assertArrayNotHasKey('cropVariants', $body['profile_photo']);
     }
 
@@ -327,19 +333,21 @@ final class ImageProcessorCoverageTest extends ApiFunctionalTestCase
                 'groups' => ['show'],
                 'image'  => [
                     'cropVariant' => 'default',
-                    'minWidth'    => 50,
-                    'minHeight'   => 50,
+                    'minWidth'    => 5000,
+                    'minHeight'   => 5000,
                 ],
             ],
         ];
 
-        $this->registerResource('articles', $config);
+        $this->registerResource('articles-image', $config);
 
-        $response = $this->executeApiRequest('/_api/articles/410');
+        $response = $this->executeApiRequest('/_api/articles-image/410');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
         self::assertArrayHasKey('width', $body['profile_photo']);
+        self::assertGreaterThan(5000, $body['profile_photo']['width']);
         self::assertArrayHasKey('height', $body['profile_photo']);
+        self::assertEquals(5000, $body['profile_photo']['height']);
     }
 }

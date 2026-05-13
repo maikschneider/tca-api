@@ -22,6 +22,7 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
 
     protected array $pathsToLinkInTestInstance = [
         'typo3conf/ext/tca_api/Tests/Functional/Fixtures/Sites' => 'typo3conf/sites',
+        'typo3conf/ext/tca_api/Tests/Functional/Fixtures/fileadmin/user_upload' => 'fileadmin/user_upload',
     ];
 
     protected function setUp(): void
