@@ -87,6 +87,76 @@ final class OpenApiSpecTest extends ApiFunctionalTestCase
         self::assertSame('binary', $multipartProperties['downloads']['format']);
     }
 
+    public function testRelationStubAndFileObjectSchemasAlwaysPresent(): void
+    {
+        $response = $this->executeApiRequest('/_api/openapi.json');
+        self::assertSame(200, $response->getStatusCode());
+
+        $schemas = $this->decodeResponseBody($response)['components']['schemas'];
+
+        self::assertArrayHasKey('RelationStub', $schemas);
+        self::assertSame('object', $schemas['RelationStub']['type']);
+        self::assertArrayHasKey('@id', $schemas['RelationStub']['properties']);
+        self::assertArrayHasKey('uid', $schemas['RelationStub']['properties']);
+        self::assertContains('uid', $schemas['RelationStub']['required']);
+
+        self::assertArrayHasKey('FileObject', $schemas);
+        self::assertSame('object', $schemas['FileObject']['type']);
+        $fileProps = $schemas['FileObject']['properties'];
+        self::assertArrayHasKey('publicUrl', $fileProps);
+        self::assertArrayHasKey('mimeType', $fileProps);
+        self::assertArrayHasKey('fileSize', $fileProps);
+        self::assertArrayHasKey('metadata', $fileProps);
+    }
+
+    public function testArticleReadSchemaReflectsRelationsAndFileFields(): void
+    {
+        $response = $this->executeApiRequest('/_api/openapi.json');
+        self::assertSame(200, $response->getStatusCode());
+
+        $schemas = $this->decodeResponseBody($response)['components']['schemas'];
+        $readProps = $schemas['ArticleRead']['properties'];
+
+        // HasOne: color_id → property renamed to `color`, typed as nullable RelationStub
+        self::assertArrayHasKey('color', $readProps);
+        self::assertArrayNotHasKey('color_id', $readProps);
+        $colorSchema = $readProps['color'];
+        self::assertArrayHasKey('oneOf', $colorSchema);
+        $refs = array_column($colorSchema['oneOf'], '$ref');
+        self::assertContains('#/components/schemas/RelationStub', $refs);
+
+        // HasMany: categories → array of RelationStubs
+        self::assertArrayHasKey('categories', $readProps);
+        self::assertSame('array', $readProps['categories']['type']);
+        self::assertSame('#/components/schemas/RelationStub', $readProps['categories']['items']['$ref']);
+
+        // Single-file: profile_photo → nullable FileObject
+        self::assertArrayHasKey('profile_photo', $readProps);
+        $photoSchema = $readProps['profile_photo'];
+        self::assertArrayHasKey('oneOf', $photoSchema);
+        $photoRefs = array_column($photoSchema['oneOf'], '$ref');
+        self::assertContains('#/components/schemas/FileObject', $photoRefs);
+
+        // Multi-file: downloads → array of FileObjects
+        self::assertArrayHasKey('downloads', $readProps);
+        self::assertSame('array', $readProps['downloads']['type']);
+        self::assertSame('#/components/schemas/FileObject', $readProps['downloads']['items']['$ref']);
+    }
+
+    public function testArticleWriteSchemaKeepsOriginalColumnNamesForRelations(): void
+    {
+        $response = $this->executeApiRequest('/_api/openapi.json');
+        self::assertSame(200, $response->getStatusCode());
+
+        $schemas = $this->decodeResponseBody($response)['components']['schemas'];
+        $writeProps = $schemas['ArticleWrite']['properties'];
+
+        // Write schema must keep original column name `color_id` (FK value)
+        self::assertArrayHasKey('color_id', $writeProps);
+        // Write schema uses scalar types (not relation objects)
+        self::assertSame('string', $writeProps['color_id']['type']);
+    }
+
     public function testSpecContainsHydraErrorSchema(): void
     {
         $response = $this->executeApiRequest('/_api/openapi.json');

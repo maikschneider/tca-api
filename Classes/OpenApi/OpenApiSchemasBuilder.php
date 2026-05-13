@@ -14,6 +14,30 @@ final readonly class OpenApiSchemasBuilder
     public function build(array $resources): array
     {
         $schemas = [
+            'RelationStub' => [
+                'type' => 'object',
+                'properties' => [
+                    '@id'   => ['type' => 'string'],
+                    '@type' => ['type' => 'string'],
+                    'uid'   => ['type' => 'integer'],
+                ],
+                'required' => ['@id', '@type', 'uid'],
+            ],
+            'FileObject' => [
+                'type' => 'object',
+                'properties' => [
+                    'publicUrl' => ['type' => 'string'],
+                    'mimeType'  => ['type' => 'string'],
+                    'fileSize'  => ['type' => 'integer'],
+                    'metadata'  => [
+                        'type' => 'object',
+                        'properties' => [
+                            'title'       => ['type' => ['string', 'null']],
+                            'description' => ['type' => ['string', 'null']],
+                        ],
+                    ],
+                ],
+            ],
             'HydraError' => [
                 'type' => 'object',
                 'properties' => [
@@ -71,7 +95,8 @@ final readonly class OpenApiSchemasBuilder
         if (!$config->isExplicitMode) {
             foreach (TcaColumnDiscovery::getExposableColumnNames($config->table) as $column) {
                 $columnDef = $config->columns[$column] ?? new ColumnDefinition(groups: null);
-                $properties[$column] = $this->buildPropertySchema($columnDef);
+                $tcaConfig = $GLOBALS['TCA'][$config->table]['columns'][$column]['config'] ?? null;
+                $properties[$this->resolveReadPropertyName($column, $tcaConfig)] = $this->buildReadPropertySchema($columnDef, $tcaConfig);
             }
         } else {
             foreach ($config->columns as $column => $columnDef) {
@@ -81,11 +106,41 @@ final readonly class OpenApiSchemasBuilder
                 if (self::isPasswordColumn($config->table, $column)) {
                     continue;
                 }
-                $properties[$column] = $this->buildPropertySchema($columnDef);
+                $tcaConfig = $GLOBALS['TCA'][$config->table]['columns'][$column]['config'] ?? null;
+                $properties[$this->resolveReadPropertyName($column, $tcaConfig)] = $this->buildReadPropertySchema($columnDef, $tcaConfig);
             }
         }
 
+        foreach ($config->virtualProperties as $vpName => $vpDef) {
+            if ($config->isExplicitMode && !$vpDef->isReadable()) {
+                continue;
+            }
+            $properties[$vpName] = $this->buildPropertySchema($vpDef);
+        }
+
         return ['type' => 'object', 'properties' => $properties];
+    }
+
+    private function buildReadPropertySchema(ColumnDefinition $columnDef, ?array $tcaConfig): array
+    {
+        if ($tcaConfig !== null) {
+            $tcaType = $tcaConfig['type'] ?? '';
+
+            if ($tcaType === 'file') {
+                return $this->buildFilePropertySchema($tcaConfig);
+            }
+            if ($tcaType === 'json' || $tcaType === 'flex') {
+                return ['type' => 'object'];
+            }
+            if ($this->isHasManyField($tcaType, $tcaConfig)) {
+                return $this->buildHasManySchema($columnDef);
+            }
+            if ($this->isHasOneField($tcaType, $tcaConfig)) {
+                return $this->buildHasOneSchema($columnDef);
+            }
+        }
+
+        return $this->buildPropertySchema($columnDef);
     }
 
     private function buildPropertySchema(ColumnDefinition $columnDef): array
@@ -102,6 +157,75 @@ final readonly class OpenApiSchemasBuilder
             'number', 'float', 'double' => 'number',
             default => 'string',
         };
+    }
+
+    private function buildHasOneSchema(ColumnDefinition $columnDef): array
+    {
+        return ['oneOf' => [$this->resolveRelationRef($columnDef), ['type' => 'null']]];
+    }
+
+    private function buildHasManySchema(ColumnDefinition $columnDef): array
+    {
+        return ['type' => 'array', 'items' => $this->resolveRelationRef($columnDef)];
+    }
+
+    /** Returns $ref to the embedded resource's Read schema when configured, otherwise RelationStub. */
+    private function resolveRelationRef(ColumnDefinition $columnDef): array
+    {
+        if ($columnDef->embed && $columnDef->resourceType !== null) {
+            return ['$ref' => '#/components/schemas/' . $columnDef->resourceType . 'Read'];
+        }
+        return ['$ref' => '#/components/schemas/RelationStub'];
+    }
+
+    /**
+     * Schema for a type=file TCA column.
+     * Single-file (maxitems=1): nullable FileObject. Multi-file: array of FileObjects.
+     */
+    private function buildFilePropertySchema(array $tcaConfig): array
+    {
+        $isSingleFile = ($tcaConfig['maxitems'] ?? 0) === 1;
+        $fileObjectRef = ['$ref' => '#/components/schemas/FileObject'];
+
+        if ($isSingleFile) {
+            return ['oneOf' => [$fileObjectRef, ['type' => 'null']]];
+        }
+
+        return ['type' => 'array', 'items' => $fileObjectRef];
+    }
+
+    private function isHasOneField(string $tcaType, array $tcaConfig): bool
+    {
+        if ($tcaType !== 'select' || !isset($tcaConfig['foreign_table'])) {
+            return false;
+        }
+        $renderType = $tcaConfig['renderType'] ?? '';
+        $maxItems   = $tcaConfig['maxitems'] ?? null;
+        return $renderType === 'selectSingle' || $maxItems === 1;
+    }
+
+    private function isHasManyField(string $tcaType, array $tcaConfig): bool
+    {
+        if (\in_array($tcaType, ['inline', 'category', 'group'], true)) {
+            return true;
+        }
+        // select with foreign_table that is not hasOne (e.g. selectMultipleSideBySide)
+        return $tcaType === 'select'
+            && isset($tcaConfig['foreign_table'])
+            && !$this->isHasOneField($tcaType, $tcaConfig);
+    }
+
+    /**
+     * Strips the _id suffix for hasOne FK columns, matching ResourceSerializer's property naming.
+     * e.g. `color_id` → `color` when TCA says it's a selectSingle foreign relation.
+     */
+    private function resolveReadPropertyName(string $column, ?array $tcaConfig): string
+    {
+        if (!str_ends_with($column, '_id') || $tcaConfig === null) {
+            return $column;
+        }
+        $tcaType = $tcaConfig['type'] ?? '';
+        return $this->isHasOneField($tcaType, $tcaConfig) ? substr($column, 0, -3) : $column;
     }
 
     private function hasWriteOperations(ApiDefinition $config): bool
