@@ -11,6 +11,7 @@ use MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface;
 use MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use TYPO3\CMS\Core\Schema\Field\FileFieldType;
+use TYPO3\CMS\Core\Schema\Field\FlexFormFieldType;
 use TYPO3\CMS\Core\Schema\Field\JsonFieldType;
 use TYPO3\CMS\Core\Schema\Field\RelationalFieldTypeInterface;
 use TYPO3\CMS\Core\Schema\TcaSchema;
@@ -112,8 +113,14 @@ final class ResourceSerializer
             if (!($field instanceof RelationalFieldTypeInterface)) {
                 $value = $row[$column] ?? null;
 
-                // preprocess JSON data
                 $isProcessorDefined = $columnDef->processor !== null;
+
+                // preprocess FlexForm XML data
+                if (!$isProcessorDefined && $field instanceof FlexFormFieldType) {
+                    $value = $this->decodeFlexFormValue($value);
+                }
+
+                // preprocess JSON data
                 $isJsonField = $field instanceof JsonFieldType || ($field->getConfiguration()['type'] ?? '') === 'imageManipulation';
                 if (!$isProcessorDefined && $isJsonField) {
                     $value = $this->decodeJsonValue($value);
@@ -249,6 +256,29 @@ final class ResourceSerializer
         $decoded = json_decode($value, true, 512);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
+            return $value;
+        }
+
+        return $decoded;
+    }
+
+    /**
+     * Decode FlexForm XML into an associative array.
+     * Returns null for empty input, original if invalid
+     */
+    private function decodeFlexFormValue(mixed $value): array|string|null
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (!\is_string($value)) {
+            return null;
+        }
+
+        $decoded = GeneralUtility::xml2array($value);
+
+        if (!\is_array($decoded)) {
             return $value;
         }
 
