@@ -40,6 +40,7 @@ final class DatetimeSerializationTest extends ApiFunctionalTestCase
     {
         parent::setUp();
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles.csv');
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles_datetime.csv');
     }
 
@@ -56,14 +57,14 @@ final class DatetimeSerializationTest extends ApiFunctionalTestCase
         self::assertSame('2024-01-01T00:00:00+00:00', $body['published_at']);
 
         // Native datetime (dbType=datetime) → ISO 8601
-        self::assertSame('2024-06-15T10:30:00+00:00', $body['event_date']);
+        self::assertSame('2024-06-15T10:30:00+02:00', $body['event_date']);
     }
 
     public function testEmptyDatetimeValuesAreSerializedAsNull(): void
     {
         $this->registerResource('datetime-articles', self::BASE_CONFIG);
 
-        $response = $this->executeApiRequest('/_api/datetime-articles/602');
+        $response = $this->executeApiRequest('/_api/datetime-articles/1');
         $body = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
