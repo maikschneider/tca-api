@@ -64,7 +64,7 @@ if not data:
 col_str = ', '.join('`{}`'.format(c) for c in columns)
 for row in data:
     vals = ', '.join(
-        'NULL' if v == 'NULL' else "'{}'".format(v.replace("'", "''"))
+        "'{}'".format(v.replace("'", "''"))
         for v in row
     )
     print('INSERT INTO `{}` ({}) VALUES ({});'.format(table, col_str, vals))
