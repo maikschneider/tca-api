@@ -8,8 +8,10 @@ use MaikSchneider\TcaApi\Cache\CacheTagCollector;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface;
+use MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use TYPO3\CMS\Core\Schema\Field\FileFieldType;
+use TYPO3\CMS\Core\Schema\Field\FlexFormFieldType;
 use TYPO3\CMS\Core\Schema\Field\JsonFieldType;
 use TYPO3\CMS\Core\Schema\Field\RelationalFieldTypeInterface;
 use TYPO3\CMS\Core\Schema\TcaSchema;
@@ -114,6 +116,11 @@ final class ResourceSerializer
 
                 $isProcessorDefined = $columnDef->processor !== null;
 
+                // preprocess FlexForm XML data
+                if (!$isProcessorDefined && $field instanceof FlexFormFieldType) {
+                    $value = $this->decodeFlexFormValue($value);
+                }
+
                 // Format datetime fields to ISO 8601
                 if (!$isProcessorDefined && ($field->getConfiguration()['type'] ?? '') === 'datetime') {
                     $dbType = $field->getConfiguration()['dbType'] ?? null;
@@ -124,6 +131,14 @@ final class ResourceSerializer
                 $isJsonField = $field instanceof JsonFieldType || ($field->getConfiguration()['type'] ?? '') === 'imageManipulation';
                 if (!$isProcessorDefined && $isJsonField) {
                     $value = $this->decodeJsonValue($value);
+                }
+
+                // Auto-apply TypoLinkProcessor for type=link columns without explicit processor
+                $isLinkField = ($GLOBALS['TCA'][$config->table]['columns'][$column]['config']['type'] ?? '') === 'link';
+                if (!$isProcessorDefined && $isLinkField) {
+                    $processor = GeneralUtility::makeInstance(TypoLinkProcessor::class);
+                    $result[$column] = $processor->process($value, $columnDef, ['serializedRow' => $result, 'rawRow' => $row]);
+                    continue;
                 }
 
                 $result[$column] = $this->applyColumnProcessor($value, $columnDef, $result, $row);
@@ -248,6 +263,29 @@ final class ResourceSerializer
         $decoded = json_decode($value, true, 512);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
+            return $value;
+        }
+
+        return $decoded;
+    }
+
+    /**
+     * Decode FlexForm XML into an associative array.
+     * Returns null for empty input, original if invalid
+     */
+    private function decodeFlexFormValue(mixed $value): array|string|null
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (!\is_string($value)) {
+            return null;
+        }
+
+        $decoded = GeneralUtility::xml2array($value);
+
+        if (!\is_array($decoded)) {
             return $value;
         }
 

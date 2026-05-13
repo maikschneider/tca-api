@@ -96,9 +96,9 @@ final class TypoLinkProcessorTest extends ApiFunctionalTestCase
         self::assertNull($body['article_url']);
     }
 
-    // ── Column without processor ──────────────────────────────────────────────
+    // ── Column without explicit processor (auto-detection) ─────────────────
 
-    public function testColumnWithoutProcessorReturnsRawValue(): void
+    public function testColumnWithoutExplicitProcessorAutoAppliesTypoLinkProcessor(): void
     {
         $this->registerResource('link-articles', array_merge(self::BASE_CONFIG, [
             'columns' => [
@@ -111,7 +111,7 @@ final class TypoLinkProcessorTest extends ApiFunctionalTestCase
         $body = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
-        // Without processor, the raw stored value is returned directly
+        // Without explicit processor, TypoLinkProcessor is auto-applied for type=link columns
         self::assertIsString($body['article_url']);
         self::assertSame('https://example.com', $body['article_url']);
     }

@@ -158,6 +158,15 @@ return [
                 'type' => 'json',
             ],
         ],
+        'pi_flexform' => [
+            'label' => 'FlexForm',
+            'config' => [
+                'type' => 'flex',
+                'ds' => [
+                    'default' => '<T3DataStructure><sheets><sDEF><ROOT><type>array</type><el><settings.myField><config><type>input</type></config></settings.myField></el></ROOT></sDEF></sheets></T3DataStructure>',
+                ],
+            ],
+        ],
         'published_at' => [
             'label' => 'Published At (Unix timestamp)',
             'config' => [
