@@ -83,6 +83,73 @@ All keys are optional.
        dimensions, crop variant selection, format conversion, and URL mode.
        See :ref:`image-processor` for all options.
 
+..  _field-type-support:
+
+Field type support
+==================
+
+The serializer automatically handles all TYPO3 TCA field types. Relational types
+are resolved via dedicated serializers; scalar types that store encoded data are
+decoded before output; sensitive types are excluded entirely.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 40 40
+
+   * - TCA type
+     - Handling
+     - Output
+   * - ``file``
+     - ``FileFieldSerializer`` — auto-selects ``ImageProcessor`` or
+       ``FileProcessor``
+     - Processed file/image object(s)
+   * - ``category``
+     - ``RelationSerializer``
+     - Shallow stub or embedded record
+   * - ``select`` (relational)
+     - ``RelationSerializer``
+     - Shallow stub or embedded record
+   * - ``inline``
+     - ``RelationSerializer``
+     - Shallow stub or embedded record
+   * - ``group``
+     - ``GroupFieldSerializer``
+     - Shallow stub or embedded record
+   * - ``json``
+     - Auto-decoded via ``json_decode``
+     - Decoded array/object
+   * - ``imageManipulation``
+     - Auto-decoded via ``json_decode``
+     - Decoded crop config object
+   * - ``flex``
+     - Auto-decoded via ``GeneralUtility::xml2array``
+     - Decoded associative array
+   * - ``datetime``
+     - Auto-formatted to ISO 8601 (``DateTimeInterface::ATOM``)
+     - ``"2024-01-01T00:00:00+00:00"`` or ``null``
+   * - ``link``
+     - Auto-applies ``TypoLinkProcessor``
+     - Resolved public URL string
+   * - ``password``
+     - **Excluded** — never appears in API responses
+     - *(column omitted)*
+   * - ``input``, ``text``, ``number``, ``email``, ``color``, ``country``,
+       ``slug``, ``radio``, ``select`` (static)
+     - Raw DB value
+     - String, integer, or appropriate scalar
+   * - ``check``
+     - Raw DB value
+     - Bitmask integer
+   * - ``language``
+     - Excluded by ``TcaColumnDiscovery`` via ``ctrl.languageField``
+     - *(column omitted)*
+   * - ``folder``, ``none``, ``passthrough``, ``user``
+     - Raw DB value
+     - Implementation-defined
+
+An explicit ``processor`` on a column definition always overrides the automatic
+handling described above.
+
 ..  _column-processors:
 
 Column processors
