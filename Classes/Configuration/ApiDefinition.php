@@ -61,7 +61,7 @@ final readonly class ApiDefinition
      *   list, show → AccessRole::PUBLIC  (read operations are public by default)
      *   create, update, delete → AccessRole::DISABLED  (write operations require explicit config)
      */
-    public function securityRole(string $operation): AccessRole|array
+    public function securityRole(string $operation): mixed
     {
         return $this->security[$operation]
             ?? (\in_array($operation, self::READ_OPERATIONS, true) ? AccessRole::PUBLIC : AccessRole::DISABLED);
