@@ -22,11 +22,14 @@ readonly class OpenApiBuilder
     {
         $resources = $this->filterAllowedResources($this->apiRegistry->getAll(), $settings);
 
+        $description = (string)$settings->get('tca_api.apiSpecDescription', '');
         $info = [
-            'title' => $settings->get('tca_api.apiSpecTitle'),
-            'version' => $settings->get('tca_api.apiSpecVersion'),
-            'description' => $settings->get('tca_api.apiSpecDescription'),
+            'title'   => (string)$settings->get('tca_api.apiSpecTitle'),
+            'version' => (string)$settings->get('tca_api.apiSpecVersion'),
         ];
+        if ($description !== '') {
+            $info['description'] = $description;
+        }
 
         return [
             'openapi' => '3.1.0',
