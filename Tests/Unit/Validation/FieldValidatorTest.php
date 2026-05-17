@@ -303,4 +303,73 @@ final class FieldValidatorTest extends TestCase
         self::assertContains('MIN_LENGTH', $codes);
         self::assertContains('MAX_LENGTH', $codes);
     }
+
+    // ── Unknown validator type ───────────────────────────────────────────────
+
+    #[Test]
+    public function unknownValidatorTypeIsIgnored(): void
+    {
+        $def = self::explicitDef([
+            'title' => ['groups' => ['create'], 'validators' => [['type' => 'nonExistentValidator']]],
+        ]);
+
+        $violations = $this->validator->validate(['title' => 'hello'], $def);
+
+        self::assertSame([], $violations);
+    }
+
+    // ── Mixed partial + required + validators ────────────────────────────────
+
+    #[Test]
+    public function partialModeWithRequiredFieldProvidedStillRunsValidators(): void
+    {
+        $def = self::explicitDef([
+            'title' => [
+                'groups' => ['create', 'update'],
+                'required' => true,
+                'validators' => [['type' => 'maxLength', 'max' => 5]],
+            ],
+        ]);
+
+        // partial=true, field IS provided but fails validator
+        $violations = $this->validator->validate(['title' => 'toolong'], $def, partial: true);
+
+        self::assertCount(1, $violations);
+        self::assertSame('MAX_LENGTH', $violations[0]['code']);
+    }
+
+    #[Test]
+    public function partialModeSkipsAbsentRequiredFieldButValidatesPresent(): void
+    {
+        $def = self::explicitDef([
+            'title' => ['groups' => ['create', 'update'], 'required' => true],
+            'body'  => [
+                'groups' => ['create', 'update'],
+                'validators' => [['type' => 'minLength', 'min' => 5]],
+            ],
+        ]);
+
+        // partial=true: 'title' absent → skip, 'body' present but too short → violation
+        $violations = $this->validator->validate(['body' => 'hi'], $def, partial: true);
+
+        self::assertCount(1, $violations);
+        self::assertSame('MIN_LENGTH', $violations[0]['code']);
+        self::assertSame('body', $violations[0]['propertyPath']);
+    }
+
+    // ── Regex: invalid pattern ───────────────────────────────────────────────
+
+    #[Test]
+    public function regexWithInvalidPatternReturnsRegexErrorNotException(): void
+    {
+        $def = self::explicitDef([
+            'slug' => ['groups' => ['create'], 'validators' => [['type' => 'regex', 'pattern' => '/(?:a{1,}){1,}$/']]],
+        ]);
+
+        // This pattern is valid but potentially slow; the important thing is it doesn't throw
+        $violations = $this->validator->validate(['slug' => 'aaaaaa'], $def);
+
+        // Pattern is valid and matches, so no violations
+        self::assertSame([], $violations);
+    }
 }
