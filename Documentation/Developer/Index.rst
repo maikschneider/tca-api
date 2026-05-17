@@ -15,3 +15,4 @@ operation handlers, and the request attribute API.
     CustomHandlers
     RequestAttributes
     Architecture
+    ConfigurationModule
