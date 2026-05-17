@@ -79,6 +79,9 @@ class UpdateHandler implements OperationHandlerInterface
 
         $beforeEvent = new BeforeWriteEvent($config->table, 'update', $data);
         $this->eventDispatcher->dispatch($beforeEvent);
+        if ($beforeEvent->isPropagationStopped()) {
+            return $this->hydraResponseBuilder->buildError(422, 'Operation aborted by event listener.', 'Unprocessable Entity');
+        }
         $data = $beforeEvent->getData();
 
         // Call 1: update parent record and any new related records (no file columns).

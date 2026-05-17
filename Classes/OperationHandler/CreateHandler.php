@@ -83,6 +83,9 @@ class CreateHandler implements OperationHandlerInterface
 
         $beforeEvent = new BeforeWriteEvent($config->table, 'create', $data);
         $this->eventDispatcher->dispatch($beforeEvent);
+        if ($beforeEvent->isPropagationStopped()) {
+            return $this->hydraResponseBuilder->buildError(422, 'Operation aborted by event listener.', 'Unprocessable Entity');
+        }
         $data = $beforeEvent->getData();
 
         // Call 1: create the parent record and all related records.
