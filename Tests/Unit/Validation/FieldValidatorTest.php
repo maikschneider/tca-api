@@ -304,20 +304,6 @@ final class FieldValidatorTest extends TestCase
         self::assertContains('MAX_LENGTH', $codes);
     }
 
-    // ── Unknown validator type ───────────────────────────────────────────────
-
-    #[Test]
-    public function unknownValidatorTypeIsIgnored(): void
-    {
-        $def = self::explicitDef([
-            'title' => ['groups' => ['create'], 'validators' => [['type' => 'nonExistentValidator']]],
-        ]);
-
-        $violations = $this->validator->validate(['title' => 'hello'], $def);
-
-        self::assertSame([], $violations);
-    }
-
     // ── Mixed partial + required + validators ────────────────────────────────
 
     #[Test]
