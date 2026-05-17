@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+	<file source-language="en" datatype="plaintext" original="messages" date="2025-01-01T00:00:00Z" product-name="tca_api">
+		<header/>
+		<body>
+			<trans-unit id="module.configuration.provider.label" resname="module.configuration.provider.label">
+				<source>TCA API Configuration</source>
+			</trans-unit>
+		</body>
+	</file>
+</xliff>

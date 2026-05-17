@@ -35,6 +35,9 @@
 		"typo3/cms-workspaces": "^13.4 || ^14.0",
 		"typo3/testing-framework": "^9.5"
 	},
+	"suggest": {
+		"typo3/cms-lowlevel": "Provides the Configuration module in TYPO3 backend where the TCA API configuration tree is displayed"
+	},
 	"autoload": {
 		"psr-4": {
 			"MaikSchneider\\TcaApi\\": "Classes"
