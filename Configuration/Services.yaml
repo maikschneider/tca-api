@@ -19,14 +19,6 @@ services:
   MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor:
     public: true
 
-  # ── Configuration module providers ─────────────────────────────────
-  MaikSchneider\TcaApi\ConfigurationModuleProvider\TcaApiConfigurationProvider:
-    public: true
-    tags:
-      - name: 'lowlevel.configuration.module.provider'
-        identifier: 'tca_api'
-        label: 'LLL:EXT:tca_api/Resources/Private/Language/locallang.xlf:module.configuration.provider.label'
-
   # ── Cache services ─────────────────────────────────────────────────
   cache.tca_api:
     class: TYPO3\CMS\Core\Cache\Frontend\FrontendInterface
