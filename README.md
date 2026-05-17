@@ -1158,27 +1158,4 @@ That's all. The class is auto-tagged and auto-wired — no `ext_localconf.php` o
 
 ## Development
 
-### Static analysis & linting
-
-```bash
-# Run all checks
-composer sca
-
-# Individual checks
-composer php:lint          # PHP syntax
-composer php:fixer         # Code style (php-cs-fixer)
-composer php:stan          # PHPStan static analysis
-```
-
-### Testing
-
-Tests use the TYPO3 Testing Framework with functional test cases:
-
-```bash
-# Run all tests
-vendor/bin/phpunit -c phpunit.xml
-```
-
-## License
-
-GPL-2.0-or-later — see [LICENSE](https://www.gnu.org/licenses/gpl-2.0.html).
+This extension uses DDEV for local development, see [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions.
