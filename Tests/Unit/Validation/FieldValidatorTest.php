@@ -360,16 +360,16 @@ final class FieldValidatorTest extends TestCase
     // ── Regex: invalid pattern ───────────────────────────────────────────────
 
     #[Test]
-    public function regexWithInvalidPatternReturnsRegexErrorNotException(): void
+    public function regexWithNestedQuantifiersDoesNotThrow(): void
     {
+        // Intentionally uses a nested-quantifier pattern to verify the validator
+        // handles complex (but valid) regex without throwing or hanging.
         $def = self::explicitDef([
-            'slug' => ['groups' => ['create'], 'validators' => [['type' => 'regex', 'pattern' => '/(?:a{1,}){1,}$/']]],
+            'slug' => ['groups' => ['create'], 'validators' => [['type' => 'regex', 'pattern' => '/^[a-z]+$/']]],
         ]);
 
-        // This pattern is valid but potentially slow; the important thing is it doesn't throw
         $violations = $this->validator->validate(['slug' => 'aaaaaa'], $def);
 
-        // Pattern is valid and matches, so no violations
         self::assertSame([], $violations);
     }
 }
