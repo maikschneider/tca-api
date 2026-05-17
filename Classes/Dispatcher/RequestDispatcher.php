@@ -9,6 +9,8 @@ use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Event\BeforeOperationEvent;
+use MaikSchneider\TcaApi\OpenApi\HydraApiDocumentationBuilder;
+use MaikSchneider\TcaApi\OpenApi\HydraEntrypointBuilder;
 use MaikSchneider\TcaApi\OpenApi\OpenApiBuilder;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Registry\HandlerRegistry;
@@ -26,6 +28,8 @@ use TYPO3\CMS\Core\Utility\PathUtility;
 final class RequestDispatcher
 {
     private const DEFAULT_ITEMS_PER_PAGE = 20;
+    private const RESOURCE_ENTRYPOINT = '';
+    private const RESOURCE_DOCS = 'docs.jsonld';
     private const RESOURCE_OPENAPI = 'openapi.json';
     private const RESOURCE_SWAGGER_UI = 'swagger-ui';
 
@@ -38,6 +42,8 @@ final class RequestDispatcher
         private readonly ApiRegistry $apiRegistry,
         private readonly HandlerRegistry $handlerRegistry,
         private readonly OpenApiBuilder $openApiBuilder,
+        private readonly HydraEntrypointBuilder $hydraEntrypointBuilder,
+        private readonly HydraApiDocumentationBuilder $hydraApiDocumentationBuilder,
         private readonly CacheTagCollector $cacheTagCollector,
         private readonly FrontendInterface $cache,
     ) {
@@ -75,6 +81,20 @@ final class RequestDispatcher
             }
 
             return $this->serveSwaggerUi($prefixWithout);
+        }
+
+        if ($resource === self::RESOURCE_ENTRYPOINT) {
+            if ($method !== 'GET') {
+                return $this->methodNotAllowed();
+            }
+            return $this->serveHydraEntrypoint($siteSettings);
+        }
+
+        if ($resource === self::RESOURCE_DOCS) {
+            if ($method !== 'GET') {
+                return $this->methodNotAllowed();
+            }
+            return $this->serveHydraApiDocumentation($siteSettings);
         }
 
         if (!$this->isResourceInSiteAllowed($resource, $siteSettings)) {
@@ -245,6 +265,26 @@ final class RequestDispatcher
             ->withAttribute('tca_api.filters', \is_array($params['filters'] ?? null) ? $params['filters'] : [])
             ->withAttribute('tca_api.order', \is_array($params['order'] ?? null) ? $params['order'] : [])
             ->withAttribute('tca_api.partial', $method === 'PATCH');
+    }
+
+    private function serveHydraEntrypoint(SiteSettings $siteSettings): ResponseInterface
+    {
+        $body = $this->hydraEntrypointBuilder->build($siteSettings);
+        $link = $this->hydraEntrypointBuilder->buildLinkHeader($siteSettings);
+        $response = $this->responseFactory->createResponse(200)
+            ->withHeader('Content-Type', 'application/ld+json')
+            ->withHeader('Link', $link);
+        $response->getBody()->write(json_encode($body, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+        return $response;
+    }
+
+    private function serveHydraApiDocumentation(SiteSettings $siteSettings): ResponseInterface
+    {
+        $doc = $this->hydraApiDocumentationBuilder->build($siteSettings);
+        $response = $this->responseFactory->createResponse(200)
+            ->withHeader('Content-Type', 'application/ld+json');
+        $response->getBody()->write(json_encode($doc, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+        return $response;
     }
 
     private function serveOpenApiSpec(SiteSettings $siteSettings): ResponseInterface
