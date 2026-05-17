@@ -15,7 +15,7 @@ final readonly class HydraApiDocumentationBuilder
     {
     }
 
-    public function build(SiteSettings $settings): array
+    public function build(SiteSettings $settings, string $baseUrl = ''): array
     {
         $prefix = rtrim((string)$settings->get('tca_api.apiPrefix', '/_api'), '/');
         $resources = $this->filterAllowedResources($this->apiRegistry->getAll(), $settings);
@@ -35,7 +35,8 @@ final readonly class HydraApiDocumentationBuilder
             'returns' => ['@id' => 'hydra:returns', '@type' => '@id'],
         ];
 
-        $supportedClasses = [$this->buildEntrypointClass($resources, $prefix)];
+        $docsBase = $baseUrl . $prefix . '/docs.jsonld#';
+        $supportedClasses = [$this->buildEntrypointClass($resources, $docsBase)];
         foreach ($resources as $config) {
             if ($config->isUserInfo()) {
                 continue;
@@ -86,7 +87,7 @@ final readonly class HydraApiDocumentationBuilder
     }
 
     /** @param array<string, ApiDefinition> $resources */
-    private function buildEntrypointClass(array $resources, string $prefix): array
+    private function buildEntrypointClass(array $resources, string $docsBase): array
     {
         $supportedProperties = [];
 
@@ -120,7 +121,7 @@ final readonly class HydraApiDocumentationBuilder
             $supportedProperties[] = [
                 '@type' => 'SupportedProperty',
                 'hydra:property' => [
-                    '@id' => 'Entrypoint/' . $name,
+                    '@id' => $docsBase . 'Entrypoint/' . $name,
                     '@type' => 'Link',
                     'hydra:title' => $name,
                     'domain' => '#Entrypoint',

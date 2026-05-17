@@ -87,14 +87,14 @@ final class RequestDispatcher
             if ($method !== 'GET') {
                 return $this->methodNotAllowed();
             }
-            return $this->serveHydraEntrypoint($siteSettings);
+            return $this->serveHydraEntrypoint($siteSettings, $request);
         }
 
         if ($resource === self::RESOURCE_DOCS) {
             if ($method !== 'GET') {
                 return $this->methodNotAllowed();
             }
-            return $this->serveHydraApiDocumentation($siteSettings);
+            return $this->serveHydraApiDocumentation($siteSettings, $request);
         }
 
         if (!$this->isResourceInSiteAllowed($resource, $siteSettings)) {
@@ -267,10 +267,12 @@ final class RequestDispatcher
             ->withAttribute('tca_api.partial', $method === 'PATCH');
     }
 
-    private function serveHydraEntrypoint(SiteSettings $siteSettings): ResponseInterface
+    private function serveHydraEntrypoint(SiteSettings $siteSettings, ServerRequestInterface $request): ResponseInterface
     {
-        $body = $this->hydraEntrypointBuilder->build($siteSettings);
-        $link = $this->hydraEntrypointBuilder->buildLinkHeader($siteSettings);
+        $uri = $request->getUri();
+        $baseUrl = $uri->getScheme() . '://' . $uri->getHost();
+        $body = $this->hydraEntrypointBuilder->build($siteSettings, $baseUrl);
+        $link = $this->hydraEntrypointBuilder->buildLinkHeader($siteSettings, $baseUrl);
         $response = $this->responseFactory->createResponse(200)
             ->withHeader('Content-Type', 'application/ld+json')
             ->withHeader('Link', $link);
@@ -278,9 +280,11 @@ final class RequestDispatcher
         return $response;
     }
 
-    private function serveHydraApiDocumentation(SiteSettings $siteSettings): ResponseInterface
+    private function serveHydraApiDocumentation(SiteSettings $siteSettings, ServerRequestInterface $request): ResponseInterface
     {
-        $doc = $this->hydraApiDocumentationBuilder->build($siteSettings);
+        $uri = $request->getUri();
+        $baseUrl = $uri->getScheme() . '://' . $uri->getHost();
+        $doc = $this->hydraApiDocumentationBuilder->build($siteSettings, $baseUrl);
         $response = $this->responseFactory->createResponse(200)
             ->withHeader('Content-Type', 'application/ld+json');
         $response->getBody()->write(json_encode($doc, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));

@@ -15,9 +15,10 @@ final readonly class HydraEntrypointBuilder
     {
     }
 
-    public function build(SiteSettings $settings): array
+    public function build(SiteSettings $settings, string $baseUrl = ''): array
     {
         $prefix = rtrim((string)$settings->get('tca_api.apiPrefix', '/_api'), '/');
+        $docsBase = $baseUrl . $prefix . '/docs.jsonld#';
         $resources = $this->filterAllowedResources($this->apiRegistry->getAll(), $settings);
 
         $context = [
@@ -27,7 +28,8 @@ final readonly class HydraEntrypointBuilder
             'rdfs' => 'http://www.w3.org/2000/01/rdf-schema#',
             'owl' => 'http://www.w3.org/2002/07/owl#',
             'schema' => 'http://schema.org/',
-            'Entrypoint' => $prefix . '/docs.jsonld#Entrypoint',
+            // Absolute IRI required — relative paths resolve against @vocab, not document base
+            'Entrypoint' => $docsBase . 'Entrypoint',
         ];
 
         $links = [];
@@ -35,7 +37,7 @@ final readonly class HydraEntrypointBuilder
             if ($config->isUserInfo()) {
                 continue;
             }
-            $context[$name] = ['@id' => 'Entrypoint/' . $name, '@type' => '@id'];
+            $context[$name] = ['@id' => $docsBase . 'Entrypoint/' . $name, '@type' => '@id'];
             $links[$name] = $prefix . '/' . $name;
         }
 
@@ -68,11 +70,12 @@ final readonly class HydraEntrypointBuilder
         );
     }
 
-    public function buildLinkHeader(SiteSettings $settings): string
+    public function buildLinkHeader(SiteSettings $settings, string $baseUrl = ''): string
     {
         $prefix = rtrim((string)$settings->get('tca_api.apiPrefix', '/_api'), '/');
         return sprintf(
-            '<%s/docs.jsonld>; rel="http://www.w3.org/ns/hydra/core#apiDocumentation"',
+            '<%s%s/docs.jsonld>; rel="http://www.w3.org/ns/hydra/core#apiDocumentation"',
+            $baseUrl,
             $prefix,
         );
     }
