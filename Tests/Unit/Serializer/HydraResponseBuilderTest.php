@@ -167,4 +167,55 @@ final class HydraResponseBuilderTest extends TestCase
         self::assertStringContainsString('page=1', $body['hydra:view']['hydra:previous']);
         self::assertStringContainsString('page=3', $body['hydra:view']['hydra:next']);
     }
+
+    #[Test]
+    public function buildCollectionWithItemsPerPageZeroDoesNotThrow(): void
+    {
+        $response = $this->builder->buildCollection([], 10, '/api/news', 1, 0);
+
+        $body = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('hydra:PartialCollectionView', $body['hydra:view']['@type']);
+    }
+
+    #[Test]
+    public function buildCollectionWithTotalItemsZeroReturnsEmptyMembersAndView(): void
+    {
+        $response = $this->builder->buildCollection([], 0, '/api/news', 1, 10);
+
+        $body = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(0, $body['hydra:totalItems']);
+        self::assertSame([], $body['hydra:member']);
+        self::assertNull($body['hydra:view']['hydra:next']);
+    }
+
+    #[Test]
+    public function buildCollectionJsonStructureMatchesHydraSpec(): void
+    {
+        $members  = [['uid' => 1, '@type' => 'News']];
+        $response = $this->builder->buildCollection($members, 1, '/api/news', 1, 10);
+
+        $body = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('@context', $body);
+        self::assertSame('http://www.w3.org/ns/hydra/context.jsonld', $body['@context']);
+        self::assertArrayHasKey('@type', $body);
+        self::assertSame('hydra:Collection', $body['@type']);
+        self::assertArrayHasKey('@id', $body);
+        self::assertArrayHasKey('hydra:totalItems', $body);
+        self::assertArrayHasKey('hydra:member', $body);
+        self::assertArrayHasKey('hydra:view', $body);
+    }
+
+    #[Test]
+    public function buildCollectionViewPreservesExtraQueryParams(): void
+    {
+        $response = $this->builder->buildCollection([], 30, '/api/news', 1, 10, ['filters' => ['status' => 'active']]);
+
+        $body = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertStringContainsString('filters', $body['hydra:view']['hydra:first']);
+    }
 }

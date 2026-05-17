@@ -82,7 +82,7 @@ final class HydraResponseBuilder
 
     private function buildView(string $collectionId, int $page, int $itemsPerPage, int $totalItems, array $queryParams = []): array
     {
-        $lastPage = (int)ceil($totalItems / $itemsPerPage);
+        $lastPage = $itemsPerPage > 0 ? (int)ceil($totalItems / $itemsPerPage) : 1;
 
         $link = static fn (int $p) => $collectionId . '?' . http_build_query(array_merge($queryParams, ['page' => $p]));
 

@@ -303,4 +303,59 @@ final class FieldValidatorTest extends TestCase
         self::assertContains('MIN_LENGTH', $codes);
         self::assertContains('MAX_LENGTH', $codes);
     }
+
+    // ── Mixed partial + required + validators ────────────────────────────────
+
+    #[Test]
+    public function partialModeWithRequiredFieldProvidedStillRunsValidators(): void
+    {
+        $def = self::explicitDef([
+            'title' => [
+                'groups' => ['create', 'update'],
+                'required' => true,
+                'validators' => [['type' => 'maxLength', 'max' => 5]],
+            ],
+        ]);
+
+        // partial=true, field IS provided but fails validator
+        $violations = $this->validator->validate(['title' => 'toolong'], $def, partial: true);
+
+        self::assertCount(1, $violations);
+        self::assertSame('MAX_LENGTH', $violations[0]['code']);
+    }
+
+    #[Test]
+    public function partialModeSkipsAbsentRequiredFieldButValidatesPresent(): void
+    {
+        $def = self::explicitDef([
+            'title' => ['groups' => ['create', 'update'], 'required' => true],
+            'body'  => [
+                'groups' => ['create', 'update'],
+                'validators' => [['type' => 'minLength', 'min' => 5]],
+            ],
+        ]);
+
+        // partial=true: 'title' absent → skip, 'body' present but too short → violation
+        $violations = $this->validator->validate(['body' => 'hi'], $def, partial: true);
+
+        self::assertCount(1, $violations);
+        self::assertSame('MIN_LENGTH', $violations[0]['code']);
+        self::assertSame('body', $violations[0]['propertyPath']);
+    }
+
+    // ── Regex: invalid pattern ───────────────────────────────────────────────
+
+    #[Test]
+    public function regexWithNestedQuantifiersDoesNotThrow(): void
+    {
+        // Intentionally uses a nested-quantifier pattern to verify the validator
+        // handles complex (but valid) regex without throwing or hanging.
+        $def = self::explicitDef([
+            'slug' => ['groups' => ['create'], 'validators' => [['type' => 'regex', 'pattern' => '/^[a-z]+$/']]],
+        ]);
+
+        $violations = $this->validator->validate(['slug' => 'aaaaaa'], $def);
+
+        self::assertSame([], $violations);
+    }
 }
