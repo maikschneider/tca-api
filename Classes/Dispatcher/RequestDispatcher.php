@@ -105,7 +105,12 @@ final class RequestDispatcher
             return $accessError;
         }
 
-        $this->eventDispatcher->dispatch(new BeforeOperationEvent($operation, $request, $config));
+        $beforeOperationEvent = new BeforeOperationEvent($operation, $request, $config);
+        $this->eventDispatcher->dispatch($beforeOperationEvent);
+
+        if ($beforeOperationEvent->isPropagationStopped()) {
+            return $this->forbidden($operation, $siteSettings);
+        }
 
         $request = $this->withRequestAttributes($request, $method, $uid, $operation, $config, $siteSettings)
             ->withAttribute('tca_api.existing_record', $existingRecord);

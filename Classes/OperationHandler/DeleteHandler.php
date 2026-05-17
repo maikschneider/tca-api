@@ -45,7 +45,11 @@ class DeleteHandler implements OperationHandlerInterface
         }
 
         $writeContext = $this->writeContextFactory->fromRequest($request, $config->writeMode);
-        $this->eventDispatcher->dispatch(new BeforeWriteEvent($config->table, 'delete', []));
+        $beforeEvent = new BeforeWriteEvent($config->table, 'delete', []);
+        $this->eventDispatcher->dispatch($beforeEvent);
+        if ($beforeEvent->isPropagationStopped()) {
+            return $this->hydraResponseBuilder->buildError(422, 'Operation aborted by event listener.', 'Unprocessable Entity');
+        }
         $this->writeService->delete($config->table, $uid, $writeContext);
         $this->eventDispatcher->dispatch(new AfterWriteEvent($config->table, 'delete', $uid));
 
