@@ -17,6 +17,7 @@ Interface
 
     namespace MaikSchneider\TcaApi\OperationHandler;
 
+    use MaikSchneider\TcaApi\Configuration\ApiDefinition;
     use Psr\Http\Message\ResponseInterface;
     use Psr\Http\Message\ServerRequestInterface;
 
@@ -25,12 +26,12 @@ Interface
         public function supports(
             ServerRequestInterface $request,
             string $operation,
-            array $config
+            ApiDefinition $config
         ): bool;
 
         public function handle(
             ServerRequestInterface $request,
-            array $config
+            ApiDefinition $config
         ): ResponseInterface;
 
         public function getPriority(): int;
@@ -48,26 +49,25 @@ Writing a custom handler
 
     namespace My\Extension\OperationHandler;
 
+    use MaikSchneider\TcaApi\Configuration\ApiDefinition;
     use MaikSchneider\TcaApi\OperationHandler\OperationHandlerInterface;
     use Psr\Http\Message\ResponseInterface;
     use Psr\Http\Message\ServerRequestInterface;
-    use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 
-    #[Autoconfigure(public: true)]
-    class PublishHandler implements OperationHandlerInterface
+    final class PublishHandler implements OperationHandlerInterface
     {
         public function supports(
             ServerRequestInterface $request,
             string $operation,
-            array $config
+            ApiDefinition $config
         ): bool {
             return $operation === 'publish'
-                && ($config['general']['table'] ?? '') === 'tx_myext_domain_model_article';
+                && $config->table === 'tx_myext_domain_model_article';
         }
 
         public function handle(
             ServerRequestInterface $request,
-            array $config
+            ApiDefinition $config
         ): ResponseInterface {
             $uid = (int) $request->getAttribute('tca_api.uid');
             // … publish logic …
@@ -79,28 +79,25 @@ Writing a custom handler
         }
     }
 
-..  important::
-
-    The ``#[Autoconfigure(public: true)]`` attribute on the class is required for
-    the TYPO3 DI container to expose the service.
-
 Registering handlers
 ====================
 
-Register handlers in your extension's :file:`ext_localconf.php`. The dispatcher
-iterates handlers **highest priority first** and dispatches to the first match.
+No :file:`ext_localconf.php` changes are needed. TCA API's
+:file:`Configuration/Services.yaml` contains an ``_instanceof`` rule that
+automatically tags every class implementing ``OperationHandlerInterface`` with
+``tca_api.operation_handler``. The ``HandlerRegistry`` collects all tagged
+services via Symfony's ``AutowireIterator`` and sorts them by priority.
+
+All that is required is that the handler class is discoverable by the DI
+container. If your extension uses the standard service auto-discovery pattern
+(``resource: '../Classes/*'``), nothing else is needed. The dispatcher iterates
+handlers **highest priority first** and dispatches to the first match.
+
+To override a built-in handler, return a priority higher than ``10``:
 
 ..  code-block:: php
 
-    use MaikSchneider\TcaApi\Registry\HandlerRegistry;
-    use My\Extension\OperationHandler\PublishHandler;
-
-    // New operation type — priority 10 (default)
-    HandlerRegistry::register(PublishHandler::class);
-
-    // Override a built-in handler — checked before built-in (priority 20 > 10)
-    HandlerRegistry::register(MyCustomShowHandler::class, priority: 20);
-
-The ``HandlerRegistry`` uses TYPO3's DI container via
-``GeneralUtility::makeInstance()``, so constructor dependencies are injected
-automatically.
+    public function getPriority(): int
+    {
+        return 20; // checked before the built-in handler (priority 10)
+    }

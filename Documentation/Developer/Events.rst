@@ -118,34 +118,39 @@ Register event listeners in your extension's :file:`Configuration/Services.yaml`
 ..  code-block:: yaml
 
     services:
-      My\Extension\EventListener\EnrichArticleListener:
+      My\Extension\EventListener\RestrictArticleDeleteListener:
         tags:
           - name: event.listener
-            identifier: 'my-extension/enrich-article'
-            event: MaikSchneider\TcaApi\Event\AfterOperationEvent
+            identifier: 'my-extension/restrict-article-delete'
+            event: MaikSchneider\TcaApi\Event\BeforeOperationEvent
 
 Example listener
 ================
+
+The following listener blocks ``delete`` requests on a specific table unless a
+custom request header is present. ``getConfig()`` returns an
+:php:`ApiDefinition` object — access its properties directly.
 
 ..  code-block:: php
 
     namespace My\Extension\EventListener;
 
-    use MaikSchneider\TcaApi\Event\AfterOperationEvent;
+    use MaikSchneider\TcaApi\Event\BeforeOperationEvent;
 
-    class EnrichArticleListener
+    final class RestrictArticleDeleteListener
     {
-        public function __invoke(AfterOperationEvent $event): void
+        public function __invoke(BeforeOperationEvent $event): void
         {
-            $data = $event->getData();
-            $config = $event->getConfig();
-
-            if (($config['general']['table'] ?? '') !== 'tx_myext_domain_model_article') {
+            if ($event->getConfig()->table !== 'tx_myext_domain_model_article') {
                 return;
             }
 
-            // Add a computed field to the response
-            $data['computedField'] = 'some value';
-            $event->setData($data);
+            if ($event->getOperation() !== 'delete') {
+                return;
+            }
+
+            if (!$event->getRequest()->hasHeader('X-Admin-Token')) {
+                $event->stopPropagation(); // dispatcher returns 403
+            }
         }
     }
