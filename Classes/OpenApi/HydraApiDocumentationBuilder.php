@@ -24,7 +24,7 @@ final readonly class HydraApiDocumentationBuilder
             'rdfs' => 'http://www.w3.org/2000/01/rdf-schema#',
             'owl' => 'http://www.w3.org/2002/07/owl#',
             'schema' => 'http://schema.org/',
-            'xmls' => 'http://www.w3.org/2001/XMLSchema#',
+            'xsd' => 'http://www.w3.org/2001/XMLSchema#',
             'domain' => ['@id' => 'rdfs:domain', '@type' => '@id'],
             'range' => ['@id' => 'rdfs:range', '@type' => '@id'],
             'subClassOf' => ['@id' => 'rdfs:subClassOf', '@type' => '@id'],
