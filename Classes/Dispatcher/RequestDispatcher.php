@@ -9,7 +9,6 @@ use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Event\BeforeOperationEvent;
-use MaikSchneider\TcaApi\OpenApi\BuildContext;
 use MaikSchneider\TcaApi\OpenApi\HydraApiDocumentationBuilder;
 use MaikSchneider\TcaApi\OpenApi\HydraEntrypointBuilder;
 use MaikSchneider\TcaApi\OpenApi\OpenApiBuilder;
@@ -23,7 +22,6 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Site\Entity\SiteSettings;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\PathUtility;
 
 final class RequestDispatcher
@@ -52,13 +50,10 @@ final class RequestDispatcher
 
     public function dispatch(ServerRequestInterface $request, SiteSettings $siteSettings): ResponseInterface
     {
-        $method        = strtoupper($request->getMethod());
-        $prefixWithout = rtrim((string)$siteSettings->get('tca_api.apiPrefix'), '/');
-        $segments      = explode('/', trim(substr($request->getUri()->getPath(), \strlen($prefixWithout)), '/'));
-        $resource      = $segments[0];
-        $uid           = isset($segments[1]) && $segments[1] !== '' ? (int)$segments[1] : null;
+        $ctx = new RequestContext($siteSettings, $request);
+        $method = strtoupper($request->getMethod());
 
-        if ($resource === self::RESOURCE_OPENAPI) {
+        if ($ctx->resource === self::RESOURCE_OPENAPI) {
             if ($method !== 'GET') {
                 return $this->methodNotAllowed();
             }
@@ -68,10 +63,10 @@ final class RequestDispatcher
                 return $this->notFound();
             }
 
-            return $this->serveOpenApiSpec($siteSettings);
+            return $this->serveOpenApiSpec($ctx);
         }
 
-        if ($resource === self::RESOURCE_SWAGGER_UI) {
+        if ($ctx->resource === self::RESOURCE_SWAGGER_UI) {
             if ($method !== 'GET') {
                 return $this->methodNotAllowed();
             }
@@ -81,33 +76,33 @@ final class RequestDispatcher
                 return $this->notFound();
             }
 
-            return $this->serveSwaggerUi($prefixWithout);
+            return $this->serveSwaggerUi($ctx);
         }
 
-        if ($resource === self::RESOURCE_ENTRYPOINT) {
+        if ($ctx->resource === self::RESOURCE_ENTRYPOINT) {
             if ($method !== 'GET') {
                 return $this->methodNotAllowed();
             }
-            return $this->serveHydraEntrypoint($siteSettings, $request);
+            return $this->serveHydraEntrypoint($ctx);
         }
 
-        if ($resource === self::RESOURCE_DOCS) {
+        if ($ctx->resource === self::RESOURCE_DOCS) {
             if ($method !== 'GET') {
                 return $this->methodNotAllowed();
             }
-            return $this->serveHydraApiDocumentation($siteSettings, $request);
+            return $this->serveHydraApiDocumentation($ctx);
         }
 
-        if (!$this->isResourceInSiteAllowed($resource, $siteSettings)) {
+        if (!$ctx->isResourceAllowed($ctx->resource)) {
             return $this->notFound();
         }
 
-        $config = $this->apiRegistry->get($resource);
+        $config = $this->apiRegistry->get($ctx->resource);
         if ($config === null) {
             return $this->notFound();
         }
 
-        $operation = $this->resolveOperation($method, $uid, $config);
+        $operation = $this->resolveOperation($method, $ctx->uid, $config);
         if ($operation === null) {
             return $this->methodNotAllowed();
         }
@@ -116,7 +111,7 @@ final class RequestDispatcher
             return $this->methodNotAllowed($operation);
         }
 
-        $existingRecord = $this->resolveExistingRecord($operation, $uid, $config);
+        $existingRecord = $this->resolveExistingRecord($operation, $ctx->uid, $config);
         if ($existingRecord === false) {
             return $this->notFound();
         }
@@ -133,7 +128,7 @@ final class RequestDispatcher
             return $this->forbidden($operation, $siteSettings);
         }
 
-        $request = $this->withRequestAttributes($request, $method, $uid, $operation, $config, $siteSettings)
+        $request = $this->withRequestAttributes($request, $method, $ctx->uid, $operation, $config, $siteSettings)
             ->withAttribute('tca_api.existing_record', $existingRecord);
 
         // ── Cache: check for hit on cacheable read operations ────────────
@@ -224,12 +219,6 @@ final class RequestDispatcher
         return $this->dataRepository->findById($config->table, $uid, $config) ?? false;
     }
 
-    private function isResourceInSiteAllowed(string $resource, SiteSettings $siteSettings): bool
-    {
-        $allowed = GeneralUtility::trimExplode(',', (string)$siteSettings->get('tca_api.allowedResources', ''), true);
-        return $allowed === [] || \in_array($resource, $allowed, true);
-    }
-
     private function checkAccess(string $operation, ServerRequestInterface $request, ApiDefinition $config, array $existingRecord, SiteSettings $siteSettings): ?ResponseInterface
     {
         if ($operation === 'userinfo') {
@@ -268,10 +257,8 @@ final class RequestDispatcher
             ->withAttribute('tca_api.partial', $method === 'PATCH');
     }
 
-    private function serveHydraEntrypoint(SiteSettings $siteSettings, ServerRequestInterface $request): ResponseInterface
+    private function serveHydraEntrypoint(RequestContext $ctx): ResponseInterface
     {
-        $uri = $request->getUri();
-        $ctx = new BuildContext($siteSettings, $uri->getScheme() . '://' . $uri->getHost());
         $body = $this->hydraEntrypointBuilder->build($ctx);
         $response = $this->responseFactory->createResponse(200)
             ->withHeader('Content-Type', 'application/ld+json')
@@ -280,10 +267,8 @@ final class RequestDispatcher
         return $response;
     }
 
-    private function serveHydraApiDocumentation(SiteSettings $siteSettings, ServerRequestInterface $request): ResponseInterface
+    private function serveHydraApiDocumentation(RequestContext $ctx): ResponseInterface
     {
-        $uri = $request->getUri();
-        $ctx = new BuildContext($siteSettings, $uri->getScheme() . '://' . $uri->getHost());
         $doc = $this->hydraApiDocumentationBuilder->build($ctx);
         $response = $this->responseFactory->createResponse(200)
             ->withHeader('Content-Type', 'application/ld+json');
@@ -291,18 +276,18 @@ final class RequestDispatcher
         return $response;
     }
 
-    private function serveOpenApiSpec(SiteSettings $siteSettings): ResponseInterface
+    private function serveOpenApiSpec(RequestContext $ctx): ResponseInterface
     {
-        $spec     = $this->openApiBuilder->build(new BuildContext($siteSettings));
+        $spec     = $this->openApiBuilder->build($ctx);
         $response = $this->responseFactory->createResponse(200)
             ->withHeader('Content-Type', 'application/json');
         $response->getBody()->write((string)json_encode($spec, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         return $response;
     }
 
-    private function serveSwaggerUi(string $apiPrefixWithout): ResponseInterface
+    private function serveSwaggerUi(RequestContext $ctx): ResponseInterface
     {
-        $openApiUrl = json_encode($apiPrefixWithout . '/openapi.json');
+        $openApiUrl = json_encode($ctx->prefix . '/openapi.json');
         $cssUrl     = PathUtility::getPublicResourceWebPath('EXT:tca_api/Resources/Public/SwaggerUI/swagger-ui.css');
         $jsUrl      = PathUtility::getPublicResourceWebPath('EXT:tca_api/Resources/Public/SwaggerUI/swagger-ui-bundle.js');
 

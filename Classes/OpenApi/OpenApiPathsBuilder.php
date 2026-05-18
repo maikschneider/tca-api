@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\OpenApi;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\Dispatcher\RequestContext;
 
 final readonly class OpenApiPathsBuilder
 {
@@ -13,7 +14,7 @@ final readonly class OpenApiPathsBuilder
     }
 
     /** @param array<string, ApiDefinition> $resources */
-    public function build(array $resources, BuildContext $ctx): array
+    public function build(array $resources, RequestContext $ctx): array
     {
         $paths = [];
 

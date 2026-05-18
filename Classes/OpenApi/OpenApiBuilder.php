@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\OpenApi;
 
+use MaikSchneider\TcaApi\Dispatcher\RequestContext;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 
 readonly class OpenApiBuilder
@@ -15,7 +16,7 @@ readonly class OpenApiBuilder
     ) {
     }
 
-    public function build(BuildContext $ctx): array
+    public function build(RequestContext $ctx): array
     {
         $resources = $ctx->filterAllowedResources($this->apiRegistry->getAll());
 

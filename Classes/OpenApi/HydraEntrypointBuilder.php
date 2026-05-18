@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\OpenApi;
 
+use MaikSchneider\TcaApi\Dispatcher\RequestContext;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 
 final readonly class HydraEntrypointBuilder
@@ -12,7 +13,7 @@ final readonly class HydraEntrypointBuilder
     {
     }
 
-    public function build(BuildContext $ctx): array
+    public function build(RequestContext $ctx): array
     {
         $resources = $ctx->filterAllowedResources($this->apiRegistry->getAll());
 
