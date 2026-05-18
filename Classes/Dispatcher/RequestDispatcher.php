@@ -9,6 +9,7 @@ use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Event\BeforeOperationEvent;
+use MaikSchneider\TcaApi\OpenApi\BuildContext;
 use MaikSchneider\TcaApi\OpenApi\HydraApiDocumentationBuilder;
 use MaikSchneider\TcaApi\OpenApi\HydraEntrypointBuilder;
 use MaikSchneider\TcaApi\OpenApi\OpenApiBuilder;
@@ -270,12 +271,11 @@ final class RequestDispatcher
     private function serveHydraEntrypoint(SiteSettings $siteSettings, ServerRequestInterface $request): ResponseInterface
     {
         $uri = $request->getUri();
-        $baseUrl = $uri->getScheme() . '://' . $uri->getHost();
-        $body = $this->hydraEntrypointBuilder->build($siteSettings, $baseUrl);
-        $link = $this->hydraEntrypointBuilder->buildLinkHeader($siteSettings, $baseUrl);
+        $ctx = new BuildContext($siteSettings, $uri->getScheme() . '://' . $uri->getHost());
+        $body = $this->hydraEntrypointBuilder->build($ctx);
         $response = $this->responseFactory->createResponse(200)
             ->withHeader('Content-Type', 'application/ld+json')
-            ->withHeader('Link', $link);
+            ->withHeader('Link', $ctx->linkHeader());
         $response->getBody()->write(json_encode($body, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
         return $response;
     }
@@ -283,8 +283,8 @@ final class RequestDispatcher
     private function serveHydraApiDocumentation(SiteSettings $siteSettings, ServerRequestInterface $request): ResponseInterface
     {
         $uri = $request->getUri();
-        $baseUrl = $uri->getScheme() . '://' . $uri->getHost();
-        $doc = $this->hydraApiDocumentationBuilder->build($siteSettings, $baseUrl);
+        $ctx = new BuildContext($siteSettings, $uri->getScheme() . '://' . $uri->getHost());
+        $doc = $this->hydraApiDocumentationBuilder->build($ctx);
         $response = $this->responseFactory->createResponse(200)
             ->withHeader('Content-Type', 'application/ld+json');
         $response->getBody()->write(json_encode($doc, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
@@ -293,7 +293,7 @@ final class RequestDispatcher
 
     private function serveOpenApiSpec(SiteSettings $siteSettings): ResponseInterface
     {
-        $spec     = $this->openApiBuilder->build($siteSettings);
+        $spec     = $this->openApiBuilder->build(new BuildContext($siteSettings));
         $response = $this->responseFactory->createResponse(200)
             ->withHeader('Content-Type', 'application/json');
         $response->getBody()->write((string)json_encode($spec, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));

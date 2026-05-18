@@ -6,8 +6,6 @@ namespace MaikSchneider\TcaApi\OpenApi;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
-use TYPO3\CMS\Core\Site\Entity\SiteSettings;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final readonly class HydraApiDocumentationBuilder
 {
@@ -15,10 +13,9 @@ final readonly class HydraApiDocumentationBuilder
     {
     }
 
-    public function build(SiteSettings $settings, string $baseUrl = ''): array
+    public function build(BuildContext $ctx): array
     {
-        $prefix = rtrim((string)$settings->get('tca_api.apiPrefix', '/_api'), '/');
-        $resources = $this->filterAllowedResources($this->apiRegistry->getAll(), $settings);
+        $resources = $ctx->filterAllowedResources($this->apiRegistry->getAll());
 
         $context = [
             '@vocab' => 'http://www.w3.org/ns/hydra/core#',
@@ -35,8 +32,7 @@ final readonly class HydraApiDocumentationBuilder
             'returns' => ['@id' => 'hydra:returns', '@type' => '@id'],
         ];
 
-        $docsBase = $baseUrl . $prefix . '/docs.jsonld#';
-        $supportedClasses = [$this->buildEntrypointClass($resources, $docsBase)];
+        $supportedClasses = [$this->buildEntrypointClass($resources, $ctx->docsBase)];
         foreach ($resources as $config) {
             if ($config->isUserInfo()) {
                 continue;
@@ -44,15 +40,15 @@ final readonly class HydraApiDocumentationBuilder
             $supportedClasses[] = $this->buildResourceClass($config);
         }
 
-        $title = (string)$settings->get('tca_api.apiSpecTitle', 'TCA API');
-        $description = (string)$settings->get('tca_api.apiSpecDescription', '');
+        $title = (string)$ctx->settings->get('tca_api.apiSpecTitle', 'TCA API');
+        $description = (string)$ctx->settings->get('tca_api.apiSpecDescription', '');
 
         $doc = [
             '@context' => $context,
-            '@id' => $prefix . '/docs.jsonld',
+            '@id' => $ctx->prefix . '/docs.jsonld',
             '@type' => 'ApiDocumentation',
             'hydra:title' => $title,
-            'hydra:entrypoint' => $prefix . '/',
+            'hydra:entrypoint' => $ctx->prefix . '/',
             'hydra:supportedClass' => $supportedClasses,
         ];
 
@@ -61,29 +57,6 @@ final readonly class HydraApiDocumentationBuilder
         }
 
         return $doc;
-    }
-
-    /**
-     * @param array<string, ApiDefinition> $resources
-     * @return array<string, ApiDefinition>
-     */
-    private function filterAllowedResources(array $resources, SiteSettings $settings): array
-    {
-        $allowed = GeneralUtility::trimExplode(
-            ',',
-            (string)$settings->get('tca_api.allowedResources', ''),
-            true,
-        );
-
-        if ($allowed === []) {
-            return $resources;
-        }
-
-        return array_filter(
-            $resources,
-            static fn (string $name): bool => \in_array($name, $allowed, true),
-            ARRAY_FILTER_USE_KEY,
-        );
     }
 
     /** @param array<string, ApiDefinition> $resources */
@@ -96,16 +69,18 @@ final readonly class HydraApiDocumentationBuilder
                 continue;
             }
 
-            $operations = [
-                [
+            $operations = [];
+
+            if ($config->hasOperation('list')) {
+                $operations[] = [
                     '@type' => ['hydra:Operation', 'schema:FindAction'],
                     'hydra:method' => 'GET',
                     'hydra:title' => sprintf('Retrieves the collection of %s resources.', $config->resourceType),
                     'rdfs:label' => sprintf('Retrieves the collection of %s resources.', $config->resourceType),
                     'returns' => '#' . $config->resourceType,
                     'hydra:expects' => 'owl:Nothing',
-                ],
-            ];
+                ];
+            }
 
             if ($config->hasOperation('create')) {
                 $operations[] = [
@@ -116,6 +91,10 @@ final readonly class HydraApiDocumentationBuilder
                     'returns' => '#' . $config->resourceType,
                     'expects' => '#' . $config->resourceType,
                 ];
+            }
+
+            if ($operations === []) {
+                continue;
             }
 
             $supportedProperties[] = [
