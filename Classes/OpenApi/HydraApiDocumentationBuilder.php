@@ -29,7 +29,7 @@ final readonly class HydraApiDocumentationBuilder
             'domain' => ['@id' => 'rdfs:domain', '@type' => '@id'],
             'range' => ['@id' => 'rdfs:range', '@type' => '@id'],
             'subClassOf' => ['@id' => 'rdfs:subClassOf', '@type' => '@id'],
-            'expects' => ['@id' => 'hydra:expects', '@type' => '@id'],
+            'expects' => ['@id' => 'expects', '@type' => '@id'],
             'returns' => ['@id' => 'hydra:returns', '@type' => '@id'],
         ];
 
@@ -105,7 +105,7 @@ final readonly class HydraApiDocumentationBuilder
                     '@type' => 'Link',
                     'hydra:title' => $name,
                     'domain' => '#Entrypoint',
-                    'range' => 'hydra:PagedCollection',
+                    'range' => 'hydra:Collection',
                     'hydra:supportedOperation' => $operations,
                 ],
                 'hydra:title' => $name,
@@ -139,7 +139,7 @@ final readonly class HydraApiDocumentationBuilder
                 'hydra:title' => sprintf('Retrieves a %s resource.', $config->resourceType),
                 'rdfs:label' => sprintf('Retrieves a %s resource.', $config->resourceType),
                 'returns' => '#' . $config->resourceType,
-                'hydra:expects' => 'owl:Nothing',
+                'expects' => 'owl:Nothing',
             ];
         }
 
@@ -161,7 +161,7 @@ final readonly class HydraApiDocumentationBuilder
                 'hydra:title' => sprintf('Deletes the %s resource.', $config->resourceType),
                 'rdfs:label' => sprintf('Deletes the %s resource.', $config->resourceType),
                 'returns' => 'owl:Nothing',
-                'hydra:expects' => 'owl:Nothing',
+                'expects' => 'owl:Nothing',
             ];
         }
 
@@ -186,7 +186,7 @@ final readonly class HydraApiDocumentationBuilder
                     '@type' => 'rdf:Property',
                     'rdfs:label' => 'uid',
                     'domain' => '#' . $config->resourceType,
-                    'range' => 'xmls:integer',
+                    'range' => 'xsd:integer',
                 ],
                 'hydra:title' => 'uid',
                 'hydra:required' => true,
@@ -207,7 +207,7 @@ final readonly class HydraApiDocumentationBuilder
                     '@type' => 'rdf:Property',
                     'rdfs:label' => $name,
                     'domain' => '#' . $config->resourceType,
-                    'range' => 'xmls:' . $this->columnTypeToXsdType($column->type ?? ''),
+                    'range' => 'xsd:' . $this->columnTypeToXsdType($column->type ?? ''),
                 ],
                 'hydra:title' => $name,
                 'hydra:required' => $column->required,
