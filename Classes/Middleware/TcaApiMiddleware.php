@@ -36,7 +36,7 @@ final class TcaApiMiddleware implements MiddlewareInterface
 
         $apiPrefix = rtrim('/' . ltrim((string)$settings->get('tca_api.apiPrefix'), '/'), '/');
 
-        if (!str_starts_with($request->getUri()->getPath(), $apiPrefix)) {
+        if ($request->getUri()->getPath() !== $apiPrefix && !str_starts_with($request->getUri()->getPath(), $apiPrefix . '/')) {
             return $handler->handle($request);
         }
 
