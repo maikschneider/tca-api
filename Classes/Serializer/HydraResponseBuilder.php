@@ -106,9 +106,10 @@ final class HydraResponseBuilder
             if ($filterDef->isPrivate) {
                 continue;
             }
-            $var         = 'filters[' . $field . ']';
-            $variables[] = $var;
-            $mappings[]  = ['@type' => 'IriTemplateMapping', 'variable' => $var, 'property' => $field, 'required' => false];
+            if (!\in_array($field, $variables, true)) {
+                $variables[] = $field;
+                $mappings[]  = ['@type' => 'IriTemplateMapping', 'variable' => $field, 'property' => $field, 'required' => false];
+            }
         }
 
         if ($mappings === []) {

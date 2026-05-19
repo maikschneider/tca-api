@@ -245,6 +245,7 @@ final class RequestDispatcher
         if ($config->maxItemsPerPage !== null) {
             $itemsPerPage = min($itemsPerPage, $config->maxItemsPerPage);
         }
+        $filters = $this->resolveFilterParams($params, $config);
 
         return $request
             ->withAttribute('tca_api.uid', $uid)
@@ -252,9 +253,22 @@ final class RequestDispatcher
             ->withAttribute('tca_api.fields', \is_array($params['fields'] ?? null) ? $params['fields'] : [])
             ->withAttribute('tca_api.page', max(1, (int)($params['page'] ?? 1)))
             ->withAttribute('tca_api.items_per_page', $itemsPerPage)
-            ->withAttribute('tca_api.filters', \is_array($params['filters'] ?? null) ? $params['filters'] : [])
+            ->withAttribute('tca_api.filters', $filters)
             ->withAttribute('tca_api.order', \is_array($params['order'] ?? null) ? $params['order'] : [])
             ->withAttribute('tca_api.partial', $method === 'PATCH');
+    }
+
+    private function resolveFilterParams(array $params, ApiDefinition $config): array
+    {
+        $filters = \is_array($params['filters'] ?? null) ? $params['filters'] : [];
+
+        foreach ($config->filters as $column => $filterDef) {
+            if (!$filterDef->isPrivate && !isset($filters[$column]) && isset($params[$column])) {
+                $filters[$column] = $params[$column];
+            }
+        }
+
+        return $filters;
     }
 
     private function serveHydraEntrypoint(RequestContext $ctx): ResponseInterface
