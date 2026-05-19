@@ -69,7 +69,7 @@ final class RelationSerializer
         $resourceType = $columnDef->resourceType ?? ($relatedConfig->resourceType ?? $foreignTable);
 
         if ($effectiveDepth <= 0 || isset($visited[$foreignTable . ':' . $fkValue]) || $relatedConfig === null) {
-            return self::buildStub($resourceName, $resourceType, $fkValue, $apiPrefix);
+            return $apiPrefix . '/' . $resourceName . '/' . $fkValue;
         }
 
         $relatedRow = $preloaded['rows'][$foreignTable][$fkValue]

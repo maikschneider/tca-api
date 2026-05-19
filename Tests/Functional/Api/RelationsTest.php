@@ -33,22 +33,10 @@ final class RelationsTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/articles/1');
         $body = $this->decodeResponseBody($response);
 
-        // ── hasOne: color is an embedded object ─────────────────────────
+        // ── hasOne: color_id is a plain IRI string (non-embedded) ──────
         self::assertArrayHasKey('color_id', $body);
-        self::assertIsArray($body['color_id']);
-
-        // hasOne: contains @id
-        self::assertArrayHasKey('@id', $body['color_id']);
-        self::assertSame('/_api/colors/1', $body['color_id']['@id']);
-
-        // hasOne: contains @type
-        self::assertSame('Color', $body['color_id']['@type']);
-
-        // hasOne: contains uid
-        self::assertSame(1, $body['color_id']['uid']);
-
-        // hasOne: shallow embed does not include name field
-        self::assertArrayNotHasKey('name', $body['color_id']);
+        self::assertIsString($body['color_id']);
+        self::assertSame('/_api/colors/1', $body['color_id']);
 
         // ── manyToMany: categories is an array of embedded objects ──────
         self::assertArrayHasKey('categories', $body);

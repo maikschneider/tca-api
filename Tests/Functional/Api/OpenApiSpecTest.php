@@ -117,12 +117,14 @@ final class OpenApiSpecTest extends ApiFunctionalTestCase
         $schemas = $this->decodeResponseBody($response)['components']['schemas'];
         $readProps = $schemas['ArticleRead']['properties'];
 
-        // HasOne: color_id typed as nullable RelationStub
+        // HasOne: color_id typed as nullable IRI string (non-embedded)
         self::assertArrayHasKey('color_id', $readProps);
         $colorSchema = $readProps['color_id'];
         self::assertArrayHasKey('oneOf', $colorSchema);
-        $refs = array_column($colorSchema['oneOf'], '$ref');
-        self::assertContains('#/components/schemas/RelationStub', $refs);
+        $types = array_column($colorSchema['oneOf'], 'type');
+        self::assertContains('string', $types);
+        $formats = array_column($colorSchema['oneOf'], 'format');
+        self::assertContains('iri-reference', $formats);
 
         // HasMany: categories → array of RelationStubs
         self::assertArrayHasKey('categories', $readProps);

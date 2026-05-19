@@ -161,7 +161,10 @@ final readonly class OpenApiSchemasBuilder
 
     private function buildHasOneSchema(ColumnDefinition $columnDef): array
     {
-        return ['oneOf' => [$this->resolveRelationRef($columnDef), ['type' => 'null']]];
+        if ($columnDef->embed && $columnDef->resourceType !== null) {
+            return ['oneOf' => [['$ref' => '#/components/schemas/' . $columnDef->resourceType . 'Read'], ['type' => 'null']]];
+        }
+        return ['oneOf' => [['type' => 'string', 'format' => 'iri-reference'], ['type' => 'null']]];
     }
 
     private function buildHasManySchema(ColumnDefinition $columnDef): array

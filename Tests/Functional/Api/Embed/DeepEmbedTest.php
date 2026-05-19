@@ -192,12 +192,10 @@ final class DeepEmbedTest extends ApiFunctionalTestCase
         self::assertSame('Deep Level 2', $body['parent_id']['title']);
         self::assertSame('Deep Level 3', $body['parent_id']['parent_id']['title']);
 
-        // Level 3 (depth budget = 0): must be a stub — has @id/uid but no title
+        // Level 3 (depth budget = 0): must be a plain IRI string
         $stub = $body['parent_id']['parent_id']['parent_id'];
-        self::assertArrayHasKey('@id', $stub);
-        self::assertArrayHasKey('uid', $stub);
-        self::assertArrayNotHasKey('title', $stub);
-        self::assertSame(73, $stub['uid']);
+        self::assertIsString($stub);
+        self::assertStringEndsWith('/73', $stub);
     }
 
     // ── Preloader does not over-fetch ──────────────────────────────────────────
@@ -216,11 +214,10 @@ final class DeepEmbedTest extends ApiFunctionalTestCase
         // Direct parent: full record
         self::assertSame('Deep Level 2', $body['parent_id']['title']);
 
-        // Grandparent: stub (depth=1 exhausted after first embed)
+        // Grandparent: IRI string (depth=1 exhausted after first embed)
         $grandparent = $body['parent_id']['parent_id'];
-        self::assertArrayHasKey('@id', $grandparent);
-        self::assertArrayNotHasKey('title', $grandparent);
-        self::assertSame(72, $grandparent['uid']);
+        self::assertIsString($grandparent);
+        self::assertStringContainsString('/72', $grandparent);
     }
 
     // ── 4-table cross-table chain ──────────────────────────────────────────────
@@ -354,11 +351,9 @@ final class DeepEmbedTest extends ApiFunctionalTestCase
         // Level 2: sys_category — fully embedded
         self::assertSame('Backend', $body['color_id']['category_id']['title']);
 
-        // Level 3: fe_group — stub (depth budget exhausted)
+        // Level 3: fe_group — IRI string (depth budget exhausted)
         $stub = $body['color_id']['category_id']['fe_group_id'];
-        self::assertArrayHasKey('@id', $stub);
-        self::assertArrayHasKey('uid', $stub);
-        self::assertArrayNotHasKey('title', $stub);
-        self::assertSame(1, $stub['uid']);
+        self::assertIsString($stub);
+        self::assertStringEndsWith('/1', $stub);
     }
 }

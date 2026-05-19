@@ -83,16 +83,16 @@ final class SiteSettingsCustomPrefixTest extends ApiFunctionalTestCase
 
     // ── Embedded relation stub @id ────────────────────────────────────────────
 
-    public function testEmbeddedRelationStubIdUsesCustomPrefix(): void
+    public function testNonEmbeddedRelationIriUsesCustomPrefix(): void
     {
-        // Article 1 has color_id=1 → serialized as a shallow stub for colors resource.
+        // Article 1 has color_id=1 → serialized as a plain IRI string for colors resource.
         $response = $this->executeApiRequest('/custom-api/articles/1');
         $body = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
-        self::assertIsArray($body['color_id']);
-        self::assertSame('/custom-api/colors/1', $body['color_id']['@id']);
-        self::assertStringNotContainsString('/_api/', $body['color_id']['@id']);
+        self::assertIsString($body['color_id']);
+        self::assertSame('/custom-api/colors/1', $body['color_id']);
+        self::assertStringNotContainsString('/_api/', $body['color_id']);
     }
 
     // ── POST Location header ──────────────────────────────────────────────────
