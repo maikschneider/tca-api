@@ -215,7 +215,7 @@ final class HydraApiDocumentationBuilder
                 continue;
             }
 
-            $relatedType = $this->findRelatedResourceType($config->table, $name);
+            $relatedType = $this->findRelatedResourceType($config->table, $name, $column);
 
             if ($relatedType !== null) {
                 $hydraProperty = [
@@ -252,10 +252,18 @@ final class HydraApiDocumentationBuilder
         return $properties;
     }
 
-    private function findRelatedResourceType(string $table, string $column): ?string
+    private function findRelatedResourceType(string $table, string $column, ColumnDefinition $columnDef): ?string
     {
-        $foreignTable = $GLOBALS['TCA'][$table]['columns'][$column]['config']['foreign_table'] ?? null;
+        // Explicit resourceName on the column takes priority — avoids ambiguity when
+        // multiple resources share the same foreign table.
+        if ($columnDef->resourceName !== null) {
+            $resource = $this->apiRegistry->get($columnDef->resourceName);
+            if ($resource !== null) {
+                return $resource->resourceType;
+            }
+        }
 
+        $foreignTable = $GLOBALS['TCA'][$table]['columns'][$column]['config']['foreign_table'] ?? null;
         if ($foreignTable === null) {
             return null;
         }
@@ -267,7 +275,8 @@ final class HydraApiDocumentationBuilder
     {
         $tcaConfig = $GLOBALS['TCA'][$table]['columns'][$column]['config'] ?? [];
 
-        return ($tcaConfig['maxitems'] ?? null) === 1;
+        return ($tcaConfig['maxitems'] ?? null) === 1
+            || ($tcaConfig['renderType'] ?? '') === 'selectSingle';
     }
 
     /**
