@@ -68,9 +68,9 @@ final class HasManyEmbedTest extends ApiFunctionalTestCase
         ]);
     }
 
-    // ── Without embed: stubs ──────────────────────────────────────────────────
+    // ── Without embed: IRI strings ────────────────────────────────────────────
 
-    public function testHasManyWithoutEmbedReturnsStubsWithoutTitle(): void
+    public function testHasManyWithoutEmbedReturnsIriStrings(): void
     {
         $this->registerCategoryResource();
         $this->registerArticleResource();
@@ -81,12 +81,11 @@ final class HasManyEmbedTest extends ApiFunctionalTestCase
         self::assertSame(200, $response->getStatusCode());
         self::assertIsArray($body['categories']);
         self::assertCount(2, $body['categories']);
-        self::assertArrayHasKey('@id', $body['categories'][0]);
-        self::assertArrayHasKey('@type', $body['categories'][0]);
-        self::assertArrayHasKey('uid', $body['categories'][0]);
-        self::assertArrayNotHasKey('title', $body['categories'][0]);
-        foreach ($body['categories'] as $stub) {
-            self::assertArrayNotHasKey('title', $stub);
+        self::assertIsString($body['categories'][0]);
+        self::assertStringContainsString('/_api/', $body['categories'][0]);
+        self::assertMatchesRegularExpression('#/_api/[^/]+/\d+$#', $body['categories'][0]);
+        foreach ($body['categories'] as $iri) {
+            self::assertIsString($iri);
         }
     }
 

@@ -137,7 +137,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         self::assertCount(2, $body['categories']);
     }
 
-    public function testPostWithCategoriesResponseContainsCategoryUids(): void
+    public function testPostWithCategoriesResponseContainsCategoryIris(): void
     {
         $response = $this->executeApiWriteRequestAs('POST', '/_api/relation-write-articles', 1, [
             'title' => 'PHP Article',
@@ -145,8 +145,8 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         ]);
         $body = $this->decodeResponseBody($response);
 
-        self::assertSame(1, $body['categories'][0]['uid']);
-        self::assertSame('SysCategory', $body['categories'][0]['@type']);
+        self::assertIsString($body['categories'][0]);
+        self::assertStringEndsWith('/1', $body['categories'][0]);
     }
 
     public function testPutWithCategoriesReplacesCategoryRelations(): void
@@ -159,7 +159,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         $body = $this->decodeResponseBody($response);
 
         self::assertCount(1, $body['categories']);
-        self::assertSame(3, $body['categories'][0]['uid']);
+        self::assertStringEndsWith('/3', $body['categories'][0]);
     }
 
     public function testPatchWithEmptyCategoriesRemovesAllCategories(): void
@@ -183,7 +183,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         $body = $this->decodeResponseBody($this->executeApiRequest('/_api/relation-write-articles/3'));
 
         self::assertCount(1, $body['categories']);
-        self::assertSame(2, $body['categories'][0]['uid']);
+        self::assertStringEndsWith('/2', $body['categories'][0]);
     }
 
     // ── Inline object creation (hasOne) ──────────────────────────────────────
@@ -245,7 +245,8 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
 
         self::assertSame(201, $response->getStatusCode());
         self::assertCount(1, $body['categories']);
-        self::assertGreaterThan(3, $body['categories'][0]['uid'], 'New cat UID should be > 3 (fixtures have 1-3)');
+        self::assertIsString($body['categories'][0]);
+        self::assertGreaterThan(3, (int)basename($body['categories'][0]), 'New cat UID should be > 3 (fixtures have 1-3)');
     }
 
     public function testPostWithMixedCategoriesMixesNewAndExisting(): void
@@ -259,7 +260,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         self::assertSame(201, $response->getStatusCode());
         self::assertCount(2, $body['categories']);
 
-        $uids = array_column($body['categories'], 'uid');
+        $uids = array_map(fn (string $iri) => (int)basename($iri), $body['categories']);
         self::assertContains(1, $uids, 'Existing category uid=1 should be linked');
         foreach ($uids as $uid) {
             if ($uid !== 1) {
@@ -279,7 +280,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         self::assertSame(200, $response->getStatusCode());
         self::assertCount(2, $body['categories']);
 
-        $uids = array_column($body['categories'], 'uid');
+        $uids = array_map(fn (string $iri) => (int)basename($iri), $body['categories']);
         self::assertContains(2, $uids);
     }
 
@@ -296,8 +297,8 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         $getBody = $this->decodeResponseBody($this->executeApiRequest('/_api/relation-write-articles/' . $articleUid));
 
         self::assertCount(1, $getBody['categories']);
-        self::assertSame('SysCategory', $getBody['categories'][0]['@type']);
-        self::assertGreaterThan(3, $getBody['categories'][0]['uid']);
+        self::assertIsString($getBody['categories'][0]);
+        self::assertGreaterThan(3, (int)basename($getBody['categories'][0]));
     }
 
     public function testPutWithNewCategoryObjectReplacesCategoryRelations(): void
@@ -311,7 +312,8 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertCount(1, $body['categories']);
-        self::assertGreaterThan(3, $body['categories'][0]['uid'], 'New category UID should be > 3');
+        self::assertIsString($body['categories'][0]);
+        self::assertGreaterThan(3, (int)basename($body['categories'][0]), 'New category UID should be > 3');
     }
 
     public function testPostNewSubEntityGetsOwnerColumnInjected(): void

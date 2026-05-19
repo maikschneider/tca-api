@@ -210,16 +210,22 @@ final class HydraApiDocumentationBuilder
                 ),
             );
 
+        $tcaLabelColumn = $GLOBALS['TCA'][$config->table]['ctrl']['label'] ?? null;
+
         foreach ($columnMap as $name => $column) {
             if ($config->isExplicitMode && !$column->isReadable() && !$column->isWritable()) {
                 continue;
             }
 
+            // Use schema:name for the TCA label column so api-doc-parser's
+            // getFieldNameFromSchema() resolves the human-readable display field.
+            $schemaId = ($name === $tcaLabelColumn) ? 'schema:name' : 'schema:' . $name;
+
             $relatedType = $this->findRelatedResourceType($config->table, $name, $column);
 
             if ($relatedType !== null) {
                 $hydraProperty = [
-                    '@id' => 'schema:' . $name,
+                    '@id' => $schemaId,
                     '@type' => ['hydra:Link'],
                     'rdfs:label' => $name,
                     'domain' => '#' . $config->resourceType,
@@ -231,7 +237,7 @@ final class HydraApiDocumentationBuilder
                 }
             } else {
                 $hydraProperty = [
-                    '@id' => 'schema:' . $name,
+                    '@id' => $schemaId,
                     '@type' => 'rdf:Property',
                     'rdfs:label' => $name,
                     'domain' => '#' . $config->resourceType,

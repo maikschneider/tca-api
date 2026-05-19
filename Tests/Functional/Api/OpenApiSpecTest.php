@@ -126,10 +126,11 @@ final class OpenApiSpecTest extends ApiFunctionalTestCase
         $formats = array_column($colorSchema['oneOf'], 'format');
         self::assertContains('iri-reference', $formats);
 
-        // HasMany: categories → array of RelationStubs
+        // HasMany: categories → array of IRI strings (non-embedded)
         self::assertArrayHasKey('categories', $readProps);
         self::assertSame('array', $readProps['categories']['type']);
-        self::assertSame('#/components/schemas/RelationStub', $readProps['categories']['items']['$ref']);
+        self::assertSame('string', $readProps['categories']['items']['type']);
+        self::assertSame('iri-reference', $readProps['categories']['items']['format']);
 
         // Single-file: profile_photo → nullable FileObject
         self::assertArrayHasKey('profile_photo', $readProps);

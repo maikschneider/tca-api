@@ -169,7 +169,10 @@ final readonly class OpenApiSchemasBuilder
 
     private function buildHasManySchema(ColumnDefinition $columnDef): array
     {
-        return ['type' => 'array', 'items' => $this->resolveRelationRef($columnDef)];
+        if ($columnDef->embed && $columnDef->resourceType !== null) {
+            return ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/' . $columnDef->resourceType . 'Read']];
+        }
+        return ['type' => 'array', 'items' => ['type' => 'string', 'format' => 'iri-reference']];
     }
 
     /** Returns $ref to the embedded resource's Read schema when configured, otherwise RelationStub. */

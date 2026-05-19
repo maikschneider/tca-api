@@ -79,10 +79,8 @@ final class UidListHasManyEmbedTest extends ApiFunctionalTestCase
         self::assertSame(200, $response->getStatusCode());
         self::assertIsArray($body['usergroup']);
         self::assertCount(2, $body['usergroup']);
-        self::assertArrayHasKey('@id', $body['usergroup'][0]);
-        self::assertArrayHasKey('@type', $body['usergroup'][0]);
-        self::assertArrayHasKey('uid', $body['usergroup'][0]);
-        self::assertArrayNotHasKey('title', $body['usergroup'][0]);
+        self::assertIsString($body['usergroup'][0]);
+        self::assertMatchesRegularExpression('#/_api/[^/]+/\d+$#', $body['usergroup'][0]);
     }
 
     // ── With embed: full records ───────────────────────────────────────────────
