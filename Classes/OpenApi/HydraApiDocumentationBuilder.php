@@ -227,7 +227,7 @@ final class HydraApiDocumentationBuilder
                 ];
 
                 if ($this->isSingleRelation($config->table, $name)) {
-                    $hydraProperty['hydra:maxCardinality'] = 1;
+                    $hydraProperty['owl:maxCardinality'] = 1;
                 }
             } else {
                 $hydraProperty = [
