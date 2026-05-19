@@ -90,9 +90,9 @@ final class SiteSettingsCustomPrefixTest extends ApiFunctionalTestCase
         $body = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
-        self::assertIsArray($body['color']);
-        self::assertSame('/custom-api/colors/1', $body['color']['@id']);
-        self::assertStringNotContainsString('/_api/', $body['color']['@id']);
+        self::assertIsArray($body['color_id']);
+        self::assertSame('/custom-api/colors/1', $body['color_id']['@id']);
+        self::assertStringNotContainsString('/_api/', $body['color_id']['@id']);
     }
 
     // ── POST Location header ──────────────────────────────────────────────────

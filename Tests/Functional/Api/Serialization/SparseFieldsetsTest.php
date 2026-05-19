@@ -48,7 +48,7 @@ final class SparseFieldsetsTest extends ApiFunctionalTestCase
         $body = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('title', $body);
-        self::assertArrayHasKey('color', $body);
+        self::assertArrayHasKey('color_id', $body);
         self::assertArrayHasKey('categories', $body);
     }
 
@@ -59,7 +59,7 @@ final class SparseFieldsetsTest extends ApiFunctionalTestCase
 
         $member = $body['hydra:member'][0];
         self::assertArrayHasKey('title', $member);
-        self::assertArrayHasKey('color', $member);
+        self::assertArrayHasKey('color_id', $member);
         self::assertArrayHasKey('categories', $member);
     }
 
@@ -89,7 +89,7 @@ final class SparseFieldsetsTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/articles/1', ['fields' => ['color_id']]);
         $body = $this->decodeResponseBody($response);
 
-        self::assertArrayHasKey('color', $body);
+        self::assertArrayHasKey('color_id', $body);
         self::assertArrayNotHasKey('title', $body);
         self::assertArrayNotHasKey('categories', $body);
     }
@@ -129,7 +129,7 @@ final class SparseFieldsetsTest extends ApiFunctionalTestCase
         $body = $this->decodeResponseBody($response);
 
         self::assertArrayHasKey('title', $body);
-        self::assertArrayHasKey('color', $body);
+        self::assertArrayHasKey('color_id', $body);
         self::assertArrayNotHasKey('categories', $body);
     }
 

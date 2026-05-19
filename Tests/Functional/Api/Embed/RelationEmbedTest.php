@@ -89,8 +89,8 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
 
         self::assertSame(200, $response->getStatusCode());
         $body = $this->decodeResponseBody($response);
-        self::assertArrayHasKey('color', $body);
-        self::assertIsArray($body['color']);
+        self::assertArrayHasKey('color_id', $body);
+        self::assertIsArray($body['color_id']);
     }
 
     public function testItemEmbedIncludesReadableColumns(): void
@@ -103,7 +103,7 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/embed-articles/50');
         $body = $this->decodeResponseBody($response);
 
-        self::assertSame('Red', $body['color']['name']);
+        self::assertSame('Red', $body['color_id']['name']);
     }
 
     public function testItemEmbedIncludesJsonLdFields(): void
@@ -116,9 +116,9 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/embed-articles/50');
         $body = $this->decodeResponseBody($response);
 
-        self::assertArrayHasKey('@id', $body['color']);
-        self::assertArrayHasKey('@type', $body['color']);
-        self::assertSame(1, $body['color']['uid']);
+        self::assertArrayHasKey('@id', $body['color_id']);
+        self::assertArrayHasKey('@type', $body['color_id']);
+        self::assertSame(1, $body['color_id']['uid']);
     }
 
     public function testItemEmbedNullWhenNoRelation(): void
@@ -132,7 +132,7 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/embed-articles/52');
         $body = $this->decodeResponseBody($response);
 
-        self::assertNull($body['color']);
+        self::assertNull($body['color_id']);
     }
 
     public function testItemWithoutEmbedConfigReturnsStub(): void
@@ -144,8 +144,8 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
         $body = $this->decodeResponseBody($response);
 
         // Should be shallow stub: {@ id, @type, uid}, NO 'name'
-        self::assertArrayHasKey('color', $body);
-        self::assertArrayNotHasKey('name', $body['color']);
+        self::assertArrayHasKey('color_id', $body);
+        self::assertArrayNotHasKey('name', $body['color_id']);
     }
 
     // ── Collection embed ──────────────────────────────────────────────────────
@@ -167,7 +167,7 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
         $article50 = array_values($withColor)[0] ?? null;
 
         self::assertNotNull($article50);
-        self::assertSame('Red', $article50['color']['name']);
+        self::assertSame('Red', $article50['color_id']['name']);
     }
 
     public function testCollectionBulkEmbedDistinctColorsCorrect(): void
@@ -182,9 +182,9 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
 
         $members = array_column($body['hydra:member'], null, 'uid');
 
-        self::assertSame('Red', $members[50]['color']['name']);
-        self::assertSame('Blue', $members[51]['color']['name']);
-        self::assertNull($members[52]['color']);
+        self::assertSame('Red', $members[50]['color_id']['name']);
+        self::assertSame('Blue', $members[51]['color_id']['name']);
+        self::assertNull($members[52]['color_id']);
     }
 
     // ── Depth budget ──────────────────────────────────────────────────────────
@@ -201,10 +201,10 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/embed-articles/60');
         $body = $this->decodeResponseBody($response);
 
-        self::assertSame(61, $body['parent']['uid']);
-        self::assertSame('Chain Mid', $body['parent']['title']);
+        self::assertSame(61, $body['parent_id']['uid']);
+        self::assertSame('Chain Mid', $body['parent_id']['title']);
         // article 61's parent (article 62) should be a STUB — only @id, @type, uid
-        self::assertArrayNotHasKey('title', $body['parent']['parent']);
+        self::assertArrayNotHasKey('title', $body['parent_id']['parent_id']);
     }
 
     public function testDepthTwoEmbedsTwoLevels(): void
@@ -219,10 +219,10 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
         $body = $this->decodeResponseBody($response);
 
         // depth=2: article 60 embeds article 61 (full), article 61 embeds article 62 (full)
-        self::assertSame(61, $body['parent']['uid']);
-        self::assertSame('Chain Mid', $body['parent']['title']);
-        self::assertSame(62, $body['parent']['parent']['uid']);
-        self::assertSame('Chain End', $body['parent']['parent']['title']);
+        self::assertSame(61, $body['parent_id']['uid']);
+        self::assertSame('Chain Mid', $body['parent_id']['title']);
+        self::assertSame(62, $body['parent_id']['parent_id']['uid']);
+        self::assertSame('Chain End', $body['parent_id']['parent_id']['title']);
     }
 
     // ── Cycle detection ───────────────────────────────────────────────────────
@@ -252,10 +252,10 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/embed-articles/53');
         $body = $this->decodeResponseBody($response);
 
-        self::assertSame(54, $body['parent']['uid']);
-        self::assertSame('Cycle B', $body['parent']['title']);
+        self::assertSame(54, $body['parent_id']['uid']);
+        self::assertSame('Cycle B', $body['parent_id']['title']);
         // article 54's parent (article 53) must be a stub (cycle) — no 'title' key
-        self::assertArrayNotHasKey('title', $body['parent']['parent']);
-        self::assertSame(53, $body['parent']['parent']['uid']);
+        self::assertArrayNotHasKey('title', $body['parent_id']['parent_id']);
+        self::assertSame(53, $body['parent_id']['parent_id']['uid']);
     }
 }
