@@ -81,9 +81,9 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         ]);
         $body = $this->decodeResponseBody($response);
 
-        self::assertArrayHasKey('color', $body);
-        self::assertIsArray($body['color']);
-        self::assertSame(1, $body['color']['uid']);
+        self::assertArrayHasKey('color_id', $body);
+        self::assertIsArray($body['color_id']);
+        self::assertSame(1, $body['color_id']['uid']);
     }
 
     public function testPostWithColorIdPersistedInDatabase(): void
@@ -97,7 +97,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         $getResponse = $this->executeApiRequest('/_api/relation-write-articles/' . $uid);
         $body = $this->decodeResponseBody($getResponse);
 
-        self::assertSame(2, $body['color']['uid']);
+        self::assertSame(2, $body['color_id']['uid']);
     }
 
     public function testPutUpdatesColorId(): void
@@ -109,7 +109,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         ]);
         $body = $this->decodeResponseBody($response);
 
-        self::assertSame(2, $body['color']['uid']);
+        self::assertSame(2, $body['color_id']['uid']);
     }
 
     public function testPatchWithZeroColorIdRemovesColor(): void
@@ -120,8 +120,8 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         ]);
         $body = $this->decodeResponseBody($response);
 
-        self::assertArrayHasKey('color', $body);
-        self::assertNull($body['color']);
+        self::assertArrayHasKey('color_id', $body);
+        self::assertNull($body['color_id']);
     }
 
     // ── manyToMany (sys_category) ────────────────────────────────────────────
@@ -198,9 +198,9 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         $body = $this->decodeResponseBody($response);
 
         self::assertSame(201, $response->getStatusCode());
-        self::assertArrayHasKey('color', $body);
-        self::assertIsArray($body['color']);
-        self::assertGreaterThan(2, $body['color']['uid'], 'New color UID should be > 2 (fixtures have 1,2)');
+        self::assertArrayHasKey('color_id', $body);
+        self::assertIsArray($body['color_id']);
+        self::assertGreaterThan(2, $body['color_id']['uid'], 'New color UID should be > 2 (fixtures have 1,2)');
     }
 
     public function testPostWithNewColorObjectColorPersistedInDatabase(): void
@@ -213,8 +213,8 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
 
         $getBody = $this->decodeResponseBody($this->executeApiRequest('/_api/relation-write-articles/' . $articleUid));
 
-        self::assertSame('Color', $getBody['color']['@type']);
-        self::assertGreaterThan(2, $getBody['color']['uid']);
+        self::assertSame('Color', $getBody['color_id']['@type']);
+        self::assertGreaterThan(2, $getBody['color_id']['uid']);
     }
 
     public function testPutWithNewColorObjectReplacesRelation(): void
@@ -227,8 +227,8 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
         $body = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
-        self::assertIsArray($body['color']);
-        self::assertGreaterThan(2, $body['color']['uid'], 'New color should have uid > 2');
+        self::assertIsArray($body['color_id']);
+        self::assertGreaterThan(2, $body['color_id']['uid'], 'New color should have uid > 2');
     }
 
     // ── Inline object creation (hasMany / MM) ─────────────────────────────────
@@ -321,7 +321,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
             'title' => 'Owner Article',
             'color_id' => ['name' => 'OwnedColor'],
         ]);
-        $colorUid = $this->decodeResponseBody($response)['color']['uid'];
+        $colorUid = $this->decodeResponseBody($response)['color_id']['uid'];
 
         $colorRow = $this->getConnectionPool()
             ->getConnectionForTable('tx_myext_domain_model_color')
@@ -341,7 +341,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
             'title' => 'Strip Client Value',
             'color_id' => ['name' => 'Color', 'hex' => 'hacker'],
         ]);
-        $colorUid = $this->decodeResponseBody($response)['color']['uid'];
+        $colorUid = $this->decodeResponseBody($response)['color_id']['uid'];
 
         $colorRow = $this->getConnectionPool()
             ->getConnectionForTable('tx_myext_domain_model_color')
@@ -364,7 +364,7 @@ final class WriteRelationsTest extends ApiFunctionalTestCase
             'title' => 'SetOnCreate Article',
             'color_id' => ['name' => 'TrackColor'],
         ]);
-        $colorUid = $this->decodeResponseBody($response)['color']['uid'];
+        $colorUid = $this->decodeResponseBody($response)['color_id']['uid'];
 
         $colorRow = $this->getConnectionPool()
             ->getConnectionForTable('tx_myext_domain_model_color')
