@@ -175,15 +175,6 @@ final readonly class OpenApiSchemasBuilder
         return ['type' => 'array', 'items' => ['type' => 'string', 'format' => 'iri-reference']];
     }
 
-    /** Returns $ref to the embedded resource's Read schema when configured, otherwise RelationStub. */
-    private function resolveRelationRef(ColumnDefinition $columnDef): array
-    {
-        if ($columnDef->embed && $columnDef->resourceType !== null) {
-            return ['$ref' => '#/components/schemas/' . $columnDef->resourceType . 'Read'];
-        }
-        return ['$ref' => '#/components/schemas/RelationStub'];
-    }
-
     /**
      * Schema for a type=file TCA column.
      * Single-file (maxitems=1): nullable FileObject. Multi-file: array of FileObjects.
