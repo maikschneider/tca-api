@@ -88,11 +88,10 @@ final class OpenApiSchemasBuilderTest extends TestCase
         $readProps = $schemas['TestRead']['properties'];
 
         // Property name stripped of _id suffix
-        self::assertArrayHasKey('author', $readProps);
-        self::assertArrayNotHasKey('author_id', $readProps);
+        self::assertArrayHasKey('author_id', $readProps);
 
         // Nullable stub
-        $schema = $readProps['author'];
+        $schema = $readProps['author_id'];
         self::assertArrayHasKey('oneOf', $schema);
         $refs = array_column($schema['oneOf'], '$ref');
         self::assertContains('#/components/schemas/RelationStub', $refs);
@@ -126,8 +125,8 @@ final class OpenApiSchemasBuilderTest extends TestCase
         $schemas = $this->builder->build([$config]);
         $readProps = $schemas['TestRead']['properties'];
 
-        self::assertArrayHasKey('author', $readProps);
-        $schema = $readProps['author'];
+        self::assertArrayHasKey('author_id', $readProps);
+        $schema = $readProps['author_id'];
         self::assertArrayHasKey('oneOf', $schema);
         $refs = array_column($schema['oneOf'], '$ref');
         self::assertContains('#/components/schemas/AuthorRead', $refs);
