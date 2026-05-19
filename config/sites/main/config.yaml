@@ -1,6 +1,7 @@
 base: /
 dependencies:
   - maikschneider/tca-api
+  - maikschneider/api-platform-admin
 languages:
   -
     title: English

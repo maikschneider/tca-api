@@ -4,6 +4,7 @@ Tests/Fixtures/**                                 linguist-vendored
 /.ddev                                            export-ignore
 /.github                                          export-ignore
 /config                                           export-ignore
+/Configuration/Sets/ApiPlatformAdmin              export-ignore
 /Configuration/TCA                                export-ignore
 /Configuration/TcaApi                             export-ignore
 /Tests                                            export-ignore
@@ -20,3 +21,4 @@ Tests/Fixtures/**                                 linguist-vendored
 /phpunit.xml                                      export-ignore
 /rector.php                                       export-ignore
 /renovate.json                                    export-ignore
+/Resources/Public/ApiPlatformAdmin                export-ignore

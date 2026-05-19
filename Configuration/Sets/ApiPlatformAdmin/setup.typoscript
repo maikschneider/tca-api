@@ -1,0 +1,19 @@
+page = PAGE
+page {
+
+  10 = TEXT
+  10.value (
+    <noscript> You need to enable JavaScript to run this app. </noscript>
+    <div id="root">
+        <div class="loader-container">
+            <div class="loader">Loading...</div>
+        </div>
+    </div>
+  )
+
+  includeJS.apiPlatformAdmin = EXT:tca_api/Resources/Public/ApiPlatformAdmin/index-BbbigRx1.js
+  includeJS.apiPlatformAdmin.type = module
+
+  includeCSS.apiPlatformAdminFonts = EXT:tca_api/Resources/Public/ApiPlatformAdmin/fonts.css
+  includeCSS.apiPlatformAdminStyle = EXT:tca_api/Resources/Public/ApiPlatformAdmin/style.css
+}
