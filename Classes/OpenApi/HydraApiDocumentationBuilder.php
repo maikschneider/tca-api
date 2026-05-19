@@ -10,9 +10,12 @@ use MaikSchneider\TcaApi\Dispatcher\RequestContext;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 
-final readonly class HydraApiDocumentationBuilder
+final class HydraApiDocumentationBuilder
 {
-    public function __construct(private ApiRegistry $apiRegistry)
+    /** @var array<string, string>|null Maps foreign-table name → resourceType; built once on first docs request. */
+    private ?array $tableResourceTypeMap = null;
+
+    public function __construct(private readonly ApiRegistry $apiRegistry)
     {
     }
 
@@ -212,15 +215,33 @@ final readonly class HydraApiDocumentationBuilder
                 continue;
             }
 
-            $properties[] = [
-                '@type' => 'SupportedProperty',
-                'hydra:property' => [
+            $relatedType = $this->findRelatedResourceType($config->table, $name);
+
+            if ($relatedType !== null) {
+                $hydraProperty = [
+                    '@id' => 'schema:' . $name,
+                    '@type' => ['hydra:Link'],
+                    'rdfs:label' => $name,
+                    'domain' => '#' . $config->resourceType,
+                    'range' => '#' . $relatedType,
+                ];
+
+                if ($this->isSingleRelation($config->table, $name)) {
+                    $hydraProperty['hydra:maxCardinality'] = 1;
+                }
+            } else {
+                $hydraProperty = [
                     '@id' => 'schema:' . $name,
                     '@type' => 'rdf:Property',
                     'rdfs:label' => $name,
                     'domain' => '#' . $config->resourceType,
                     'range' => 'xsd:' . $this->columnTypeToXsdType($column->type ?? ''),
-                ],
+                ];
+            }
+
+            $properties[] = [
+                '@type' => 'SupportedProperty',
+                'hydra:property' => $hydraProperty,
                 'hydra:title' => $name,
                 'hydra:required' => $column->required,
                 'hydra:readable' => !$config->isExplicitMode || $column->isReadable(),
@@ -229,6 +250,40 @@ final readonly class HydraApiDocumentationBuilder
         }
 
         return $properties;
+    }
+
+    private function findRelatedResourceType(string $table, string $column): ?string
+    {
+        $foreignTable = $GLOBALS['TCA'][$table]['columns'][$column]['config']['foreign_table'] ?? null;
+
+        if ($foreignTable === null) {
+            return null;
+        }
+
+        return $this->tableResourceTypeMap()[$foreignTable] ?? null;
+    }
+
+    private function isSingleRelation(string $table, string $column): bool
+    {
+        $tcaConfig = $GLOBALS['TCA'][$table]['columns'][$column]['config'] ?? [];
+
+        return ($tcaConfig['maxitems'] ?? null) === 1;
+    }
+
+    /**
+     * @return array<string, string> Maps foreign-table → resourceType for O(1) relation lookup.
+     * Built once on first docs request so ApiRegistry is fully populated.
+     */
+    private function tableResourceTypeMap(): array
+    {
+        if ($this->tableResourceTypeMap === null) {
+            $this->tableResourceTypeMap = [];
+            foreach ($this->apiRegistry->getAll() as $definition) {
+                $this->tableResourceTypeMap[$definition->table] = $definition->resourceType;
+            }
+        }
+
+        return $this->tableResourceTypeMap;
     }
 
     private function columnTypeToXsdType(string $type): string

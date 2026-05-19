@@ -11,7 +11,7 @@ page {
     </div>
   )
 
-  includeJS.apiPlatformAdmin = EXT:tca_api/Resources/Public/ApiPlatformAdmin/index-BbbigRx1.js
+  includeJS.apiPlatformAdmin = EXT:tca_api/Resources/Public/ApiPlatformAdmin/index.js
   includeJS.apiPlatformAdmin.type = module
 
   includeCSS.apiPlatformAdminFonts = EXT:tca_api/Resources/Public/ApiPlatformAdmin/fonts.css
