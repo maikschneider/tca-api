@@ -146,8 +146,7 @@ final class ResourceSerializer
             }
 
             if ($field->getRelationshipType()->hasOne()) {
-                $propertyName          = str_ends_with($column, '_id') ? substr($column, 0, -3) : $column;
-                $result[$propertyName] = $this->relationSerializer->serializeHasOne($column, $columnDef, $config, $row, $field, $preloaded, $remainingDepth, $visited, $operation, $apiPrefix, $this);
+                $result[$column] = $this->relationSerializer->serializeHasOne($column, $columnDef, $config, $row, $field, $preloaded, $remainingDepth, $visited, $operation, $apiPrefix, $this);
                 continue;
             }
 

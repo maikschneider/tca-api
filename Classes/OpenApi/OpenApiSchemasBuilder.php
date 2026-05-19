@@ -96,7 +96,7 @@ final readonly class OpenApiSchemasBuilder
             foreach (TcaColumnDiscovery::getExposableColumnNames($config->table) as $column) {
                 $columnDef = $config->columns[$column] ?? new ColumnDefinition(groups: null);
                 $tcaConfig = $GLOBALS['TCA'][$config->table]['columns'][$column]['config'] ?? null;
-                $properties[$this->resolveReadPropertyName($column, $tcaConfig)] = $this->buildReadPropertySchema($columnDef, $tcaConfig);
+                $properties[$column] = $this->buildReadPropertySchema($columnDef, $tcaConfig);
             }
         } else {
             foreach ($config->columns as $column => $columnDef) {
@@ -107,7 +107,7 @@ final readonly class OpenApiSchemasBuilder
                     continue;
                 }
                 $tcaConfig = $GLOBALS['TCA'][$config->table]['columns'][$column]['config'] ?? null;
-                $properties[$this->resolveReadPropertyName($column, $tcaConfig)] = $this->buildReadPropertySchema($columnDef, $tcaConfig);
+                $properties[$column] = $this->buildReadPropertySchema($columnDef, $tcaConfig);
             }
         }
 
@@ -213,19 +213,6 @@ final readonly class OpenApiSchemasBuilder
         return $tcaType === 'select'
             && isset($tcaConfig['foreign_table'])
             && !$this->isHasOneField($tcaType, $tcaConfig);
-    }
-
-    /**
-     * Strips the _id suffix for hasOne FK columns, matching ResourceSerializer's property naming.
-     * e.g. `color_id` → `color` when TCA says it's a selectSingle foreign relation.
-     */
-    private function resolveReadPropertyName(string $column, ?array $tcaConfig): string
-    {
-        if (!str_ends_with($column, '_id') || $tcaConfig === null) {
-            return $column;
-        }
-        $tcaType = $tcaConfig['type'] ?? '';
-        return $this->isHasOneField($tcaType, $tcaConfig) ? substr($column, 0, -3) : $column;
     }
 
     private function hasWriteOperations(ApiDefinition $config): bool

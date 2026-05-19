@@ -103,19 +103,19 @@ final class DeepEmbedTest extends ApiFunctionalTestCase
 
         // Level 1 (preloaded by EmbedPreloader)
         self::assertSame('Deep Level 1', $body['title']);
-        self::assertIsArray($body['parent']);
-        self::assertSame('Deep Level 2', $body['parent']['title']);
+        self::assertIsArray($body['parent_id']);
+        self::assertSame('Deep Level 2', $body['parent_id']['title']);
 
         // Level 2 (fetched via findById() fallback — NOT preloaded)
-        self::assertIsArray($body['parent']['parent']);
-        self::assertSame('Deep Level 3', $body['parent']['parent']['title']);
+        self::assertIsArray($body['parent_id']['parent_id']);
+        self::assertSame('Deep Level 3', $body['parent_id']['parent_id']['title']);
 
         // Level 3 (fetched via findById() fallback — NOT preloaded)
-        self::assertIsArray($body['parent']['parent']['parent']);
-        self::assertSame('Deep Level 4', $body['parent']['parent']['parent']['title']);
+        self::assertIsArray($body['parent_id']['parent_id']['parent_id']);
+        self::assertSame('Deep Level 4', $body['parent_id']['parent_id']['parent_id']['title']);
 
         // Level 4 terminates: parent_id=0 → null
-        self::assertNull($body['parent']['parent']['parent']['parent']);
+        self::assertNull($body['parent_id']['parent_id']['parent_id']['parent_id']);
     }
 
     // ── Color at each depth level ──────────────────────────────────────────────
@@ -137,20 +137,20 @@ final class DeepEmbedTest extends ApiFunctionalTestCase
         $body = $this->decodeResponseBody($response);
 
         // Level 1: color preloaded
-        self::assertIsArray($body['color']);
-        self::assertSame('Red', $body['color']['name']);
+        self::assertIsArray($body['color_id']);
+        self::assertSame('Red', $body['color_id']['name']);
 
         // Level 2: color NOT preloaded (uid=2) — tests findById() fallback for cross-table embed
-        self::assertIsArray($body['parent']['color']);
-        self::assertSame('Blue', $body['parent']['color']['name']);
+        self::assertIsArray($body['parent_id']['color_id']);
+        self::assertSame('Blue', $body['parent_id']['color_id']['name']);
 
         // Level 3: color uid=1 IS in preloaded pool (fetched for level 1 article)
-        self::assertIsArray($body['parent']['parent']['color']);
-        self::assertSame('Red', $body['parent']['parent']['color']['name']);
+        self::assertIsArray($body['parent_id']['parent_id']['color_id']);
+        self::assertSame('Red', $body['parent_id']['parent_id']['color_id']['name']);
 
         // Level 4: color NOT preloaded (uid=2) — tests findById() fallback at depth 4
-        self::assertIsArray($body['parent']['parent']['parent']['color']);
-        self::assertSame('Blue', $body['parent']['parent']['parent']['color']['name']);
+        self::assertIsArray($body['parent_id']['parent_id']['parent_id']['color_id']);
+        self::assertSame('Blue', $body['parent_id']['parent_id']['parent_id']['color_id']['name']);
     }
 
     // ── Depth budget exhaustion ────────────────────────────────────────────────
@@ -167,12 +167,12 @@ final class DeepEmbedTest extends ApiFunctionalTestCase
         $body = $this->decodeResponseBody($response);
 
         // Level 1, 2, 3: full records
-        self::assertSame('Deep Level 2', $body['parent']['title']);
-        self::assertSame('Deep Level 3', $body['parent']['parent']['title']);
-        self::assertSame('Deep Level 4', $body['parent']['parent']['parent']['title']);
+        self::assertSame('Deep Level 2', $body['parent_id']['title']);
+        self::assertSame('Deep Level 3', $body['parent_id']['parent_id']['title']);
+        self::assertSame('Deep Level 4', $body['parent_id']['parent_id']['parent_id']['title']);
 
         // Level 4 (depth budget = 0): parent must be a stub, not a full record
-        $stub = $body['parent']['parent']['parent']['parent'];
+        $stub = $body['parent_id']['parent_id']['parent_id']['parent_id'];
         // parent_id=0 → null (fkValue <= 0 returns null before depth check)
         self::assertNull($stub);
     }
@@ -189,11 +189,11 @@ final class DeepEmbedTest extends ApiFunctionalTestCase
         $body = $this->decodeResponseBody($response);
 
         // Level 1, 2: full records
-        self::assertSame('Deep Level 2', $body['parent']['title']);
-        self::assertSame('Deep Level 3', $body['parent']['parent']['title']);
+        self::assertSame('Deep Level 2', $body['parent_id']['title']);
+        self::assertSame('Deep Level 3', $body['parent_id']['parent_id']['title']);
 
         // Level 3 (depth budget = 0): must be a stub — has @id/uid but no title
-        $stub = $body['parent']['parent']['parent'];
+        $stub = $body['parent_id']['parent_id']['parent_id'];
         self::assertArrayHasKey('@id', $stub);
         self::assertArrayHasKey('uid', $stub);
         self::assertArrayNotHasKey('title', $stub);
@@ -214,10 +214,10 @@ final class DeepEmbedTest extends ApiFunctionalTestCase
         $body = $this->decodeResponseBody($response);
 
         // Direct parent: full record
-        self::assertSame('Deep Level 2', $body['parent']['title']);
+        self::assertSame('Deep Level 2', $body['parent_id']['title']);
 
         // Grandparent: stub (depth=1 exhausted after first embed)
-        $grandparent = $body['parent']['parent'];
+        $grandparent = $body['parent_id']['parent_id'];
         self::assertArrayHasKey('@id', $grandparent);
         self::assertArrayNotHasKey('title', $grandparent);
         self::assertSame(72, $grandparent['uid']);
@@ -321,16 +321,16 @@ final class DeepEmbedTest extends ApiFunctionalTestCase
         self::assertSame('Chain Article', $body['title']);
 
         // Level 1: Color (preloaded by EmbedPreloader)
-        self::assertIsArray($body['color']);
-        self::assertSame('Green', $body['color']['name']);
+        self::assertIsArray($body['color_id']);
+        self::assertSame('Green', $body['color_id']['name']);
 
         // Level 2: sys_category (fetched via findById() fallback — NOT preloaded)
-        self::assertIsArray($body['color']['category']);
-        self::assertSame('Backend', $body['color']['category']['title']);
+        self::assertIsArray($body['color_id']['category_id']);
+        self::assertSame('Backend', $body['color_id']['category_id']['title']);
 
         // Level 3: fe_groups (fetched via findById() fallback — NOT preloaded)
-        self::assertIsArray($body['color']['category']['fe_group']);
-        self::assertSame('Editors', $body['color']['category']['fe_group']['title']);
+        self::assertIsArray($body['color_id']['category_id']['fe_group_id']);
+        self::assertSame('Editors', $body['color_id']['category_id']['fe_group_id']['title']);
     }
 
     /**
@@ -349,13 +349,13 @@ final class DeepEmbedTest extends ApiFunctionalTestCase
         $body = $this->decodeResponseBody($response);
 
         // Level 1: Color — fully embedded
-        self::assertSame('Green', $body['color']['name']);
+        self::assertSame('Green', $body['color_id']['name']);
 
         // Level 2: sys_category — fully embedded
-        self::assertSame('Backend', $body['color']['category']['title']);
+        self::assertSame('Backend', $body['color_id']['category_id']['title']);
 
         // Level 3: fe_group — stub (depth budget exhausted)
-        $stub = $body['color']['category']['fe_group'];
+        $stub = $body['color_id']['category_id']['fe_group_id'];
         self::assertArrayHasKey('@id', $stub);
         self::assertArrayHasKey('uid', $stub);
         self::assertArrayNotHasKey('title', $stub);

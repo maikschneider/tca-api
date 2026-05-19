@@ -104,9 +104,9 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
 
         self::assertSame(200, $response->getStatusCode());
         $body = $this->decodeResponseBody($response);
-        self::assertArrayHasKey('color', $body);
-        self::assertIsArray($body['color']);
-        self::assertArrayHasKey('hex', $body['color']);
+        self::assertArrayHasKey('color_id', $body);
+        self::assertIsArray($body['color_id']);
+        self::assertArrayHasKey('hex', $body['color_id']);
     }
 
     public function testWithoutResourceNameOverrideFirstRegistrationIsUsed(): void
@@ -119,8 +119,8 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/rn-articles/50');
 
         $body = $this->decodeResponseBody($response);
-        self::assertArrayHasKey('name', $body['color']);
-        self::assertArrayNotHasKey('hex', $body['color']);
+        self::assertArrayHasKey('name', $body['color_id']);
+        self::assertArrayNotHasKey('hex', $body['color_id']);
     }
 
     public function testResourceNameColumnConfigSelectsV1ExplicitlyOmitsHex(): void
@@ -134,8 +134,8 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/rn-articles/50');
 
         $body = $this->decodeResponseBody($response);
-        self::assertArrayNotHasKey('hex', $body['color']);
-        self::assertSame('Red', $body['color']['name']);
+        self::assertArrayNotHasKey('hex', $body['color_id']);
+        self::assertSame('Red', $body['color_id']['name']);
     }
 
     public function testResourceNameColumnConfigSetsCorrectResourceType(): void
@@ -149,8 +149,8 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/rn-articles/50');
 
         $body = $this->decodeResponseBody($response);
-        self::assertSame('ColorV2', $body['color']['@type']);
-        self::assertStringContainsString('rn-colors-v2', $body['color']['@id']);
+        self::assertSame('ColorV2', $body['color_id']['@type']);
+        self::assertStringContainsString('rn-colors-v2', $body['color_id']['@id']);
     }
 
     // ── Group 2: No API definition + embed=true → default-mode serialization ──
@@ -168,11 +168,11 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/rn-articles/50');
 
         $body = $this->decodeResponseBody($response);
-        self::assertArrayHasKey('color', $body);
-        self::assertIsArray($body['color']);
-        self::assertArrayHasKey('name', $body['color']);
-        self::assertArrayHasKey('hex', $body['color']);
-        self::assertSame('Red', $body['color']['name']);
+        self::assertArrayHasKey('color_id', $body);
+        self::assertIsArray($body['color_id']);
+        self::assertArrayHasKey('name', $body['color_id']);
+        self::assertArrayHasKey('hex', $body['color_id']);
+        self::assertSame('Red', $body['color_id']['name']);
     }
 
     public function testNoApiDefinitionWithoutEmbedReturnsStub(): void
@@ -185,10 +185,10 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/rn-articles/50');
 
         $body = $this->decodeResponseBody($response);
-        self::assertArrayHasKey('color', $body);
-        self::assertArrayHasKey('@id', $body['color']);
-        self::assertArrayHasKey('uid', $body['color']);
-        self::assertArrayNotHasKey('name', $body['color']);
+        self::assertArrayHasKey('color_id', $body);
+        self::assertArrayHasKey('@id', $body['color_id']);
+        self::assertArrayHasKey('uid', $body['color_id']);
+        self::assertArrayNotHasKey('name', $body['color_id']);
     }
 
     public function testNoApiDefinitionDefaultConfigUsesTableNameForJsonLd(): void
@@ -201,7 +201,7 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/rn-articles/50');
 
         $body = $this->decodeResponseBody($response);
-        self::assertSame(self::COLOR_TABLE, $body['color']['@type']);
+        self::assertSame(self::COLOR_TABLE, $body['color_id']['@type']);
     }
 
     public function testNoApiDefinitionNullFkReturnsNull(): void
@@ -214,7 +214,7 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/rn-articles/52');
 
         $body = $this->decodeResponseBody($response);
-        self::assertNull($body['color']);
+        self::assertNull($body['color_id']);
     }
 
     // ── Group 3: Regression — single registration still works ─────────────────
@@ -229,7 +229,7 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/rn-articles/50');
 
         $body = $this->decodeResponseBody($response);
-        self::assertSame('Red', $body['color']['name']);
+        self::assertSame('Red', $body['color_id']['name']);
     }
 
     public function testNoEmbedReturnStubWithSingleRegistration(): void
@@ -240,9 +240,9 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/rn-articles/50');
 
         $body = $this->decodeResponseBody($response);
-        self::assertArrayHasKey('color', $body);
-        self::assertArrayNotHasKey('name', $body['color']);
-        self::assertArrayHasKey('@id', $body['color']);
+        self::assertArrayHasKey('color_id', $body);
+        self::assertArrayNotHasKey('name', $body['color_id']);
+        self::assertArrayHasKey('@id', $body['color_id']);
     }
 
     // ── Group 4: HasMany default-mode fallback (covers serializeHasManyFromRows) ──
