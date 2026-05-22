@@ -68,7 +68,7 @@ final class OpenApiSchemasBuilderTest extends TestCase
     // ── HasOne relation schema ─────────────────────────────────────────────────
 
     #[Test]
-    public function hasOneWithoutEmbedProducesRelationStubRef(): void
+    public function hasOneWithoutEmbedProducesIriReferenceString(): void
     {
         $GLOBALS['TCA']['test_table'] = [
             'ctrl' => [],
@@ -87,16 +87,16 @@ final class OpenApiSchemasBuilderTest extends TestCase
         $schemas = $this->builder->build([$config]);
         $readProps = $schemas['TestRead']['properties'];
 
-        // Property name stripped of _id suffix
         self::assertArrayHasKey('author_id', $readProps);
 
-        // Nullable stub
+        // Nullable IRI string (no stub object)
         $schema = $readProps['author_id'];
         self::assertArrayHasKey('oneOf', $schema);
-        $refs = array_column($schema['oneOf'], '$ref');
-        self::assertContains('#/components/schemas/RelationStub', $refs);
-        $nullTypes = array_column($schema['oneOf'], 'type');
-        self::assertContains('null', $nullTypes);
+        $types = array_column($schema['oneOf'], 'type');
+        self::assertContains('string', $types);
+        self::assertContains('null', $types);
+        $formats = array_column($schema['oneOf'], 'format');
+        self::assertContains('iri-reference', $formats);
     }
 
     #[Test]
@@ -159,7 +159,7 @@ final class OpenApiSchemasBuilderTest extends TestCase
     // ── HasMany relation schema ────────────────────────────────────────────────
 
     #[Test]
-    public function categoryFieldProducesArrayOfRelationStubs(): void
+    public function categoryFieldProducesArrayOfIriStrings(): void
     {
         $GLOBALS['TCA']['test_table'] = [
             'ctrl' => [],
@@ -175,11 +175,12 @@ final class OpenApiSchemasBuilderTest extends TestCase
         self::assertArrayHasKey('categories', $readProps);
         $schema = $readProps['categories'];
         self::assertSame('array', $schema['type']);
-        self::assertSame('#/components/schemas/RelationStub', $schema['items']['$ref']);
+        self::assertSame('string', $schema['items']['type']);
+        self::assertSame('iri-reference', $schema['items']['format']);
     }
 
     #[Test]
-    public function inlineFieldProducesArraySchema(): void
+    public function inlineFieldProducesArrayOfIriStrings(): void
     {
         $GLOBALS['TCA']['test_table'] = [
             'ctrl' => [],
@@ -200,7 +201,8 @@ final class OpenApiSchemasBuilderTest extends TestCase
 
         self::assertArrayHasKey('children', $readProps);
         self::assertSame('array', $readProps['children']['type']);
-        self::assertSame('#/components/schemas/RelationStub', $readProps['children']['items']['$ref']);
+        self::assertSame('string', $readProps['children']['items']['type']);
+        self::assertSame('iri-reference', $readProps['children']['items']['format']);
     }
 
     #[Test]
