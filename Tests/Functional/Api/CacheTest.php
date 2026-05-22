@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api;
 
+use MaikSchneider\TcaApi\Filter\ExactFilter;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 use TYPO3\CMS\Core\Cache\CacheManager;
 
@@ -29,6 +30,23 @@ final class CacheTest extends ApiFunctionalTestCase
         ],
         'columns' => [
             'title' => ['type' => 'string', 'groups' => ['list', 'show']],
+        ],
+        'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
+    ];
+
+    private const BASE_CONFIG_WITH_FILTERS = [
+        'general' => [
+            'table' => self::TABLE,
+            'resourceName' => self::RESOURCE,
+            'resourceType' => 'Article',
+            'operations' => ['list', 'show'],
+        ],
+        'columns' => [
+            'title' => ['type' => 'string', 'groups' => ['list', 'show']],
+            'color_id' => ['groups' => ['list', 'show']],
+        ],
+        'filters' => [
+            'color_id' => ExactFilter::class,
         ],
         'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
     ];
@@ -181,6 +199,56 @@ final class CacheTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest(self::PATH_ITEM);
 
         self::assertSame('HIT', $response->getHeaderLine('X-TCA-API-Cache'));
+    }
+
+    // ── Top-level filter param cache keys ─────────────────────────────────────
+
+    public function testTopLevelFilterParamProducesCacheMissOnFirstRequest(): void
+    {
+        $this->registerCachedResourceWithFilters();
+
+        $response = $this->executeApiRequest(self::PATH_COLLECTION, ['color_id' => '1']);
+
+        self::assertSame('MISS', $response->getHeaderLine('X-TCA-API-Cache'));
+    }
+
+    public function testTopLevelFilterParamProducesCacheHitOnSecondIdenticalRequest(): void
+    {
+        $this->registerCachedResourceWithFilters();
+
+        $this->executeApiRequest(self::PATH_COLLECTION, ['color_id' => '1']);
+        $response = $this->executeApiRequest(self::PATH_COLLECTION, ['color_id' => '1']);
+
+        self::assertSame('HIT', $response->getHeaderLine('X-TCA-API-Cache'));
+    }
+
+    public function testTopLevelAndBracketNotationProduceSameCacheKey(): void
+    {
+        $this->registerCachedResourceWithFilters();
+
+        // Warm cache using top-level param style
+        $this->executeApiRequest(self::PATH_COLLECTION, ['color_id' => '1']);
+        // Second request using bracket-notation — must resolve to same cache key → HIT
+        $response = $this->executeApiRequest(self::PATH_COLLECTION, ['filters' => ['color_id' => '1']]);
+
+        self::assertSame('HIT', $response->getHeaderLine('X-TCA-API-Cache'));
+    }
+
+    public function testDifferentTopLevelFilterValuesProduceDifferentCacheEntries(): void
+    {
+        $this->registerCachedResourceWithFilters();
+
+        $this->executeApiRequest(self::PATH_COLLECTION, ['color_id' => '1']);
+        $response = $this->executeApiRequest(self::PATH_COLLECTION, ['color_id' => '2']);
+
+        self::assertSame('MISS', $response->getHeaderLine('X-TCA-API-Cache'));
+    }
+
+    private function registerCachedResourceWithFilters(): void
+    {
+        $this->registerResource(self::RESOURCE, array_merge(self::BASE_CONFIG_WITH_FILTERS, [
+            'cache' => ['enabled' => true, 'lifetime' => 3600],
+        ]));
     }
 
     // ── Helper ───────────────────────────────────────────────────────────────

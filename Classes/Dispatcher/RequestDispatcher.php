@@ -359,11 +359,19 @@ final class RequestDispatcher
 
         // Build a deterministic set of relevant parameters
         $relevant = [];
-        foreach (['page', 'itemsPerPage', 'filters', 'order', 'fields'] as $key) {
+        foreach (['page', 'itemsPerPage', 'order', 'fields'] as $key) {
             if (isset($queryParams[$key])) {
                 $relevant[$key] = $queryParams[$key];
             }
         }
+
+        // Use the already-resolved filters (covers both ?filters[x]=v and top-level ?x=v)
+        $resolvedFilters = (array)$request->getAttribute('tca_api.filters', []);
+        if ($resolvedFilters !== []) {
+            ksort($resolvedFilters);
+            $relevant['filters'] = $resolvedFilters;
+        }
+
         ksort($relevant);
 
         $uid = $request->getAttribute('tca_api.uid');
