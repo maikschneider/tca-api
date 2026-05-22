@@ -38,4 +38,45 @@ final class SiteSettingsAllowedResourcesTest extends ApiFunctionalTestCase
 
         self::assertSame(404, $response->getStatusCode());
     }
+
+    // ── Hydra docs do not leak blocked resource types ─────────────────────────
+
+    public function testHydraDocsDoNotContainBlockedSupportedClass(): void
+    {
+        $response = $this->executeApiRequest('/_api/docs.jsonld');
+        self::assertSame(200, $response->getStatusCode());
+
+        $body = $this->decodeResponseBody($response);
+        $classIds = array_column($body['hydra:supportedClass'], '@id');
+
+        self::assertContains('#Article', $classIds, 'Article must be present');
+        self::assertNotContains('#Color', $classIds, 'Color is blocked and must not appear in supportedClass');
+    }
+
+    public function testHydraDocsRelationRangeDoesNotPointToBlockedClass(): void
+    {
+        $response = $this->executeApiRequest('/_api/docs.jsonld');
+        self::assertSame(200, $response->getStatusCode());
+
+        $body = $this->decodeResponseBody($response);
+
+        // Find the Article class
+        $articleClass = null;
+        foreach ($body['hydra:supportedClass'] as $class) {
+            if ($class['@id'] === '#Article') {
+                $articleClass = $class;
+                break;
+            }
+        }
+        self::assertNotNull($articleClass, 'Article class must be present in docs');
+
+        // color_id relates to the colors resource which is blocked — its range must not be #Color
+        foreach ($articleClass['hydra:supportedProperty'] as $prop) {
+            if ($prop['hydra:title'] === 'color_id') {
+                $range = $prop['hydra:property']['range'] ?? null;
+                self::assertNotSame('#Color', $range, 'color_id range must not reference the blocked Color class');
+                return;
+            }
+        }
+    }
 }

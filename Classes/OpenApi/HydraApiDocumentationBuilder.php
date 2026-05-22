@@ -12,9 +12,6 @@ use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 
 final class HydraApiDocumentationBuilder
 {
-    /** @var array<string, string>|null Maps foreign-table name → resourceType; built once on first docs request. */
-    private ?array $tableResourceTypeMap = null;
-
     public function __construct(private readonly ApiRegistry $apiRegistry)
     {
     }
@@ -22,6 +19,7 @@ final class HydraApiDocumentationBuilder
     public function build(RequestContext $ctx): array
     {
         $resources = $ctx->filterAllowedResources($this->apiRegistry->getAll());
+        $allowedTypeMap = $this->buildAllowedTypeMap($resources);
 
         $context = [
             '@vocab' => 'http://www.w3.org/ns/hydra/core#',
@@ -43,7 +41,7 @@ final class HydraApiDocumentationBuilder
             if ($config->isUserInfo()) {
                 continue;
             }
-            $supportedClasses[] = $this->buildResourceClass($config);
+            $supportedClasses[] = $this->buildResourceClass($config, $allowedTypeMap);
         }
 
         $title = (string)$ctx->settings->get('tca_api.apiSpecTitle', 'TCA API');
@@ -133,7 +131,8 @@ final class HydraApiDocumentationBuilder
         ];
     }
 
-    private function buildResourceClass(ApiDefinition $config): array
+    /** @param array<string, string> $allowedTypeMap */
+    private function buildResourceClass(ApiDefinition $config, array $allowedTypeMap): array
     {
         $operations = [];
 
@@ -175,13 +174,16 @@ final class HydraApiDocumentationBuilder
             '@type' => 'Class',
             'hydra:title' => $config->resourceType,
             'hydra:description' => '',
-            'hydra:supportedProperty' => $this->buildSupportedProperties($config),
+            'hydra:supportedProperty' => $this->buildSupportedProperties($config, $allowedTypeMap),
             'hydra:supportedOperation' => $operations,
         ];
     }
 
-    /** @return array<int, array<string, mixed>> */
-    private function buildSupportedProperties(ApiDefinition $config): array
+    /**
+     * @param array<string, string> $allowedTypeMap
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildSupportedProperties(ApiDefinition $config, array $allowedTypeMap): array
     {
         $properties = [
             [
@@ -221,7 +223,7 @@ final class HydraApiDocumentationBuilder
             // getFieldNameFromSchema() resolves the human-readable display field.
             $schemaId = ($name === $tcaLabelColumn) ? 'schema:name' : 'schema:' . $name;
 
-            $relatedType = $this->findRelatedResourceType($config->table, $name, $column);
+            $relatedType = $this->findRelatedResourceType($config->table, $name, $column, $allowedTypeMap);
 
             if ($relatedType !== null) {
                 $hydraProperty = [
@@ -258,15 +260,17 @@ final class HydraApiDocumentationBuilder
         return $properties;
     }
 
-    private function findRelatedResourceType(string $table, string $column, ColumnDefinition $columnDef): ?string
+    /** @param array<string, string> $allowedTypeMap */
+    private function findRelatedResourceType(string $table, string $column, ColumnDefinition $columnDef, array $allowedTypeMap): ?string
     {
         // Explicit resourceName on the column takes priority — avoids ambiguity when
         // multiple resources share the same foreign table.
         if ($columnDef->resourceName !== null) {
             $resource = $this->apiRegistry->get($columnDef->resourceName);
-            if ($resource !== null) {
+            if ($resource !== null && \in_array($resource->resourceType, $allowedTypeMap, true)) {
                 return $resource->resourceType;
             }
+            return null;
         }
 
         $foreignTable = $GLOBALS['TCA'][$table]['columns'][$column]['config']['foreign_table'] ?? null;
@@ -274,7 +278,7 @@ final class HydraApiDocumentationBuilder
             return null;
         }
 
-        return $this->tableResourceTypeMap()[$foreignTable] ?? null;
+        return $allowedTypeMap[$foreignTable] ?? null;
     }
 
     private function isSingleRelation(string $table, string $column): bool
@@ -286,19 +290,16 @@ final class HydraApiDocumentationBuilder
     }
 
     /**
+     * @param array<string, ApiDefinition> $resources Already-filtered allowed resources.
      * @return array<string, string> Maps foreign-table → resourceType for O(1) relation lookup.
-     * Built once on first docs request so ApiRegistry is fully populated.
      */
-    private function tableResourceTypeMap(): array
+    private function buildAllowedTypeMap(array $resources): array
     {
-        if ($this->tableResourceTypeMap === null) {
-            $this->tableResourceTypeMap = [];
-            foreach ($this->apiRegistry->getAll() as $definition) {
-                $this->tableResourceTypeMap[$definition->table] = $definition->resourceType;
-            }
+        $map = [];
+        foreach ($resources as $definition) {
+            $map[$definition->table] = $definition->resourceType;
         }
-
-        return $this->tableResourceTypeMap;
+        return $map;
     }
 
     private function columnTypeToXsdType(string $type): string
