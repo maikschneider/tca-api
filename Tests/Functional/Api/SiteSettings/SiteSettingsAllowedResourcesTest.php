@@ -60,7 +60,6 @@ final class SiteSettingsAllowedResourcesTest extends ApiFunctionalTestCase
 
         $body = $this->decodeResponseBody($response);
 
-        // Find the Article class
         $articleClass = null;
         foreach ($body['hydra:supportedClass'] as $class) {
             if ($class['@id'] === '#Article') {
