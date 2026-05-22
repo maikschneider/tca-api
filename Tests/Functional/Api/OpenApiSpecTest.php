@@ -216,6 +216,43 @@ final class OpenApiSpecTest extends ApiFunctionalTestCase
         self::assertArrayHasKey('500', $createResponses);
     }
 
+    public function testArticleListOperationHasIndividualTopLevelFilterParams(): void
+    {
+        $response = $this->executeApiRequest('/_api/openapi.json');
+        self::assertSame(200, $response->getStatusCode());
+
+        $body = $this->decodeResponseBody($response);
+        $listParams = $body['paths']['/_api/articles']['get']['parameters'];
+        $paramNames = array_column($listParams, 'name');
+
+        // Individual top-level filter params
+        self::assertContains('color_id', $paramNames, 'color_id must be advertised as a top-level query param');
+        self::assertContains('title', $paramNames, 'title must be advertised as a top-level query param');
+
+        // Each individual param must be in: query
+        foreach ($listParams as $param) {
+            if (\in_array($param['name'], ['color_id', 'title'], true)) {
+                self::assertSame('query', $param['in']);
+                self::assertSame('string', $param['schema']['type']);
+            }
+        }
+
+        // No deepObject wrapper — filters are now individual params only
+        self::assertNotContains('filters', $paramNames, 'filters deepObject must not be present');
+    }
+
+    public function testColorListOperationHasNoFilterParams(): void
+    {
+        $response = $this->executeApiRequest('/_api/openapi.json');
+        self::assertSame(200, $response->getStatusCode());
+
+        $body = $this->decodeResponseBody($response);
+        $listParams = $body['paths']['/_api/colors']['get']['parameters'];
+        $paramNames = array_column($listParams, 'name');
+
+        self::assertNotContains('filters', $paramNames, 'colors resource has no filters so filters deepObject must be absent');
+    }
+
     public function testReadOnlyResourceHasNoWriteSchema(): void
     {
         $response = $this->executeApiRequest('/_api/openapi.json');
