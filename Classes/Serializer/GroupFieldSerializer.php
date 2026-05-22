@@ -16,7 +16,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * Single-table groups resolve their rows via the preloaded pool, MM join,
  * or UID-list fallback, then delegate to RelationSerializer for depth
  * handling. Multi-table groups parse the "tablename_uid" prefix format
- * and return shallow stubs.
+ * and return plain IRI strings.
  */
 final readonly class GroupFieldSerializer
 {
@@ -103,7 +103,7 @@ final readonly class GroupFieldSerializer
             : [];
     }
 
-    /** Multiple allowed tables: parse "tablename_uid" prefix format and return stubs. */
+    /** Multiple allowed tables: parse "tablename_uid" prefix format and return IRI strings. */
     private function serializeMultiTableGroup(
         string $column,
         ColumnDefinition $columnDef,
@@ -114,11 +114,10 @@ final readonly class GroupFieldSerializer
     ): array {
         $items = $this->parseMultiTableGroupValues(trim((string)($row[$column] ?? '')));
 
-        return array_map(function (array $item) use ($columnDef, $config, $apiPrefix, $relationSerializer): array {
+        return array_map(function (array $item) use ($columnDef, $config, $apiPrefix, $relationSerializer): string {
             $relatedConfig = $relationSerializer->resolveRelatedConfig($item['table'], $config);
             $resourceName  = $columnDef->resourceName ?? ($relatedConfig->resourceName ?? $item['table']);
-            $resourceType  = $columnDef->resourceType ?? ($relatedConfig->resourceType ?? $item['table']);
-            return RelationSerializer::buildStub($resourceName, $resourceType, $item['uid'], $apiPrefix);
+            return $apiPrefix . '/' . $resourceName . '/' . $item['uid'];
         }, $items);
     }
 

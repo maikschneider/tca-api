@@ -182,7 +182,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
 
     // ── Multi-table group ─────────────────────────────────────────────────────
 
-    public function testGroupMultiTableReturnsStubsFromDifferentTables(): void
+    public function testGroupMultiTableReturnsIriStringsFromDifferentTables(): void
     {
         $this->registerColorResource();
         $this->registerArticleResource();
@@ -195,19 +195,14 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
         self::assertIsArray($body['related_items']);
         self::assertCount(2, $body['related_items']);
 
-        // Each item is a stub with @id, @type, uid
-        foreach ($body['related_items'] as $stub) {
-            self::assertArrayHasKey('@id', $stub);
-            self::assertArrayHasKey('@type', $stub);
-            self::assertArrayHasKey('uid', $stub);
+        // Each item is a plain IRI string
+        foreach ($body['related_items'] as $iri) {
+            self::assertIsString($iri);
+            self::assertMatchesRegularExpression('#/_api/[^/]+/\d+$#', $iri);
         }
 
-        $uids  = array_column($body['related_items'], 'uid');
-        $types = array_column($body['related_items'], '@type');
-        self::assertContains(201, $uids);
-        self::assertContains(1, $uids);
-        self::assertContains('Article', $types);
-        self::assertContains('Color', $types);
+        self::assertContains('/_api/grp-articles/201', $body['related_items']);
+        self::assertContains('/_api/colors/1', $body['related_items']);
     }
 
     public function testGroupMultiTableEmptyValueReturnsEmptyArray(): void
@@ -223,7 +218,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
         self::assertSame([], $body['related_items']);
     }
 
-    public function testGroupMultiTableSingleItemStub(): void
+    public function testGroupMultiTableSingleItemIriString(): void
     {
         $this->registerColorResource();
         $this->registerArticleResource();
@@ -234,8 +229,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertCount(1, $body['related_items']);
-        self::assertSame(2, $body['related_items'][0]['uid']);
-        self::assertSame('Color', $body['related_items'][0]['@type']);
+        self::assertSame('/_api/colors/2', $body['related_items'][0]);
     }
 
     // ── Group with MM table ───────────────────────────────────────────────────
