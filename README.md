@@ -28,9 +28,10 @@
 - **File uploads** — `multipart/form-data` file uploads on write endpoints with per-column FAL storage, size limits, and filename masks
 - **Access control** — Per-operation roles: `PUBLIC`, `FE_USER`, `FE_GROUP`, `BE_USER`, `BE_ADMIN`, `OWNER` (record-level ownership), or custom callables
 - **Write privilege model** — Actor-aware write context with configurable execution strategy, per-table access control, system-table deny list, and structured audit logging
-- **Relation handling** — Shallow stubs or fully embedded related records (configurable depth); create new related records inline on POST/PUT/PATCH
+- **Relation handling** — Plain IRI strings or fully embedded related records (configurable depth); create new related records inline on POST/PUT/PATCH
 - **Userinfo endpoint** — Expose the authenticated FE user's own record at a configurable URL
 - **OpenAPI + Swagger UI** — Auto-generated OpenAPI 3.1.0 spec and interactive Swagger UI served directly from the API prefix
+- **API Platform Admin** — Bundled React-based admin UI compatible with [API Platform Admin](https://api-platform.com/docs/admin/); activate with the `maikschneider/api-platform-admin` site set
 - **PSR-14 events** — Hook into the request lifecycle with Before/AfterOperation and Before/AfterWrite events
 - **TYPO3 DataHandler** — Write operations use TYPO3's DataHandler for safe, consistent data manipulation
 - **Response caching** — Tag-based HTTP response caching for `list` and `show` operations with automatic invalidation via the TYPO3 DataHandler hook; configurable TTL and per-request bypass
@@ -158,6 +159,33 @@ The extension generates a live **OpenAPI 3.1.0 JSON spec** from the registered r
 
 Access to both endpoints is controlled by the `tca_api.openApiExposed` and `tca_api.swaggerUiEnabled` site settings respectively. Both default to `PUBLIC`.
 
+## API Platform Admin
+
+The extension ships a bundled **React-based admin UI** powered by [API Platform Admin](https://api-platform.com/docs/admin/). It reads the Hydra entrypoint and API documentation to build a fully functional CRUD interface for all registered resources — no configuration needed.
+
+### Activate
+
+Add the `maikschneider/api-platform-admin` site set to any site where you want the admin panel:
+
+```yaml
+dependencies:
+  - maikschneider/tca-api
+  - maikschneider/api-platform-admin
+```
+
+The site set registers a TypoScript template that renders the admin SPA. Point a TYPO3 page to that TypoScript template and the panel is available at that page's URL.
+
+### How it works
+
+- The admin fetches the API **entrypoint** (`{apiPrefix}/`) to discover all resources.
+- It then fetches the **API documentation** (`{apiPrefix}/docs.jsonld`) to resolve supported classes, properties, operations, and relation types.
+- **Filters** are discovered from the `hydra:search` block embedded in collection responses. Public filter columns appear automatically as filter controls. The admin sends filter values as plain top-level query parameters (`?color_id=1`) which TCA API accepts natively.
+- **Relations** are resolved from IRI strings — the admin fetches the linked resource and renders its label field automatically.
+
+### `tca_api.allowedResources` and the admin
+
+When `tca_api.allowedResources` restricts which resources are exposed, the Hydra documentation only includes the allowed classes. Relation properties that reference blocked resources are downgraded to plain scalar fields, so the admin never sees dangling class references.
+
 ## Configuration reference
 
 ### General
@@ -208,7 +236,7 @@ Each entry in `columns` maps to a database column. All keys are optional:
 | `writable`     | `true` — accept in create/update requests (legacy; use `groups` instead) |
 | `groups`       | Array of operations where this column is active — triggers explicit mode (`list`, `show`, `create`, `update`) |
 | `required`     | Require on POST/PUT (skipped on PATCH if absent)    |
-| `embed`        | `true` or `['depth' => N]` — inline related records instead of shallow stubs |
+| `embed`        | `true` or `['depth' => N]` — inline related records instead of IRI strings |
 | `resourceName` | Override related resource name for relation columns |
 | `processor`    | Column processor class (does **not** trigger explicit mode) |
 | `validators`   | Array of validation rules (see [Validation](#validation)) |
@@ -222,10 +250,10 @@ The serializer automatically handles all TYPO3 TCA field types. Relational types
 | TCA type | Handling | Output |
 |---|---|---|
 | `file` | `FileFieldSerializer` — auto-selects `ImageProcessor` or `FileProcessor` | Processed file/image object(s) |
-| `category` | `RelationSerializer` | Shallow stub or embedded record |
-| `select` (relational) | `RelationSerializer` | Shallow stub or embedded record |
-| `inline` | `RelationSerializer` | Shallow stub or embedded record |
-| `group` | `GroupFieldSerializer` | Shallow stub or embedded record |
+| `category` | `RelationSerializer` | IRI string or embedded record |
+| `select` (relational) | `RelationSerializer` | IRI string or embedded record |
+| `inline` | `RelationSerializer` | IRI string or embedded record |
+| `group` | `GroupFieldSerializer` | IRI string or embedded record |
 | `json` | Auto-decoded via `json_decode` | Decoded array/object |
 | `imageManipulation` | Auto-decoded via `json_decode` | Decoded crop config object |
 | `flex` | Auto-decoded via `GeneralUtility::xml2array` | Decoded associative array |
@@ -252,9 +280,9 @@ use MaikSchneider\TcaApi\Filter\SearchFilter;
 use MaikSchneider\TcaApi\Filter\WordStartFilter;
 
 'filters' => [
-    'title'  => ExactFilter::class,            // ?filters[title]=Foo
-    'name'   => PartialFilter::class,          // ?filters[name]=oo  → LIKE %oo%
-    'slug'   => WordStartFilter::class,        // ?filters[slug]=Fo  → LIKE Fo%
+    'title'  => ExactFilter::class,            // ?title=Foo  (or legacy ?filters[title]=Foo)
+    'name'   => PartialFilter::class,          // ?name=oo  → LIKE %oo%
+    'slug'   => WordStartFilter::class,        // ?slug=Fo  → LIKE Fo%
     'year'   => RangeFilter::class,            // ?filters[year][gte]=2020&filters[year][lte]=2024
     'q'      => [                              // Full-text search — options form
         SearchFilter::class,
@@ -302,7 +330,7 @@ Two options available on any filter definition control server-side defaults and 
 
 ```php
 'filters' => [
-    // Overrideable default — applied when ?filters[color_id] is absent
+    // Overrideable default — applied when ?color_id is absent
     'color_id' => [ExactFilter::class, ['default' => '1']],
 
     // Private filter — default always applies, cannot be overridden via URL,
@@ -313,17 +341,29 @@ Two options available on any filter definition control server-side defaults and 
 
 A private filter without a `default` has no effect (no value to enforce).
 
-#### Range filter example
+#### Filter query syntax
+
+Plain top-level parameters are the primary style and are advertised by the `hydra:search` block:
+
+```
+?title=Hello
+?color_id=1
+?categories=5
+```
+
+The bracket notation is also accepted (required for `RangeFilter` sub-keys and legacy clients):
 
 ```
 ?filters[year][gte]=2020&filters[year][lte]=2024
 ?filters[price][gt]=10&filters[price][lt]=100
 ```
 
+When both styles are present for the same column, the bracket form wins. Only columns declared as filters in the resource configuration are matched; other top-level parameters are ignored.
+
 #### Search filter example
 
 ```
-?filters[q]=typo3   → WHERE (title LIKE '%typo3%' OR teaser LIKE '%typo3%' OR body LIKE '%typo3%')
+?q=typo3   → WHERE (title LIKE '%typo3%' OR teaser LIKE '%typo3%' OR body LIKE '%typo3%')
 ```
 
 ### Sorting
@@ -731,15 +771,18 @@ Upload violations return **422 Unprocessable Entity**:
 
 ## Relations
 
-Relations are resolved automatically from the TCA schema. The default is a **shallow stub** containing only `@id`, `@type`, and `uid`:
+Relations are resolved automatically from the TCA schema. By default, related records are serialized as **plain IRI strings**:
 
 ```json
-"color": { "@id": "/_api/colors/1", "@type": "Color", "uid": 1 }
+"color_id": "/_api/colors/1",
+"categories": ["/_api/categories/5", "/_api/categories/8"]
 ```
+
+This format is compatible with API Platform Admin and other Hydra clients that resolve IRIs on demand.
 
 ### Embedding related records
 
-Add `'embed' => true` to a column to inline the full related record instead of a stub:
+Add `'embed' => true` to a column to inline the full related record instead of an IRI string:
 
 ```php
 'columns' => [
@@ -774,13 +817,13 @@ The related resource must be registered in the `ApiRegistry` for embedding to wo
 
 ### Supported relation types
 
-| TCA type             | Storage format                        | Embedding |
-|----------------------|---------------------------------------|-----------|
-| `select` / `group`   | UID list (`1,2,3`) — single table     | Yes       |
-| `select` / `group`   | Prefixed list (`table_uid`) — multi-table | Stubs only |
-| `inline` / `select`  | `foreign_field` back-reference        | Yes       |
-| Any + `MM`           | Intermediate MM table                 | Yes       |
-| `type=group` + `MM`  | Column holds count, relations in MM   | Yes       |
+| TCA type             | Default output                            | Embedding |
+|----------------------|-------------------------------------------|-----------|
+| `select` / `group`   | UID list (`1,2,3`) — single table → IRI strings | Yes |
+| `select` / `group`   | Prefixed list (`table_uid`) — multi-table → IRI strings | No |
+| `inline` / `select`  | `foreign_field` back-reference → IRI strings | Yes  |
+| Any + `MM`           | Intermediate MM table → IRI strings       | Yes       |
+| `type=group` + `MM`  | Column holds count, relations in MM → IRI strings | Yes |
 
 ### Creating related records on write
 
@@ -1040,7 +1083,7 @@ Before the handler loop, the dispatcher sets the following attributes on the PSR
 | `tca_api.fields` | `array` | `?fields[]=…` sparse-fieldset param |
 | `tca_api.page` | `int` | Pagination page (≥ 1) |
 | `tca_api.items_per_page` | `int` | Items per page (clamped to `maxItemsPerPage` when configured) |
-| `tca_api.filters` | `array` | Raw `?filters[…]=…` params |
+| `tca_api.filters` | `array` | Merged filter values from `?filters[…]=…` and top-level `?column=…` params |
 | `tca_api.order` | `array` | Raw `?order[…]=asc\|desc` params |
 | `tca_api.partial` | `bool` | `true` for PATCH (partial update) |
 
