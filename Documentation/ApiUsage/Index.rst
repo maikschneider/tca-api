@@ -106,15 +106,24 @@ The default page size is controlled by:
 Filtering
 =========
 
-Filtering is applied via the ``filters`` query parameter:
+Filter parameters can be passed as plain top-level query parameters:
+
+..  code-block:: text
+
+    GET /_api/articles?title=Hello
+    GET /_api/articles?color_id=1
+    GET /_api/articles?categories=5
+
+The legacy bracket notation is also accepted:
 
 ..  code-block:: text
 
     GET /_api/articles?filters[title]=Hello
-    GET /_api/articles?filters[name]=oo
-    GET /_api/articles?filters[categories]=5
-    GET /_api/articles?filters[search]=Alice
     GET /_api/articles?filters[price][gte]=10&filters[price][lte]=100
+
+When both styles are present for the same column, the bracket form wins.
+Only columns declared as filters in the resource configuration are matched;
+other top-level parameters are ignored.
 
 See :ref:`filters` for the full list of filter strategies and configuration.
 
@@ -162,6 +171,34 @@ resources and exposes two additional endpoints:
 Access to both endpoints is controlled by the ``tca_api.openApiExposed`` and
 ``tca_api.swaggerUiEnabled`` site settings respectively. Both default to
 ``PUBLIC``.
+
+API Platform Admin
+==================
+
+TCA API is compatible with
+`API Platform Admin <https://api-platform.com/docs/admin/>`_ out of the box.
+The extension emits the Hydra vocabulary that the admin's analyzer expects:
+
+- **Entrypoint** (``{apiPrefix}/``) lists all resources as Hydra links.
+- **API documentation** (``{apiPrefix}/docs.jsonld``) describes supported
+  classes, properties, and operations in Hydra class format.
+- **Collection responses** include a ``hydra:search`` block with an IRI
+  template that advertises filter parameters using plain field names
+  (e.g. ``color_id``, ``title``), which the admin's analyzer maps directly
+  to filter controls.
+- Relations are serialized as **plain IRI strings**, which API Platform Admin
+  resolves automatically when navigating to a related record.
+
+Point the admin at the entrypoint URL and it will discover resources,
+relations, and available filters without further configuration:
+
+..  code-block:: jsx
+
+    import { HydraAdmin } from "@api-platform/admin";
+
+    export default () => (
+        <HydraAdmin entrypoint="https://example.com/_api/" />
+    );
 
 File uploads
 ============
