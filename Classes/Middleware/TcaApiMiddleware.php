@@ -36,7 +36,7 @@ final class TcaApiMiddleware implements MiddlewareInterface
 
         $apiPrefix = rtrim('/' . ltrim((string)$settings->get('tca_api.apiPrefix'), '/'), '/');
 
-        if (!str_starts_with($request->getUri()->getPath(), $apiPrefix . '/')) {
+        if ($request->getUri()->getPath() !== $apiPrefix && !str_starts_with($request->getUri()->getPath(), $apiPrefix . '/')) {
             return $handler->handle($request);
         }
 
@@ -78,7 +78,7 @@ final class TcaApiMiddleware implements MiddlewareInterface
             ->withHeader('Access-Control-Allow-Origin', $origin)
             ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
             ->withHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-            ->withHeader('Access-Control-Expose-Headers', 'X-TCA-API-Cache, X-Cache-Tags')
+            ->withHeader('Access-Control-Expose-Headers', 'Link, X-TCA-API-Cache, X-Cache-Tags')
             ->withHeader('Vary', 'Origin');
 
         if ($corsAllowCredentials) {

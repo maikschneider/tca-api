@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\OpenApi;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
-use TYPO3\CMS\Core\Site\Entity\SiteSettings;
+use MaikSchneider\TcaApi\Dispatcher\RequestContext;
 
 final readonly class OpenApiPathsBuilder
 {
@@ -14,13 +14,13 @@ final readonly class OpenApiPathsBuilder
     }
 
     /** @param array<string, ApiDefinition> $resources */
-    public function build(array $resources, SiteSettings $settings): array
+    public function build(array $resources, RequestContext $ctx): array
     {
         $paths = [];
 
         foreach ($resources as $resourceName => $config) {
-            $collectionPath = $settings->get('tca_api.apiPrefix') . $resourceName;
-            $itemPath = $settings->get('tca_api.apiPrefix') . $resourceName . '/{uid}';
+            $collectionPath = $ctx->prefix . '/' . $resourceName;
+            $itemPath = $ctx->prefix . '/' . $resourceName . '/{uid}';
 
             $collectionItem = [];
             if ($config->hasOperation('list')) {
