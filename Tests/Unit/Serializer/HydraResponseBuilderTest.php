@@ -5,6 +5,11 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Unit\Serializer;
 
 use GuzzleHttp\Psr7\HttpFactory;
+use MaikSchneider\TcaApi\Cache\CacheDefinition;
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\Enum\WriteMode;
+use MaikSchneider\TcaApi\Filter\ExactFilter;
+use MaikSchneider\TcaApi\Filter\FilterDefinition;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -217,5 +222,117 @@ final class HydraResponseBuilderTest extends TestCase
         $body = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
 
         self::assertStringContainsString('filters', $body['hydra:view']['hydra:first']);
+    }
+
+    // ── buildSearchTemplate (via buildCollection with config) ────────────────
+
+    #[Test]
+    public function buildCollectionWithPublicFiltersIncludesHydraSearch(): void
+    {
+        $config = $this->makeConfigWithFilters([
+            'color_id' => new FilterDefinition(ExactFilter::class, 'tx_test', 'color_id'),
+        ]);
+
+        $body = $this->decodeCollection($this->builder->buildCollection([], 0, '/api/test', 1, 10, [], $config));
+
+        self::assertArrayHasKey('hydra:search', $body);
+        self::assertSame('hydra:IriTemplate', $body['hydra:search']['@type']);
+    }
+
+    #[Test]
+    public function buildCollectionSearchTemplateVariablesUsePlainFieldNames(): void
+    {
+        $config = $this->makeConfigWithFilters([
+            'color_id' => new FilterDefinition(ExactFilter::class, 'tx_test', 'color_id'),
+            'title'    => new FilterDefinition(ExactFilter::class, 'tx_test', 'title'),
+        ]);
+
+        $body     = $this->decodeCollection($this->builder->buildCollection([], 0, '/api/test', 1, 10, [], $config));
+        $mappings = $body['hydra:search']['hydra:mapping'];
+        $variables = array_column($mappings, 'variable');
+
+        self::assertContains('color_id', $variables, 'variable must be plain field name, not filters[color_id]');
+        self::assertContains('title', $variables);
+        self::assertNotContains('filters[color_id]', $variables);
+        self::assertNotContains('filters[title]', $variables);
+    }
+
+    #[Test]
+    public function buildCollectionSearchTemplateExcludesAllPrivateFilters(): void
+    {
+        $config = $this->makeConfigWithFilters([
+            'secret' => new FilterDefinition(ExactFilter::class, 'tx_test', 'secret', isPrivate: true),
+        ]);
+
+        $body = $this->decodeCollection($this->builder->buildCollection([], 0, '/api/test', 1, 10, [], $config));
+
+        self::assertArrayNotHasKey('hydra:search', $body);
+    }
+
+    #[Test]
+    public function buildCollectionSearchTemplatePrivateFilterNotInMappings(): void
+    {
+        $config = $this->makeConfigWithFilters([
+            'title'  => new FilterDefinition(ExactFilter::class, 'tx_test', 'title'),
+            'secret' => new FilterDefinition(ExactFilter::class, 'tx_test', 'secret', isPrivate: true),
+        ]);
+
+        $body      = $this->decodeCollection($this->builder->buildCollection([], 0, '/api/test', 1, 10, [], $config));
+        $variables = array_column($body['hydra:search']['hydra:mapping'], 'variable');
+
+        self::assertContains('title', $variables);
+        self::assertNotContains('secret', $variables);
+    }
+
+    #[Test]
+    public function buildCollectionWithoutConfigHasNoHydraSearch(): void
+    {
+        $body = $this->decodeCollection($this->builder->buildCollection([], 0, '/api/test', 1, 10));
+
+        self::assertArrayNotHasKey('hydra:search', $body);
+    }
+
+    #[Test]
+    public function buildCollectionWithEmptyFiltersConfigHasNoHydraSearch(): void
+    {
+        $config = $this->makeConfigWithFilters([]);
+
+        $body = $this->decodeCollection($this->builder->buildCollection([], 0, '/api/test', 1, 10, [], $config));
+
+        self::assertArrayNotHasKey('hydra:search', $body);
+    }
+
+    // ── helpers ──────────────────────────────────────────────────────────────
+
+    /** @param array<string, FilterDefinition> $filters */
+    private function makeConfigWithFilters(array $filters): ApiDefinition
+    {
+        return new ApiDefinition(
+            table: 'tx_test',
+            resourceName: 'test',
+            resourceType: 'Test',
+            operations: ['list'],
+            itemsPerPage: 20,
+            maxItemsPerPage: null,
+            type: null,
+            storagePid: null,
+            columns: [],
+            security: [],
+            filters: $filters,
+            allowedOrder: [],
+            defaultOrder: [],
+            ownershipColumn: null,
+            ownershipSetOnCreate: null,
+            ownershipBeAdminBypass: false,
+            virtualProperties: [],
+            isExplicitMode: false,
+            writeMode: WriteMode::ACTING_USER,
+            cache: new CacheDefinition(),
+        );
+    }
+
+    private function decodeCollection(mixed $response): array
+    {
+        return json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
     }
 }

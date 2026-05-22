@@ -214,6 +214,63 @@ final class CollectionFilteringTest extends ApiFunctionalTestCase
         self::assertSame('First Article', $body['hydra:member'][0]['title']);
     }
 
+    // ── top-level filter params (API Platform Admin style) ───────────────────
+
+    public function testTopLevelColorIdFilterReturnsOnlyMatchingArticles(): void
+    {
+        $response = $this->executeApiRequest('/_api/articles', ['color_id' => '1']);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(1, $body['hydra:totalItems']);
+        self::assertSame('First Article', $body['hydra:member'][0]['title']);
+    }
+
+    public function testTopLevelColorIdFilterDifferentValueReturnsDifferentArticle(): void
+    {
+        $response = $this->executeApiRequest('/_api/articles', ['color_id' => '2']);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(1, $body['hydra:totalItems']);
+        self::assertSame('Second Article', $body['hydra:member'][0]['title']);
+    }
+
+    public function testTopLevelTitleFilterMatchesExactTitle(): void
+    {
+        $response = $this->executeApiRequest('/_api/articles', ['title' => 'First Article']);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(1, $body['hydra:totalItems']);
+        self::assertSame('First Article', $body['hydra:member'][0]['title']);
+    }
+
+    public function testUndeclaredTopLevelParamIsIgnored(): void
+    {
+        $response = $this->executeApiRequest('/_api/articles', ['unknown_column' => 'foo']);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(3, $body['hydra:totalItems']);
+    }
+
+    public function testTopLevelParamCannotOverridePrivateFilterDefault(): void
+    {
+        $this->registerPrivateFilterArticles();
+        $response = $this->executeApiRequest('/_api/private-filter-articles', ['color_id' => '2']);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(1, $body['hydra:totalItems']);
+        self::assertSame('First Article', $body['hydra:member'][0]['title']);
+    }
+
+    public function testBracketNotationWinsWhenBothTopLevelAndBracketArePresent(): void
+    {
+        // filters[color_id]=1 AND color_id=2 sent together; bracket form must win
+        $response = $this->executeApiRequest('/_api/articles', ['filters' => ['color_id' => '1'], 'color_id' => '2']);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(1, $body['hydra:totalItems']);
+        self::assertSame('First Article', $body['hydra:member'][0]['title']);
+    }
+
     public function testPrivateFilterIsExcludedFromOpenApiSpec(): void
     {
         $this->registerPrivateFilterArticles();
@@ -230,19 +287,7 @@ final class CollectionFilteringTest extends ApiFunctionalTestCase
             }
         }
 
-        // Find the filters parameter
-        $filtersParam = null;
-        foreach ($listParams as $param) {
-            if ($param['name'] === 'filters') {
-                $filtersParam = $param;
-                break;
-            }
-        }
-
-        // Either no filters param at all, or color_id is not in the properties
-        if ($filtersParam !== null) {
-            $properties = $filtersParam['schema']['properties'] ?? [];
-            self::assertArrayNotHasKey('color_id', $properties, 'Private filter "color_id" must not appear in OpenAPI spec');
-        }
+        $paramNames = array_column($listParams, 'name');
+        self::assertNotContains('color_id', $paramNames, 'Private filter "color_id" must not appear as a query param');
     }
 }
