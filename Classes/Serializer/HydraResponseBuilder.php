@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Serializer;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 
@@ -21,6 +22,7 @@ final class HydraResponseBuilder
         int $page,
         int $itemsPerPage,
         array $queryParams = [],
+        ?ApiDefinition $config = null,
     ): ResponseInterface {
         $body = [
             '@context' => 'http://www.w3.org/ns/hydra/context.jsonld',
@@ -30,6 +32,13 @@ final class HydraResponseBuilder
             'hydra:member' => $members,
             'hydra:view' => $this->buildView($collectionId, $page, $itemsPerPage, $totalItems, $queryParams),
         ];
+
+        if ($config !== null) {
+            $searchTemplate = $this->buildSearchTemplate($collectionId, $config);
+            if ($searchTemplate !== []) {
+                $body['hydra:search'] = $searchTemplate;
+            }
+        }
 
         $response = $this->responseFactory->createResponse(200)
             ->withHeader('Content-Type', 'application/ld+json');
@@ -78,6 +87,41 @@ final class HydraResponseBuilder
         $response->getBody()->write(json_encode($body, JSON_THROW_ON_ERROR));
 
         return $response;
+    }
+
+    private function buildSearchTemplate(string $baseUrl, ApiDefinition $config): array
+    {
+        $mappings  = [];
+        $variables = [];
+
+        foreach ($config->allowedOrder as $field) {
+            $var         = 'order[' . $field . ']';
+            $variables[] = $field;
+            $variables[] = $var;
+            $mappings[]  = ['@type' => 'IriTemplateMapping', 'variable' => $field, 'property' => $field, 'required' => false];
+            $mappings[]  = ['@type' => 'IriTemplateMapping', 'variable' => $var, 'property' => $field, 'required' => false];
+        }
+
+        foreach ($config->filters as $field => $filterDef) {
+            if ($filterDef->isPrivate) {
+                continue;
+            }
+            if (!\in_array($field, $variables, true)) {
+                $variables[] = $field;
+                $mappings[]  = ['@type' => 'IriTemplateMapping', 'variable' => $field, 'property' => $field, 'required' => false];
+            }
+        }
+
+        if ($mappings === []) {
+            return [];
+        }
+
+        return [
+            '@type'                        => 'hydra:IriTemplate',
+            'hydra:template'               => $baseUrl . '{?' . implode(',', $variables) . '}',
+            'hydra:variableRepresentation' => 'BasicRepresentation',
+            'hydra:mapping'                => $mappings,
+        ];
     }
 
     private function buildView(string $collectionId, int $page, int $itemsPerPage, int $totalItems, array $queryParams = []): array

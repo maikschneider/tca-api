@@ -69,7 +69,7 @@ final class RelationSerializer
         $resourceType = $columnDef->resourceType ?? ($relatedConfig->resourceType ?? $foreignTable);
 
         if ($effectiveDepth <= 0 || isset($visited[$foreignTable . ':' . $fkValue]) || $relatedConfig === null) {
-            return self::buildStub($resourceName, $resourceType, $fkValue, $apiPrefix);
+            return $apiPrefix . '/' . $resourceName . '/' . $fkValue;
         }
 
         $relatedRow = $preloaded['rows'][$foreignTable][$fkValue]
@@ -150,7 +150,7 @@ final class RelationSerializer
         $resourceType = $columnDef->resourceType ?? ($relatedConfig->resourceType ?? $foreignTable);
 
         if ($effectiveDepth <= 0 || $relatedConfig === null) {
-            return array_map(fn (array $r) => self::buildStub($resourceName, $resourceType, (int)$r['uid'], $apiPrefix), $relatedRows);
+            return array_map(fn (array $r) => $apiPrefix . '/' . $resourceName . '/' . (int)$r['uid'], $relatedRows);
         }
 
         $relatedBaseUrl = $apiPrefix . '/' . $relatedConfig->resourceName;
@@ -161,7 +161,7 @@ final class RelationSerializer
             $itemUid = (int)$relatedRow['uid'];
 
             if (isset($newVisited[$foreignTable . ':' . $itemUid])) {
-                $result[] = self::buildStub($resourceName, $resourceType, $itemUid, $apiPrefix);
+                $result[] = $apiPrefix . '/' . $resourceName . '/' . $itemUid;
                 continue;
             }
 

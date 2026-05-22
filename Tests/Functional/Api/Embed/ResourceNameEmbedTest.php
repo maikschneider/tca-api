@@ -175,9 +175,9 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
         self::assertSame('Red', $body['color_id']['name']);
     }
 
-    public function testNoApiDefinitionWithoutEmbedReturnsStub(): void
+    public function testNoApiDefinitionWithoutEmbedReturnsIri(): void
     {
-        // 'resourceName' points to a non-existent key but embed is absent → depth=0 → stub returned.
+        // 'resourceName' points to a non-existent key but embed is absent → depth=0 → IRI string returned.
         $this->registerArticleResource([
             'color_id' => ['groups' => ['list', 'show'], 'resourceName' => 'rn-colors-nonexistent'],
         ]);
@@ -186,9 +186,8 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
 
         $body = $this->decodeResponseBody($response);
         self::assertArrayHasKey('color_id', $body);
-        self::assertArrayHasKey('@id', $body['color_id']);
-        self::assertArrayHasKey('uid', $body['color_id']);
-        self::assertArrayNotHasKey('name', $body['color_id']);
+        self::assertIsString($body['color_id']);
+        self::assertStringContainsString('/rn-colors-nonexistent/1', $body['color_id']);
     }
 
     public function testNoApiDefinitionDefaultConfigUsesTableNameForJsonLd(): void
@@ -232,7 +231,7 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
         self::assertSame('Red', $body['color_id']['name']);
     }
 
-    public function testNoEmbedReturnStubWithSingleRegistration(): void
+    public function testNoEmbedReturnIriWithSingleRegistration(): void
     {
         $this->registerColorsV1();
         $this->registerArticleResource(); // no embed
@@ -241,8 +240,8 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
 
         $body = $this->decodeResponseBody($response);
         self::assertArrayHasKey('color_id', $body);
-        self::assertArrayNotHasKey('name', $body['color_id']);
-        self::assertArrayHasKey('@id', $body['color_id']);
+        self::assertIsString($body['color_id']);
+        self::assertStringEndsWith('/1', $body['color_id']);
     }
 
     // ── Group 4: HasMany default-mode fallback (covers serializeHasManyFromRows) ──

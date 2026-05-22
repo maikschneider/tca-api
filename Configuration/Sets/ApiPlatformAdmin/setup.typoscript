@@ -1,0 +1,19 @@
+page = PAGE
+page {
+
+  10 = TEXT
+  10.value (
+    <div id="root">
+        <div class="loader-container">
+            <div class="loader">Loading...</div>
+        </div>
+    </div>
+  )
+  10.dataWrap = <div id="root" data-api-prefix="{$tca_api.apiPrefix}">|</div>
+
+  includeJS.apiPlatformAdmin = EXT:tca_api/Resources/Public/ApiPlatformAdmin/dist/index.js
+  includeJS.apiPlatformAdmin.type = module
+
+  includeCSS.apiPlatformAdminFonts = EXT:tca_api/Resources/Public/ApiPlatformAdmin/fonts.css
+  includeCSS.apiPlatformAdminStyle = EXT:tca_api/Resources/Public/ApiPlatformAdmin/style.css
+}

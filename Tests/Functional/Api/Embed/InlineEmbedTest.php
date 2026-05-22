@@ -82,7 +82,7 @@ final class InlineEmbedTest extends ApiFunctionalTestCase
         self::assertCount(2, $body['related_items_inline']);
     }
 
-    public function testInlineStubsHaveJsonLdFieldsButNoName(): void
+    public function testInlineWithoutEmbedReturnsIriStrings(): void
     {
         $this->registerColorResource();
         $this->registerArticleResource();
@@ -90,14 +90,11 @@ final class InlineEmbedTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/inline-articles/300');
         $body     = $this->decodeResponseBody($response);
 
-        $stub = $body['related_items_inline'][0];
-        self::assertArrayHasKey('@id', $stub);
-        self::assertArrayHasKey('@type', $stub);
-        self::assertArrayHasKey('uid', $stub);
-        self::assertArrayNotHasKey('name', $stub);
+        self::assertIsString($body['related_items_inline'][0]);
+        self::assertMatchesRegularExpression('#/_api/[^/]+/\d+$#', $body['related_items_inline'][0]);
     }
 
-    public function testInlineSingleRelationWithoutEmbedReturnsOneStub(): void
+    public function testInlineSingleRelationWithoutEmbedReturnsIri(): void
     {
         $this->registerColorResource();
         $this->registerArticleResource();
@@ -107,7 +104,8 @@ final class InlineEmbedTest extends ApiFunctionalTestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertCount(1, $body['related_items_inline']);
-        self::assertSame(12, $body['related_items_inline'][0]['uid']);
+        self::assertIsString($body['related_items_inline'][0]);
+        self::assertStringEndsWith('/12', $body['related_items_inline'][0]);
     }
 
     public function testInlineEmptyWithoutEmbedReturnsEmptyArray(): void
@@ -203,7 +201,7 @@ final class InlineEmbedTest extends ApiFunctionalTestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertCount(2, $body['related_items_inline']);
-        self::assertArrayNotHasKey('name', $body['related_items_inline'][0]);
+        self::assertIsString($body['related_items_inline'][0]);
     }
 
     // ── embed=['depth'=>1]: same as embed=true ────────────────────────────────

@@ -120,7 +120,7 @@ final class WriteInlineRelationsTest extends ApiFunctionalTestCase
         $getBody = $this->decodeResponseBody(
             $this->executeApiRequest('/_api/inline-articles/' . $parentUid),
         );
-        $childUid = $getBody['related_items_inline'][0]['uid'];
+        $childUid = (int)basename($getBody['related_items_inline'][0]);
 
         // Load color directly to check pid
         $colorRow = $this->getConnectionPool()

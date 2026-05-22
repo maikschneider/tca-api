@@ -76,7 +76,15 @@ class GetCollectionHandler implements OperationHandlerInterface
         $queryState = array_diff_key($request->getQueryParams(), ['page' => null]);
         $queryState['itemsPerPage'] = $itemsPerPage;
 
-        return $this->hydraResponseBuilder->buildCollection($event->getData(), $total, $baseUrl, $page, $itemsPerPage, $queryState);
+        return $this->hydraResponseBuilder->buildCollection(
+            $event->getData(),
+            $total,
+            $baseUrl,
+            $page,
+            $itemsPerPage,
+            $queryState,
+            $config,
+        );
     }
 
     private function resolveFilters(array $requested, ApiDefinition $config, ServerRequestInterface $request): array

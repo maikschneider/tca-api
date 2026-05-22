@@ -76,9 +76,9 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
         ]);
     }
 
-    // ── Single-table group: stubs ─────────────────────────────────────────────
+    // ── Single-table group: IRI strings ──────────────────────────────────────
 
-    public function testGroupSingleTableWithoutEmbedReturnsStubs(): void
+    public function testGroupSingleTableWithoutEmbedReturnsIriStrings(): void
     {
         $this->registerColorResource();
         $this->registerArticleResource();
@@ -89,10 +89,8 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
         self::assertSame(200, $response->getStatusCode());
         self::assertIsArray($body['related_colors']);
         self::assertCount(2, $body['related_colors']);
-        self::assertArrayHasKey('@id', $body['related_colors'][0]);
-        self::assertArrayHasKey('@type', $body['related_colors'][0]);
-        self::assertArrayHasKey('uid', $body['related_colors'][0]);
-        self::assertArrayNotHasKey('name', $body['related_colors'][0]);
+        self::assertIsString($body['related_colors'][0]);
+        self::assertMatchesRegularExpression('#/_api/[^/]+/\d+$#', $body['related_colors'][0]);
     }
 
     // ── Single-table group: full embed ────────────────────────────────────────
@@ -259,7 +257,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
         ]);
     }
 
-    public function testGroupMmFieldWithoutEmbedReturnsStubs(): void
+    public function testGroupMmFieldWithoutEmbedReturnsIriStrings(): void
     {
         $this->registerColorResource();
         $this->registerMmArticleResource();
@@ -270,10 +268,8 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
         self::assertSame(200, $response->getStatusCode());
         self::assertIsArray($body['related_colors_mm_grp']);
         self::assertCount(2, $body['related_colors_mm_grp']);
-        self::assertArrayHasKey('@id', $body['related_colors_mm_grp'][0]);
-        self::assertArrayHasKey('@type', $body['related_colors_mm_grp'][0]);
-        self::assertArrayHasKey('uid', $body['related_colors_mm_grp'][0]);
-        self::assertArrayNotHasKey('name', $body['related_colors_mm_grp'][0]);
+        self::assertIsString($body['related_colors_mm_grp'][0]);
+        self::assertMatchesRegularExpression('#/_api/[^/]+/\d+$#', $body['related_colors_mm_grp'][0]);
     }
 
     public function testGroupMmFieldWithEmbedReturnsTwoColors(): void

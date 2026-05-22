@@ -76,6 +76,7 @@ final readonly class RelationInputResolver
         $table = $parentDefinition->table;
         $feUser       = $request->getAttribute('frontend.user');
         $feUserRow    = $feUser?->user;
+        $apiPrefix    = rtrim((string)$request->getAttribute('tca_api.api_prefix', '/_api'), '/');
         $scalarBody   = [];
         $extraDataMap = [];
         $violations   = [];
@@ -83,8 +84,12 @@ final readonly class RelationInputResolver
         foreach ($body as $col => $value) {
             $tcaConfig = $GLOBALS['TCA'][$table]['columns'][$col]['config'] ?? null;
 
-            // Not a known TCA column or already scalar → pass through unchanged
+            // Not a known TCA column or already scalar → pass through.
+            // IRI strings (e.g. "/_api/sys-categories/1") on relation columns are resolved to integer UIDs.
             if ($tcaConfig === null || !is_array($value)) {
+                if (is_string($value) && $tcaConfig !== null && ($tcaConfig['foreign_table'] ?? '') !== '') {
+                    $value = $this->iriToUid($value, $apiPrefix) ?? $value;
+                }
                 $scalarBody[$col] = $value;
                 continue;
             }
@@ -199,6 +204,8 @@ final readonly class RelationInputResolver
                         $ph                              = StringUtility::getUniqueId('NEW');
                         $extraDataMap[$effectiveFt][$ph] = $this->prepareChildData($item, $pid, $feUserRow, $subConfig);
                         $resolvedUids[]                  = $ph;
+                    } elseif (is_string($item) && ($uid = $this->iriToUid($item, $apiPrefix)) !== null) {
+                        $resolvedUids[] = $uid;
                     } elseif (MathUtility::canBeInterpretedAsInteger($item)) {
                         $resolvedUids[] = (int)$item;
                     }
@@ -365,5 +372,25 @@ final readonly class RelationInputResolver
         }
 
         return '';
+    }
+
+    /**
+     * Extract a UID integer from a Hydra IRI like "/_api/articles/42".
+     * Returns null when $value does not match the expected pattern.
+     */
+    private function iriToUid(string $value, string $apiPrefix): ?int
+    {
+        if (!str_starts_with($value, $apiPrefix . '/')) {
+            return null;
+        }
+
+        $path  = substr($value, \strlen($apiPrefix) + 1);
+        $parts = explode('/', $path);
+
+        if (\count($parts) !== 2 || !MathUtility::canBeInterpretedAsInteger($parts[1])) {
+            return null;
+        }
+
+        return (int)$parts[1];
     }
 }

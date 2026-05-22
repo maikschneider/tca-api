@@ -200,21 +200,17 @@ final readonly class OpenApiOperationBuilder
             ['name' => 'itemsPerPage', 'in' => 'query', 'schema' => ['type' => 'integer', 'minimum' => 1, 'default' => $config->itemsPerPage ?? 20]],
         ];
 
-        if ($config->filters !== []) {
-            $filterProperties = [];
-            foreach ($config->filters as $field => $filterConfig) {
-                if ($filterConfig->isPrivate) {
-                    continue;
-                }
-                $shortName = basename(str_replace('\\', '/', $filterConfig->filterClass)) ?: $filterConfig->filterClass;
-                $filterProperties[$field] = ['type' => 'string', 'description' => 'Filter by ' . $field . ' (' . $shortName . ')'];
+        foreach ($config->filters as $field => $filterConfig) {
+            if ($filterConfig->isPrivate) {
+                continue;
             }
+            $shortName = basename(str_replace('\\', '/', $filterConfig->filterClass)) ?: $filterConfig->filterClass;
             $params[] = [
-                'name' => 'filters',
+                'name' => $field,
                 'in' => 'query',
-                'style' => 'deepObject',
-                'explode' => true,
-                'schema' => ['type' => 'object', 'properties' => $filterProperties],
+                'required' => false,
+                'description' => 'Filter by ' . $field . ' (' . $shortName . ')',
+                'schema' => ['type' => 'string'],
             ];
         }
 

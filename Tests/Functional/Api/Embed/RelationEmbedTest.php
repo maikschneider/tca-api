@@ -13,7 +13,7 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
  *   'embed' => true              — embed at depth 1 (full record, nested relations as stubs)
  *   'embed' => ['depth' => N]   — embed N levels deep
  *
- * Without 'embed', relations are serialized as shallow stubs {@ id, @type, uid} (unchanged).
+ * Without 'embed', relations are serialized as plain IRI strings (e.g. "/_api/colors/1").
  *
  * Fixture articles (articles_embed.csv):
  *   uid=50 → color_id=1 (Red),  parent_id=0
@@ -135,7 +135,7 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
         self::assertNull($body['color_id']);
     }
 
-    public function testItemWithoutEmbedConfigReturnsStub(): void
+    public function testItemWithoutEmbedConfigReturnsIri(): void
     {
         $this->registerColorResource();
         $this->registerArticleResource(); // no embed config on color_id
@@ -143,9 +143,10 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/embed-articles/50');
         $body = $this->decodeResponseBody($response);
 
-        // Should be shallow stub: {@ id, @type, uid}, NO 'name'
+        // Should be plain IRI string, not an embedded object; article 50 → color uid=1
         self::assertArrayHasKey('color_id', $body);
-        self::assertArrayNotHasKey('name', $body['color_id']);
+        self::assertIsString($body['color_id']);
+        self::assertStringEndsWith('/1', $body['color_id']);
     }
 
     // ── Collection embed ──────────────────────────────────────────────────────
@@ -203,8 +204,9 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
 
         self::assertSame(61, $body['parent_id']['uid']);
         self::assertSame('Chain Mid', $body['parent_id']['title']);
-        // article 61's parent (article 62) should be a STUB — only @id, @type, uid
-        self::assertArrayNotHasKey('title', $body['parent_id']['parent_id']);
+        // article 61's parent (article 62) should be a plain IRI string (depth budget exhausted)
+        self::assertIsString($body['parent_id']['parent_id']);
+        self::assertStringContainsString('/embed-articles/62', $body['parent_id']['parent_id']);
     }
 
     public function testDepthTwoEmbedsTwoLevels(): void
@@ -254,8 +256,8 @@ final class RelationEmbedTest extends ApiFunctionalTestCase
 
         self::assertSame(54, $body['parent_id']['uid']);
         self::assertSame('Cycle B', $body['parent_id']['title']);
-        // article 54's parent (article 53) must be a stub (cycle) — no 'title' key
-        self::assertArrayNotHasKey('title', $body['parent_id']['parent_id']);
-        self::assertSame(53, $body['parent_id']['parent_id']['uid']);
+        // article 54's parent (article 53) must be a plain IRI string (cycle detection)
+        self::assertIsString($body['parent_id']['parent_id']);
+        self::assertStringContainsString('/embed-articles/53', $body['parent_id']['parent_id']);
     }
 }

@@ -5,18 +5,21 @@ Relations
 =========
 
 Relations are resolved automatically from the TCA schema. By default, related
-records are serialized as **shallow stubs** containing only ``@id``, ``@type``,
-and ``uid``:
+records are serialized as **plain IRI strings**:
 
 ..  code-block:: json
 
     {
-        "color": {
-            "@id": "/_api/colors/1",
-            "@type": "Color",
-            "uid": 1
-        }
+        "color_id": "/_api/colors/1",
+        "categories": [
+            "/_api/categories/5",
+            "/_api/categories/8"
+        ]
     }
+
+This format is compatible with API Platform Admin and other Hydra clients that
+resolve IRIs on demand. To inline the full related record instead, see
+`Embedding related records`_ below.
 
 Embedding related records
 =========================
@@ -123,20 +126,20 @@ Supported relation types
    :widths: 25 40 15
 
    * - TCA type
-     - Storage format
+     - Default output
      - Embedding
    * - ``select`` / ``group``
-     - UID list (``1,2,3``) — single table
+     - UID list (``1,2,3``) — single table → IRI strings
      - Yes
    * - ``select`` / ``group``
-     - Prefixed list (``table_uid``) — multi-table
-     - Stubs only
+     - Prefixed list (``table_uid``) — multi-table → IRI strings
+     - No
    * - ``inline`` / ``select``
-     - ``foreign_field`` back-reference
+     - ``foreign_field`` back-reference → IRI strings
      - Yes
    * - Any + ``MM``
-     - Intermediate MM table
+     - Intermediate MM table → IRI strings
      - Yes
    * - ``type=group`` + ``MM``
-     - Column holds count, relations in MM
+     - Column holds count, relations in MM → IRI strings
      - Yes
