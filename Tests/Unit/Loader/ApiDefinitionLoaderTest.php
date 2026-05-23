@@ -75,32 +75,6 @@ final class ApiDefinitionLoaderTest extends TestCase
         return $pkg;
     }
 
-    private function baseConfig(string $resourceName, array $extra = []): string
-    {
-        $columns = isset($extra['columns']) ? var_export($extra['columns'], true) : '[]';
-        $security = isset($extra['security']) ? var_export($extra['security'], true) : '[]';
-        $operations = isset($extra['operations'])
-            ? var_export($extra['operations'], true)
-            : "['list', 'show', 'create', 'update', 'delete']";
-
-        $parts = [];
-        $parts[] = "'general' => ['table' => 'tx_test_table', 'resourceName' => '{$resourceName}', 'resourceType' => 'TestResource', 'storagePid' => 1]";
-        if ($extra['columns'] ?? false) {
-            $parts[] = "'columns' => {$columns}";
-        }
-        if ($extra['security'] ?? false) {
-            $parts[] = "'security' => {$security}";
-        }
-        if ($extra['operations'] ?? false) {
-            $parts[] = "'general' => ['table' => 'tx_test_table', 'resourceName' => '{$resourceName}', 'resourceType' => 'TestResource', 'storagePid' => 1, 'operations' => {$operations}]";
-            // Replace the general entry
-            $parts[0] = "'general' => ['table' => 'tx_test_table', 'resourceName' => '{$resourceName}', 'resourceType' => 'TestResource', 'storagePid' => 1, 'operations' => {$operations}]";
-            array_pop($parts);
-        }
-        $body = implode(', ', $parts);
-        return "<?php\ndeclare(strict_types=1);\nreturn [{$body}];\n";
-    }
-
     private function removeDir(string $dir): void
     {
         if (!is_dir($dir)) {
