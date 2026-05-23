@@ -31,7 +31,7 @@
 - **Relation handling** — Plain IRI strings or fully embedded related records (configurable depth); create new related records inline on POST/PUT/PATCH
 - **Userinfo endpoint** — Expose the authenticated FE user's own record at a configurable URL
 - **OpenAPI + Swagger UI** — Auto-generated OpenAPI 3.1.0 spec and interactive Swagger UI served directly from the API prefix
-- **API Platform Admin** — Bundled React-based admin UI compatible with [API Platform Admin](https://api-platform.com/docs/admin/); activate with the `maikschneider/api-platform-admin` site set
+- **API Platform compatible** — Responses follow the Hydra JSON-LD spec and work with [API Platform](https://api-platform.com/) and its ecosystem
 - **PSR-14 events** — Hook into the request lifecycle with Before/AfterOperation and Before/AfterWrite events
 - **TYPO3 DataHandler** — Write operations use TYPO3's DataHandler for safe, consistent data manipulation
 - **Response caching** — Tag-based HTTP response caching for `list` and `show` operations with automatic invalidation via the TYPO3 DataHandler hook; configurable TTL and per-request bypass
@@ -43,6 +43,10 @@
 |------------|------------------|
 | PHP        | ^8.2             |
 | TYPO3      | ^13.4 \|\| ^14.3 |
+
+## Demo
+
+A demo project showcasing various TCA API configurations is available at [maikschneider/typo3-petstore](https://github.com/maikschneider/typo3-petstore). It serves as the reference for different resource setups (currently in early stages).
 
 ## Installation
 
@@ -159,32 +163,9 @@ The extension generates a live **OpenAPI 3.1.0 JSON spec** from the registered r
 
 Access to both endpoints is controlled by the `tca_api.openApiExposed` and `tca_api.swaggerUiEnabled` site settings respectively. Both default to `PUBLIC`.
 
-## API Platform Admin
+## API Platform
 
-The extension ships a bundled **React-based admin UI** powered by [API Platform Admin](https://api-platform.com/docs/admin/). It reads the Hydra entrypoint and API documentation to build a fully functional CRUD interface for all registered resources — no configuration needed.
-
-### Activate
-
-Add the `maikschneider/api-platform-admin` site set to any site where you want the admin panel:
-
-```yaml
-dependencies:
-  - maikschneider/tca-api
-  - maikschneider/api-platform-admin
-```
-
-The site set registers a TypoScript template that renders the admin SPA. Point a TYPO3 page to that TypoScript template and the panel is available at that page's URL.
-
-### How it works
-
-- The admin fetches the API **entrypoint** (`{apiPrefix}/`) to discover all resources.
-- It then fetches the **API documentation** (`{apiPrefix}/docs.jsonld`) to resolve supported classes, properties, operations, and relation types.
-- **Filters** are discovered from the `hydra:search` block embedded in collection responses. Public filter columns appear automatically as filter controls. The admin sends filter values as plain top-level query parameters (`?color_id=1`) which TCA API accepts natively.
-- **Relations** are resolved from IRI strings — the admin fetches the linked resource and renders its label field automatically.
-
-### `tca_api.allowedResources` and the admin
-
-When `tca_api.allowedResources` restricts which resources are exposed, the Hydra documentation only includes the allowed classes. Relation properties that reference blocked resources are downgraded to plain scalar fields, so the admin never sees dangling class references.
+TCA API responses are compatible with [API Platform](https://api-platform.com/) and its ecosystem. A bundled React-based admin UI is available via the `maikschneider/api-platform-admin` site set — add it to your site's dependencies to activate it. This UI is intended for testing during extension development and may be removed in a future version.
 
 ## Configuration reference
 
