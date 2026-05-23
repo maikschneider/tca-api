@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Unit\Loader;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Loader\ApiDefinitionLoader;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
@@ -39,16 +40,30 @@ final class ApiDefinitionLoaderTest extends TestCase
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
-    private function makeLoader(PackageInterface ...$packages): ApiDefinitionLoader
+    /**
+     * Calls the private collectDefinitions() on a loader built with the given
+     * packages, then registers the resulting DTOs in $this->registry.
+     *
+     * Uses reflection so tests never touch PackageDependentCacheIdentifier
+     * (which requires a fully initialised TYPO3 Environment).
+     */
+    private function loadPackages(PackageInterface ...$packages): array
     {
         $pm = $this->createMock(PackageManager::class);
         $pm->method('getActivePackages')->willReturn($packages);
 
         $cache = $this->createMock(PhpFrontend::class);
-        $cache->method('require')->willReturn(false);
-        $cache->method('set')->willReturn(true);
+        $loader = new ApiDefinitionLoader($pm, $cache, $this->registry);
 
-        return new ApiDefinitionLoader($pm, $cache, $this->registry);
+        $method = new \ReflectionMethod($loader, 'collectDefinitions');
+        /** @var array<string, array<mixed>> $rawConfigs */
+        $rawConfigs = $method->invoke($loader);
+
+        foreach ($rawConfigs as $resourceName => $config) {
+            $this->registry->register($resourceName, ApiDefinition::fromArray($config));
+        }
+
+        return $rawConfigs;
     }
 
     /**
@@ -98,7 +113,7 @@ final class ApiDefinitionLoaderTest extends TestCase
             'Configuration/TcaApi/articles.php' => "<?php\nreturn ['general' => ['table' => 'tx_test', 'resourceName' => 'articles', 'resourceType' => 'Article', 'storagePid' => 1]];\n",
         ]);
 
-        $this->makeLoader($pkg)->load();
+        $this->loadPackages($pkg);
 
         self::assertArrayHasKey('articles', $GLOBALS['TCA_API'] ?? []);
         self::assertNotNull($this->registry->get('articles'));
@@ -114,7 +129,7 @@ final class ApiDefinitionLoaderTest extends TestCase
             'Configuration/TcaApi/articles.php' => "<?php\nreturn ['general' => ['table' => 'tx_second', 'resourceName' => 'articles', 'resourceType' => 'Second', 'storagePid' => 1]];\n",
         ]);
 
-        $this->makeLoader($pkg1, $pkg2)->load();
+        $this->loadPackages($pkg1, $pkg2);
 
         $def = $this->registry->get('articles');
         self::assertNotNull($def);
@@ -125,11 +140,11 @@ final class ApiDefinitionLoaderTest extends TestCase
     public function testOverrideAddsColumn(): void
     {
         $pkg = $this->makePackage([
-            'Configuration/TcaApi/res.php'            => "<?php\nreturn ['general' => ['table' => 'tx_test', 'resourceName' => 'res', 'resourceType' => 'Res', 'storagePid' => 1]];\n",
-            'Configuration/TcaApi/Overrides/add.php'  => "<?php\n\$GLOBALS['TCA_API']['res']['columns']['extra_col'] = ['type' => 'string'];\n",
+            'Configuration/TcaApi/res.php'           => "<?php\nreturn ['general' => ['table' => 'tx_test', 'resourceName' => 'res', 'resourceType' => 'Res', 'storagePid' => 1]];\n",
+            'Configuration/TcaApi/Overrides/add.php' => "<?php\n\$GLOBALS['TCA_API']['res']['columns']['extra_col'] = ['type' => 'string'];\n",
         ]);
 
-        $this->makeLoader($pkg)->load();
+        $this->loadPackages($pkg);
 
         $def = $this->registry->get('res');
         self::assertNotNull($def);
@@ -140,11 +155,11 @@ final class ApiDefinitionLoaderTest extends TestCase
     public function testOverrideRemovesColumn(): void
     {
         $pkg = $this->makePackage([
-            'Configuration/TcaApi/res.php'             => "<?php\nreturn ['general' => ['table' => 'tx_test', 'resourceName' => 'res', 'resourceType' => 'Res', 'storagePid' => 1], 'columns' => ['title' => ['type' => 'string']]];\n",
-            'Configuration/TcaApi/Overrides/drop.php'  => "<?php\nunset(\$GLOBALS['TCA_API']['res']['columns']['title']);\n",
+            'Configuration/TcaApi/res.php'            => "<?php\nreturn ['general' => ['table' => 'tx_test', 'resourceName' => 'res', 'resourceType' => 'Res', 'storagePid' => 1], 'columns' => ['title' => ['type' => 'string']]];\n",
+            'Configuration/TcaApi/Overrides/drop.php' => "<?php\nunset(\$GLOBALS['TCA_API']['res']['columns']['title']);\n",
         ]);
 
-        $this->makeLoader($pkg)->load();
+        $this->loadPackages($pkg);
 
         $def = $this->registry->get('res');
         self::assertNotNull($def);
@@ -155,11 +170,11 @@ final class ApiDefinitionLoaderTest extends TestCase
     public function testOverrideChangesSecurityRole(): void
     {
         $pkg = $this->makePackage([
-            'Configuration/TcaApi/res.php'              => "<?php\nuse MaikSchneider\\TcaApi\\Enum\\AccessRole;\nreturn ['general' => ['table' => 'tx_test', 'resourceName' => 'res', 'resourceType' => 'Res', 'storagePid' => 1, 'operations' => ['list', 'show', 'delete']], 'security' => ['delete' => AccessRole::BE_ADMIN]];\n",
-            'Configuration/TcaApi/Overrides/sec.php'    => "<?php\nuse MaikSchneider\\TcaApi\\Enum\\AccessRole;\n\$GLOBALS['TCA_API']['res']['security']['delete'] = AccessRole::FE_USER;\n",
+            'Configuration/TcaApi/res.php'           => "<?php\nuse MaikSchneider\\TcaApi\\Enum\\AccessRole;\nreturn ['general' => ['table' => 'tx_test', 'resourceName' => 'res', 'resourceType' => 'Res', 'storagePid' => 1, 'operations' => ['list', 'show', 'delete']], 'security' => ['delete' => AccessRole::BE_ADMIN]];\n",
+            'Configuration/TcaApi/Overrides/sec.php' => "<?php\nuse MaikSchneider\\TcaApi\\Enum\\AccessRole;\n\$GLOBALS['TCA_API']['res']['security']['delete'] = AccessRole::FE_USER;\n",
         ]);
 
-        $this->makeLoader($pkg)->load();
+        $this->loadPackages($pkg);
 
         $def = $this->registry->get('res');
         self::assertNotNull($def);
@@ -170,11 +185,11 @@ final class ApiDefinitionLoaderTest extends TestCase
     public function testOverrideChangesOperations(): void
     {
         $pkg = $this->makePackage([
-            'Configuration/TcaApi/res.php'             => "<?php\nreturn ['general' => ['table' => 'tx_test', 'resourceName' => 'res', 'resourceType' => 'Res', 'storagePid' => 1, 'operations' => ['list', 'show', 'create', 'update', 'delete']]];\n",
-            'Configuration/TcaApi/Overrides/ops.php'   => "<?php\n\$GLOBALS['TCA_API']['res']['general']['operations'] = ['list', 'show'];\n",
+            'Configuration/TcaApi/res.php'           => "<?php\nreturn ['general' => ['table' => 'tx_test', 'resourceName' => 'res', 'resourceType' => 'Res', 'storagePid' => 1, 'operations' => ['list', 'show', 'create', 'update', 'delete']]];\n",
+            'Configuration/TcaApi/Overrides/ops.php' => "<?php\n\$GLOBALS['TCA_API']['res']['general']['operations'] = ['list', 'show'];\n",
         ]);
 
-        $this->makeLoader($pkg)->load();
+        $this->loadPackages($pkg);
 
         $def = $this->registry->get('res');
         self::assertNotNull($def);
@@ -188,7 +203,7 @@ final class ApiDefinitionLoaderTest extends TestCase
             'Configuration/TcaApi/Overrides/new.php' => "<?php\n\$GLOBALS['TCA_API']['brand-new'] = ['general' => ['table' => 'tx_test', 'resourceName' => 'brand-new', 'resourceType' => 'BrandNew', 'storagePid' => 1]];\n",
         ]);
 
-        $this->makeLoader($pkg)->load();
+        $this->loadPackages($pkg);
 
         self::assertNotNull($this->registry->get('brand-new'));
     }
@@ -202,7 +217,7 @@ final class ApiDefinitionLoaderTest extends TestCase
             'Configuration/TcaApi/Overrides/b_override.php' => "<?php\n\$GLOBALS['TCA_API']['res']['general']['operations'] = ['list', 'show'];\n",
         ]);
 
-        $this->makeLoader($pkg)->load();
+        $this->loadPackages($pkg);
 
         $def = $this->registry->get('res');
         self::assertNotNull($def);
@@ -213,11 +228,11 @@ final class ApiDefinitionLoaderTest extends TestCase
     public function testExplicitModePreservedWhenOverrideAddsColumnWithoutGroups(): void
     {
         $pkg = $this->makePackage([
-            'Configuration/TcaApi/res.php'              => "<?php\nreturn ['general' => ['table' => 'tx_test', 'resourceName' => 'res', 'resourceType' => 'Res', 'storagePid' => 1], 'columns' => ['title' => ['type' => 'string', 'groups' => ['list']]]];\n",
-            'Configuration/TcaApi/Overrides/add.php'    => "<?php\n\$GLOBALS['TCA_API']['res']['columns']['no_group_col'] = ['type' => 'string'];\n",
+            'Configuration/TcaApi/res.php'           => "<?php\nreturn ['general' => ['table' => 'tx_test', 'resourceName' => 'res', 'resourceType' => 'Res', 'storagePid' => 1], 'columns' => ['title' => ['type' => 'string', 'groups' => ['list']]]];\n",
+            'Configuration/TcaApi/Overrides/add.php' => "<?php\n\$GLOBALS['TCA_API']['res']['columns']['no_group_col'] = ['type' => 'string'];\n",
         ]);
 
-        $this->makeLoader($pkg)->load();
+        $this->loadPackages($pkg);
 
         $def = $this->registry->get('res');
         self::assertNotNull($def);
@@ -234,7 +249,7 @@ final class ApiDefinitionLoaderTest extends TestCase
             'Configuration/TcaApi/Overrides/add.php' => "<?php\n\$GLOBALS['TCA_API']['res']['columns']['title'] = ['type' => 'string', 'groups' => ['list']];\n",
         ]);
 
-        $this->makeLoader($pkg)->load();
+        $this->loadPackages($pkg);
 
         $def = $this->registry->get('res');
         self::assertNotNull($def);
@@ -248,8 +263,7 @@ final class ApiDefinitionLoaderTest extends TestCase
             'Configuration/TcaApi/res.php' => "<?php\nreturn ['general' => ['table' => 'tx_test', 'resourceName' => 'res', 'resourceType' => 'Res', 'storagePid' => 1]];\n",
         ]);
 
-        // Should not throw even though Configuration/TcaApi/Overrides/ does not exist
-        $this->makeLoader($pkg)->load();
+        $this->loadPackages($pkg);
 
         self::assertNotNull($this->registry->get('res'));
     }
@@ -261,7 +275,7 @@ final class ApiDefinitionLoaderTest extends TestCase
             'Configuration/TcaApi/subdir/deep.php' => "<?php\nreturn ['general' => ['table' => 'tx_test', 'resourceName' => 'deep-resource', 'resourceType' => 'Deep', 'storagePid' => 1]];\n",
         ]);
 
-        $this->makeLoader($pkg)->load();
+        $this->loadPackages($pkg);
 
         self::assertNull($this->registry->get('deep-resource'));
     }
@@ -269,17 +283,13 @@ final class ApiDefinitionLoaderTest extends TestCase
     #[Test]
     public function testOverrideDirFileNotIncludedInBasePass(): void
     {
-        // The override file creates a new resource but must only be picked up in pass 2,
-        // not treated as a base config that would double-register under the filename key.
         $pkg = $this->makePackage([
             'Configuration/TcaApi/Overrides/standalone.php' => "<?php\n\$GLOBALS['TCA_API']['override-only'] = ['general' => ['table' => 'tx_test', 'resourceName' => 'override-only', 'resourceType' => 'OO', 'storagePid' => 1]];\n",
         ]);
 
-        $this->makeLoader($pkg)->load();
+        $this->loadPackages($pkg);
 
-        // 'override-only' is registered via pass-2 side-effect
         self::assertNotNull($this->registry->get('override-only'));
-        // 'standalone' (filename without .php) must NOT be a separate base entry
         self::assertNull($this->registry->get('standalone'));
     }
 }
