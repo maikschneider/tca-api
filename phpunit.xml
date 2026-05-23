@@ -37,6 +37,9 @@
         <testsuite name="SiteSettings">
             <directory>Tests/Functional/Api/SiteSettings</directory>
         </testsuite>
+        <testsuite name="Loader">
+            <directory>Tests/Functional/Loader</directory>
+        </testsuite>
     </testsuites>
     <php>
         <!-- Database connection for DDEV environment -->
