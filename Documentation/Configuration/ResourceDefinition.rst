@@ -11,6 +11,9 @@ the extension auto-discovers all :file:`*.php` files from every active package's
 
 Each file returns a PHP array with the resource configuration.
 
+To modify a resource defined by a third-party package, place an override file
+in :file:`Configuration/TcaApi/Overrides/` — see :ref:`configuration-overrides`.
+
 General section
 ===============
 

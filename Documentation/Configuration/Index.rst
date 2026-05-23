@@ -17,6 +17,7 @@ TCA API is configured through two mechanisms:
 
     SiteSettings
     ResourceDefinition
+    Overrides
     Columns
     VirtualProperties
     Filters

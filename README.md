@@ -36,6 +36,7 @@
 - **TYPO3 DataHandler** — Write operations use TYPO3's DataHandler for safe, consistent data manipulation
 - **Response caching** — Tag-based HTTP response caching for `list` and `show` operations with automatic invalidation via the TYPO3 DataHandler hook; configurable TTL and per-request bypass
 - **Extensible handler pipeline** — Register custom operation handlers or override built-in ones from any extension
+- **TCA-style overrides** — Override or extend any resource config shipped by a third-party package via `Configuration/TcaApi/Overrides/` — mirrors TYPO3's `$GLOBALS['TCA']` + `TCA/Overrides/` pattern
 
 ## Requirements
 
@@ -151,6 +152,37 @@ PUT    /_api/articles/1            → Full update
 PATCH  /_api/articles/1            → Partial update
 DELETE /_api/articles/1            → Delete item
 ```
+
+## Overriding third-party resource configs
+
+Any active extension can modify a resource configuration defined by another extension — without forking it. This mirrors TYPO3's `$GLOBALS['TCA']` + `TCA/Overrides/` pattern.
+
+Place a PHP file in `Configuration/TcaApi/Overrides/` of any active extension. The file receives `$GLOBALS['TCA_API']` populated with all base configs and can manipulate it freely:
+
+```php
+<?php
+// EXT:my_site/Configuration/TcaApi/Overrides/Events.php
+
+use MaikSchneider\TcaApi\Enum\AccessRole;
+use MaikSchneider\TcaApi\Filter\ExactFilter;
+
+// Add a column
+$GLOBALS['TCA_API']['events']['columns']['location'] = ['groups' => ['list', 'show']];
+
+// Remove a column
+unset($GLOBALS['TCA_API']['events']['columns']['internal_notes']);
+
+// Add a filter
+$GLOBALS['TCA_API']['events']['filters']['location'] = ExactFilter::class;
+
+// Restrict operations to read-only
+$GLOBALS['TCA_API']['events']['general']['operations'] = ['list', 'show'];
+
+// Change a security role
+$GLOBALS['TCA_API']['events']['security']['delete'] = AccessRole::FE_USER;
+```
+
+Override files within a package run in alphabetical filename order. Across packages they run in TYPO3 package load order. Last write wins.
 
 ## OpenAPI spec & Swagger UI
 
