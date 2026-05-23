@@ -78,11 +78,19 @@ final readonly class ApiDefinitionLoader
     }
 
     /**
-     * Scans all active packages for Configuration/TcaApi/*.php files, loads them, and returns an array of raw definition arrays keyed by resourceName.
+     * Two-pass scan mirroring TYPO3's TCA + TCA/Overrides/ pattern.
+     *
+     * Pass 1 — loads Configuration/TcaApi/*.php from every active package and writes
+     * each raw config into $GLOBALS['TCA_API'] keyed by resourceName. Duplicate keys
+     * are resolved by last-write-wins (package load order).
+     *
+     * Pass 2 — requires Configuration/TcaApi/Overrides/*.php files as pure side-effects.
+     * Override files manipulate $GLOBALS['TCA_API'] directly (unset, assign, merge).
      */
     private function collectDefinitions(): array
     {
-        $definitions = [];
+        $GLOBALS['TCA_API'] = [];
+
         foreach ($this->packageManager->getActivePackages() as $package) {
             $dir = $package->getPackagePath() . 'Configuration/TcaApi/';
             if (!is_dir($dir)) {
@@ -91,17 +99,27 @@ final readonly class ApiDefinitionLoader
             $finder = Finder::create()->files()->name('*.php')->in($dir)->depth(0)->sortByName();
             foreach ($finder as $file) {
                 $config = require $file->getPathname();
-                $resourceName = $config['general']['resourceName'] ?? strtolower(basename($file->getFilename()));
-                if (isset($definitions[$resourceName])) {
-                    throw new \InvalidArgumentException(sprintf(
-                        "Duplicate API resource name '%s' detected while loading Configuration/TcaApi definitions. Use unique 'general.resourceName' values to avoid accidental resource shadowing.",
-                        $resourceName
-                    ));
+                if (!is_array($config)) {
+                    continue;
                 }
-                $definitions[$resourceName] = $config;
+                $resourceName = $config['general']['resourceName']
+                    ?? strtolower(basename($file->getFilename(), '.php'));
+                $GLOBALS['TCA_API'][$resourceName] = $config;
             }
         }
-        return $definitions;
+
+        foreach ($this->packageManager->getActivePackages() as $package) {
+            $dir = $package->getPackagePath() . 'Configuration/TcaApi/Overrides/';
+            if (!is_dir($dir)) {
+                continue;
+            }
+            $finder = Finder::create()->files()->name('*.php')->in($dir)->depth(0)->sortByName();
+            foreach ($finder as $file) {
+                require $file->getPathname();
+            }
+        }
+
+        return $GLOBALS['TCA_API'];
     }
 
     /**
