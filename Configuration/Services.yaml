@@ -6,6 +6,8 @@ services:
 
   MaikSchneider\TcaApi\:
     resource: '../Classes/*'
+    exclude:
+      - '../Classes/ConfigurationModuleProvider/'
 
   _instanceof:
     MaikSchneider\TcaApi\OperationHandler\OperationHandlerInterface:
