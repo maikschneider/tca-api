@@ -82,6 +82,59 @@ is 1.
     The related resource must be registered in the ``ApiRegistry`` for embedding
     to work.
 
+Multi-table group fields
+========================
+
+TCA ``type=group`` fields with multiple allowed tables store relations in the
+prefixed ``tablename_uid`` format (e.g. ``pages_1,sys_file_3``). These fields
+support embedding just like single-table relations:
+
+..  code-block:: php
+
+    // TCA definition
+    'related_items' => [
+        'label' => 'Related Items',
+        'config' => [
+            'type' => 'group',
+            'allowed' => 'tx_myext_domain_model_article,tx_myext_domain_model_color',
+        ],
+    ],
+
+    // API resource configuration
+    'columns' => [
+        'related_items' => ['groups' => ['list', 'show'], 'embed' => true],
+    ],
+
+The embedded response contains full objects from different tables, each with its
+own ``@type`` and fields:
+
+..  code-block:: json
+
+    {
+        "related_items": [
+            {
+                "@id": "/_api/articles/201",
+                "@type": "Article",
+                "uid": 201,
+                "title": "Related Article"
+            },
+            {
+                "@id": "/_api/colors/1",
+                "@type": "Color",
+                "uid": 1,
+                "name": "Red"
+            }
+        ]
+    }
+
+Each referenced table is resolved to its registered API resource. When no
+resource is registered for a table, a default-mode config is synthesized
+automatically (all TCA columns exposed).
+
+Bulk preloading is fully supported: collection requests issue one ``SELECT``
+per referenced table regardless of how many parent rows exist, avoiding N+1
+queries.
+
 Writing nested objects
 ======================
 
@@ -133,7 +186,7 @@ Supported relation types
      - Yes
    * - ``select`` / ``group``
      - Prefixed list (``table_uid``) — multi-table → IRI strings
-     - No
+     - Yes
    * - ``inline`` / ``select``
      - ``foreign_field`` back-reference → IRI strings
      - Yes

@@ -232,6 +232,129 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
         self::assertSame('/_api/colors/2', $body['related_items'][0]);
     }
 
+    // ── Multi-table group: full embed ────────────────────────────────────────
+
+    public function testGroupMultiTableWithEmbedReturnsFullObjects(): void
+    {
+        $this->registerColorResource();
+        $this->registerArticleResource([
+            'related_items' => ['groups' => ['list', 'show'], 'embed' => true],
+        ]);
+
+        // Article 200: related_items="tx_myext_domain_model_article_201,tx_myext_domain_model_color_1"
+        $response = $this->executeApiRequest('/_api/grp-articles/200');
+        $body     = $this->decodeResponseBody($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertIsArray($body['related_items']);
+        self::assertCount(2, $body['related_items']);
+
+        // First item is an article
+        $article = $body['related_items'][0];
+        self::assertIsArray($article);
+        self::assertArrayHasKey('@id', $article);
+        self::assertArrayHasKey('@type', $article);
+        self::assertArrayHasKey('uid', $article);
+        self::assertSame(201, $article['uid']);
+        self::assertSame('Article', $article['@type']);
+        self::assertStringContainsString('/grp-articles/201', $article['@id']);
+
+        // Second item is a color
+        $color = $body['related_items'][1];
+        self::assertIsArray($color);
+        self::assertArrayHasKey('@id', $color);
+        self::assertArrayHasKey('@type', $color);
+        self::assertArrayHasKey('uid', $color);
+        self::assertSame(1, $color['uid']);
+        self::assertSame('Color', $color['@type']);
+        self::assertStringContainsString('/colors/1', $color['@id']);
+        self::assertSame('Red', $color['name']);
+    }
+
+    public function testGroupMultiTableWithEmbedEmptyReturnsEmptyArray(): void
+    {
+        $this->registerColorResource();
+        $this->registerArticleResource([
+            'related_items' => ['groups' => ['list', 'show'], 'embed' => true],
+        ]);
+
+        // Article 201 has related_items=""
+        $response = $this->executeApiRequest('/_api/grp-articles/201');
+        $body     = $this->decodeResponseBody($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame([], $body['related_items']);
+    }
+
+    public function testGroupMultiTableWithEmbedSingleItem(): void
+    {
+        $this->registerColorResource();
+        $this->registerArticleResource([
+            'related_items' => ['groups' => ['list', 'show'], 'embed' => true],
+        ]);
+
+        // Article 203: related_items="tx_myext_domain_model_color_2"
+        $response = $this->executeApiRequest('/_api/grp-articles/203');
+        $body     = $this->decodeResponseBody($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertCount(1, $body['related_items']);
+
+        $color = $body['related_items'][0];
+        self::assertIsArray($color);
+        self::assertSame('Color', $color['@type']);
+        self::assertSame(2, $color['uid']);
+        self::assertSame('Blue', $color['name']);
+    }
+
+    public function testGroupMultiTableWithEmbedCollectionPreload(): void
+    {
+        $this->registerColorResource();
+        $this->registerArticleResource([
+            'related_items' => ['groups' => ['list', 'show'], 'embed' => true],
+        ]);
+
+        $response = $this->executeApiRequest('/_api/grp-articles');
+        $body     = $this->decodeResponseBody($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        $members = array_column($body['hydra:member'], null, 'uid');
+
+        // Article 200 has 2 embedded items
+        self::assertCount(2, $members[200]['related_items']);
+        self::assertIsArray($members[200]['related_items'][0]);
+        self::assertIsArray($members[200]['related_items'][1]);
+
+        // Article 201 has no items
+        self::assertSame([], $members[201]['related_items']);
+
+        // Article 202 has no items
+        self::assertSame([], $members[202]['related_items']);
+
+        // Article 203 has 1 embedded item
+        self::assertCount(1, $members[203]['related_items']);
+        self::assertIsArray($members[203]['related_items'][0]);
+        self::assertSame('Blue', $members[203]['related_items'][0]['name']);
+    }
+
+    public function testGroupMultiTableEmbedPreservesOrder(): void
+    {
+        $this->registerColorResource();
+        $this->registerArticleResource([
+            'related_items' => ['groups' => ['list', 'show'], 'embed' => true],
+        ]);
+
+        // Article 200: related_items="tx_myext_domain_model_article_201,tx_myext_domain_model_color_1"
+        $response = $this->executeApiRequest('/_api/grp-articles/200');
+        $body     = $this->decodeResponseBody($response);
+
+        // Order must match DB field value
+        self::assertSame(201, $body['related_items'][0]['uid']);
+        self::assertSame('Article', $body['related_items'][0]['@type']);
+        self::assertSame(1, $body['related_items'][1]['uid']);
+        self::assertSame('Color', $body['related_items'][1]['@type']);
+    }
+
     // ── Group with MM table ───────────────────────────────────────────────────
 
     private function registerMmArticleResource(array $columnOverrides = []): void
