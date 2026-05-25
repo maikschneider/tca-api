@@ -184,6 +184,35 @@ final class ColumnDefinitionTest extends TestCase
     }
 
     #[Test]
+    public function invalidRegexPatternThrowsAtDefinitionTime(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('invalid regex pattern');
+        ColumnDefinition::fromArray([
+            'validators' => [['type' => 'regex', 'pattern' => 'not-a-valid-regex']],
+        ]);
+    }
+
+    #[Test]
+    public function invalidRegexPatternMissingThrows(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('validators[0].pattern');
+        ColumnDefinition::fromArray([
+            'validators' => [['type' => 'regex']],
+        ]);
+    }
+
+    #[Test]
+    public function validRegexPatternDoesNotThrow(): void
+    {
+        $def = ColumnDefinition::fromArray([
+            'validators' => [['type' => 'regex', 'pattern' => '/^[a-z]+$/']],
+        ]);
+        self::assertCount(1, $def->validators);
+    }
+
+    #[Test]
     public function invalidColumnThrows(): void
     {
         $this->expectException(\InvalidArgumentException::class);

@@ -115,7 +115,7 @@ final class FieldValidator
      */
     private function validateRegex(string $column, mixed $value, string $pattern): ?array
     {
-        $result = @preg_match($pattern, (string)$value);
+        $result = preg_match($pattern, (string)$value);
         if ($result === false) {
             return $this->buildViolation($column, "Field '$column' has an invalid validation pattern.", 'REGEX_ERROR');
         }
