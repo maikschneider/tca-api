@@ -19,10 +19,65 @@ CRUD operations, filtering, sorting, pagination, validation, and access control.
 Motivation
 ==========
 
-TYPO3 offers several ways to serve content as structured data — Extbase
-repositories, the Record API (v13+), EXT:headless, and custom controllers. TCA
-API was built because none of them solve the **read-heavy API use case** without
-significant trade-offs in performance, boilerplate, or flexibility.
+Several existing approaches exist for serving TYPO3 content as structured data —
+Extbase repositories, the Record API (v13+), EXT:headless, annotation-driven
+frameworks like `EXT:t3api <https://github.com/sourcebroker/t3api>`__ and
+`EXT:nnrestapi <https://extensions.typo3.org/extension/nnrestapi>`__, and custom
+controllers. TCA API was built because none of them solve the **read-heavy API
+use case** without significant trade-offs in performance, boilerplate, or
+flexibility.
+
+Why not EXT:nnrestapi?
+-----------------------
+
+`EXT:nnrestapi <https://extensions.typo3.org/extension/nnrestapi>`__ is an
+endpoint framework: you write a PHP class extending ``AbstractApi``, annotate its
+methods, and return data however you like. This gives maximum flexibility, but
+shifts all responsibility to the developer:
+
+-  **No built-in relation loading.** If you return Extbase domain objects, the
+   extension serializes them via TYPO3's standard DataMapper — which resolves
+   every relation property individually as it encounters it during JSON
+   conversion. A 20-item collection with 2 relation types produces the same
+   **41 queries** as any other Extbase-based approach.
+
+-  **No built-in filtering, pagination, or validation.** Each endpoint is custom
+   code. Adding a filter means writing a query constraint; adding pagination means
+   manually counting rows and slicing results. Every resource needs its own
+   implementation.
+
+-  **No configuration model.** There is no declarative description of a
+   resource's shape, access rules, or allowed operations. Everything is imperative
+   PHP inside action methods.
+
+-  **Plain JSON output.** Responses are plain JSON objects — no Hydra JSON-LD,
+   no ``@context``, no ``@type``, no discoverable collection links.
+
+nnrestapi is a good choice for bespoke, one-off endpoints where the flexibility
+is genuinely needed. It is a poor fit for exposing multiple resources uniformly:
+the per-endpoint boilerplate grows linearly with the number of resources.
+
+Why not EXT:t3api?
+-------------------
+
+`EXT:t3api <https://github.com/sourcebroker/t3api>`__ is the closest prior art —
+it produces Hydra JSON-LD, supports filtering, pagination, and serialization
+groups, and uses an API-Platform-inspired annotation model. It is a mature
+extension. The core limitation is its persistence layer:
+
+-  **Built on Extbase DataMapper.** t3api exposes Extbase models
+   (``AbstractDomainObject`` subclasses) and uses
+   ``PersistenceManagerInterface::createQueryForType()`` to execute queries. All
+   relation properties are resolved via Extbase's ``DataMapper``.
+
+-  **N+1 queries for embedded relations.** Because DataMapper resolves relations
+   by instantiating ``LazyLoadingProxy`` objects and fetching each on first access,
+   serializing a collection of 20 articles with 2 embedded relation types fires
+   **41 database queries** — one for the collection and one per relation per row.
+
+-  **Extbase model required.** Each resource must have an Extbase domain model
+   class with mapping annotations. Exposing a table from a third-party extension
+   that ships no domain model requires creating one.
 
 Why not the TYPO3 Record API?
 -----------------------------
@@ -53,16 +108,14 @@ has key limitations for API use:
    detection, and no way to configure which relations to embed vs. return as
    references.
 
-Why not Extbase?
-----------------
+Why not Extbase alone?
+-----------------------
 
 Extbase's ``DataMapper`` suffers from the classic **N+1 query problem**. Each
 relation property on each domain object triggers a separate
 ``getPreparedQuery()`` call. The ``@Lazy`` annotation defers queries but doesn't
 batch them — iterating over a lazy collection in a loop produces more queries
-than eager loading. Extensions like `EXT:t3api
-<https://github.com/sourcebroker/t3api>`__ build on Extbase and inherit these
-constraints.
+than eager loading.
 
 Why not EXT:headless?
 ---------------------
@@ -77,7 +130,7 @@ How TCA API solves this
 -----------------------
 
 TCA API takes a fundamentally different approach: **raw SQL via QueryBuilder with
-bulk preloading**.
+bulk preloading** and a **zero-boilerplate configuration model**.
 
 1. **No ORM, no object hydration.** Records are raw associative arrays from
    ``ConnectionPool::getQueryBuilderForTable()``. Zero overhead from property
@@ -98,13 +151,18 @@ bulk preloading**.
    query + one per relation type), not ``1 + N×R``. Adding more rows to a page
    does not increase the query count.
 
+4. **Zero boilerplate per resource.** A three-key PHP array is a complete
+   resource definition — no domain model class, no repository, no controller,
+   no routing config. Filtering, pagination, access control, validation, and
+   OpenAPI documentation are declared in the same file.
+
 Performance
 ===========
 
 The extension includes a runnable benchmark
 (:file:`Tests/Functional/Benchmark/`) that measures query counts and wall-clock
-time. Results for 20 articles, each with a hasOne (color) and a hasMany MM
-(categories) relation:
+time against a real MySQL database (DDEV). Results for 20 articles, each with a
+hasOne (color) and a hasMany MM (categories) relation:
 
 .. list-table::
    :header-rows: 1
@@ -112,22 +170,27 @@ time. Results for 20 articles, each with a hasOne (color) and a hasMany MM
 
    *  -  Approach
       -  Queries
-      -  Time (50 iter.)
+      -  Time (50 iter., MySQL)
       -  Scaling
    *  -  **TCA API** (EmbedPreloader)
       -  **3**
-      -  **33 ms**
+      -  **~40 ms**
       -  ``O(1+R)`` — constant per relation type
-   *  -  Naive N+1 (per-row resolution)
+   *  -  Naive N+1 / Extbase / t3api
       -  41
-      -  279 ms
+      -  ~407 ms
       -  ``O(1+N×R)`` — linear per row × relation
    *  -  Record API (object hydration)
       -  41+
-      -  300+ ms
+      -  >407 ms
       -  ``O(1+N×R)`` + instantiation overhead
 
-**Query count scaling** (projected from benchmark formulas):
+The **10× wall-clock difference** reflects real MySQL round-trip latency. Each
+additional query carries network overhead to the database; bulk preloading
+collapses 41 round trips into 3. The gap widens further in production
+environments where the database is on a separate host.
+
+**Query count scaling** (from benchmark formulas):
 
 .. list-table::
    :header-rows: 1
@@ -170,53 +233,68 @@ Comparison matrix
 
 .. list-table::
    :header-rows: 1
-   :widths: 20 20 20 20 20
+   :widths: 17 17 17 17 16 16
 
    *  -  Concern
       -  TCA API
+      -  EXT:t3api
+      -  EXT:nnrestapi
       -  Record API
-      -  Extbase
       -  EXT:headless
    *  -  Query strategy
       -  Bulk preload
+      -  Extbase N+1
+      -  Extbase N+1 or manual
       -  Lazy + greedy-by-PID
-      -  Per-row N+1
       -  Same as page render
    *  -  Queries (20 × 2 rels)
       -  3
       -  ~41
+      -  ~41 (or raw, no rels)
       -  ~41
       -  ~40-80
    *  -  Object overhead
       -  None (raw arrays)
-      -  Record + closures
       -  Domain objects + proxies
+      -  Domain objects or arrays
+      -  Record + closures
       -  TypoScript cObjects
-   *  -  Depth control
-      -  Configurable per column
-      -  None
-      -  None
-      -  Manual TypoScript
-   *  -  Cycle detection
-      -  Visited set
-      -  Identity map
-      -  None
-      -  N/A
-   *  -  Configuration
+   *  -  Configuration model
       -  PHP array (zero code)
-      -  TypoScript + Fluid
-      -  Models + annotations
+      -  Annotations on model
+      -  Per-method PHP
+      -  N/A
       -  TypoScript
-   *  -  JSON output
-      -  Native (Hydra JSON-LD)
-      -  Manual serialization
-      -  Manual serialization
-      -  Native
+   *  -  Filtering + pagination
+      -  Built-in
+      -  Built-in
+      -  Manual per endpoint
+      -  N/A
+      -  N/A
+   *  -  JSON output format
+      -  Hydra JSON-LD
+      -  Hydra JSON-LD
+      -  Plain JSON
+      -  Manual
+      -  Native JSON
+   *  -  Extbase model required
+      -  No
+      -  Yes
+      -  Optional
+      -  No
+      -  No
    *  -  Write operations
       -  DataHandler
-      -  N/A
       -  Repository
+      -  Manual
       -  N/A
+      -  N/A
+   *  -  TYPO3 version
+      -  ^13.4 || ^14.0
+      -  ^12.4 || ^13.3
+      -  ^13.0
+      -  ^13.0
+      -  ^12.0+
 
 Features
 ========

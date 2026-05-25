@@ -573,10 +573,22 @@ final class QueryCountBenchmarkTest extends ApiFunctionalTestCase
             "║  100 items × 3 rels│ %3d queries │ %2d queries   │ %3d (%4.1f%%) ║\n" .
             "║  100 items × 5 rels│ %3d queries │ %2d queries   │ %3d (%4.1f%%) ║\n" .
             "╚══════════════════════════════════════════════════════════════════╝\n",
-            $naiveExpected, $bulkExpected, $savings, $savingsPercent,
-            1 + 50 * 2, 1 + 2, 50 * 2 - 2 + 1, ((50 * 2 - 2 + 1) / (1 + 50 * 2)) * 100,
-            1 + 100 * 3, 1 + 3, 100 * 3 - 3 + 1, ((100 * 3 - 3 + 1) / (1 + 100 * 3)) * 100,
-            $naive100, $bulk100, $naive100 - $bulk100, (($naive100 - $bulk100) / $naive100) * 100,
+            $naiveExpected,
+            $bulkExpected,
+            $savings,
+            $savingsPercent,
+            1 + 50 * 2,
+            1 + 2,
+            50 * 2 - 2 + 1,
+            ((50 * 2 - 2 + 1) / (1 + 50 * 2)) * 100,
+            1 + 100 * 3,
+            1 + 3,
+            100 * 3 - 3 + 1,
+            ((100 * 3 - 3 + 1) / (1 + 100 * 3)) * 100,
+            $naive100,
+            $bulk100,
+            $naive100 - $bulk100,
+            (($naive100 - $bulk100) / $naive100) * 100,
         );
 
         fwrite(STDERR, $msg);
