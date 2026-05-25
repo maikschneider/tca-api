@@ -40,6 +40,7 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles_group.csv');
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles_group_mm.csv');
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/tx_myext_article_colors_mm.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles_group_missing.csv');
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -353,6 +354,44 @@ final class GroupFieldEmbedTest extends ApiFunctionalTestCase
         self::assertSame('Article', $body['related_items'][0]['@type']);
         self::assertSame(1, $body['related_items'][1]['uid']);
         self::assertSame('Color', $body['related_items'][1]['@type']);
+    }
+
+    // ── Multi-table group: missingByTable fallback ───────────────────────────
+
+    public function testGroupMultiTableEmbedMissingRowIsSkipped(): void
+    {
+        $this->registerColorResource();
+        $this->registerArticleResource([
+            'related_items' => ['groups' => ['list', 'show'], 'embed' => true],
+        ]);
+
+        // Article 210: related_items="tx_myext_domain_model_color_99,tx_myext_domain_model_color_1"
+        // uid=99 does not exist → missingByTable fetch returns nothing → item skipped
+        $response = $this->executeApiRequest('/_api/grp-articles/210');
+        $body     = $this->decodeResponseBody($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertCount(1, $body['related_items']);
+        self::assertSame(1, $body['related_items'][0]['uid']);
+        self::assertSame('Red', $body['related_items'][0]['name']);
+    }
+
+    public function testGroupMultiTableEmbedInvalidTableIsSkipped(): void
+    {
+        $this->registerColorResource();
+        $this->registerArticleResource([
+            'related_items' => ['groups' => ['list', 'show'], 'embed' => true],
+        ]);
+
+        // Article 211: related_items="stale_table_99,tx_myext_domain_model_color_1"
+        // stale_table is not in the field's allowed list → filtered by EmbedPreloader → no 500
+        $response = $this->executeApiRequest('/_api/grp-articles/211');
+        $body     = $this->decodeResponseBody($response);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertCount(1, $body['related_items']);
+        self::assertSame(1, $body['related_items'][0]['uid']);
+        self::assertSame('Red', $body['related_items'][0]['name']);
     }
 
     // ── Group with MM table ───────────────────────────────────────────────────

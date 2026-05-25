@@ -1,0 +1,4 @@
+"tx_myext_domain_model_article"
+,"uid","pid","title","color_id","parent_id","hidden","deleted","tstamp","crdate","related_colors","related_items"
+,210,1,"Group Missing Row",0,0,0,0,1704067200,1704067200,"","tx_myext_domain_model_color_99,tx_myext_domain_model_color_1"
+,211,1,"Group Stale Table",0,0,0,0,1704067200,1704067200,"","stale_table_99,tx_myext_domain_model_color_1"
