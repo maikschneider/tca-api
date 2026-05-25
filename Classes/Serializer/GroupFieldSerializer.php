@@ -21,7 +21,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 final readonly class GroupFieldSerializer
 {
     public function __construct(
-        private DataRepository $dataRepository
+        private DataRepository $dataRepository,
     ) {
     }
 
@@ -53,7 +53,7 @@ final readonly class GroupFieldSerializer
             return $this->serializeSingleTableGroup($column, $fieldConfig, $columnDef, $config, $row, $preloaded, $effectiveDepth, $visited, $allowedTables[0], $operation, $apiPrefix, $relationSerializer, $serializer);
         }
 
-        return $this->serializeMultiTableGroup($column, $columnDef, $config, $row, $apiPrefix, $relationSerializer);
+        return $this->serializeMultiTableGroup($column, $columnDef, $config, $row, $preloaded, $effectiveDepth, $visited, $operation, $apiPrefix, $relationSerializer, $serializer);
     }
 
     /** Single allowed table: preloaded pool → MM slow path → UID-list slow path. */
@@ -103,22 +103,95 @@ final readonly class GroupFieldSerializer
             : [];
     }
 
-    /** Multiple allowed tables: parse "tablename_uid" prefix format and return IRI strings. */
+    /** Multiple allowed tables: parse "tablename_uid" prefix format, with optional embedding. */
     private function serializeMultiTableGroup(
         string $column,
         ColumnDefinition $columnDef,
         ApiDefinition $config,
         array $row,
+        array $preloaded,
+        int $effectiveDepth,
+        array $visited,
+        string $operation,
         string $apiPrefix,
         RelationSerializer $relationSerializer,
+        ResourceSerializer $serializer,
     ): array {
-        $items = $this->parseMultiTableGroupValues(trim((string)($row[$column] ?? '')));
+        $uid = (int)$row['uid'];
 
-        return array_map(function (array $item) use ($columnDef, $config, $apiPrefix, $relationSerializer): string {
-            $relatedConfig = $relationSerializer->resolveRelatedConfig($item['table'], $config);
-            $resourceName  = $columnDef->resourceName ?? ($relatedConfig->resourceName ?? $item['table']);
-            return $apiPrefix . '/' . $resourceName . '/' . $item['uid'];
-        }, $items);
+        $items = isset($preloaded['multiTableRelations'][$column][$uid])
+            ? $preloaded['multiTableRelations'][$column][$uid]
+            : $this->parseMultiTableGroupValues(trim((string)($row[$column] ?? '')));
+
+        if ($items === []) {
+            return [];
+        }
+
+        if ($effectiveDepth <= 0) {
+            return array_map(function (array $item) use ($config, $apiPrefix, $relationSerializer): string {
+                $relatedConfig = $relationSerializer->resolveRelatedConfig($item['table'], $config);
+                $resourceName  = $relatedConfig->resourceName ?? $item['table'];
+                return $apiPrefix . '/' . $resourceName . '/' . $item['uid'];
+            }, $items);
+        }
+
+        $newVisited = $visited + [$config->table . ':' . $uid => true];
+        $result     = [];
+
+        // Group items by table for efficient row resolution from the preloaded pool
+        $rowsByTable = [];
+        $missingByTable = [];
+        foreach ($items as $item) {
+            $table = $item['table'];
+            $itemUid = $item['uid'];
+            if (isset($preloaded['rows'][$table][$itemUid])) {
+                $rowsByTable[$table][$itemUid] = $preloaded['rows'][$table][$itemUid];
+            } else {
+                $missingByTable[$table][$itemUid] = true;
+            }
+        }
+
+        // Bulk-fetch any missing rows per table
+        foreach ($missingByTable as $table => $uidSet) {
+            $fetched = $this->dataRepository->findByIds($table, array_keys($uidSet));
+            foreach ($fetched as $fetchedUid => $fetchedRow) {
+                $rowsByTable[$table][$fetchedUid] = $fetchedRow;
+            }
+        }
+
+        foreach ($items as $item) {
+            $table   = $item['table'];
+            $itemUid = $item['uid'];
+
+            $relatedConfig = $relationSerializer->resolveRelatedConfig($table, $config);
+            if ($relatedConfig === null) {
+                $relatedConfig = RelationSerializer::buildDefaultConfig($table);
+            }
+            $resourceName = $relatedConfig->resourceName;
+
+            if (isset($newVisited[$table . ':' . $itemUid])) {
+                $result[] = $apiPrefix . '/' . $resourceName . '/' . $itemUid;
+                continue;
+            }
+
+            $relatedRow = $rowsByTable[$table][$itemUid] ?? null;
+            if ($relatedRow === null) {
+                continue;
+            }
+
+            $result[] = $serializer->serialize(
+                $relatedRow,
+                $relatedConfig,
+                $apiPrefix . '/' . $resourceName,
+                [],
+                $preloaded,
+                $effectiveDepth - 1,
+                $newVisited,
+                $operation,
+            );
+        }
+
+        return $result;
     }
 
     /**
