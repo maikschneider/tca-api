@@ -92,7 +92,7 @@ final class EmbedPreloader
                         $this->collectUidListRelations($preloaded, $uidsByTable, $column, $foreignTable, $rows);
                     }
                 } elseif (count($allowedTables) > 1) {
-                    $this->collectMultiTableGroupRelations($preloaded, $uidsByTable, $column, $rows);
+                    $this->collectMultiTableGroupRelations($preloaded, $uidsByTable, $column, $rows, $allowedTables);
                 }
                 continue;
             }
@@ -199,7 +199,7 @@ final class EmbedPreloader
      * Collect multi-table group (prefixed "tablename_uid") UIDs for deferred bulk fetch.
      * Stores parent→child mappings as [{table, uid}] items preserving order.
      */
-    private function collectMultiTableGroupRelations(array &$preloaded, array &$uidsByTable, string $column, array $rows): void
+    private function collectMultiTableGroupRelations(array &$preloaded, array &$uidsByTable, string $column, array $rows, array $allowedTables): void
     {
         foreach ($rows as $row) {
             $parentUid = (int)$row['uid'];
@@ -214,7 +214,7 @@ final class EmbedPreloader
                     }
                     $table = substr($entry, 0, $pos);
                     $uid   = (int)substr($entry, $pos + 1);
-                    if ($uid > 0 && $table !== '') {
+                    if ($uid > 0 && $table !== '' && in_array($table, $allowedTables, true)) {
                         $items[] = ['table' => $table, 'uid' => $uid];
                         $uidsByTable[$table][$uid] = true;
                     }
