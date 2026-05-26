@@ -13,7 +13,7 @@
 
 </div>
 
-> **State:** Alpha (0.1.0) — feedback and contributions very welcome. See [GitHub Discussions](https://github.com/maikschneider/tca-api/discussions) to help validate the architecture, security model, and design decisions before they stabilize.
+> **State:** Beta (0.1.0) — feedback and contributions very welcome. See [GitHub Discussions](https://github.com/maikschneider/tca-api/discussions) to help validate the architecture, security model, and design decisions before they stabilize.
 
 ## Motivation
 
