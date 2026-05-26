@@ -2,10 +2,14 @@
 	"name": "maikschneider/tca-api",
 	"description": "This package provides an REST API based on the TYPO3 TCA — exposes database tables as Hydra JSON-LD resources.",
 	"license": "GPL-2.0-or-later",
-	"type": "library",
+	"type": "typo3-cms-extension",
 	"keywords": [
 		"typo3",
-		"typo3-cms-extension"
+		"typo3-cms-extension",
+		"rest",
+		"api",
+		"hydra",
+		"json-ld"
 	],
 	"authors": [
 		{
@@ -14,6 +18,12 @@
 			"role": "Developer"
 		}
 	],
+	"homepage": "https://extensions.typo3.org/extension/tca_api",
+	"support": {
+		"issues": "https://github.com/maikschneider/tca-api/issues",
+		"source": "https://github.com/maikschneider/tca-api",
+		"docs": "https://docs.typo3.org/p/maikschneider/tca-api/main/en-us/"
+	},
 	"require": {
 		"php": "^8.2",
 		"typo3/cms-core": "^13.4 || ^14.3"
@@ -66,7 +76,7 @@
 			},
 			"cms-package-dir": "{$vendor-dir}/typo3/cms",
 			"extension-key": "tca_api",
-			"version": "0.1.0+alpha",
+			"version": "0.1.0",
 			"web-dir": "public"
 		}
 	},

@@ -5,7 +5,7 @@ Motivation
 ==========
 
 Several existing approaches exist for serving TYPO3 content as structured
-data — Extbase repositories, the Record API (v13+), EXT:headless, and
+data — Extbase repositories, the Record API, EXT:headless, and
 annotation-driven frameworks like `EXT:t3api
 <https://github.com/sourcebroker/t3api>`__ and `EXT:nnrestapi
 <https://extensions.typo3.org/extension/nnrestapi>`__. TCA_API was built
@@ -17,8 +17,8 @@ trade-offs in performance, boilerplate, or flexibility.
     The analysis below is based on code reading and architectural reasoning.
     **Concrete, real-world benchmarks against production setups of EXT:t3api
     and EXT:nnrestapi have not yet been conducted.** The numbers reflect
-    the theoretical query-count differences between the strategies, confirmed
-    by a synthetic in-process test. Conclusions may not hold for all workloads.
+    the theoretical query-count differences between the strategies.
+    Conclusions may not hold for all workloads.
 
     Feedback and benchmark contributions from developers experienced with these
     extensions are very welcome — see :ref:`call-for-feedback` at the end of
@@ -221,8 +221,8 @@ Comparison matrix
       -  3
       -  ~41
       -  ~41 (or raw, no rels)
-      -  ~41
-      -  ~40-80
+      -  ~41 (¹)
+      -  ~40-80 (²)
    *  -  Object overhead
       -  None (raw arrays)
       -  Domain objects + proxies
@@ -259,12 +259,12 @@ Comparison matrix
       -  Manual
       -  N/A
       -  N/A
-   *  -  TYPO3 version
-      -  ^13.4 || ^14.0
-      -  ^12.4 || ^13.3
-      -  ^13.0
-      -  ^13.0
-      -  ^12.0+
+
+..  rubric:: Footnotes
+
+(¹) The Record API's ``GreedyDatabaseBackend`` can reduce query count when related records share the same PID, so actual numbers may be lower in single-page contexts.
+
+(²) EXT:headless query counts vary widely depending on TypoScript setup and DataProcessor configuration; the range reflects typical page-render workloads.
 
 ..  _call-for-feedback:
 
@@ -281,14 +281,3 @@ misleading, or missing important nuance — please open a
 `GitHub Discussion <https://github.com/maikschneider/tca-api/discussions>`__
 or a pull request. Corrections are welcome, and the goal is an honest
 comparison rather than marketing copy.
-
-Specifically, contributions are wanted for:
-
--  **Real-world benchmarks** using actual projects with EXT:t3api or
-   EXT:nnrestapi, ideally with a shared test dataset so results are
-   reproducible.
--  **Edge cases** where the N+1 analysis does not apply — for example,
-   EXT:t3api configurations that avoid relation embedding, or nnrestapi
-   endpoints using raw ``QueryBuilder`` queries.
--  **Corrections** to any architectural claim that is inaccurate as of
-   the current version of either extension.
