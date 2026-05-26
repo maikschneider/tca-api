@@ -16,4 +16,3 @@ package-lock.json
 Resources/Public/JavaScript/*.js.map
 .claude
 Plans/*.md
-Tests/Functional/Fixtures/fileadmin/user_upload/*_01.*
