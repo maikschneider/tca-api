@@ -29,7 +29,7 @@ The extension is installed via Composer:
 Site set setup
 ==============
 
-TCA API ships a TYPO3 **site set** (``maikschneider/tca-api``). Add it to your
+TCA_API ships a TYPO3 **site set** (``maikschneider/tca-api``). Add it to your
 site configuration to activate the API.
 
 In the TYPO3 backend, go to :guilabel:`Site Management → Sites` and add

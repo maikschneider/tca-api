@@ -7,7 +7,7 @@ Introduction
 What does it do?
 ================
 
-TCA API is a TYPO3 extension that automatically generates a REST API from your
+TCA_API is a TYPO3 extension that automatically generates a REST API from your
 TYPO3 TCA (Table Configuration Array) definitions. It exposes database tables as
 `Hydra JSON-LD <https://www.hydra-cg.com/>`__ resources through a
 configuration-driven approach — no custom controllers or Extbase models needed.
@@ -19,19 +19,15 @@ CRUD operations, filtering, sorting, pagination, validation, and access control.
 Motivation
 ==========
 
-TYPO3 offers several existing approaches for serving content as structured data,
-each with different trade-offs in performance, boilerplate, and flexibility.
-TCA API was built to address a gap that none of them fill well: a **read-heavy
-API with zero per-resource boilerplate and no N+1 query problem**.
+TYPO3 offers several existing approaches for serving content as structured data.
+TCA_API was built to fill a gap where other API extensions fall short: exposing
+multiple resources uniformly, with minimal boilerplate and strong query
+efficiency. See :ref:`motivation` for the full comparison.
 
-The core insight is that raw SQL bulk preloading — fetching all relation data for
-an entire collection in one query per relation type, rather than one per row —
-reduces query counts from ``O(N×R)`` to ``O(R)``, regardless of collection size.
+..  toctree::
+    :hidden:
 
-For the full analysis, including a comparison with `EXT:t3api
-<https://github.com/sourcebroker/t3api>`__, `EXT:nnrestapi
-<https://extensions.typo3.org/extension/nnrestapi>`__, the TYPO3 Record API, and
-Extbase, see :ref:`motivation`.
+    ../Motivation/Index
 
 Features
 ========
@@ -75,7 +71,7 @@ Current state
 
 ..  attention::
 
-    TCA API is currently in **alpha state** (version 0.1.0). The API surface may
+    TCA_API is currently in **alpha state** (version 0.1.0). The API surface may
     change between minor releases. It is not yet recommended for production use
     without thorough testing.
 

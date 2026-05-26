@@ -15,7 +15,7 @@
                typo3-core-preferred="13.4"
                interlink-shortcode="maikschneider/tca-api"
     />
-    <project title="TCA API"
+    <project title="TCA_API"
              release="0.1.0"
              version="0.1.0"
              copyright="since 2024 by Maik Schneider &amp; Contributors"

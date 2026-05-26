@@ -5,7 +5,7 @@ Site Settings
 =============
 
 The following settings are configurable per site in the TYPO3 backend under
-:guilabel:`Site Management → Sites → Settings` in the **TCA API** category.
+:guilabel:`Site Management → Sites → Settings` in the **TCA_API** category.
 
 General
 =======
@@ -58,7 +58,7 @@ API specification
 
 ..  confval:: tca_api.apiSpecTitle
     :type: string
-    :default: ``TCA API``
+    :default: ``TCA_API``
 
     Title shown in the OpenAPI spec info block and Swagger UI header.
 

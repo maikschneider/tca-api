@@ -4,7 +4,7 @@
 PSR-14 Events
 =============
 
-TCA API dispatches PSR-14 events throughout the request lifecycle, allowing you
+TCA_API dispatches PSR-14 events throughout the request lifecycle, allowing you
 to hook into and modify the API behaviour.
 
 Available events

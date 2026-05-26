@@ -8,7 +8,7 @@ Several existing approaches exist for serving TYPO3 content as structured
 data — Extbase repositories, the Record API (v13+), EXT:headless, and
 annotation-driven frameworks like `EXT:t3api
 <https://github.com/sourcebroker/t3api>`__ and `EXT:nnrestapi
-<https://extensions.typo3.org/extension/nnrestapi>`__. TCA API was built
+<https://extensions.typo3.org/extension/nnrestapi>`__. TCA_API was built
 because none of them solve the **read-heavy API use case** without significant
 trade-offs in performance, boilerplate, or flexibility.
 
@@ -122,10 +122,10 @@ rendering pipeline (CONTENT cObjects, DataProcessors) and executes the same
 queries as a normal page render. The benefit is smaller payloads for the
 frontend, not fewer database queries.
 
-How TCA API solves this
+How TCA_API solves this
 ========================
 
-TCA API takes a fundamentally different approach: **raw SQL via QueryBuilder
+TCA_API takes a fundamentally different approach: **raw SQL via QueryBuilder
 with bulk preloading** and a **zero-boilerplate configuration model**.
 
 1. **No ORM, no object hydration.** Records are raw associative arrays from
@@ -159,7 +159,7 @@ The query-count difference between strategies is deterministic and can be
 derived from simple formulas:
 
 -  **Naive N+1 / Extbase / t3api:** ``Q = 1 + N × R``
--  **TCA API (EmbedPreloader):** ``Q = 1 + R``
+-  **TCA_API (EmbedPreloader):** ``Q = 1 + R``
 
 Where ``N`` is the collection size and ``R`` is the number of embedded
 relation types per record.
@@ -171,7 +171,7 @@ relation types per record.
    *  -  Collection size
       -  Relations
       -  N+1 queries
-      -  TCA API queries
+      -  TCA_API queries
       -  Savings
    *  -  20 items
       -  2
@@ -206,7 +206,7 @@ Comparison matrix
    :widths: 17 17 17 17 16 16
 
    *  -  Concern
-      -  TCA API
+      -  TCA_API
       -  EXT:t3api
       -  EXT:nnrestapi
       -  Record API

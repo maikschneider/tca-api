@@ -4,7 +4,7 @@
 File Uploads
 ============
 
-TCA API supports multipart file uploads on ``POST`` (create) and ``PUT``/``PATCH``
+TCA_API supports multipart file uploads on ``POST`` (create) and ``PUT``/``PATCH``
 (update) endpoints. Adding an ``upload`` key to a column configuration enables
 the column to accept uploaded files via ``multipart/form-data`` requests.
 
