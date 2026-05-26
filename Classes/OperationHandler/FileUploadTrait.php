@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\OperationHandler;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\DataAccess\DataWriteService;
+use MaikSchneider\TcaApi\DataAccess\FileUploadService;
 use MaikSchneider\TcaApi\Security\WriteContext;
+use MaikSchneider\TcaApi\Validation\UploadValidator;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\UploadedFile;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -14,15 +17,14 @@ use TYPO3\CMS\Core\Utility\StringUtility;
 /**
  * Shared file upload logic for CreateHandler and UpdateHandler.
  *
- * Requires the using class to declare:
- *   - DataWriteService     $writeService
- *   - FileUploadService    $fileUploadService
- *   - UploadValidator      $uploadValidator
- *
  * Stream-to-disk conversion is centralised here via ensureFileBacked().
  * Both the validator and the FAL service require a real file path — TYPO3's
  * built-in MimeTypeValidator reads file content via finfo, and ResourceStorage
  * explicitly rejects stream-backed UploadedFile objects.
+ *
+ * @property DataWriteService $writeService
+ * @property FileUploadService $fileUploadService
+ * @property UploadValidator $uploadValidator
  */
 trait FileUploadTrait
 {
