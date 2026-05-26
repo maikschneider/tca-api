@@ -139,7 +139,7 @@ Writing nested objects
 ======================
 
 When a create or update request contains a related record as an **object**
-(rather than a UID), TCA API creates the child record in-line. The child
+(rather than a UID), TCA_API creates the child record in-line. The child
 table must have a registered resource in the API registry.
 
 ..  code-block:: json
@@ -167,7 +167,7 @@ nested write and which resource's column config is used for validation.
 
 ..  note::
 
-    If ``resourceName`` is set but no matching resource is registered, TCA API
+    If ``resourceName`` is set but no matching resource is registered, TCA_API
     throws an ``\InvalidArgumentException`` at load time (validated in
     :php:`ApiDefinitionLoader`).
 

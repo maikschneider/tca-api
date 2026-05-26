@@ -7,7 +7,7 @@ Introduction
 What does it do?
 ================
 
-TCA API is a TYPO3 extension that automatically generates a REST API from your
+TCA_API is a TYPO3 extension that automatically generates a REST API from your
 TYPO3 TCA (Table Configuration Array) definitions. It exposes database tables as
 `Hydra JSON-LD <https://www.hydra-cg.com/>`__ resources through a
 configuration-driven approach — no custom controllers or Extbase models needed.
@@ -15,6 +15,19 @@ configuration-driven approach — no custom controllers or Extbase models needed
 By placing a simple PHP configuration file in your extension's
 :file:`Configuration/TcaApi/` directory, you get a fully functional REST API with
 CRUD operations, filtering, sorting, pagination, validation, and access control.
+
+Motivation
+==========
+
+TYPO3 offers several existing approaches for serving content as structured data.
+TCA_API was built to fill a gap where other API extensions fall short: exposing
+multiple resources uniformly, with minimal boilerplate and strong query
+efficiency. See :ref:`motivation` for the full comparison.
+
+..  toctree::
+    :hidden:
+
+    ../Motivation/Index
 
 Features
 ========
@@ -58,6 +71,12 @@ Current state
 
 ..  attention::
 
-    TCA API is currently in **alpha state** (version 0.1.0). The API surface may
+    TCA_API is currently in **alpha state** (version 0.1.0). The API surface may
     change between minor releases. It is not yet recommended for production use
     without thorough testing.
+
+    **Feedback and contributions are very welcome.** This is the right moment to
+    validate the architecture, security model, and design decisions before they
+    stabilize. If you have experience with TYPO3 REST APIs or security auditing,
+    your input is especially valuable. Please join the conversation in the
+    `GitHub Discussions <https://github.com/maikschneider/tca-api/discussions>`__.

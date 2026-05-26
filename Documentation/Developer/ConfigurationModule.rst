@@ -4,14 +4,14 @@
 Configuration Module
 ====================
 
-When ``typo3/cms-lowlevel`` is installed, TCA API registers a provider in the
+When ``typo3/cms-lowlevel`` is installed, TCA_API registers a provider in the
 TYPO3 backend **Configuration** module (:guilabel:`System → Configuration`).
 The provider displays all loaded resource definitions as an interactive tree,
 which is useful for debugging your setup and verifying that definitions are
 loaded and parsed as expected.
 
 ..  figure:: /Images/ConfigurationModule.jpg
-    :alt: TCA API configuration tree in the TYPO3 Configuration module
+    :alt: TCA_API configuration tree in the TYPO3 Configuration module
     :class: with-shadow border rounded
 
 What is shown

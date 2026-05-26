@@ -4,7 +4,7 @@
 Caching
 =======
 
-TCA API supports tag-based HTTP response caching for ``list`` and ``show``
+TCA_API supports tag-based HTTP response caching for ``list`` and ``show``
 operations. When enabled, responses are stored in a TYPO3 cache and served
 from there on subsequent identical requests — bypassing the database query and
 serialization entirely.

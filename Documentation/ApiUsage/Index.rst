@@ -175,7 +175,7 @@ Access to both endpoints is controlled by the ``tca_api.openApiExposed`` and
 API Platform Admin
 ==================
 
-TCA API is compatible with
+TCA_API is compatible with
 `API Platform Admin <https://api-platform.com/docs/admin/>`_ out of the box.
 The extension emits the Hydra vocabulary that the admin's analyzer expects:
 

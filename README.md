@@ -1,6 +1,6 @@
 <div align="center">
 
-# `TCA API` — REST API for TYPO3
+# `TCA_API` — REST API for TYPO3
 
 ![Extension icon](Resources/Public/Icons/Extension.svg)
 
@@ -9,11 +9,17 @@
 [![PHP](https://img.shields.io/badge/PHP-%5E8.2-777BB4.svg)](https://php.net/)
 [![codecov](https://codecov.io/gh/maikschneider/tca-api/graph/badge.svg?token=J2CNGVXEX1)](https://codecov.io/gh/maikschneider/tca-api)
 
-`TCA API` is a TYPO3 extension that exposes database tables as **Hydra JSON-LD** resources through a configuration-driven REST API. Define which tables, columns, and operations to expose — the extension handles routing, serialization, validation, pagination, and access control.
+`TCA_API` is a TYPO3 extension that exposes database tables as **Hydra JSON-LD** resources through a configuration-driven REST API. Define which tables, columns, and operations to expose — the extension handles routing, serialization, validation, pagination, and access control.
 
 </div>
 
-> **State:** Alpha (0.1.0)
+> **State:** Alpha (0.1.0) — feedback and contributions very welcome. See [GitHub Discussions](https://github.com/maikschneider/tca-api/discussions) to help validate the architecture, security model, and design decisions before they stabilize.
+
+## Motivation
+
+TYPO3 offers several existing approaches for serving content as structured data. TCA_API was built to fill a gap where other API extensions fall short: exposing multiple resources uniformly, with minimal boilerplate and strong query efficiency.
+
+See the [Motivation chapter](https://docs.typo3.org/p/maikschneider/tca-api/main/en-us/Motivation/Index.html) in the documentation for the full comparison.
 
 ## Features
 
@@ -47,7 +53,7 @@
 
 ## Demo
 
-A demo project showcasing various TCA API configurations is available at [maikschneider/typo3-petstore](https://github.com/maikschneider/typo3-petstore). It serves as the reference for different resource setups (currently in early stages).
+A demo project showcasing various TCA_API configurations is available at [maikschneider/typo3-petstore](https://github.com/maikschneider/typo3-petstore). It serves as the reference for different resource setups (currently in early stages).
 
 ## Installation
 
@@ -74,7 +80,7 @@ This exposes the following site settings, configurable per site in the TYPO3 bac
 | `tca_api.allowedResources` | *(empty — all)* | Comma-separated list of resource names to expose; empty allows all |
 | `tca_api.debugMode` | `false` | Return verbose error details in responses |
 | `tca_api.openApiExposed` | `PUBLIC` | Who may access the OpenAPI spec (`PUBLIC`, `FE_USER`, `BE_USER`, `BE_ADMIN`, `NONE`) |
-| `tca_api.apiSpecTitle` | `TCA API` | Title shown in the OpenAPI spec and Swagger UI |
+| `tca_api.apiSpecTitle` | `TCA_API` | Title shown in the OpenAPI spec and Swagger UI |
 | `tca_api.apiSpecDescription` | *(empty)* | Description shown in the OpenAPI spec and Swagger UI |
 | `tca_api.apiSpecVersion` | `1.0.0` | Version string in the OpenAPI spec info block |
 | `tca_api.swaggerUiEnabled` | `PUBLIC` | Who may access the Swagger UI (`PUBLIC`, `FE_USER`, `BE_USER`, `BE_ADMIN`, `NONE`) |
@@ -197,7 +203,7 @@ Access to both endpoints is controlled by the `tca_api.openApiExposed` and `tca_
 
 ## API Platform
 
-TCA API responses are compatible with [API Platform](https://api-platform.com/) and its ecosystem. A bundled React-based admin UI is available via the `maikschneider/api-platform-admin` site set — add it to your site's dependencies to activate it. This UI is intended for testing during extension development and may be removed in a future version.
+TCA_API responses are compatible with [API Platform](https://api-platform.com/) and its ecosystem. A bundled React-based admin UI is available via the `maikschneider/api-platform-admin` site set — add it to your site's dependencies to activate it. This UI is intended for testing during extension development and may be removed in a future version.
 
 ## Configuration reference
 
@@ -217,7 +223,7 @@ TCA API responses are compatible with [API Platform](https://api-platform.com/) 
 
 ### Column visibility
 
-TCA API has two visibility modes. The mode is **auto-detected** per resource:
+TCA_API has two visibility modes. The mode is **auto-detected** per resource:
 
 **Default mode** — active when no column has `groups` set. All non-system TCA columns (i.e. not `hidden`, `deleted`, `tstamp`, `crdate`, language/workspace fields) are automatically exposed for read and write.
 
@@ -643,7 +649,7 @@ services:
 Every write operation is logged via PSR-3 with structured context data:
 
 ```
-INFO TCA API write operation
+INFO TCA_API write operation
   operation: create
   table: tx_myext_domain_model_article
   uid: NEW_primary
@@ -656,7 +662,7 @@ INFO TCA API write operation
 Denied writes are logged at `WARNING` level:
 
 ```
-WARNING TCA API write denied
+WARNING TCA_API write denied
   operation: write
   table: be_users
   actor_type: fe_user

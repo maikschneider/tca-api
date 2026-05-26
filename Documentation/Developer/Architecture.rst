@@ -4,7 +4,7 @@
 Architecture
 ============
 
-This chapter describes the high-level architecture of TCA API and how a request
+This chapter describes the high-level architecture of TCA_API and how a request
 flows through the system.
 
 Request flow

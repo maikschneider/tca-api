@@ -10,7 +10,7 @@ are exposed and how they behave. Each entry maps to a database column name.
 Visibility modes
 ================
 
-TCA API has two visibility modes. The mode is **auto-detected** per resource:
+TCA_API has two visibility modes. The mode is **auto-detected** per resource:
 
 Default mode
    Active when **no column** has ``groups`` set. All non-system TCA columns

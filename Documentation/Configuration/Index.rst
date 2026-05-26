@@ -4,7 +4,7 @@
 Configuration
 =============
 
-TCA API is configured through two mechanisms:
+TCA_API is configured through two mechanisms:
 
 1. **Site settings** — global per-site options such as the API prefix, pagination
    defaults, CORS headers, and OpenAPI access.

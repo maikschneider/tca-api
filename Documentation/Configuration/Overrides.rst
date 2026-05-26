@@ -4,7 +4,7 @@
 Overriding Third-Party Resource Configs
 =========================================
 
-TCA API mirrors TYPO3's ``$GLOBALS['TCA']`` + ``TCA/Overrides/`` loading
+TCA_API mirrors TYPO3's ``$GLOBALS['TCA']`` + ``TCA/Overrides/`` loading
 pattern. Any active extension can modify a resource configuration that was
 defined by another extension.
 

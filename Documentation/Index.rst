@@ -1,7 +1,7 @@
 ..  _start:
 
 =======
-TCA API
+TCA_API
 =======
 
 :Extension key:
@@ -28,7 +28,7 @@ TCA API
 
 ----
 
-TCA API is a TYPO3 extension that exposes database tables as **Hydra JSON-LD**
+TCA_API is a TYPO3 extension that exposes database tables as **Hydra JSON-LD**
 resources through a configuration-driven REST API. Define which tables, columns,
 and operations to expose — the extension handles routing, serialization,
 validation, pagination, and access control.
@@ -44,7 +44,7 @@ validation, pagination, and access control.
 
     ..  card:: :ref:`Introduction <introduction>`
 
-        What is TCA API, what are its features, and what does it do?
+        What is TCA_API, what are its features, and what does it do?
 
     ..  card:: :ref:`Installation <installation>`
 

@@ -82,7 +82,7 @@ Writing a custom handler
 Registering handlers
 ====================
 
-No :file:`ext_localconf.php` changes are needed. TCA API's
+No :file:`ext_localconf.php` changes are needed. TCA_API's
 :file:`Configuration/Services.yaml` contains an ``_instanceof`` rule that
 automatically tags every class implementing ``OperationHandlerInterface`` with
 ``tca_api.operation_handler``. The ``HandlerRegistry`` collects all tagged

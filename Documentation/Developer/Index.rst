@@ -4,7 +4,7 @@
 Developer Guide
 ===============
 
-This chapter covers the extensibility features of TCA API: PSR-14 events, custom
+This chapter covers the extensibility features of TCA_API: PSR-14 events, custom
 operation handlers, and the request attribute API.
 
 ..  toctree::
