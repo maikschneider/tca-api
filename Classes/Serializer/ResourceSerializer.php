@@ -74,6 +74,7 @@ final class ResourceSerializer
         $schema    = $this->getSchema($config->table);
         $columnMap = $this->resolveColumnMap($config);
 
+        $this->cacheTagCollector->addTag($config->table);
         $this->cacheTagCollector->addTag($config->table . '_' . $uid);
 
         // Derive the API prefix from $baseUrl by stripping the resource name portion.

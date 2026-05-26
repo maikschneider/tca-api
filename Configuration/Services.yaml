@@ -35,6 +35,15 @@ services:
     arguments:
       $cache: '@cache.tca_api'
 
+  MaikSchneider\TcaApi\Cache\WriteCacheInvalidationListener:
+    public: true
+    arguments:
+      $cache: '@cache.tca_api'
+    tags:
+      - name: event.listener
+        event: MaikSchneider\TcaApi\Event\AfterWriteEvent
+        method: __invoke
+
   MaikSchneider\TcaApi\Dispatcher\RequestDispatcher:
     arguments:
       $cache: '@cache.tca_api'
