@@ -269,16 +269,23 @@ final class FieldValidatorTest extends TestCase
     }
 
     #[Test]
-    public function regexWithInvalidPatternReturnsRegexErrorCode(): void
+    public function regexWithInvalidPatternThrowsAtDefinitionTime(): void
     {
-        $def = self::explicitDef([
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('invalid regex pattern');
+        self::explicitDef([
             'slug' => ['groups' => ['create'], 'validators' => [['type' => 'regex', 'pattern' => 'not-a-valid-regex']]],
         ]);
+    }
 
-        $violations = $this->validator->validate(['slug' => 'anything'], $def);
-
-        self::assertCount(1, $violations);
-        self::assertSame('REGEX_ERROR', $violations[0]['code']);
+    #[Test]
+    public function regexWithMissingPatternThrowsAtDefinitionTime(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('validators[0].pattern');
+        self::explicitDef([
+            'slug' => ['groups' => ['create'], 'validators' => [['type' => 'regex']]],
+        ]);
     }
 
     // ── Multiple validators on one field ──────────────────────────────────────

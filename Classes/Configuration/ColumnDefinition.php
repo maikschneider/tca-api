@@ -210,6 +210,29 @@ final readonly class ColumnDefinition
                     ),
                 );
             }
+
+            // Validate regex pattern at config load time so broken patterns
+            // are caught immediately, not silently at runtime.
+            if ($validatorType === 'regex') {
+                $pattern = $validator['pattern'] ?? null;
+                if ($pattern === null || !\is_string($pattern) || $pattern === '') {
+                    throw new \InvalidArgumentException(
+                        sprintf(
+                            'Column config "validators[%s].pattern" must be a non-empty string for regex validators.',
+                            $index,
+                        ),
+                    );
+                }
+                if (@preg_match($pattern, '') === false) {
+                    throw new \InvalidArgumentException(
+                        sprintf(
+                            'Column config "validators[%s].pattern" contains an invalid regex pattern "%s".',
+                            $index,
+                            $pattern,
+                        ),
+                    );
+                }
+            }
         }
 
         // ── column ───────────────────────────────────────────────────────
