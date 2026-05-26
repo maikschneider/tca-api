@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\OperationHandler;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\DataAccess\RelationInputResolver;
 use MaikSchneider\TcaApi\DataAccess\ResolvedInput;
+use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
+use MaikSchneider\TcaApi\Validation\FieldValidator;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
@@ -16,12 +19,11 @@ use Psr\Http\Message\ServerRequestInterface;
  * field validation, relation resolution, column filtering, and file storage
  * so that both handlers compose the same pipeline instead of duplicating it.
  *
- * Requires the using class to declare:
- *   - HydraResponseBuilder  $hydraResponseBuilder
- *   - FieldValidator         $fieldValidator
- *   - RelationInputResolver  $relationResolver
- *
  * Also requires the ColumnFilterTrait and FileUploadTrait to be used.
+ *
+ * @property HydraResponseBuilder $hydraResponseBuilder
+ * @property FieldValidator $fieldValidator
+ * @property RelationInputResolver $relationResolver
  */
 trait WriteOperationTrait
 {
