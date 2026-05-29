@@ -127,6 +127,7 @@ final class EmbedPreloader
                         $parentUids,
                         $fieldConfig['foreign_table_field'] ?? null,
                         $config->table,
+                        $fieldConfig['foreign_match_fields'] ?? [],
                     );
                 } else {
                     $this->collectUidListRelations($preloaded, $uidsByTable, $column, $foreignTable, $rows);
@@ -171,7 +172,7 @@ final class EmbedPreloader
     /**
      * Preload a hasMany foreignField relation: fetch rows, store in pool + relations.
      */
-    private function preloadForeignField(array &$preloaded, string $column, string $foreignTable, string $foreignField, array $parentUids, ?string $foreignTableField = null, ?string $parentTable = null): void
+    private function preloadForeignField(array &$preloaded, string $column, string $foreignTable, string $foreignField, array $parentUids, ?string $foreignTableField = null, ?string $parentTable = null, array $foreignMatchFields = []): void
     {
         $grouped = $this->dataRepository->findHasManyByForeignField(
             $foreignTable,
@@ -179,6 +180,7 @@ final class EmbedPreloader
             $parentUids,
             $foreignTableField,
             $parentTable,
+            $foreignMatchFields,
         );
 
         foreach ($grouped as $parentUid => $childRows) {

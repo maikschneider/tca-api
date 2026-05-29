@@ -225,6 +225,7 @@ final class RelationSerializer
                 [$parentUid],
                 $fieldConfig['foreign_table_field'] ?? null,
                 $parentTable,
+                $fieldConfig['foreign_match_fields'] ?? [],
             );
             return $grouped[$parentUid] ?? [];
         }

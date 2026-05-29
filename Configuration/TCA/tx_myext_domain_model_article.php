@@ -161,6 +161,24 @@ return [
                 'foreign_table_field' => 'parent_tablename',
             ],
         ],
+        'related_items_fmf_a' => [
+            'label' => 'Related Items (inline, foreign_match_fields type_a)',
+            'config' => [
+                'type'                 => 'inline',
+                'foreign_table'        => 'tx_myext_domain_model_color',
+                'foreign_field'        => 'foreign_article_id',
+                'foreign_match_fields' => ['fieldname' => 'type_a'],
+            ],
+        ],
+        'related_items_fmf_b' => [
+            'label' => 'Related Items (inline, foreign_match_fields type_b)',
+            'config' => [
+                'type'                 => 'inline',
+                'foreign_table'        => 'tx_myext_domain_model_color',
+                'foreign_field'        => 'foreign_article_id',
+                'foreign_match_fields' => ['fieldname' => 'type_b'],
+            ],
+        ],
         'meta' => [
             'label' => 'Meta (JSON)',
             'config' => [

@@ -156,6 +156,7 @@ final class DataRepository
 
     /**
      * Bulk-fetch hasMany related records via a back-pointer (foreign_field) on the child table.
+     * Applies foreign_match_fields as fixed child-table constraints when provided.
      * Returns [parentUid => [rows]] ordered by the child table's default sorting.
      */
     public function findHasManyByForeignField(
@@ -164,6 +165,7 @@ final class DataRepository
         array $parentUids,
         ?string $foreignTableField = null,
         ?string $parentTable = null,
+        array $foreignMatchFields = [],
     ): array {
         if ($parentUids === []) {
             return [];
@@ -181,6 +183,13 @@ final class DataRepository
             $qb->andWhere($qb->expr()->eq(
                 $foreignTableField,
                 $qb->createNamedParameter($parentTable),
+            ));
+        }
+
+        foreach ($foreignMatchFields as $matchField => $matchValue) {
+            $qb->andWhere($qb->expr()->eq(
+                $matchField,
+                $qb->createNamedParameter($matchValue),
             ));
         }
 

@@ -65,6 +65,11 @@ return [
                 'type' => 'passthrough',
             ],
         ],
+        'fieldname' => [
+            'config' => [
+                'type' => 'passthrough',
+            ],
+        ],
         'category_id' => [
             'label' => 'Category',
             'config' => [

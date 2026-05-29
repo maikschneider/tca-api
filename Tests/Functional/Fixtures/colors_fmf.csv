@@ -1,0 +1,5 @@
+"tx_myext_domain_model_color"
+,"uid","pid","name","hidden","deleted","foreign_article_id","fieldname"
+,520,1,"FMF TypeA Red",0,0,500,"type_a"
+,521,1,"FMF TypeA Blue",0,0,500,"type_a"
+,522,1,"FMF TypeB Green",0,0,500,"type_b"
