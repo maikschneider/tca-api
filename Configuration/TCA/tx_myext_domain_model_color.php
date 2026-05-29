@@ -67,7 +67,7 @@ return [
         ],
         'fieldname' => [
             'config' => [
-                'type' => 'passthrough',
+                'type' => 'input',
             ],
         ],
         'category_id' => [
