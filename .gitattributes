@@ -22,3 +22,4 @@ Tests/Fixtures/**                                 linguist-vendored
 /rector.php                                       export-ignore
 /renovate.json                                    export-ignore
 /Resources/Public/ApiPlatformAdmin                export-ignore
+/packaging_exclude.php                            export-ignore
