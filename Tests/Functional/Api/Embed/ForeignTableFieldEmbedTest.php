@@ -13,8 +13,8 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
  * the API must return only the children that belong to the requested parent table.
  *
  * Fixture data (articles_ftf.csv + colors_ftf.csv):
- *   Article 400 → 2 children via related_items_ftf (FTF Red=420, FTF Blue=421)
- *   Color 400   → 2 children via the same foreign_field but different parent_tablename (impostors 422, 423)
+ *   Article 700 → 2 children via related_items_ftf (FTF Red=720, FTF Blue=721)
+ *   Color 700   → 2 children via the same foreign_field but different parent_tablename (impostors 722, 723)
  *
  * Without the fix, fetching Article 400's related_items_ftf would return all 4 records
  * because foreign_article_id=400 matches all of them.
@@ -70,7 +70,7 @@ final class ForeignTableFieldEmbedTest extends ApiFunctionalTestCase
         $this->registerColorResource();
         $this->registerArticleResource();
 
-        $response = $this->executeApiRequest('/_api/ftf-articles/400');
+        $response = $this->executeApiRequest('/_api/ftf-articles/700');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -84,7 +84,7 @@ final class ForeignTableFieldEmbedTest extends ApiFunctionalTestCase
         $this->registerColorResource();
         $this->registerArticleResource();
 
-        $response = $this->executeApiRequest('/_api/ftf-articles/400');
+        $response = $this->executeApiRequest('/_api/ftf-articles/700');
         $body     = $this->decodeResponseBody($response);
 
         $uids = array_map(
@@ -93,8 +93,8 @@ final class ForeignTableFieldEmbedTest extends ApiFunctionalTestCase
         );
         sort($uids);
 
-        // Only 420 and 421 — not 422 or 423
-        self::assertSame([420, 421], $uids);
+        // Only 720 and 721 — not 722 or 723
+        self::assertSame([720, 721], $uids);
     }
 
     // ── With embed=true: full records ─────────────────────────────────────────
@@ -106,7 +106,7 @@ final class ForeignTableFieldEmbedTest extends ApiFunctionalTestCase
             'related_items_ftf' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
-        $response = $this->executeApiRequest('/_api/ftf-articles/400');
+        $response = $this->executeApiRequest('/_api/ftf-articles/700');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -124,7 +124,7 @@ final class ForeignTableFieldEmbedTest extends ApiFunctionalTestCase
             'related_items_ftf' => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
-        $response = $this->executeApiRequest('/_api/ftf-articles/400');
+        $response = $this->executeApiRequest('/_api/ftf-articles/700');
         $body     = $this->decodeResponseBody($response);
 
         $names = array_column($body['related_items_ftf'], 'name');
@@ -146,10 +146,10 @@ final class ForeignTableFieldEmbedTest extends ApiFunctionalTestCase
 
         $members = array_column($body['hydra:member'], null, 'uid');
 
-        self::assertArrayHasKey(400, $members);
-        self::assertCount(2, $members[400]['related_items_ftf']);
+        self::assertArrayHasKey(700, $members);
+        self::assertCount(2, $members[700]['related_items_ftf']);
 
-        $names = array_column($members[400]['related_items_ftf'], 'name');
+        $names = array_column($members[700]['related_items_ftf'], 'name');
         sort($names);
         self::assertSame(['FTF Blue', 'FTF Red'], $names);
     }
