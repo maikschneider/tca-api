@@ -60,12 +60,7 @@ return [
                 'type' => 'passthrough',
             ],
         ],
-        'parent_tablename' => [
-            'config' => [
-                'type' => 'passthrough',
-            ],
-        ],
-        'fieldname' => [
+        'field_to_match' => [
             'config' => [
                 'type' => 'input',
             ],
