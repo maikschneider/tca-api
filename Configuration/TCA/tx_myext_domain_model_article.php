@@ -152,6 +152,33 @@ return [
                 'foreign_table' => 'tx_myext_domain_model_color',
             ],
         ],
+        'related_items_ftf' => [
+            'label' => 'Related Items (inline, foreign_table_field)',
+            'config' => [
+                'type'                => 'inline',
+                'foreign_table'       => 'tx_myext_domain_model_color',
+                'foreign_field'       => 'foreign_article_id',
+                'foreign_table_field' => 'parent_tablename',
+            ],
+        ],
+        'related_items_fmf_a' => [
+            'label' => 'Related Items (inline, foreign_match_fields type_a)',
+            'config' => [
+                'type'                 => 'inline',
+                'foreign_table'        => 'tx_myext_domain_model_color',
+                'foreign_field'        => 'foreign_article_id',
+                'foreign_match_fields' => ['field_to_match' => 'type_a'],
+            ],
+        ],
+        'related_items_fmf_b' => [
+            'label' => 'Related Items (inline, foreign_match_fields type_b)',
+            'config' => [
+                'type'                 => 'inline',
+                'foreign_table'        => 'tx_myext_domain_model_color',
+                'foreign_field'        => 'foreign_article_id',
+                'foreign_match_fields' => ['field_to_match' => 'type_b'],
+            ],
+        ],
         'meta' => [
             'label' => 'Meta (JSON)',
             'config' => [

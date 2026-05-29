@@ -156,26 +156,44 @@ final class DataRepository
 
     /**
      * Bulk-fetch hasMany related records via a back-pointer (foreign_field) on the child table.
+     * Applies foreign_match_fields as fixed child-table constraints when provided.
      * Returns [parentUid => [rows]] ordered by the child table's default sorting.
      */
     public function findHasManyByForeignField(
         string $foreignTable,
         string $foreignField,
         array $parentUids,
+        ?string $foreignTableField = null,
+        ?string $parentTable = null,
+        array $foreignMatchFields = [],
     ): array {
         if ($parentUids === []) {
             return [];
         }
 
         $qb = $this->connectionPool->getQueryBuilderForTable($foreignTable);
-        $rows = $qb->select('*')
+        $qb->select('*')
             ->from($foreignTable)
             ->where($qb->expr()->in(
                 $foreignField,
                 array_map(fn (int $uid) => $qb->createNamedParameter($uid), $parentUids),
-            ))
-            ->executeQuery()
-            ->fetchAllAssociative();
+            ));
+
+        if ($foreignTableField !== null && $parentTable !== null) {
+            $qb->andWhere($qb->expr()->eq(
+                $foreignTableField,
+                $qb->createNamedParameter($parentTable),
+            ));
+        }
+
+        foreach ($foreignMatchFields as $matchField => $matchValue) {
+            $qb->andWhere($qb->expr()->eq(
+                $matchField,
+                $qb->createNamedParameter($matchValue),
+            ));
+        }
+
+        $rows = $qb->executeQuery()->fetchAllAssociative();
 
         $grouped = [];
         foreach ($rows as $row) {

@@ -116,7 +116,7 @@ final class RelationSerializer
             return [];
         }
 
-        $relatedRows = $this->resolveHasManyRows($column, $foreignTable, (int)$row['uid'], $row, $field, $preloaded);
+        $relatedRows = $this->resolveHasManyRows($column, $foreignTable, (int)$row['uid'], $row, $field, $preloaded, $config->table);
 
         return $relatedRows !== []
             ? $this->serializeHasManyFromRows($foreignTable, $columnDef, $config, $row, $relatedRows, $preloaded, $effectiveDepth, $visited, $operation, $apiPrefix, $serializer)
@@ -179,6 +179,7 @@ final class RelationSerializer
         array $row,
         FieldTypeInterface&RelationalFieldTypeInterface $field,
         array $preloaded,
+        string $parentTable,
     ): array {
         if (isset($preloaded['relations'][$column])) {
             return UidListParser::mapToRows(
@@ -187,13 +188,13 @@ final class RelationSerializer
             );
         }
 
-        return $this->fetchHasManyRows($column, $field, $row);
+        return $this->fetchHasManyRows($column, $field, $row, $parentTable);
     }
 
     /**
      * Fetch hasMany rows directly from DB for a single parent (slow path — not preloaded).
      */
-    private function fetchHasManyRows(string $column, FieldTypeInterface&RelationalFieldTypeInterface $fieldObj, array $row): array
+    private function fetchHasManyRows(string $column, FieldTypeInterface&RelationalFieldTypeInterface $fieldObj, array $row, string $parentTable): array
     {
         $fieldConfig  = $fieldObj->getConfiguration();
         $foreignTable = $fieldConfig['foreign_table'] ?? null;
@@ -218,7 +219,14 @@ final class RelationSerializer
         }
 
         if (isset($fieldConfig['foreign_field'])) {
-            $grouped = $this->dataRepository->findHasManyByForeignField($foreignTable, $fieldConfig['foreign_field'], [$parentUid]);
+            $grouped = $this->dataRepository->findHasManyByForeignField(
+                $foreignTable,
+                $fieldConfig['foreign_field'],
+                [$parentUid],
+                $fieldConfig['foreign_table_field'] ?? null,
+                $parentTable,
+                $fieldConfig['foreign_match_fields'] ?? [],
+            );
             return $grouped[$parentUid] ?? [];
         }
 

@@ -60,6 +60,11 @@ return [
                 'type' => 'passthrough',
             ],
         ],
+        'field_to_match' => [
+            'config' => [
+                'type' => 'input',
+            ],
+        ],
         'category_id' => [
             'label' => 'Category',
             'config' => [

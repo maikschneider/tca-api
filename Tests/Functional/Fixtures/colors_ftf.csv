@@ -1,0 +1,7 @@
+"tx_myext_domain_model_color"
+,"uid","pid","name","hidden","deleted","foreign_article_id","parent_tablename"
+,700,1,"FTF Parent Color",0,0,0,""
+,720,1,"FTF Red",0,0,700,"tx_myext_domain_model_article"
+,721,1,"FTF Blue",0,0,700,"tx_myext_domain_model_article"
+,722,1,"FTF Impostor",0,0,700,"tx_myext_domain_model_color"
+,723,1,"FTF Impostor2",0,0,700,"tx_myext_domain_model_color"
