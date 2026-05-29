@@ -162,20 +162,29 @@ final class DataRepository
         string $foreignTable,
         string $foreignField,
         array $parentUids,
+        ?string $foreignTableField = null,
+        ?string $parentTable = null,
     ): array {
         if ($parentUids === []) {
             return [];
         }
 
         $qb = $this->connectionPool->getQueryBuilderForTable($foreignTable);
-        $rows = $qb->select('*')
+        $qb->select('*')
             ->from($foreignTable)
             ->where($qb->expr()->in(
                 $foreignField,
                 array_map(fn (int $uid) => $qb->createNamedParameter($uid), $parentUids),
-            ))
-            ->executeQuery()
-            ->fetchAllAssociative();
+            ));
+
+        if ($foreignTableField !== null && $parentTable !== null) {
+            $qb->andWhere($qb->expr()->eq(
+                $foreignTableField,
+                $qb->createNamedParameter($parentTable),
+            ));
+        }
+
+        $rows = $qb->executeQuery()->fetchAllAssociative();
 
         $grouped = [];
         foreach ($rows as $row) {

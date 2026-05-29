@@ -60,6 +60,11 @@ return [
                 'type' => 'passthrough',
             ],
         ],
+        'parent_tablename' => [
+            'config' => [
+                'type' => 'passthrough',
+            ],
+        ],
         'category_id' => [
             'label' => 'Category',
             'config' => [
