@@ -29,7 +29,7 @@ final class LanguageDetectionTest extends ApiFunctionalTestCase
     {
         $response = $this->executeApiRequest('/api/sys-categories');
         $body = $this->decodeResponseBody($response);
-        $member = $this->findMemberByUid($body, 1);
+        $member = $this->findMemberByUid($body, 101);
 
         self::assertSame(200, $response->getStatusCode());
         self::assertTrue(\is_array($member));
@@ -41,7 +41,7 @@ final class LanguageDetectionTest extends ApiFunctionalTestCase
     {
         $response = $this->executeApiRequest('/de/api/sys-categories');
         $body = $this->decodeResponseBody($response);
-        $member = $this->findMemberByUid($body, 1);
+        $member = $this->findMemberByUid($body, 101);
 
         self::assertSame(200, $response->getStatusCode());
         self::assertTrue(\is_array($member));
@@ -55,7 +55,7 @@ final class LanguageDetectionTest extends ApiFunctionalTestCase
             (new InternalRequest('http://localhost/api/sys-categories'))->withAddedHeader('X-Locale', '1'),
         );
         $body = $this->decodeResponseBody($response);
-        $member = $this->findMemberByUid($body, 1);
+        $member = $this->findMemberByUid($body, 101);
 
         self::assertSame(200, $response->getStatusCode());
         self::assertTrue(\is_array($member));

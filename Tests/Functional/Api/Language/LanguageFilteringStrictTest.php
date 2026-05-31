@@ -40,7 +40,7 @@ final class LanguageFilteringStrictTest extends ApiFunctionalTestCase
 
         foreach ($body['hydra:member'] as $member) {
             self::assertFalse(($member['title'] ?? '') === 'REST');
-            self::assertFalse(str_ends_with((string)($member['@id'] ?? ''), '/4'));
+            self::assertFalse(str_ends_with((string)($member['@id'] ?? ''), '/104'));
         }
     }
 

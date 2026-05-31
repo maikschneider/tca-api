@@ -29,7 +29,7 @@ final class LanguageFilteringTest extends ApiFunctionalTestCase
     {
         $response = $this->executeApiRequest('/de/api/sys-categories');
         $body = $this->decodeResponseBody($response);
-        $member = $this->findMemberByUid($body, 1);
+        $member = $this->findMemberByUid($body, 101);
 
         self::assertTrue(\is_array($member));
         self::assertSame('PHP DE', $member['title']);
@@ -40,7 +40,7 @@ final class LanguageFilteringTest extends ApiFunctionalTestCase
     {
         $response = $this->executeApiRequest('/de/api/sys-categories');
         $body = $this->decodeResponseBody($response);
-        $member = $this->findMemberByUid($body, 4);
+        $member = $this->findMemberByUid($body, 104);
 
         self::assertTrue($member !== null);
         self::assertSame('REST', $member['title']);
@@ -55,9 +55,9 @@ final class LanguageFilteringTest extends ApiFunctionalTestCase
         self::assertCount(4, $body['hydra:member']);
         foreach ($body['hydra:member'] as $member) {
             $id = (string)($member['@id'] ?? '');
-            self::assertFalse(str_ends_with($id, '/51'));
-            self::assertFalse(str_ends_with($id, '/52'));
-            self::assertFalse(str_ends_with($id, '/53'));
+            self::assertFalse(str_ends_with($id, '/151'));
+            self::assertFalse(str_ends_with($id, '/152'));
+            self::assertFalse(str_ends_with($id, '/153'));
         }
     }
 
@@ -112,8 +112,8 @@ final class LanguageFilteringTest extends ApiFunctionalTestCase
 
         $response = $this->executeApiRequest('/api/sys-categories-variants');
         $body = $this->decodeResponseBody($response);
-        $englishMember = $this->findMemberByUid($body, 1);
-        $germanMember = $this->findMemberByUid($body, 51);
+        $englishMember = $this->findMemberByUid($body, 101);
+        $germanMember = $this->findMemberByUid($body, 151);
 
         self::assertTrue(\is_array($englishMember));
         self::assertTrue(\is_array($germanMember));
