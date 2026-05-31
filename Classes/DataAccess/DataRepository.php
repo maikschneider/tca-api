@@ -104,7 +104,10 @@ final class DataRepository
     {
         $qb = $this->connectionPool->getQueryBuilderForTable($table);
         if ($this->needsStrictLanguageCount($config, $language)) {
-            $qb->select('uid');
+            // Strict mode counts via applyLanguageOverlay, which needs the languageField
+            // column to honour the sys_language_uid = -1 ("all languages") exemption.
+            $languageField = $this->languageField($table);
+            $qb->select('uid', $languageField !== null ? $languageField : 'uid');
         } else {
             $qb->count('uid');
         }
@@ -267,6 +270,13 @@ final class DataRepository
 
         $overlaid = [];
         foreach ($rows as $row) {
+            // Records flagged "all languages" (sys_language_uid = -1) are visible in every
+            // language and are never translated — exempt from strict drop and overlay.
+            if (isset($row[$languageField]) && (int)$row[$languageField] === -1) {
+                $overlaid[] = $row;
+                continue;
+            }
+
             $parentUid = (int)$row['uid'];
             if (isset($translations[$parentUid])) {
                 $row = array_merge($row, $translations[$parentUid]);

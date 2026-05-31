@@ -52,4 +52,24 @@ final class LanguageFilteringStrictTest extends ApiFunctionalTestCase
 
         self::assertCount(4, $body['hydra:member']);
     }
+
+    /** Records flagged sys_language_uid = -1 ("all languages") survive strict mode without translation. */
+    public function testAllLanguagesRecordSurvivesStrictMode(): void
+    {
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/sys_categories_alllang.csv');
+
+        $response = $this->executeApiRequest('/de/api/sys-categories');
+        $body = $this->decodeResponseBody($response);
+
+        $allLangMember = null;
+        foreach ($body['hydra:member'] as $m) {
+            if (str_ends_with((string)($m['@id'] ?? ''), '/199')) {
+                $allLangMember = $m;
+                break;
+            }
+        }
+
+        self::assertNotNull($allLangMember);
+        self::assertSame('All-Lang', $allLangMember['title']);
+    }
 }
