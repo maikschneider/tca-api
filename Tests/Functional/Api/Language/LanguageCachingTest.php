@@ -6,7 +6,6 @@ namespace MaikSchneider\TcaApi\Tests\Functional\Api\Language;
 
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
-use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequest;
 
 /**
  * Enforces that language resolution participates in API cache keys.
@@ -78,9 +77,7 @@ final class LanguageCachingTest extends ApiFunctionalTestCase
     public function testXLocaleHeaderOverrideProducesIsolatedCacheKey(): void
     {
         $englishResponse = $this->executeApiRequest('/api/sys-categories-cached');
-        $localeResponse = $this->executeFrontendSubRequest(
-            (new InternalRequest('http://localhost/api/sys-categories-cached'))->withAddedHeader('X-Locale', '1'),
-        );
+        $localeResponse = $this->executeApiRequestWithHeaders('/api/sys-categories-cached', ['X-Locale' => '1']);
 
         self::assertSame('MISS', $englishResponse->getHeaderLine('X-TCA-API-Cache'));
         self::assertSame('MISS', $localeResponse->getHeaderLine('X-TCA-API-Cache'));
@@ -89,12 +86,8 @@ final class LanguageCachingTest extends ApiFunctionalTestCase
     /** Repeated requests with the same X-Locale override emit a HIT. */
     public function testRepeatedRequestSameXLocaleEmitsCacheHit(): void
     {
-        $firstResponse = $this->executeFrontendSubRequest(
-            (new InternalRequest('http://localhost/api/sys-categories-cached'))->withAddedHeader('X-Locale', '1'),
-        );
-        $secondResponse = $this->executeFrontendSubRequest(
-            (new InternalRequest('http://localhost/api/sys-categories-cached'))->withAddedHeader('X-Locale', '1'),
-        );
+        $firstResponse = $this->executeApiRequestWithHeaders('/api/sys-categories-cached', ['X-Locale' => '1']);
+        $secondResponse = $this->executeApiRequestWithHeaders('/api/sys-categories-cached', ['X-Locale' => '1']);
 
         self::assertSame('MISS', $firstResponse->getHeaderLine('X-TCA-API-Cache'));
         self::assertSame('HIT', $secondResponse->getHeaderLine('X-TCA-API-Cache'));

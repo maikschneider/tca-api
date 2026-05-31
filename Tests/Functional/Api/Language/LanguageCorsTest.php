@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Language;
 
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
-use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequest;
 
 /**
  * Enforces that invalid X-Locale 400 responses still carry CORS headers when CORS is enabled,
@@ -28,11 +27,10 @@ final class LanguageCorsTest extends ApiFunctionalTestCase
     /** Invalid X-Locale 400 response carries Access-Control-Allow-Origin when CORS is enabled. */
     public function testInvalidLocaleResponseIncludesCorsHeaders(): void
     {
-        $response = $this->executeFrontendSubRequest(
-            (new InternalRequest('http://localhost/api/sys-categories'))
-                ->withAddedHeader('X-Locale', '99')
-                ->withAddedHeader('Origin', 'https://example.com'),
-        );
+        $response = $this->executeApiRequestWithHeaders('/api/sys-categories', [
+            'X-Locale' => '99',
+            'Origin'   => 'https://example.com',
+        ]);
 
         self::assertSame(400, $response->getStatusCode());
         self::assertSame('https://example.com', $response->getHeaderLine('Access-Control-Allow-Origin'));

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Language;
 
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
-use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequest;
 
 /**
  * Enforces language detection from site URL segments and X-Locale overrides.
@@ -51,9 +50,7 @@ final class LanguageDetectionTest extends ApiFunctionalTestCase
     /** X-Locale overrides the locale inferred from the URL. */
     public function testXLocaleHeaderOverridesUrlLanguage(): void
     {
-        $response = $this->executeFrontendSubRequest(
-            (new InternalRequest('http://localhost/api/sys-categories'))->withAddedHeader('X-Locale', '1'),
-        );
+        $response = $this->executeApiRequestWithHeaders('/api/sys-categories', ['X-Locale' => '1']);
         $body = $this->decodeResponseBody($response);
         $member = $this->findMemberByUid($body, 101);
 
@@ -65,9 +62,7 @@ final class LanguageDetectionTest extends ApiFunctionalTestCase
     /** Unknown X-Locale ids return a 400 hydra:Error naming the requested value and the available enabled language ids. */
     public function testUnknownLanguageIdReturns400WithAvailableLanguages(): void
     {
-        $response = $this->executeFrontendSubRequest(
-            (new InternalRequest('http://localhost/api/sys-categories'))->withAddedHeader('X-Locale', '99'),
-        );
+        $response = $this->executeApiRequestWithHeaders('/api/sys-categories', ['X-Locale' => '99']);
         $body = $this->decodeResponseBody($response);
 
         self::assertSame(400, $response->getStatusCode());
@@ -82,9 +77,7 @@ final class LanguageDetectionTest extends ApiFunctionalTestCase
     /** Non-integer X-Locale headers are rejected with a 400 response. */
     public function testNonIntegerXLocaleHeaderReturns400(): void
     {
-        $response = $this->executeFrontendSubRequest(
-            (new InternalRequest('http://localhost/api/sys-categories'))->withAddedHeader('X-Locale', 'de'),
-        );
+        $response = $this->executeApiRequestWithHeaders('/api/sys-categories', ['X-Locale' => 'de']);
 
         self::assertSame(400, $response->getStatusCode());
     }
@@ -92,9 +85,7 @@ final class LanguageDetectionTest extends ApiFunctionalTestCase
     /** Disabled site languages are rejected with a 400 response. */
     public function testDisabledLanguageReturns400(): void
     {
-        $response = $this->executeFrontendSubRequest(
-            (new InternalRequest('http://localhost/api/sys-categories'))->withAddedHeader('X-Locale', '2'),
-        );
+        $response = $this->executeApiRequestWithHeaders('/api/sys-categories', ['X-Locale' => '2']);
 
         self::assertSame(400, $response->getStatusCode());
     }

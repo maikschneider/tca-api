@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Language;
 
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
-use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequest;
 
 /**
  * Enforces that single-language sites keep existing API response behavior.
@@ -35,9 +34,7 @@ final class SingleLanguageSiteRegressionTest extends ApiFunctionalTestCase
     public function testRequestWithExplicitLocaleZeroHeaderReturnsByteIdenticalPayload(): void
     {
         $firstResponse = $this->executeApiRequest('/_api/sys-categories');
-        $secondResponse = $this->executeFrontendSubRequest(
-            (new InternalRequest('http://localhost/_api/sys-categories'))->withAddedHeader('X-Locale', '0'),
-        );
+        $secondResponse = $this->executeApiRequestWithHeaders('/_api/sys-categories', ['X-Locale' => '0']);
         $firstBody = $this->decodeResponseBody($firstResponse);
         $secondBody = $this->decodeResponseBody($secondResponse);
 
@@ -48,9 +45,7 @@ final class SingleLanguageSiteRegressionTest extends ApiFunctionalTestCase
     public function testSingleLanguageSiteHasNoVaryHeaderImpact(): void
     {
         $firstResponse = $this->executeApiRequest('/_api/sys-categories');
-        $secondResponse = $this->executeFrontendSubRequest(
-            (new InternalRequest('http://localhost/_api/sys-categories'))->withAddedHeader('X-Locale', '0'),
-        );
+        $secondResponse = $this->executeApiRequestWithHeaders('/_api/sys-categories', ['X-Locale' => '0']);
         $firstBody = $this->decodeResponseBody($firstResponse);
         $secondBody = $this->decodeResponseBody($secondResponse);
 
