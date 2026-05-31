@@ -57,6 +57,26 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
     }
 
     /**
+     * Execute a GET request with arbitrary HTTP headers.
+     *
+     * @param array<string, string> $headers
+     */
+    protected function executeApiRequestWithHeaders(string $path, array $headers = [], array $queryParams = []): ResponseInterface
+    {
+        $uri = 'http://localhost' . $path;
+        if ($queryParams !== []) {
+            $uri .= '?' . http_build_query($queryParams);
+        }
+
+        $request = new InternalRequest($uri);
+        foreach ($headers as $name => $value) {
+            $request = $request->withAddedHeader($name, $value);
+        }
+
+        return $this->executeFrontendSubRequest($request);
+    }
+
+    /**
      * Execute a GET request as a specific frontend user.
      */
     protected function executeApiRequestAs(string $path, int $feUserId, array $queryParams = []): ResponseInterface

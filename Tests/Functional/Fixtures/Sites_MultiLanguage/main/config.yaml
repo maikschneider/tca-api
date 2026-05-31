@@ -1,0 +1,46 @@
+base: 'http://localhost/'
+dependencies:
+  - maikschneider/tca-api
+languages:
+  -
+    title: English
+    enabled: true
+    locale: en_US
+    hreflang: en
+    base: /
+    websiteTitle: ''
+    navigationTitle: English
+    fallbackType: strict
+    fallbacks: ''
+    flag: en-us-gb
+    languageId: 0
+  -
+    title: German
+    enabled: true
+    locale: de_DE
+    hreflang: de
+    base: /de/
+    websiteTitle: ''
+    navigationTitle: Deutsch
+    fallbackType: fallback
+    fallbacks: '0'
+    flag: de
+    languageId: 1
+  -
+    title: French
+    enabled: false
+    locale: fr_FR
+    hreflang: fr
+    base: /fr/
+    websiteTitle: ''
+    navigationTitle: Français
+    fallbackType: strict
+    fallbacks: ''
+    flag: fr
+    languageId: 2
+rootPageId: 1
+websiteTitle: ''
+settings:
+  tca_api:
+    apiPrefix: '/api/'
+    enabled: true

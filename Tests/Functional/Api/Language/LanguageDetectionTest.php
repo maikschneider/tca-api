@@ -1,0 +1,126 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MaikSchneider\TcaApi\Tests\Functional\Api\Language;
+
+use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
+use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequest;
+
+/**
+ * Enforces language detection from site URL segments and X-Locale overrides.
+ */
+final class LanguageDetectionTest extends ApiFunctionalTestCase
+{
+    protected array $pathsToLinkInTestInstance = [
+        'typo3conf/ext/tca_api/Tests/Functional/Fixtures/Sites_MultiLanguage' => 'typo3conf/sites',
+        'typo3conf/ext/tca_api/Tests/Functional/Fixtures/fileadmin/user_upload' => 'fileadmin/user_upload',
+    ];
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/sys_categories_multilang.csv');
+    }
+
+    /** Root API requests resolve to the English site language. */
+    public function testRootPathReturnsEnglishCategories(): void
+    {
+        $response = $this->executeApiRequest('/api/sys-categories');
+        $body = $this->decodeResponseBody($response);
+        $member = $this->findMemberByUid($body, 1);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue(\is_array($member));
+        self::assertSame('PHP', $member['title']);
+    }
+
+    /** German URL segments resolve to TYPO3 language id 1. */
+    public function testGermanUrlSegmentResolvesToLanguageId1(): void
+    {
+        $response = $this->executeApiRequest('/de/api/sys-categories');
+        $body = $this->decodeResponseBody($response);
+        $member = $this->findMemberByUid($body, 1);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue(\is_array($member));
+        self::assertSame('PHP DE', $member['title']);
+    }
+
+    /** X-Locale overrides the locale inferred from the URL. */
+    public function testXLocaleHeaderOverridesUrlLanguage(): void
+    {
+        $response = $this->executeFrontendSubRequest(
+            (new InternalRequest('http://localhost/api/sys-categories'))->withAddedHeader('X-Locale', '1'),
+        );
+        $body = $this->decodeResponseBody($response);
+        $member = $this->findMemberByUid($body, 1);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue(\is_array($member));
+        self::assertSame('PHP DE', $member['title']);
+    }
+
+    /** Unknown X-Locale ids return a 400 response with available languages. */
+    public function testUnknownLanguageIdReturns400WithAvailableLanguages(): void
+    {
+        $response = $this->executeFrontendSubRequest(
+            (new InternalRequest('http://localhost/api/sys-categories'))->withAddedHeader('X-Locale', '99'),
+        );
+        $body = $this->decodeResponseBody($response);
+        $bodyString = json_encode($body, JSON_THROW_ON_ERROR);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertStringContainsString('0', $bodyString);
+        self::assertStringContainsString('1', $bodyString);
+        self::assertTrue(str_contains(strtolower($bodyString), 'language'));
+    }
+
+    /** Non-integer X-Locale headers are rejected with a 400 response. */
+    public function testNonIntegerXLocaleHeaderReturns400(): void
+    {
+        $response = $this->executeFrontendSubRequest(
+            (new InternalRequest('http://localhost/api/sys-categories'))->withAddedHeader('X-Locale', 'de'),
+        );
+
+        self::assertSame(400, $response->getStatusCode());
+    }
+
+    /** Disabled site languages are rejected with a 400 response. */
+    public function testDisabledLanguageReturns400(): void
+    {
+        $response = $this->executeFrontendSubRequest(
+            (new InternalRequest('http://localhost/api/sys-categories'))->withAddedHeader('X-Locale', '2'),
+        );
+
+        self::assertSame(400, $response->getStatusCode());
+    }
+
+    /** Content-Language reflects the resolved response locale. */
+    public function testContentLanguageHeaderReflectsResolvedLocale(): void
+    {
+        $response = $this->executeApiRequest('/de/api/sys-categories');
+
+        self::assertStringContainsString('de', $response->getHeaderLine('Content-Language'));
+    }
+
+    /** Vary advertises that X-Locale participates in response negotiation. */
+    public function testVaryHeaderIncludesXLocale(): void
+    {
+        $response = $this->executeApiRequest('/api/sys-categories');
+
+        self::assertStringContainsString('X-Locale', $response->getHeaderLine('Vary'));
+    }
+
+    private function findMemberByUid(array $body, int $uid): ?array
+    {
+        foreach ($body['hydra:member'] ?? [] as $m) {
+            // Hydra @id is typically "/api/sys-categories/<uid>".
+            if (str_ends_with((string)($m['@id'] ?? ''), '/' . $uid)) {
+                return $m;
+            }
+        }
+        return null;
+    }
+}
