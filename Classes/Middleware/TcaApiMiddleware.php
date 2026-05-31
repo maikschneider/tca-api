@@ -47,15 +47,18 @@ final class TcaApiMiddleware implements MiddlewareInterface
             return $handler->handle($request);
         }
 
+        $corsEnabled = (bool)$settings->get('tca_api.corsEnabled', false);
+
         $resolvedLanguage = $requestLanguage;
         $override = trim($request->getHeaderLine('X-Locale'));
         if ($override !== '') {
             $resolvedLanguage = $this->resolveLanguageOverride($site, $override);
             if ($resolvedLanguage === null) {
-                return $this->withLocaleHeaders(
-                    $this->buildInvalidLanguageResponse($site, $override),
-                    $requestLanguage,
-                );
+                $invalid = $this->buildInvalidLanguageResponse($site, $override);
+                if ($corsEnabled) {
+                    $invalid = $this->addCorsHeaders($invalid, $request, $settings);
+                }
+                return $this->withLocaleHeaders($invalid, $requestLanguage);
             }
         }
 
@@ -66,8 +69,6 @@ final class TcaApiMiddleware implements MiddlewareInterface
             );
             $request = $request->withAttribute('language', $resolvedLanguage);
         }
-
-        $corsEnabled = (bool)$settings->get('tca_api.corsEnabled', false);
 
         if ($corsEnabled && strtoupper($request->getMethod()) === 'OPTIONS') {
             return $this->withLocaleHeaders($this->buildPreflightResponse($request, $settings), $resolvedLanguage);
