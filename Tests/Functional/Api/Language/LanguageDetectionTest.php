@@ -62,19 +62,21 @@ final class LanguageDetectionTest extends ApiFunctionalTestCase
         self::assertSame('PHP DE', $member['title']);
     }
 
-    /** Unknown X-Locale ids return a 400 response with available languages. */
+    /** Unknown X-Locale ids return a 400 hydra:Error naming the requested value and the available enabled language ids. */
     public function testUnknownLanguageIdReturns400WithAvailableLanguages(): void
     {
         $response = $this->executeFrontendSubRequest(
             (new InternalRequest('http://localhost/api/sys-categories'))->withAddedHeader('X-Locale', '99'),
         );
         $body = $this->decodeResponseBody($response);
-        $bodyString = json_encode($body, JSON_THROW_ON_ERROR);
 
         self::assertSame(400, $response->getStatusCode());
-        self::assertStringContainsString('0', $bodyString);
-        self::assertStringContainsString('1', $bodyString);
-        self::assertTrue(str_contains(strtolower($bodyString), 'language'));
+        self::assertSame('hydra:Error', $body['@type']);
+        self::assertSame('Invalid language', $body['hydra:title']);
+        self::assertArrayHasKey('hydra:description', $body);
+        self::assertStringContainsString('99', $body['hydra:description']);
+        self::assertStringContainsString('0', $body['hydra:description']);
+        self::assertStringContainsString('1', $body['hydra:description']);
     }
 
     /** Non-integer X-Locale headers are rejected with a 400 response. */
