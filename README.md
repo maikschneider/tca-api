@@ -41,6 +41,7 @@ See the [Motivation chapter](https://docs.typo3.org/p/maikschneider/tca-api/main
 - **PSR-14 events** — Hook into the request lifecycle with Before/AfterOperation and Before/AfterWrite events
 - **TYPO3 DataHandler** — Write operations use TYPO3's DataHandler for safe, consistent data manipulation
 - **Response caching** — Tag-based HTTP response caching for `list` and `show` operations with automatic invalidation via the TYPO3 DataHandler hook; configurable TTL and per-request bypass
+- **Multi-language** — URL base segments (`/de/api/...`) and an optional `X-Locale` header resolve the TYPO3 `SiteLanguage`; queries constrain on `sys_language_uid`, translations overlay default-language rows honouring the site's `fallbackType`, `sys_language_uid = -1` records stay visible, and cache keys are language-scoped
 - **Extensible handler pipeline** — Register custom operation handlers or override built-in ones from any extension
 - **TCA-style overrides** — Override or extend any resource config shipped by a third-party package via `Configuration/TcaApi/Overrides/` — mirrors TYPO3's `$GLOBALS['TCA']` + `TCA/Overrides/` pattern
 

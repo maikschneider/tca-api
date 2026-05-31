@@ -25,6 +25,8 @@ use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 #[Autoconfigure(public: true)]
 class GetUserInfoHandler implements OperationHandlerInterface
 {
+    use LanguageAwareTrait;
+
     public function __construct(
         private readonly DataRepository $dataRepository,
         private readonly ResourceSerializer $serializer,
@@ -60,7 +62,7 @@ class GetUserInfoHandler implements OperationHandlerInterface
         $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
         $baseUrl   = $apiPrefix . '/' . $config->resourceName;
 
-        $row = $this->dataRepository->findById($config->table, $uid, $config);
+        $row = $this->dataRepository->findById($config->table, $uid, $config, $this->languageFromRequest($request));
         if ($row === null) {
             return $this->responseFactory->createResponse(404)
                 ->withHeader('Content-Type', 'application/ld+json');

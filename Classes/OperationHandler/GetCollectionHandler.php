@@ -19,6 +19,8 @@ use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 #[Autoconfigure(public: true)]
 class GetCollectionHandler implements OperationHandlerInterface
 {
+    use LanguageAwareTrait;
+
     public function __construct(
         private readonly DataRepository $dataRepository,
         private readonly ResourceSerializer $serializer,
@@ -65,8 +67,9 @@ class GetCollectionHandler implements OperationHandlerInterface
         $safeFilters = $this->resolveFilters($filters, $config, $request);
         $safeOrder   = $this->resolveOrder($order, $config);
 
-        $total     = $this->dataRepository->count($config->table, $safeFilters, $config);
-        $rows      = $this->dataRepository->findCollection($config->table, $safeFilters, $itemsPerPage, $offset, $safeOrder, $config);
+        $language  = $this->languageFromRequest($request);
+        $total     = $this->dataRepository->count($config->table, $safeFilters, $config, $language);
+        $rows      = $this->dataRepository->findCollection($config->table, $safeFilters, $itemsPerPage, $offset, $safeOrder, $config, $language);
         $preloaded = $this->embedPreloader->preload($rows, $config);
         $members   = $this->serializer->serializeCollection($rows, $config, $baseUrl, $fields, $preloaded, 'list');
 

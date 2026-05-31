@@ -6,6 +6,7 @@ namespace MaikSchneider\TcaApi\Dispatcher;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use Psr\Http\Message\ServerRequestInterface;
+use TYPO3\CMS\Core\Site\Entity\SiteLanguage;
 use TYPO3\CMS\Core\Site\Entity\SiteSettings;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -25,16 +26,23 @@ final readonly class RequestContext
 
     public ?int $uid;
 
+    public ?SiteLanguage $language;
+
     public function __construct(
         public SiteSettings $settings,
         ServerRequestInterface $request,
+        ?SiteLanguage $language = null,
     ) {
+        $requestLanguage = $request->getAttribute('language');
+        $this->language = $language ?? ($requestLanguage instanceof SiteLanguage ? $requestLanguage : null);
+
         $uri = $request->getUri();
         $this->baseUrl = $uri->getScheme() . '://' . $uri->getAuthority();
         $this->prefix = rtrim((string)$settings->get('tca_api.apiPrefix', '/_api/'), '/');
         $this->docsBase = $this->baseUrl . $this->prefix . '/docs.jsonld#';
 
-        $segments = explode('/', trim(substr($uri->getPath(), \strlen($this->prefix)), '/'));
+        $requestPrefix = (string)$request->getAttribute('tca_api.request_prefix', $this->prefix);
+        $segments = explode('/', trim(substr($uri->getPath(), \strlen($requestPrefix)), '/'));
         $this->resource = $segments[0];
         $this->uid = isset($segments[1]) && $segments[1] !== '' ? (int)$segments[1] : null;
     }
