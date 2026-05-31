@@ -470,4 +470,102 @@ final class ApiDefinitionTest extends TestCase
         $this->expectExceptionMessage('ownership.column');
         ApiDefinition::fromArray($cfg);
     }
+
+    // ── Language mode ───────────────────────────────────────────────────
+
+    #[Test]
+    public function languageModeDefaultsToAutoWhenLanguageSectionOmitted(): void
+    {
+        $def = ApiDefinition::fromArray(self::minimalConfig());
+
+        self::assertSame('auto', $def->languageMode);
+    }
+
+    #[Test]
+    public function languageModeAutoIsAccepted(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['language'] = ['mode' => 'auto'];
+
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertSame('auto', $def->languageMode);
+    }
+
+    #[Test]
+    public function languageModeIgnoreIsAccepted(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['language'] = ['mode' => 'ignore'];
+
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertSame('ignore', $def->languageMode);
+    }
+
+    #[Test]
+    public function languageSectionMustBeAnArray(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['language'] = 'auto';
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('general.language must be an array');
+        ApiDefinition::fromArray($cfg);
+    }
+
+    #[Test]
+    public function unknownLanguageModeStringIsRejected(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['language'] = ['mode' => 'strict'];
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('general.language.mode has invalid value "strict"');
+        ApiDefinition::fromArray($cfg);
+    }
+
+    #[Test]
+    public function nonStringLanguageModeIsRejected(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['language'] = ['mode' => 42];
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('general.language.mode has invalid value "int"');
+        ApiDefinition::fromArray($cfg);
+    }
+
+    #[Test]
+    public function emptyLanguageArrayDefaultsToAuto(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['language'] = [];
+
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertSame('auto', $def->languageMode);
+    }
+
+    #[Test]
+    public function nullLanguageModeFallsBackToAuto(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['language'] = ['mode' => null];
+
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertSame('auto', $def->languageMode);
+    }
+
+    #[Test]
+    public function emptyStringLanguageModeIsRejected(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['language'] = ['mode' => ''];
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('general.language.mode has invalid value ""');
+        ApiDefinition::fromArray($cfg);
+    }
 }
