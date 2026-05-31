@@ -32,3 +32,6 @@ parameters:
 						tca_api.order: mixed
 						tca_api.partial: mixed
 						tca_api.existing_record: array|null
+						tca_api.language: TYPO3\CMS\Core\Site\Entity\SiteLanguage|null
+						tca_api.language_id: int|null
+						tca_api.request_prefix: string|null

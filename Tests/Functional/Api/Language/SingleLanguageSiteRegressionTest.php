@@ -22,7 +22,7 @@ final class SingleLanguageSiteRegressionTest extends ApiFunctionalTestCase
     /** Requests without locale headers return the expected English payload. */
     public function testRequestWithoutLocaleHeaderReturnsExpectedPayload(): void
     {
-        $response = $this->executeApiRequest('/api/sys-categories');
+        $response = $this->executeApiRequest('/_api/sys-categories');
         $body = $this->decodeResponseBody($response);
         $titles = array_column($body['hydra:member'], 'title');
         sort($titles);
@@ -34,9 +34,9 @@ final class SingleLanguageSiteRegressionTest extends ApiFunctionalTestCase
     /** Explicit X-Locale zero returns the same decoded payload. */
     public function testRequestWithExplicitLocaleZeroHeaderReturnsByteIdenticalPayload(): void
     {
-        $firstResponse = $this->executeApiRequest('/api/sys-categories');
+        $firstResponse = $this->executeApiRequest('/_api/sys-categories');
         $secondResponse = $this->executeFrontendSubRequest(
-            (new InternalRequest('http://localhost/api/sys-categories'))->withAddedHeader('X-Locale', '0'),
+            (new InternalRequest('http://localhost/_api/sys-categories'))->withAddedHeader('X-Locale', '0'),
         );
         $firstBody = $this->decodeResponseBody($firstResponse);
         $secondBody = $this->decodeResponseBody($secondResponse);
@@ -47,9 +47,9 @@ final class SingleLanguageSiteRegressionTest extends ApiFunctionalTestCase
     /** Single-language payload members are identical with and without X-Locale. */
     public function testSingleLanguageSiteHasNoVaryHeaderImpact(): void
     {
-        $firstResponse = $this->executeApiRequest('/api/sys-categories');
+        $firstResponse = $this->executeApiRequest('/_api/sys-categories');
         $secondResponse = $this->executeFrontendSubRequest(
-            (new InternalRequest('http://localhost/api/sys-categories'))->withAddedHeader('X-Locale', '0'),
+            (new InternalRequest('http://localhost/_api/sys-categories'))->withAddedHeader('X-Locale', '0'),
         );
         $firstBody = $this->decodeResponseBody($firstResponse);
         $secondBody = $this->decodeResponseBody($secondResponse);

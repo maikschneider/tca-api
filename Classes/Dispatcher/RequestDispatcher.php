@@ -21,6 +21,7 @@ use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
+use TYPO3\CMS\Core\Site\Entity\SiteLanguage;
 use TYPO3\CMS\Core\Site\Entity\SiteSettings;
 use TYPO3\CMS\Core\Utility\PathUtility;
 
@@ -52,6 +53,9 @@ final class RequestDispatcher
     {
         $ctx = new RequestContext($siteSettings, $request);
         $method = strtoupper($request->getMethod());
+        $request = $request
+            ->withAttribute('tca_api.language', $ctx->language)
+            ->withAttribute('tca_api.language_id', $ctx->language?->getLanguageId());
 
         if ($ctx->resource === self::RESOURCE_OPENAPI) {
             if ($method !== 'GET') {
@@ -111,7 +115,7 @@ final class RequestDispatcher
             return $this->methodNotAllowed($operation);
         }
 
-        $existingRecord = $this->resolveExistingRecord($operation, $ctx->uid, $config);
+        $existingRecord = $this->resolveExistingRecord($operation, $ctx->uid, $config, $ctx->language);
         if ($existingRecord === false) {
             return $this->notFound();
         }
@@ -128,7 +132,7 @@ final class RequestDispatcher
             return $this->forbidden($operation, $siteSettings);
         }
 
-        $request = $this->withRequestAttributes($request, $method, $ctx->uid, $operation, $config, $siteSettings)
+        $request = $this->withRequestAttributes($request, $method, $ctx->uid, $operation, $config, $siteSettings, $ctx->language)
             ->withAttribute('tca_api.existing_record', $existingRecord);
 
         // ── Cache: check for hit on cacheable read operations ────────────
@@ -210,13 +214,13 @@ final class RequestDispatcher
      * Returns the existing record for update/delete, an empty array when no lookup is needed,
      * or false when the record does not exist (→ 404).
      */
-    private function resolveExistingRecord(string $operation, ?int $uid, ApiDefinition $config): array|false
+    private function resolveExistingRecord(string $operation, ?int $uid, ApiDefinition $config, ?SiteLanguage $language): array|false
     {
         if ($uid === null || !\in_array($operation, ['update', 'delete'], true)) {
             return [];
         }
 
-        return $this->dataRepository->findById($config->table, $uid, $config) ?? false;
+        return $this->dataRepository->findById($config->table, $uid, $config, $language) ?? false;
     }
 
     private function checkAccess(string $operation, ServerRequestInterface $request, ApiDefinition $config, array $existingRecord, SiteSettings $siteSettings): ?ResponseInterface
@@ -237,7 +241,7 @@ final class RequestDispatcher
         return null;
     }
 
-    private function withRequestAttributes(ServerRequestInterface $request, string $method, ?int $uid, string $operation, ApiDefinition $config, SiteSettings $siteSettings): ServerRequestInterface
+    private function withRequestAttributes(ServerRequestInterface $request, string $method, ?int $uid, string $operation, ApiDefinition $config, SiteSettings $siteSettings, ?SiteLanguage $language): ServerRequestInterface
     {
         $params = $request->getQueryParams();
         $defaultItemsPerPage = (int)$siteSettings->get('tca_api.defaultItemsPerPage', self::DEFAULT_ITEMS_PER_PAGE);
@@ -255,6 +259,8 @@ final class RequestDispatcher
             ->withAttribute('tca_api.items_per_page', $itemsPerPage)
             ->withAttribute('tca_api.filters', $filters)
             ->withAttribute('tca_api.order', \is_array($params['order'] ?? null) ? $params['order'] : [])
+            ->withAttribute('tca_api.language', $language)
+            ->withAttribute('tca_api.language_id', $language?->getLanguageId())
             ->withAttribute('tca_api.partial', $method === 'PATCH');
     }
 
@@ -376,8 +382,10 @@ final class RequestDispatcher
 
         $uid = $request->getAttribute('tca_api.uid');
         $uidPart = $uid !== null ? ':' . $uid : '';
+        $languageId = $request->getAttribute('tca_api.language_id');
+        $languagePart = \is_int($languageId) ? ':language:' . $languageId : ':language:none';
 
-        return md5($operation . ':' . $config->resourceName . $uidPart . ':' . json_encode($relevant, JSON_THROW_ON_ERROR));
+        return md5($operation . ':' . $config->resourceName . $uidPart . $languagePart . ':' . json_encode($relevant, JSON_THROW_ON_ERROR));
     }
 
     private function notFound(): ResponseInterface

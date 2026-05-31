@@ -30,7 +30,7 @@ final class SiteSettingsCorsTest extends ApiFunctionalTestCase
 
         self::assertSame('https://example.com', $response->getHeaderLine('Access-Control-Allow-Origin'));
         self::assertNotSame('', $response->getHeaderLine('Access-Control-Allow-Methods'));
-        self::assertSame('Origin', $response->getHeaderLine('Vary'));
+        self::assertSame('Origin, X-Locale', $response->getHeaderLine('Vary'));
     }
 
     public function testCorsHeadersPresentOnErrorResponses(): void
@@ -38,7 +38,7 @@ final class SiteSettingsCorsTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/nonexistent-resource');
 
         self::assertSame('https://example.com', $response->getHeaderLine('Access-Control-Allow-Origin'));
-        self::assertSame('Origin', $response->getHeaderLine('Vary'));
+        self::assertSame('Origin, X-Locale', $response->getHeaderLine('Vary'));
     }
 
     public function testCorsAllowCredentialsHeader(): void
@@ -58,9 +58,9 @@ final class SiteSettingsCorsTest extends ApiFunctionalTestCase
         self::assertSame(204, $response->getStatusCode());
         self::assertSame('https://example.com', $response->getHeaderLine('Access-Control-Allow-Origin'));
         self::assertSame('GET, POST, PUT, PATCH, DELETE, OPTIONS', $response->getHeaderLine('Access-Control-Allow-Methods'));
-        self::assertSame('Content-Type, Authorization', $response->getHeaderLine('Access-Control-Allow-Headers'));
+        self::assertSame('Content-Type, Authorization, X-Locale', $response->getHeaderLine('Access-Control-Allow-Headers'));
         self::assertSame('true', $response->getHeaderLine('Access-Control-Allow-Credentials'));
-        self::assertSame('Origin', $response->getHeaderLine('Vary'));
+        self::assertSame('Origin, X-Locale', $response->getHeaderLine('Vary'));
         self::assertSame('86400', $response->getHeaderLine('Access-Control-Max-Age'));
         self::assertSame('', (string)$response->getBody());
     }

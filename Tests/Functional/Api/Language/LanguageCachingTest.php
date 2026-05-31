@@ -43,6 +43,8 @@ final class LanguageCachingTest extends ApiFunctionalTestCase
                 'lifetime' => 3600,
             ],
         ]);
+
+        $this->get(\TYPO3\CMS\Core\Cache\CacheManager::class)->getCache('tca_api')->flush();
     }
 
     /** The first cached resource request emits a MISS header. */

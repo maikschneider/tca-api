@@ -49,6 +49,7 @@ final readonly class ApiDefinition
         public readonly bool $ownershipBeAdminBypass,
         public readonly array $virtualProperties,
         public readonly bool $isExplicitMode,
+        public readonly string $languageMode = 'auto',
         public readonly WriteMode $writeMode = WriteMode::ACTING_USER,
         public readonly CacheDefinition $cache = new CacheDefinition(),
     ) {
@@ -95,6 +96,9 @@ final readonly class ApiDefinition
 
     /** Allowed values for general.type. */
     private const VALID_GENERAL_TYPES = ['userinfo'];
+
+    /** Allowed values for general.language.mode. */
+    private const VALID_LANGUAGE_MODES = ['auto', 'ignore'];
 
     /** Allowed sort directions in order.default values. */
     private const VALID_SORT_DIRECTIONS = ['asc', 'desc', 'ASC', 'DESC'];
@@ -171,6 +175,25 @@ final readonly class ApiDefinition
                     ),
                 );
             }
+        }
+
+        // ── language ───────────────────────────────────────────────────
+        $language = $general['language'] ?? [];
+        if (!\is_array($language)) {
+            throw new \InvalidArgumentException(
+                sprintf('TcaApi config for "%s": general.language must be an array.', $label),
+            );
+        }
+        $languageMode = $language['mode'] ?? 'auto';
+        if (!\is_string($languageMode) || !\in_array($languageMode, self::VALID_LANGUAGE_MODES, true)) {
+            throw new \InvalidArgumentException(
+                sprintf(
+                    'TcaApi config for "%s": general.language.mode has invalid value "%s". Allowed: %s',
+                    $label,
+                    \is_string($languageMode) ? $languageMode : \get_debug_type($languageMode),
+                    implode(', ', self::VALID_LANGUAGE_MODES),
+                ),
+            );
         }
 
         // ── columns ─────────────────────────────────────────────────────
@@ -426,6 +449,7 @@ final readonly class ApiDefinition
             ownershipBeAdminBypass: (bool)($ownership['beAdminBypass'] ?? true),
             virtualProperties:      $virtualProperties,
             isExplicitMode:         $isExplicitMode,
+            languageMode:           $languageMode,
             writeMode:              $writeMode,
             cache:                  $cache,
         );
