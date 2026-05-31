@@ -40,6 +40,15 @@ PSR-7 request. These are available in operation handlers and event listeners.
    * - ``tca_api.partial``
      - ``bool``
      - ``true`` for PATCH requests (partial update), ``false`` otherwise.
+   * - ``tca_api.language``
+     - ``SiteLanguage|null``
+     - The resolved ``TYPO3\CMS\Core\Site\Entity\SiteLanguage`` for the request
+       (URL base + ``X-Locale`` override). See :ref:`languages`.
+   * - ``tca_api.request_prefix``
+     - ``string|null``
+     - The matched URL prefix including the language base segment, e.g.
+       ``/de/api`` for a request to ``/de/api/articles`` on a German site.
+       Used to build self-referential IRIs that preserve the language base.
 
 Usage example
 =============

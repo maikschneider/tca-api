@@ -27,4 +27,5 @@ TCA_API is configured through two mechanisms:
     Validation
     FileUploads
     Caching
+    Languages
     Userinfo
