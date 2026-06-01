@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Auto-derived validators from TCA.** Write operations now enforce constraints declared in TCA with zero configuration:
+  - `input`/`text` columns with `config.max` → `maxLength` validator auto-injected.
+  - `number` columns with `config.range.lower`/`upper` → `minValue`/`maxValue` validators auto-injected.
+  - `group`, `inline`, `file`, and `category` columns with `config.maxitems`/`minitems` → `maxItems`/`minItems` validators auto-injected.
+  - Column-level `required: true` (TYPO3 v13+) → `required` flag auto-injected.
+  - Derivation is **gap-fill only** — explicit validators always win over auto-derived ones.
+  - Per-column opt-out: set `'tcaValidation' => false` in the column config.
+  - New validator types `minValue`, `maxValue`, `minItems`, `maxItems` are also available for explicit configuration.
+  - New documentation page: [Validation](Documentation/Configuration/Validation.rst).
 - **Language-aware API.** TYPO3 multi-language sites are now first-class:
   - URL base segments (e.g. `/de/api/...`) resolve to the matching `SiteLanguage` via TYPO3's own site middleware.
   - Optional `X-Locale: <languageId>` HTTP header overrides the URL-derived locale; invalid/unknown/disabled values return `400 Bad Request` with a `hydra:Error` body listing the available enabled language ids.
