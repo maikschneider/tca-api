@@ -42,6 +42,9 @@ return [
                 // Allowed extensions are read from TCA: type=file, allowed='jpg,jpeg,png,gif,webp'
             ],
         ],
+        'first_name' => [
+            'groups' => ['list', 'show', 'create', 'update'],
+        ],
         'downloads' => [
             'groups'    => ['list', 'show', 'create', 'update'],
             'processor' => FileProcessor::class,

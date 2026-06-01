@@ -98,7 +98,11 @@ final readonly class ColumnDefinition
     private const VALID_TYPES = ['string', 'integer', 'int', 'boolean', 'bool', 'number', 'float', 'double'];
 
     /** Recognised validator type identifiers. */
-    private const VALID_VALIDATOR_TYPES = ['maxLength', 'minLength', 'regex'];
+    private const VALID_VALIDATOR_TYPES = [
+        'maxLength', 'minLength', 'regex',
+        'minValue', 'maxValue',
+        'minItems', 'maxItems',
+    ];
 
     /**
      * Normalise a raw column config array, validate all fields, and return a typed ColumnDefinition.

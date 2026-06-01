@@ -27,6 +27,7 @@ final readonly class ApiDefinitionLoader
         #[Autowire(service: 'cache.core')]
         private PhpFrontend $cache,
         private ApiRegistry $apiRegistry,
+        private TcaValidatorDeriver $tcaValidatorDeriver,
         #[TaggedIterator('tca_api.filter')]
         private readonly iterable $filterHandlers = [],
     ) {
@@ -44,6 +45,7 @@ final readonly class ApiDefinitionLoader
             $rawConfigs = $this->collectDefinitions();
             $definitions = [];
             foreach ($rawConfigs as $resourceName => $config) {
+                $config = $this->tcaValidatorDeriver->deriveForConfig($config['general']['table'] ?? '', $config);
                 $definitions[$resourceName] = ApiDefinition::fromArray($config, $filterMap);
             }
             $this->cache->set(

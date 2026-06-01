@@ -82,8 +82,68 @@ final class FieldValidator
             'maxLength' => $this->validateMaxLength($column, $value, (int)$validatorConfig['max']),
             'minLength' => $this->validateMinLength($column, $value, (int)$validatorConfig['min']),
             'regex'     => $this->validateRegex($column, $value, (string)$validatorConfig['pattern']),
+            'minValue'  => $this->validateMinValue($column, $value, $validatorConfig['min']),
+            'maxValue'  => $this->validateMaxValue($column, $value, $validatorConfig['max']),
+            'minItems'  => $this->validateMinItems($column, $value, (int)$validatorConfig['min']),
+            'maxItems'  => $this->validateMaxItems($column, $value, (int)$validatorConfig['max']),
             default     => null,
         };
+    }
+
+    /**
+     * @return array{propertyPath: string, message: string, code: string}|null
+     */
+    private function validateMinValue(string $column, mixed $value, int|float $min): ?array
+    {
+        if (!is_numeric($value)) {
+            return null;
+        }
+        if ((float)$value < (float)$min) {
+            return $this->buildViolation($column, "Field '$column' must be at least $min.", 'MIN_VALUE');
+        }
+        return null;
+    }
+
+    /**
+     * @return array{propertyPath: string, message: string, code: string}|null
+     */
+    private function validateMaxValue(string $column, mixed $value, int|float $max): ?array
+    {
+        if (!is_numeric($value)) {
+            return null;
+        }
+        if ((float)$value > (float)$max) {
+            return $this->buildViolation($column, "Field '$column' must not exceed $max.", 'MAX_VALUE');
+        }
+        return null;
+    }
+
+    /**
+     * @return array{propertyPath: string, message: string, code: string}|null
+     */
+    private function validateMinItems(string $column, mixed $value, int $min): ?array
+    {
+        if (!is_array($value)) {
+            return null;
+        }
+        if (count($value) < $min) {
+            return $this->buildViolation($column, "Field '$column' must have at least $min item(s).", 'MIN_ITEMS');
+        }
+        return null;
+    }
+
+    /**
+     * @return array{propertyPath: string, message: string, code: string}|null
+     */
+    private function validateMaxItems(string $column, mixed $value, int $max): ?array
+    {
+        if (!is_array($value)) {
+            return null;
+        }
+        if (count($value) > $max) {
+            return $this->buildViolation($column, "Field '$column' must not have more than $max item(s).", 'MAX_ITEMS');
+        }
+        return null;
     }
 
     /**

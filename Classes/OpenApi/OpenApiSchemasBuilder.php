@@ -278,6 +278,18 @@ final readonly class OpenApiSchemasBuilder
                         $constraints['pattern'] = $pattern;
                     }
                     break;
+                case 'minValue':
+                    $constraints['minimum'] = $validator['min'];
+                    break;
+                case 'maxValue':
+                    $constraints['maximum'] = $validator['max'];
+                    break;
+                case 'minItems':
+                    $constraints['minItems'] = (int)$validator['min'];
+                    break;
+                case 'maxItems':
+                    $constraints['maxItems'] = (int)$validator['max'];
+                    break;
             }
         }
 
