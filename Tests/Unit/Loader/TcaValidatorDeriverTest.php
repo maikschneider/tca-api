@@ -125,6 +125,39 @@ final class TcaValidatorDeriverTest extends TestCase
         self::assertContains('maxValue', $types);
     }
 
+    #[Test]
+    public function numberWithDecimalFormatPreservesFloatBounds(): void
+    {
+        $this->buildGlobalTca('tx_test', 'price', ['config' => [
+            'type'   => 'number',
+            'format' => 'decimal',
+            'range'  => ['lower' => 0.5, 'upper' => 99.99],
+        ]]);
+
+        $raw    = ['general' => ['table' => 'tx_test'], 'columns' => ['price' => []]];
+        $result = $this->deriver->deriveForConfig('tx_test', $raw);
+
+        $byType = array_column($this->validatorsFor($result, 'price'), null, 'type');
+        self::assertSame(0.5, $byType['minValue']['min']);
+        self::assertSame(99.99, $byType['maxValue']['max']);
+    }
+
+    #[Test]
+    public function numberWithoutFormatCastsBoundsToInt(): void
+    {
+        $this->buildGlobalTca('tx_test', 'count', ['config' => [
+            'type'  => 'number',
+            'range' => ['lower' => '5', 'upper' => '50'],
+        ]]);
+
+        $raw    = ['general' => ['table' => 'tx_test'], 'columns' => ['count' => []]];
+        $result = $this->deriver->deriveForConfig('tx_test', $raw);
+
+        $byType = array_column($this->validatorsFor($result, 'count'), null, 'type');
+        self::assertSame(5, $byType['minValue']['min']);
+        self::assertSame(50, $byType['maxValue']['max']);
+    }
+
     // ── file / group / inline / category → maxItems / minItems ───────────────
 
     #[Test]
