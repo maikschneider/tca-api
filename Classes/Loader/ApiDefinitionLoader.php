@@ -13,6 +13,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
 use Symfony\Component\Finder\Finder;
 use TYPO3\CMS\Core\Cache\Frontend\PhpFrontend;
+use TYPO3\CMS\Core\Core\Event\BootCompletedEvent;
 use TYPO3\CMS\Core\Package\Cache\PackageDependentCacheIdentifier;
 use TYPO3\CMS\Core\Package\PackageManager;
 
@@ -31,6 +32,11 @@ final readonly class ApiDefinitionLoader
         #[TaggedIterator('tca_api.filter')]
         private readonly iterable $filterHandlers = [],
     ) {
+    }
+
+    public function __invoke(BootCompletedEvent $event): void
+    {
+        $this->load();
     }
 
     public function load(): void

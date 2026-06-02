@@ -6,6 +6,7 @@ namespace MaikSchneider\TcaApi\OpenApi;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
+use MaikSchneider\TcaApi\Loader\TcaValidatorDeriver;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 
 final readonly class OpenApiSchemasBuilder
@@ -224,7 +225,8 @@ final readonly class OpenApiSchemasBuilder
 
         if (!$config->isExplicitMode) {
             foreach (TcaColumnDiscovery::getExposableColumnNames($config->table) as $column) {
-                $columnDef = $config->columns[$column] ?? new ColumnDefinition(groups: null);
+                $columnDef = $this->resolveDefaultModeColumn($config, $column);
+
                 $propSchema = $this->buildPropertySchema($columnDef);
                 $propSchema = array_merge($propSchema, $this->mapValidators($columnDef->validators));
                 $properties[$column] = $propSchema;
@@ -258,6 +260,29 @@ final readonly class OpenApiSchemasBuilder
         }
 
         return $schema;
+    }
+
+    /**
+     * Resolve the ColumnDefinition for an exposable TCA column in default mode.
+     *
+     * When the column is declared in the resource config, return it as-is (its
+     * validators were already gap-filled at boot by {@see TcaValidatorDeriver}).
+     * When the column is undeclared, synthesise an ephemeral definition carrying
+     * the TCA-derived validators and required flag — mirroring the runtime
+     * validation performed by FieldValidator without polluting $config->columns.
+     */
+    private function resolveDefaultModeColumn(ApiDefinition $config, string $column): ColumnDefinition
+    {
+        $declared = $config->columns[$column] ?? null;
+        if ($declared !== null) {
+            return $declared;
+        }
+
+        return new ColumnDefinition(
+            groups:     null,
+            required:   TcaValidatorDeriver::isTcaColumnRequired($config->table, $column),
+            validators: TcaValidatorDeriver::deriveValidatorsForColumn($config->table, $column),
+        );
     }
 
     private function mapValidators(array $validators): array
@@ -367,7 +392,7 @@ final readonly class OpenApiSchemasBuilder
 
         if (!$config->isExplicitMode) {
             foreach (TcaColumnDiscovery::getExposableColumnNames($config->table) as $column) {
-                $columnDef = $config->columns[$column] ?? new ColumnDefinition(groups: null);
+                $columnDef = $this->resolveDefaultModeColumn($config, $column);
                 $properties[$column] = $this->buildMultipartPropertySchema($columnDef, $config->table, $column);
                 if ($columnDef->required) {
                     $required[] = $column;

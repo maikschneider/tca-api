@@ -22,6 +22,14 @@ namespace MaikSchneider\TcaApi\Loader;
  * explicit `'required' => false` is honored).
  *
  * Per-column opt-out: set `'tcaValidation' => false` in the raw column config.
+ *
+ * For columns absent from the raw config (default-mode write resources that
+ * declare no `columns` key at all), validators are NOT stub-injected here.
+ * Consumers that need TCA-derived constraints for undeclared columns — namely
+ * {@see \MaikSchneider\TcaApi\Validation\FieldValidator} and
+ * {@see \MaikSchneider\TcaApi\OpenApi\OpenApiSchemasBuilder} — call the public
+ * static helpers {@see deriveValidatorsForColumn()} and {@see isTcaColumnRequired()}
+ * on-demand. TCA reads are in-memory array lookups so the cost is negligible.
  */
 final class TcaValidatorDeriver
 {
@@ -54,7 +62,7 @@ final class TcaValidatorDeriver
 
             // Derive validators (gap-fill only)
             $existingTypes = array_column($columnRaw['validators'] ?? [], 'type');
-            foreach ($this->deriveValidators($tcaType, $tcaConfig) as $derived) {
+            foreach (self::deriveValidatorsForType($tcaType, $tcaConfig) as $derived) {
                 if (!\in_array($derived['type'], $existingTypes, true)) {
                     $columnRaw['validators'][] = $derived;
                 }
@@ -73,10 +81,37 @@ final class TcaValidatorDeriver
     }
 
     /**
+     * Derive validator configs from TCA for a single column. Returns the same
+     * shape the boot-time deriver injects into declared columns. Returns an
+     * empty list when no constraints apply or the table/column is not in TCA.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function deriveValidatorsForColumn(string $table, string $column): array
+    {
+        $tcaColumn = $GLOBALS['TCA'][$table]['columns'][$column] ?? null;
+        if (!\is_array($tcaColumn)) {
+            return [];
+        }
+        $tcaConfig = $tcaColumn['config'] ?? [];
+        $tcaType   = (string)($tcaConfig['type'] ?? '');
+
+        return self::deriveValidatorsForType($tcaType, $tcaConfig);
+    }
+
+    /**
+     * Returns true when the TCA column declares the v13+ column-level required flag.
+     */
+    public static function isTcaColumnRequired(string $table, string $column): bool
+    {
+        return ($GLOBALS['TCA'][$table]['columns'][$column]['required'] ?? false) === true;
+    }
+
+    /**
      * @param array<string, mixed> $tcaConfig The inner TCA 'config' array for the column
      * @return list<array<string, mixed>>
      */
-    private function deriveValidators(string $tcaType, array $tcaConfig): array
+    private static function deriveValidatorsForType(string $tcaType, array $tcaConfig): array
     {
         $validators = [];
 
@@ -91,11 +126,14 @@ final class TcaValidatorDeriver
             case 'number':
                 $range = $tcaConfig['range'] ?? [];
                 if (\is_array($range)) {
+                    $isDecimal = ($tcaConfig['format'] ?? '') === 'decimal';
                     if (\array_key_exists('lower', $range)) {
-                        $validators[] = ['type' => 'minValue', 'min' => (int)$range['lower']];
+                        $bound = $isDecimal ? (float)$range['lower'] : (int)$range['lower'];
+                        $validators[] = ['type' => 'minValue', 'min' => $bound];
                     }
                     if (\array_key_exists('upper', $range)) {
-                        $validators[] = ['type' => 'maxValue', 'max' => (int)$range['upper']];
+                        $bound = $isDecimal ? (float)$range['upper'] : (int)$range['upper'];
+                        $validators[] = ['type' => 'maxValue', 'max' => $bound];
                     }
                 }
                 break;

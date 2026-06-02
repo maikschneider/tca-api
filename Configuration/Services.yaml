@@ -44,6 +44,13 @@ services:
         event: MaikSchneider\TcaApi\Event\AfterWriteEvent
         method: __invoke
 
+  MaikSchneider\TcaApi\Loader\ApiDefinitionLoader:
+    public: true
+    tags:
+      - name: event.listener
+        event: TYPO3\CMS\Core\Core\Event\BootCompletedEvent
+        method: __invoke
+
   MaikSchneider\TcaApi\Dispatcher\RequestDispatcher:
     arguments:
       $cache: '@cache.tca_api'

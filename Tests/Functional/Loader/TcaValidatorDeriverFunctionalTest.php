@@ -70,6 +70,19 @@ final class TcaValidatorDeriverFunctionalTest extends ApiFunctionalTestCase
         self::assertSame(255, (int)$maxLength['max']);
     }
 
+    #[Test]
+    public function defaultModeResourceLeavesColumnsEmpty(): void
+    {
+        // colors-validate-default (Configuration/TcaApi/ColorsDefaultWrite.php) has no
+        // explicit columns — default mode. The deriver no longer stub-injects entries
+        // for undeclared TCA columns; the end-to-end enforcement is covered by
+        // DefaultModeValidationTest, which exercises FieldValidator's on-demand path.
+        $def = $this->getApiRegistry()->get('colors-validate-default');
+        self::assertNotNull($def, 'colors-validate-default resource must be registered');
+        self::assertFalse($def->isExplicitMode);
+        self::assertSame([], $def->columns);
+    }
+
     /**
      * @param array<int, array<string, mixed>> $validators
      * @return array<string, mixed>|null

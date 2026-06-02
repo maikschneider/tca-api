@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Validation;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\Loader\TcaValidatorDeriver;
+use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 
 final class FieldValidator
 {
@@ -21,8 +23,10 @@ final class FieldValidator
         $violations = [];
 
         if (!$config->isExplicitMode) {
-            // Default mode: only run declared validators — no required-check unless configured
+            // Default mode: run declared validators (already gap-filled at boot)…
+            $seen = [];
             foreach ($config->columns as $column => $columnDef) {
+                $seen[$column] = true;
                 $provided = \array_key_exists($column, $body);
                 if ($partial && !$provided) {
                     continue;
@@ -36,6 +40,26 @@ final class FieldValidator
                     }
                 }
             }
+
+            // …and on-demand TCA-derived validators for exposable columns not
+            // present in $config->columns. Symmetric with ColumnFilterTrait,
+            // which iterates the same set when filtering writable input.
+            foreach (TcaColumnDiscovery::getExposableColumnNames($config->table) as $column) {
+                if (isset($seen[$column])) {
+                    continue;
+                }
+                $provided = \array_key_exists($column, $body);
+                if (!$provided) {
+                    continue; // no value supplied → nothing to validate
+                }
+                foreach (TcaValidatorDeriver::deriveValidatorsForColumn($config->table, $column) as $validatorConfig) {
+                    $violation = $this->applyValidator($validatorConfig, $column, $body[$column]);
+                    if ($violation !== null) {
+                        $violations[] = $violation;
+                    }
+                }
+            }
+
             return $violations;
         }
 

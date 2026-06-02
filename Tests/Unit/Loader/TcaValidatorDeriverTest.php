@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Unit\Loader;
 
 use MaikSchneider\TcaApi\Loader\TcaValidatorDeriver;
+use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -28,6 +29,8 @@ final class TcaValidatorDeriverTest extends TestCase
     protected function tearDown(): void
     {
         $GLOBALS['TCA'] = [];
+        $cache = new \ReflectionProperty(TcaColumnDiscovery::class, 'columnNameCache');
+        $cache->setValue(null, []);
         parent::tearDown();
     }
 
@@ -315,5 +318,101 @@ final class TcaValidatorDeriverTest extends TestCase
         $result = $this->deriver->deriveForConfig('tx_test', $raw);
 
         self::assertSame([], $this->validatorsFor($result, 'color'));
+    }
+
+    #[Test]
+    public function undeclaredColumnReceivesNoStubInjection(): void
+    {
+        // Default-mode resources (no 'columns' key) used to grow stubs for every
+        // exposable TCA column with a derivable constraint. That second pass has
+        // been removed — undeclared columns stay out of $config->columns, and
+        // consumers derive on-demand via the static helpers below.
+        $GLOBALS['TCA']['tx_test']['ctrl']            = [];
+        $GLOBALS['TCA']['tx_test']['columns']['name'] = ['required' => true, 'config' => ['type' => 'input', 'max' => 255]];
+
+        $raw    = ['general' => ['table' => 'tx_test']];
+        $result = $this->deriver->deriveForConfig('tx_test', $raw);
+
+        self::assertArrayNotHasKey('columns', $result);
+    }
+
+    // ── Static helpers used by consumers for undeclared columns ───────────────
+
+    #[Test]
+    public function deriveValidatorsForColumnReturnsMaxLengthForInputWithMax(): void
+    {
+        $this->buildGlobalTca('tx_test', 'title', ['config' => ['type' => 'input', 'max' => 255]]);
+
+        $validators = TcaValidatorDeriver::deriveValidatorsForColumn('tx_test', 'title');
+
+        self::assertCount(1, $validators);
+        self::assertSame('maxLength', $validators[0]['type']);
+        self::assertSame(255, $validators[0]['max']);
+    }
+
+    #[Test]
+    public function deriveValidatorsForColumnReturnsRangeValidatorsForNumber(): void
+    {
+        $this->buildGlobalTca('tx_test', 'amount', ['config' => ['type' => 'number', 'range' => ['lower' => 5, 'upper' => 50]]]);
+
+        $types = array_column(TcaValidatorDeriver::deriveValidatorsForColumn('tx_test', 'amount'), 'type');
+
+        self::assertContains('minValue', $types);
+        self::assertContains('maxValue', $types);
+    }
+
+    #[Test]
+    public function deriveValidatorsForColumnReturnsItemsValidatorsForFile(): void
+    {
+        $this->buildGlobalTca('tx_test', 'photo', ['config' => ['type' => 'file', 'maxitems' => 1, 'minitems' => 1]]);
+
+        $types = array_column(TcaValidatorDeriver::deriveValidatorsForColumn('tx_test', 'photo'), 'type');
+
+        self::assertContains('maxItems', $types);
+        self::assertContains('minItems', $types);
+    }
+
+    #[Test]
+    public function deriveValidatorsForColumnReturnsEmptyForUnknownTable(): void
+    {
+        self::assertSame([], TcaValidatorDeriver::deriveValidatorsForColumn('tx_unknown', 'title'));
+    }
+
+    #[Test]
+    public function deriveValidatorsForColumnReturnsEmptyForUnknownColumn(): void
+    {
+        $this->buildGlobalTca('tx_test', 'title', ['config' => ['type' => 'input', 'max' => 255]]);
+
+        self::assertSame([], TcaValidatorDeriver::deriveValidatorsForColumn('tx_test', 'missing'));
+    }
+
+    #[Test]
+    public function deriveValidatorsForColumnReturnsEmptyForSelect(): void
+    {
+        $this->buildGlobalTca('tx_test', 'color', ['config' => ['type' => 'select', 'foreign_table' => 'tx_test_color', 'maxitems' => 5]]);
+
+        self::assertSame([], TcaValidatorDeriver::deriveValidatorsForColumn('tx_test', 'color'));
+    }
+
+    #[Test]
+    public function isTcaColumnRequiredReadsColumnLevelFlag(): void
+    {
+        $this->buildGlobalTca('tx_test', 'title', ['required' => true, 'config' => ['type' => 'input']]);
+
+        self::assertTrue(TcaValidatorDeriver::isTcaColumnRequired('tx_test', 'title'));
+    }
+
+    #[Test]
+    public function isTcaColumnRequiredReturnsFalseWhenKeyAbsent(): void
+    {
+        $this->buildGlobalTca('tx_test', 'title', ['config' => ['type' => 'input']]);
+
+        self::assertFalse(TcaValidatorDeriver::isTcaColumnRequired('tx_test', 'title'));
+    }
+
+    #[Test]
+    public function isTcaColumnRequiredReturnsFalseForUnknownColumn(): void
+    {
+        self::assertFalse(TcaValidatorDeriver::isTcaColumnRequired('tx_test', 'missing'));
     }
 }
