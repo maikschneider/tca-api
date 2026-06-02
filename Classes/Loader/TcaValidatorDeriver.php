@@ -68,9 +68,10 @@ final class TcaValidatorDeriver
                 }
             }
 
-            // Derive required flag from TCA column-level key (TYPO3 v13+).
+            // Derive required flag from TCA (TYPO3 v13+ places `required` inside
+            // the column's `config` array, sibling to `type`/`max`/etc.).
             // Only inject when the key is completely absent from the raw config.
-            if (!\array_key_exists('required', $columnRaw) && ($tcaColumn['required'] ?? false)) {
+            if (!\array_key_exists('required', $columnRaw) && ($tcaConfig['required'] ?? false)) {
                 $columnRaw['required'] = true;
             }
 
@@ -100,11 +101,12 @@ final class TcaValidatorDeriver
     }
 
     /**
-     * Returns true when the TCA column declares the v13+ column-level required flag.
+     * Returns true when the TCA column declares the v13+ required flag.
+     * The flag lives inside the column's `config` array, sibling to `type`/`max`.
      */
     public static function isTcaColumnRequired(string $table, string $column): bool
     {
-        return ($GLOBALS['TCA'][$table]['columns'][$column]['required'] ?? false) === true;
+        return ($GLOBALS['TCA'][$table]['columns'][$column]['config']['required'] ?? false) === true;
     }
 
     /**

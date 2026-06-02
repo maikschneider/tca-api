@@ -239,7 +239,7 @@ final class TcaValidatorDeriverTest extends TestCase
     #[Test]
     public function requiredKeyAbsentAndTcaRequiredInjectsRequiredTrue(): void
     {
-        $this->buildGlobalTca('tx_test', 'title', ['required' => true, 'config' => ['type' => 'input']]);
+        $this->buildGlobalTca('tx_test', 'title', ['config' => ['type' => 'input', 'required' => true]]);
 
         $raw    = ['general' => ['table' => 'tx_test'], 'columns' => ['title' => []]];
         $result = $this->deriver->deriveForConfig('tx_test', $raw);
@@ -250,7 +250,7 @@ final class TcaValidatorDeriverTest extends TestCase
     #[Test]
     public function requiredFalseExplicitIsNotOverridden(): void
     {
-        $this->buildGlobalTca('tx_test', 'title', ['required' => true, 'config' => ['type' => 'input']]);
+        $this->buildGlobalTca('tx_test', 'title', ['config' => ['type' => 'input', 'required' => true]]);
 
         $raw    = ['general' => ['table' => 'tx_test'], 'columns' => ['title' => ['required' => false]]];
         $result = $this->deriver->deriveForConfig('tx_test', $raw);
@@ -263,7 +263,7 @@ final class TcaValidatorDeriverTest extends TestCase
     #[Test]
     public function tcaValidationFalseSkipsAllDerivation(): void
     {
-        $this->buildGlobalTca('tx_test', 'title', ['required' => true, 'config' => ['type' => 'input', 'max' => 255]]);
+        $this->buildGlobalTca('tx_test', 'title', ['config' => ['type' => 'input', 'max' => 255, 'required' => true]]);
 
         $raw = [
             'general' => ['table' => 'tx_test'],
@@ -328,7 +328,7 @@ final class TcaValidatorDeriverTest extends TestCase
         // been removed — undeclared columns stay out of $config->columns, and
         // consumers derive on-demand via the static helpers below.
         $GLOBALS['TCA']['tx_test']['ctrl']            = [];
-        $GLOBALS['TCA']['tx_test']['columns']['name'] = ['required' => true, 'config' => ['type' => 'input', 'max' => 255]];
+        $GLOBALS['TCA']['tx_test']['columns']['name'] = ['config' => ['type' => 'input', 'max' => 255, 'required' => true]];
 
         $raw    = ['general' => ['table' => 'tx_test']];
         $result = $this->deriver->deriveForConfig('tx_test', $raw);
@@ -395,9 +395,9 @@ final class TcaValidatorDeriverTest extends TestCase
     }
 
     #[Test]
-    public function isTcaColumnRequiredReadsColumnLevelFlag(): void
+    public function isTcaColumnRequiredReadsConfigLevelFlag(): void
     {
-        $this->buildGlobalTca('tx_test', 'title', ['required' => true, 'config' => ['type' => 'input']]);
+        $this->buildGlobalTca('tx_test', 'title', ['config' => ['type' => 'input', 'required' => true]]);
 
         self::assertTrue(TcaValidatorDeriver::isTcaColumnRequired('tx_test', 'title'));
     }
