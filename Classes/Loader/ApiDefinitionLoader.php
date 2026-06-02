@@ -13,6 +13,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
 use Symfony\Component\Finder\Finder;
 use TYPO3\CMS\Core\Cache\Frontend\PhpFrontend;
+use TYPO3\CMS\Core\Core\Event\BootCompletedEvent;
 use TYPO3\CMS\Core\Package\Cache\PackageDependentCacheIdentifier;
 use TYPO3\CMS\Core\Package\PackageManager;
 
@@ -27,9 +28,15 @@ final readonly class ApiDefinitionLoader
         #[Autowire(service: 'cache.core')]
         private PhpFrontend $cache,
         private ApiRegistry $apiRegistry,
+        private TcaValidatorDeriver $tcaValidatorDeriver,
         #[TaggedIterator('tca_api.filter')]
         private readonly iterable $filterHandlers = [],
     ) {
+    }
+
+    public function __invoke(BootCompletedEvent $event): void
+    {
+        $this->load();
     }
 
     public function load(): void
@@ -44,6 +51,7 @@ final readonly class ApiDefinitionLoader
             $rawConfigs = $this->collectDefinitions();
             $definitions = [];
             foreach ($rawConfigs as $resourceName => $config) {
+                $config = $this->tcaValidatorDeriver->deriveForConfig($config['general']['table'] ?? '', $config);
                 $definitions[$resourceName] = ApiDefinition::fromArray($config, $filterMap);
             }
             $this->cache->set(

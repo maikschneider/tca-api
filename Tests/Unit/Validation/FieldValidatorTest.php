@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Unit\Validation;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use MaikSchneider\TcaApi\Validation\FieldValidator;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -16,6 +17,21 @@ final class FieldValidatorTest extends TestCase
     protected function setUp(): void
     {
         $this->validator = new FieldValidator();
+        $GLOBALS['TCA'] = [];
+        $this->resetTcaColumnDiscoveryCache();
+    }
+
+    protected function tearDown(): void
+    {
+        $GLOBALS['TCA'] = [];
+        $this->resetTcaColumnDiscoveryCache();
+        parent::tearDown();
+    }
+
+    private function resetTcaColumnDiscoveryCache(): void
+    {
+        $cache = new \ReflectionProperty(TcaColumnDiscovery::class, 'columnNameCache');
+        $cache->setValue(null, []);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -109,14 +125,90 @@ final class FieldValidatorTest extends TestCase
     }
 
     #[Test]
-    public function defaultModeDoesNotCheckRequiredFields(): void
+    public function defaultModeEnforcesRequiredOnMissingDeclaredField(): void
     {
-        // Even with required=true, default mode does not enforce required when field is absent
         $def = self::defaultModeDef([
             'title' => ['required' => true],
         ]);
 
         $violations = $this->validator->validate([], $def);
+
+        self::assertCount(1, $violations);
+        self::assertSame('REQUIRED', $violations[0]['code']);
+        self::assertSame('title', $violations[0]['propertyPath']);
+    }
+
+    #[Test]
+    public function defaultModeEnforcesRequiredOnEmptyStringForDeclaredField(): void
+    {
+        $def = self::defaultModeDef([
+            'title' => ['required' => true],
+        ]);
+
+        $violations = $this->validator->validate(['title' => ''], $def);
+
+        self::assertSame('REQUIRED', $violations[0]['code']);
+    }
+
+    #[Test]
+    public function defaultModeEnforcesRequiredOnNullValueForDeclaredField(): void
+    {
+        $def = self::defaultModeDef([
+            'title' => ['required' => true],
+        ]);
+
+        $violations = $this->validator->validate(['title' => null], $def);
+
+        self::assertSame('REQUIRED', $violations[0]['code']);
+    }
+
+    #[Test]
+    public function defaultModePartialSkipsRequiredCheckWhenFieldAbsent(): void
+    {
+        $def = self::defaultModeDef([
+            'title' => ['required' => true],
+        ]);
+
+        $violations = $this->validator->validate([], $def, partial: true);
+
+        self::assertSame([], $violations);
+    }
+
+    #[Test]
+    public function defaultModeEnforcesRequiredOnUndeclaredTcaColumn(): void
+    {
+        $GLOBALS['TCA']['tx_test'] = [
+            'ctrl'    => ['delete' => 'deleted'],
+            'columns' => [
+                'title' => ['config' => ['type' => 'input', 'required' => true, 'max' => 255]],
+            ],
+        ];
+        $this->resetTcaColumnDiscoveryCache();
+
+        // No 'columns' key → undeclared column 'title' walks the Pass-2 loop.
+        $def = self::defaultModeDef();
+
+        $violations = $this->validator->validate([], $def);
+
+        self::assertCount(1, $violations);
+        self::assertSame('REQUIRED', $violations[0]['code']);
+        self::assertSame('title', $violations[0]['propertyPath']);
+    }
+
+    #[Test]
+    public function defaultModePartialSkipsRequiredCheckForUndeclaredTcaColumn(): void
+    {
+        $GLOBALS['TCA']['tx_test'] = [
+            'ctrl'    => ['delete' => 'deleted'],
+            'columns' => [
+                'title' => ['config' => ['type' => 'input', 'required' => true]],
+            ],
+        ];
+        $this->resetTcaColumnDiscoveryCache();
+
+        $def = self::defaultModeDef();
+
+        $violations = $this->validator->validate([], $def, partial: true);
 
         self::assertSame([], $violations);
     }
@@ -362,6 +454,166 @@ final class FieldValidatorTest extends TestCase
         ]);
 
         $violations = $this->validator->validate(['slug' => 'aaaaaa'], $def);
+
+        self::assertSame([], $violations);
+    }
+
+    // ── Validator: minValue ───────────────────────────────────────────────────
+
+    #[Test]
+    public function minValuePassesWhenAboveLimit(): void
+    {
+        $def = self::explicitDef([
+            'amount' => ['groups' => ['create'], 'validators' => [['type' => 'minValue', 'min' => 10]]],
+        ]);
+
+        $violations = $this->validator->validate(['amount' => 15], $def);
+
+        self::assertSame([], $violations);
+    }
+
+    #[Test]
+    public function minValueFailsWhenBelowLimit(): void
+    {
+        $def = self::explicitDef([
+            'amount' => ['groups' => ['create'], 'validators' => [['type' => 'minValue', 'min' => 10]]],
+        ]);
+
+        $violations = $this->validator->validate(['amount' => 5], $def);
+
+        self::assertCount(1, $violations);
+        self::assertSame('MIN_VALUE', $violations[0]['code']);
+        self::assertSame('amount', $violations[0]['propertyPath']);
+    }
+
+    #[Test]
+    public function minValueSkipsNonNumericValue(): void
+    {
+        $def = self::explicitDef([
+            'amount' => ['groups' => ['create'], 'validators' => [['type' => 'minValue', 'min' => 10]]],
+        ]);
+
+        $violations = $this->validator->validate(['amount' => 'not-a-number'], $def);
+
+        self::assertSame([], $violations);
+    }
+
+    // ── Validator: maxValue ───────────────────────────────────────────────────
+
+    #[Test]
+    public function maxValuePassesWhenBelowLimit(): void
+    {
+        $def = self::explicitDef([
+            'amount' => ['groups' => ['create'], 'validators' => [['type' => 'maxValue', 'max' => 100]]],
+        ]);
+
+        $violations = $this->validator->validate(['amount' => 50], $def);
+
+        self::assertSame([], $violations);
+    }
+
+    #[Test]
+    public function maxValueFailsWhenAboveLimit(): void
+    {
+        $def = self::explicitDef([
+            'amount' => ['groups' => ['create'], 'validators' => [['type' => 'maxValue', 'max' => 100]]],
+        ]);
+
+        $violations = $this->validator->validate(['amount' => 150], $def);
+
+        self::assertCount(1, $violations);
+        self::assertSame('MAX_VALUE', $violations[0]['code']);
+        self::assertSame('amount', $violations[0]['propertyPath']);
+    }
+
+    #[Test]
+    public function maxValueSkipsNonNumericValue(): void
+    {
+        $def = self::explicitDef([
+            'amount' => ['groups' => ['create'], 'validators' => [['type' => 'maxValue', 'max' => 100]]],
+        ]);
+
+        $violations = $this->validator->validate(['amount' => 'not-a-number'], $def);
+
+        self::assertSame([], $violations);
+    }
+
+    // ── Validator: minItems ───────────────────────────────────────────────────
+
+    #[Test]
+    public function minItemsPassesAtThreshold(): void
+    {
+        $def = self::explicitDef([
+            'tags' => ['groups' => ['create'], 'validators' => [['type' => 'minItems', 'min' => 2]]],
+        ]);
+
+        $violations = $this->validator->validate(['tags' => ['a', 'b']], $def);
+
+        self::assertSame([], $violations);
+    }
+
+    #[Test]
+    public function minItemsFailsOnEmptyArray(): void
+    {
+        $def = self::explicitDef([
+            'tags' => ['groups' => ['create'], 'validators' => [['type' => 'minItems', 'min' => 2]]],
+        ]);
+
+        $violations = $this->validator->validate(['tags' => []], $def);
+
+        self::assertCount(1, $violations);
+        self::assertSame('MIN_ITEMS', $violations[0]['code']);
+        self::assertSame('tags', $violations[0]['propertyPath']);
+    }
+
+    #[Test]
+    public function minItemsSkipsNonArrayValue(): void
+    {
+        $def = self::explicitDef([
+            'tags' => ['groups' => ['create'], 'validators' => [['type' => 'minItems', 'min' => 2]]],
+        ]);
+
+        $violations = $this->validator->validate(['tags' => 'not-an-array'], $def);
+
+        self::assertSame([], $violations);
+    }
+
+    // ── Validator: maxItems ───────────────────────────────────────────────────
+
+    #[Test]
+    public function maxItemsPassesAtThreshold(): void
+    {
+        $def = self::explicitDef([
+            'tags' => ['groups' => ['create'], 'validators' => [['type' => 'maxItems', 'max' => 3]]],
+        ]);
+
+        $violations = $this->validator->validate(['tags' => ['a', 'b', 'c']], $def);
+
+        self::assertSame([], $violations);
+    }
+
+    #[Test]
+    public function maxItemsFailsAboveLimit(): void
+    {
+        $def = self::explicitDef([
+            'tags' => ['groups' => ['create'], 'validators' => [['type' => 'maxItems', 'max' => 2]]],
+        ]);
+
+        $violations = $this->validator->validate(['tags' => ['a', 'b', 'c']], $def);
+
+        self::assertCount(1, $violations);
+        self::assertSame('MAX_ITEMS', $violations[0]['code']);
+        self::assertSame('tags', $violations[0]['propertyPath']);
+    }
+
+    #[Test]
+    public function maxItemsSkipsNonArrayValue(): void
+    {
+        $def = self::explicitDef([
+            'tags' => ['groups' => ['create'], 'validators' => [['type' => 'maxItems', 'max' => 2]]],
+        ]);
+
+        $violations = $this->validator->validate(['tags' => 'not-an-array'], $def);
 
         self::assertSame([], $violations);
     }

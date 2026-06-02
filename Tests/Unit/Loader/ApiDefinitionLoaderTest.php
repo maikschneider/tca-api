@@ -7,6 +7,7 @@ namespace MaikSchneider\TcaApi\Tests\Unit\Loader;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Loader\ApiDefinitionLoader;
+use MaikSchneider\TcaApi\Loader\TcaValidatorDeriver;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -52,8 +53,9 @@ final class ApiDefinitionLoaderTest extends TestCase
         $pm = $this->createMock(PackageManager::class);
         $pm->method('getActivePackages')->willReturn($packages);
 
-        $cache = $this->createMock(PhpFrontend::class);
-        $loader = new ApiDefinitionLoader($pm, $cache, $this->registry);
+        $cache  = $this->createMock(PhpFrontend::class);
+        $deriver = new TcaValidatorDeriver();
+        $loader = new ApiDefinitionLoader($pm, $cache, $this->registry, $deriver);
 
         $method = new \ReflectionMethod($loader, 'collectDefinitions');
         /** @var array<string, array<mixed>> $rawConfigs */
