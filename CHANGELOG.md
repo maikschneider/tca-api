@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `input`/`text` columns with `config.max` → `maxLength` validator auto-injected.
   - `number` columns with `config.range.lower`/`upper` → `minValue`/`maxValue` validators auto-injected.
   - `group`, `inline`, `file`, and `category` columns with `config.maxitems`/`minitems` → `maxItems`/`minItems` validators auto-injected.
-  - Column-level `required: true` (TYPO3 v13+) → `required` flag auto-injected.
+  - Columns with `config.required: true` → `required` flag auto-injected.
   - Derivation is **gap-fill only** — explicit validators always win over auto-derived ones.
   - Per-column opt-out: set `'tcaValidation' => false` in the column config.
   - New validator types `minValue`, `maxValue`, `minItems`, `maxItems` are also available for explicit configuration.

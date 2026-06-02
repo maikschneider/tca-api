@@ -46,9 +46,9 @@ The following TCA constraints are derived automatically:
      - ``minItems``
      - Only when ``minitems > 0``
    * - any
-     - column-level ``required: true``
+     - ``config.required``
      - ``required`` flag
-     - Standard TYPO3 v13+ column key
+     - Standard TYPO3 field flag
 
 Derivation is **gap-fill only**: if you declare an explicit validator of the
 same type in the resource config, the TCA-derived one is skipped for that type.
@@ -112,7 +112,7 @@ and as targets for TCA auto-derivation.
      - ``REQUIRED``
      - Field must be present and non-empty on POST/PUT. Set via the ``required``
        column key, not inside ``validators``. Skipped on PATCH for absent fields.
-       Auto-derived from TCA column-level ``required: true``.
+       Auto-derived from TCA ``config.required: true``.
    * - ``maxLength``
      - ``max`` (int)
      - ``MAX_LENGTH``
