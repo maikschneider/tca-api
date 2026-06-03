@@ -175,6 +175,96 @@ final class DataRepository
     }
 
     /**
+     * Bulk-fetch reverse-side MM relations for a polymorphic `MM_oppositeUsage` column.
+     *
+     * Selects from the MM table directly (no JOIN) so that the heterogeneous set of
+     * forward-side tables can be enumerated in a single round-trip. The caller is
+     * responsible for bulk-fetching each `{table, uid}` pair via `findByIds`.
+     *
+     * Query shape (logically):
+     *   SELECT uid_local, uid_foreign, tablenames, fieldname, sorting_foreign
+     *   FROM   {mmTable}
+     *   WHERE  uid_local IN (:parentUids)
+     *     AND  (
+     *            (tablenames = :t1 AND fieldname IN (:f1a, :f1b))
+     *         OR (tablenames = :t2 AND fieldname IN (:f2a))
+     *          )
+     *     AND  {extraConstraints}    -- each entry rendered as `mm.col = val`
+     *   ORDER BY uid_local, sorting_foreign
+     *
+     * Result preserves `sorting_foreign` order per parent. Empty `$parentUids` or
+     * empty `$oppositeUsage` short-circuit to `[]`. The caller (typically the
+     * preloader) must ensure `$oppositeUsage` is non-empty for a wildcard column;
+     * the boot-time validator in `ApiDefinitionLoader` rejects the discovery path.
+     *
+     * @param list<int>                   $parentUids
+     * @param array<string, list<string>> $oppositeUsage     tablename => [fieldnames]
+     * @param array<string, scalar>       $extraConstraints  applied as `mm.col = val`
+     * @return array<int, list<array{table: string, uid: int}>>
+     */
+    public function findReverseMmRelations(
+        array $parentUids,
+        string $mmTable,
+        array $oppositeUsage,
+        array $extraConstraints = [],
+    ): array {
+        if ($parentUids === [] || $oppositeUsage === []) {
+            return [];
+        }
+
+        $qb = $this->connectionPool->getQueryBuilderForTable($mmTable);
+        $qb->select('uid_local', 'uid_foreign', 'tablenames', 'fieldname', 'sorting_foreign')
+            ->from($mmTable)
+            ->where($qb->expr()->in(
+                'uid_local',
+                array_map(fn (int $uid) => $qb->createNamedParameter($uid, Connection::PARAM_INT), $parentUids),
+            ));
+
+        $disjuncts = [];
+        foreach ($oppositeUsage as $table => $fields) {
+            if ($fields === []) {
+                continue;
+            }
+            $disjuncts[] = $qb->expr()->and(
+                $qb->expr()->eq('tablenames', $qb->createNamedParameter($table)),
+                $qb->expr()->in(
+                    'fieldname',
+                    array_map(fn (string $field) => $qb->createNamedParameter($field), $fields),
+                ),
+            );
+        }
+
+        if ($disjuncts === []) {
+            return [];
+        }
+
+        $qb->andWhere($qb->expr()->or(...$disjuncts));
+
+        foreach ($extraConstraints as $col => $val) {
+            $qb->andWhere($qb->expr()->eq($col, $qb->createNamedParameter($val)));
+        }
+
+        $qb->addOrderBy('uid_local')
+            ->addOrderBy('sorting_foreign');
+
+        $rows = $qb->executeQuery()->fetchAllAssociative();
+
+        $grouped = [];
+        foreach ($parentUids as $parentUid) {
+            $grouped[$parentUid] = [];
+        }
+        foreach ($rows as $row) {
+            $parentUid = (int)$row['uid_local'];
+            $grouped[$parentUid][] = [
+                'table' => (string)$row['tablenames'],
+                'uid'   => (int)$row['uid_foreign'],
+            ];
+        }
+
+        return $grouped;
+    }
+
+    /**
      * Bulk-fetch hasMany related records via a back-pointer (foreign_field) on the child table.
      * Applies foreign_match_fields as fixed child-table constraints when provided.
      * Returns [parentUid => [rows]] ordered by the child table's default sorting.
