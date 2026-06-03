@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\DataAccess;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\Tca\GroupAllowedResolver;
 use TYPO3\CMS\Core\Schema\Field\FileFieldType;
 use TYPO3\CMS\Core\Schema\Field\GroupFieldType;
 use TYPO3\CMS\Core\Schema\Field\RelationalFieldTypeInterface;
@@ -31,6 +32,7 @@ final class EmbedPreloader
     public function __construct(
         private readonly DataRepository $dataRepository,
         private readonly TcaSchemaFactory $schemaFactory,
+        private readonly GroupAllowedResolver $groupAllowedResolver,
     ) {
     }
 
@@ -80,6 +82,12 @@ final class EmbedPreloader
 
             // type=group: preload single-table groups like a UID list; multi-table uses prefixed format.
             if ($field instanceof GroupFieldType) {
+                // Wildcard reverse-side MM: allowed='*' with MM + MM_oppositeUsage
+                if ($this->groupAllowedResolver->isWildcard($fieldConfig) && isset($fieldConfig['MM'])) {
+                    $this->preloadReverseMm($preloaded, $uidsByTable, $column, $fieldConfig, $parentUids);
+                    continue;
+                }
+
                 $allowedTables = GeneralUtility::trimExplode(',', $fieldConfig['allowed'] ?? '', true);
 
                 if (count($allowedTables) === 1) {
@@ -142,6 +150,33 @@ final class EmbedPreloader
         }
 
         return $preloaded;
+    }
+
+    /**
+     * Preload a reverse-side MM relation (allowed='*' + MM_oppositeUsage).
+     * Queries the MM table for uid_local IN (...) filtered by MM_oppositeUsage table+field pairs,
+     * stores results as multiTableRelations, and collects UIDs for the deferred bulk findByIds.
+     */
+    private function preloadReverseMm(array &$preloaded, array &$uidsByTable, string $column, array $fieldConfig, array $parentUids): void
+    {
+        $oppositeUsage = $this->groupAllowedResolver->resolveOppositeUsage($fieldConfig);
+        if ($oppositeUsage === [] || $parentUids === []) {
+            return;
+        }
+
+        $grouped = $this->dataRepository->findReverseMmRelations(
+            array_values($parentUids),
+            $fieldConfig['MM'],
+            $oppositeUsage,
+        );
+
+        foreach ($parentUids as $parentUid) {
+            $items = $grouped[$parentUid] ?? [];
+            $preloaded['multiTableRelations'][$column][$parentUid] = $items;
+            foreach ($items as $item) {
+                $uidsByTable[$item['table']][$item['uid']] = true;
+            }
+        }
     }
 
     /**
