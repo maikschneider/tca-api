@@ -88,7 +88,7 @@ final class DataRepositoryReverseMmTest extends ApiFunctionalTestCase
     public function emptyOppositeUsageReturnsEmptyArray(): void
     {
         $result = $this->repository->findReverseMmRelations(
-            parentUids: [1, 2, 3],
+            parentUids: [30, 31, 32],
             mmTable: self::MM_TABLE,
             oppositeUsage: [],
         );
@@ -100,7 +100,7 @@ final class DataRepositoryReverseMmTest extends ApiFunctionalTestCase
     public function oppositeUsageWithOnlyEmptyFieldListsReturnsEmptyArray(): void
     {
         $result = $this->repository->findReverseMmRelations(
-            parentUids: [1, 2, 3],
+            parentUids: [30, 31, 32],
             mmTable: self::MM_TABLE,
             oppositeUsage: ['tx_myext_domain_model_article' => [], 'pages' => []],
         );
@@ -114,7 +114,7 @@ final class DataRepositoryReverseMmTest extends ApiFunctionalTestCase
     public function returnShapeMatchesMultiTableRelations(): void
     {
         $result = $this->repository->findReverseMmRelations(
-            parentUids: [1],
+            parentUids: [30],
             mmTable: self::MM_TABLE,
             oppositeUsage: [
                 'tx_myext_domain_model_article' => ['categories'],
@@ -122,10 +122,10 @@ final class DataRepositoryReverseMmTest extends ApiFunctionalTestCase
             ],
         );
 
-        self::assertArrayHasKey(1, $result, 'Parent UID 1 must appear in the result');
-        self::assertNotEmpty($result[1], 'Parent UID 1 must have at least one relation');
+        self::assertArrayHasKey(30, $result, 'Parent UID 30 must appear in the result');
+        self::assertNotEmpty($result[30], 'Parent UID 30 must have at least one relation');
 
-        foreach ($result[1] as $entry) {
+        foreach ($result[30] as $entry) {
             // Shape `{table: string, uid: int}` is enforced by the PHPDoc return type;
             // runtime checks ensure the producer actually populates both keys.
             self::assertArrayHasKey('table', $entry);
@@ -140,7 +140,7 @@ final class DataRepositoryReverseMmTest extends ApiFunctionalTestCase
     public function parentWithoutRelationsAppearsAsEmptyList(): void
     {
         $result = $this->repository->findReverseMmRelations(
-            parentUids: [1, 99],   // 99 has no MM rows
+            parentUids: [30, 99],   // 99 has no MM rows
             mmTable: self::MM_TABLE,
             oppositeUsage: ['tx_myext_domain_model_article' => ['categories']],
         );
@@ -154,26 +154,26 @@ final class DataRepositoryReverseMmTest extends ApiFunctionalTestCase
     #[Test]
     public function rowsOrderedBySortingForeignWithinParent(): void
     {
-        // Fixture rows for parent uid_local=1 (single forward table to make ordering deterministic):
+        // Fixture rows for parent uid_local=30 (single forward table to make ordering deterministic):
         //   uid_foreign=1, sorting_foreign=2
         //   uid_foreign=2, sorting_foreign=1
         // Expected order: uid=2 (sorting_foreign=1), then uid=1 (sorting_foreign=2).
         $result = $this->repository->findReverseMmRelations(
-            parentUids: [1],
+            parentUids: [30],
             mmTable: self::MM_TABLE,
             oppositeUsage: ['tx_myext_domain_model_article' => ['categories']],
         );
 
-        self::assertCount(2, $result[1]);
-        self::assertSame(2, $result[1][0]['uid'], 'sorting_foreign=1 must come first');
-        self::assertSame(1, $result[1][1]['uid'], 'sorting_foreign=2 must come second');
+        self::assertCount(2, $result[30]);
+        self::assertSame(2, $result[30][0]['uid'], 'sorting_foreign=1 must come first');
+        self::assertSame(1, $result[30][1]['uid'], 'sorting_foreign=2 must come second');
     }
 
     #[Test]
     public function resultsGroupedByParentUidLocal(): void
     {
         $result = $this->repository->findReverseMmRelations(
-            parentUids: [1, 2, 3],
+            parentUids: [30, 31, 32],
             mmTable: self::MM_TABLE,
             oppositeUsage: [
                 'tx_myext_domain_model_article' => ['categories'],
@@ -181,23 +181,23 @@ final class DataRepositoryReverseMmTest extends ApiFunctionalTestCase
             ],
         );
 
-        self::assertArrayHasKey(1, $result);
-        self::assertArrayHasKey(2, $result);
-        self::assertArrayHasKey(3, $result);
+        self::assertArrayHasKey(30, $result);
+        self::assertArrayHasKey(31, $result);
+        self::assertArrayHasKey(32, $result);
 
-        // Parent 1: 2 article rows + 1 pages row = 3 entries
-        self::assertCount(3, $result[1]);
+        // Parent 30: 2 article rows + 1 pages row = 3 entries
+        self::assertCount(3, $result[30]);
 
-        // Parent 2: 1 article row (article fieldname=categories), 0 pages rows
+        // Parent 31: 1 article row (article fieldname=categories), 0 pages rows
         //   (the pages fieldname=other_categories row is filtered out below).
-        self::assertCount(1, $result[2]);
-        self::assertSame('tx_myext_domain_model_article', $result[2][0]['table']);
-        self::assertSame(3, $result[2][0]['uid']);
+        self::assertCount(1, $result[31]);
+        self::assertSame('tx_myext_domain_model_article', $result[31][0]['table']);
+        self::assertSame(3, $result[31][0]['uid']);
 
-        // Parent 3: 1 pages row + 0 tt_content rows (tt_content not in oppositeUsage)
-        self::assertCount(1, $result[3]);
-        self::assertSame('pages', $result[3][0]['table']);
-        self::assertSame(2, $result[3][0]['uid']);
+        // Parent 32: 1 pages row + 0 tt_content rows (tt_content not in oppositeUsage)
+        self::assertCount(1, $result[32]);
+        self::assertSame('pages', $result[32][0]['table']);
+        self::assertSame(2, $result[32][0]['uid']);
     }
 
     // ── ISC-9: WHERE disjunction filters by (tablenames, fieldname) pairs ─────
@@ -205,11 +205,11 @@ final class DataRepositoryReverseMmTest extends ApiFunctionalTestCase
     #[Test]
     public function fieldnameFilteringExcludesUnlistedFields(): void
     {
-        // Fixture for parent 2:
+        // Fixture for parent 31:
         //   tx_myext_domain_model_article / categories / uid_foreign=3
         //   pages / other_categories / uid_foreign=1   <-- fieldname NOT in oppositeUsage
         $result = $this->repository->findReverseMmRelations(
-            parentUids: [2],
+            parentUids: [31],
             mmTable: self::MM_TABLE,
             oppositeUsage: [
                 'tx_myext_domain_model_article' => ['categories'],
@@ -217,18 +217,18 @@ final class DataRepositoryReverseMmTest extends ApiFunctionalTestCase
             ],
         );
 
-        self::assertCount(1, $result[2]);
-        self::assertSame('tx_myext_domain_model_article', $result[2][0]['table']);
+        self::assertCount(1, $result[31]);
+        self::assertSame('tx_myext_domain_model_article', $result[31][0]['table']);
     }
 
     #[Test]
     public function tablenamesFilteringExcludesUnlistedTables(): void
     {
-        // Fixture for parent 3:
+        // Fixture for parent 32:
         //   pages / categories / uid_foreign=2
         //   tt_content / categories / uid_foreign=1   <-- table NOT in oppositeUsage
         $result = $this->repository->findReverseMmRelations(
-            parentUids: [3],
+            parentUids: [32],
             mmTable: self::MM_TABLE,
             oppositeUsage: [
                 'tx_myext_domain_model_article' => ['categories'],
@@ -236,18 +236,18 @@ final class DataRepositoryReverseMmTest extends ApiFunctionalTestCase
             ],
         );
 
-        self::assertCount(1, $result[3]);
-        self::assertSame('pages', $result[3][0]['table']);
-        self::assertSame(2, $result[3][0]['uid']);
+        self::assertCount(1, $result[32]);
+        self::assertSame('pages', $result[32][0]['table']);
+        self::assertSame(2, $result[32][0]['uid']);
     }
 
     #[Test]
     public function multipleFieldnamesPerTableAllMatched(): void
     {
-        // Parent 2 has one pages row with fieldname=other_categories.
+        // Parent 31 has one pages row with fieldname=other_categories.
         // When oppositeUsage allows both fieldnames for pages, that row must appear.
         $result = $this->repository->findReverseMmRelations(
-            parentUids: [2],
+            parentUids: [31],
             mmTable: self::MM_TABLE,
             oppositeUsage: [
                 'tx_myext_domain_model_article' => ['categories'],
@@ -255,11 +255,11 @@ final class DataRepositoryReverseMmTest extends ApiFunctionalTestCase
             ],
         );
 
-        self::assertCount(2, $result[2]);
+        self::assertCount(2, $result[31]);
 
-        // sorting_foreign for parent=2: article (sf=1), pages other_categories (sf=2)
-        self::assertSame('tx_myext_domain_model_article', $result[2][0]['table']);
-        self::assertSame('pages', $result[2][1]['table']);
+        // sorting_foreign for parent=31: article (sf=1), pages other_categories (sf=2)
+        self::assertSame('tx_myext_domain_model_article', $result[31][0]['table']);
+        self::assertSame('pages', $result[31][1]['table']);
     }
 
     // ── ISC-8: projects all five MM columns (indirect — via behavior) ────────
@@ -275,14 +275,14 @@ final class DataRepositoryReverseMmTest extends ApiFunctionalTestCase
     public function selectProjectsTablenamesAndUidForeign(): void
     {
         $result = $this->repository->findReverseMmRelations(
-            parentUids: [1],
+            parentUids: [30],
             mmTable: self::MM_TABLE,
             oppositeUsage: ['pages' => ['categories']],
         );
 
-        self::assertCount(1, $result[1]);
-        self::assertSame('pages', $result[1][0]['table']);
-        self::assertSame(1, $result[1][0]['uid']);
+        self::assertCount(1, $result[30]);
+        self::assertSame('pages', $result[30][0]['table']);
+        self::assertSame(1, $result[30][0]['uid']);
     }
 
     // ── extraConstraints ──────────────────────────────────────────────────────
@@ -290,9 +290,9 @@ final class DataRepositoryReverseMmTest extends ApiFunctionalTestCase
     #[Test]
     public function extraConstraintsAppliedAsEqualityFilters(): void
     {
-        // Parent 1 has three rows; constrain to uid_foreign=2 only.
+        // Parent 30 has three rows; constrain to uid_foreign=2 only.
         $result = $this->repository->findReverseMmRelations(
-            parentUids: [1, 2, 3],
+            parentUids: [30, 31, 32],
             mmTable: self::MM_TABLE,
             oppositeUsage: [
                 'tx_myext_domain_model_article' => ['categories'],
@@ -301,17 +301,17 @@ final class DataRepositoryReverseMmTest extends ApiFunctionalTestCase
             extraConstraints: ['uid_foreign' => 2],
         );
 
-        // Parent 1: article uid_foreign=2 (sf=1) survives → 1 entry.
-        self::assertCount(1, $result[1]);
-        self::assertSame(2, $result[1][0]['uid']);
-        self::assertSame('tx_myext_domain_model_article', $result[1][0]['table']);
+        // Parent 30: article uid_foreign=2 (sf=1) survives → 1 entry.
+        self::assertCount(1, $result[30]);
+        self::assertSame(2, $result[30][0]['uid']);
+        self::assertSame('tx_myext_domain_model_article', $result[30][0]['table']);
 
-        // Parent 2: article uid_foreign=3 fails, pages other_categories uid_foreign=1 fails → empty.
-        self::assertSame([], $result[2]);
+        // Parent 31: article uid_foreign=3 fails, pages other_categories uid_foreign=1 fails → empty.
+        self::assertSame([], $result[31]);
 
-        // Parent 3: pages categories uid_foreign=2 survives, tt_content excluded by tablenames disjunct.
-        self::assertCount(1, $result[3]);
-        self::assertSame('pages', $result[3][0]['table']);
-        self::assertSame(2, $result[3][0]['uid']);
+        // Parent 32: pages categories uid_foreign=2 survives, tt_content excluded by tablenames disjunct.
+        self::assertCount(1, $result[32]);
+        self::assertSame('pages', $result[32][0]['table']);
+        self::assertSame(2, $result[32][0]['uid']);
     }
 }
