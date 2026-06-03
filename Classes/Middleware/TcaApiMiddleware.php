@@ -115,7 +115,7 @@ final class TcaApiMiddleware implements MiddlewareInterface
             ->withHeader('Access-Control-Allow-Origin', $origin)
             ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
             ->withHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Locale')
-            ->withHeader('Access-Control-Expose-Headers', 'Link, X-TCA-API-Cache, X-Cache-Tags')
+            ->withHeader('Access-Control-Expose-Headers', 'Link, X-TCA-API-Cache, X-Cache-Tags, X-Cache-Tag-Count')
             ->withHeader('Vary', 'Origin');
 
         if ($corsAllowCredentials) {
