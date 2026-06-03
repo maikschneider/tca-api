@@ -28,4 +28,5 @@ TCA_API is configured through two mechanisms:
     FileUploads
     Caching
     Languages
+    RouteEnhancer
     Userinfo

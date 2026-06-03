@@ -30,6 +30,7 @@ final readonly class ColumnDefinition
         public readonly mixed $callback      = null,
         public readonly ?UploadDefinition $upload = null,
         public readonly ?ImageDefinition $image = null,
+        public readonly ?RouteDefinition $route = null,
     ) {
     }
 
@@ -281,6 +282,23 @@ final readonly class ColumnDefinition
             }
         }
 
+        // ── route ─────────────────────────────────────────────────────────
+        $route = null;
+        if (\array_key_exists('route', $raw)) {
+            if (!\is_array($raw['route'])) {
+                throw new \InvalidArgumentException('Column config "route" must be an array.');
+            }
+            try {
+                $route = RouteDefinition::fromArray($raw['route']);
+            } catch (\InvalidArgumentException $e) {
+                throw new \InvalidArgumentException(
+                    sprintf('Column config "route": %s', $e->getMessage()),
+                    0,
+                    $e,
+                );
+            }
+        }
+
         return new self(
             groups:       $groups,
             type:         $type,
@@ -294,6 +312,7 @@ final readonly class ColumnDefinition
             callback:     $callback,
             upload:       $upload,
             image:        $image,
+            route:        $route,
         );
     }
 }

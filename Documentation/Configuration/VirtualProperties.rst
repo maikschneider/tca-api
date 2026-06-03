@@ -145,3 +145,8 @@ Virtual property options reference
        config: ``width``, ``height``, ``minWidth``, ``minHeight``, ``maxWidth``,
        ``maxHeight``, ``cropVariant``, ``fileExtension``, ``absolute``. See
        :ref:`image-processor`.
+   * - ``route``
+     - URL generation options for ``RouteEnhancerProcessor``. Typically used
+       as a virtual property to expose a record's frontend URL without a DB
+       column. Drives the TYPO3 site router so any ``routeEnhancer`` on the
+       target page applies transparently. See :ref:`route-enhancer`.
