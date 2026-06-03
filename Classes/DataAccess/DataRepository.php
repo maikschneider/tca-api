@@ -138,6 +138,7 @@ final class DataRepository
         string $mmParentKey,
         string $mmForeignKey,
         array $mmConstraints = [],
+        bool $useReverseSorting = false,
     ): array {
         if ($parentUids === []) {
             return [];
@@ -156,7 +157,7 @@ final class DataRepository
                 'mm.' . $mmParentKey,
                 array_map(fn (int $uid) => $qb->createNamedParameter($uid), $parentUids),
             ))
-            ->addOrderBy('mm.sorting');
+            ->addOrderBy($useReverseSorting ? 'mm.sorting_foreign' : 'mm.sorting');
 
         foreach ($mmConstraints as $col => $val) {
             $qb->andWhere($qb->expr()->eq('mm.' . $col, $qb->createNamedParameter($val)));

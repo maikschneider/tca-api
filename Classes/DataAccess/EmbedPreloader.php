@@ -195,6 +195,7 @@ final class EmbedPreloader
             $hasOppositeField ? 'uid_foreign' : 'uid_local',
             $hasOppositeField ? 'uid_local'  : 'uid_foreign',
             $fieldConfig['MM_match_fields'] ?? [],
+            $hasOppositeField,
         );
 
         foreach ($grouped as $parentUid => $childRows) {

@@ -135,6 +135,7 @@ final readonly class GroupFieldSerializer
                 $hasOppositeField ? 'uid_foreign' : 'uid_local',
                 $hasOppositeField ? 'uid_local'  : 'uid_foreign',
                 $fieldConfig['MM_match_fields'] ?? [],
+                $hasOppositeField,
             );
             $relatedRows = $grouped[$uid] ?? [];
         } else {
