@@ -168,6 +168,7 @@ final class EmbedPreloader
             array_values($parentUids),
             $fieldConfig['MM'],
             $oppositeUsage,
+            $fieldConfig['MM_match_fields'] ?? [],
         );
 
         foreach ($parentUids as $parentUid) {

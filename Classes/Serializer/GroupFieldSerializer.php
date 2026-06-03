@@ -95,7 +95,7 @@ final readonly class GroupFieldSerializer
                 return [];
             }
 
-            $grouped = $this->dataRepository->findReverseMmRelations([$uid], $fieldConfig['MM'], $oppositeUsage);
+            $grouped = $this->dataRepository->findReverseMmRelations([$uid], $fieldConfig['MM'], $oppositeUsage, $fieldConfig['MM_match_fields'] ?? []);
             $items = $grouped[$uid] ?? [];
         }
 
