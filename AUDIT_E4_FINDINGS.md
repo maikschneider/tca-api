@@ -97,16 +97,16 @@ The method performs:
 
 Created test fixtures to verify behavior:
 - **Fixture:** `Tests/Functional/Fixtures/sys_categories_hidden.csv`
-  - Category 4: `hidden=1`
-  - Category 5: `deleted=1`
+  - Category 204: `hidden=1`
+  - Category 205: `deleted=1`
 - **Fixture:** `Tests/Functional/Fixtures/sys_category_record_mm_hidden.csv`
-  - Article 1 has MM relations to categories 1, 2, 4 (hidden), 5 (deleted)
+  - Article 1 has MM relations to categories 201, 202, 204 (hidden), 205 (deleted)
 - **Test:** `Tests/Functional/Api/MmEnableFieldsTest.php`
   - Verifies hidden/deleted categories do NOT appear in API responses
   - Tests both single-item and collection endpoints
   - Tests both IRI and embedded response formats
 
-**Expected Result:** Only categories 1 and 2 should appear in responses for Article 1.
+**Expected Result:** Only categories 201 and 202 should appear in responses for Article 1.
 
 ### 5. Comparison with Other Methods
 

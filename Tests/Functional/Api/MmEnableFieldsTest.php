@@ -15,16 +15,16 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
  * Issue: [Audit E4] findHasManyByMM may skip enableFields on JOIN target
  *
  * Fixture data:
- *   Article 1 → categories=[1 (PHP), 2 (TYPO3), 4 (Hidden Category), 5 (Deleted Category)]
- *   Article 2 → categories=[3 (API)]
+ *   Article 1 → categories=[201 (PHP), 202 (TYPO3), 204 (Hidden Category), 205 (Deleted Category)]
+ *   Article 2 → categories=[203 (API)]
  *
- *   Category 1: visible
- *   Category 2: visible
- *   Category 3: visible
- *   Category 4: HIDDEN (hidden=1)
- *   Category 5: DELETED (deleted=1)
+ *   Category 201: visible
+ *   Category 202: visible
+ *   Category 203: visible
+ *   Category 204: HIDDEN (hidden=1)
+ *   Category 205: DELETED (deleted=1)
  *
- * Expected behavior: API responses should NOT include categories 4 or 5.
+ * Expected behavior: API responses should NOT include categories 204 or 205.
  * If they do appear, this confirms the security issue.
  */
 final class MmEnableFieldsTest extends ApiFunctionalTestCase
@@ -41,8 +41,8 @@ final class MmEnableFieldsTest extends ApiFunctionalTestCase
 
     /**
      * Verify that hidden categories do NOT appear in API responses.
-     * Article 1 has MM relations to categories 1, 2, 4 (hidden), and 5 (deleted).
-     * Only categories 1 and 2 should be returned.
+     * Article 1 has MM relations to categories 201, 202, 204 (hidden), and 205 (deleted).
+     * Only categories 201 and 202 should be returned.
      */
     public function testHiddenCategoryIsFilteredOutFromMmRelations(): void
     {
@@ -52,17 +52,17 @@ final class MmEnableFieldsTest extends ApiFunctionalTestCase
         self::assertArrayHasKey('categories', $body);
         self::assertIsArray($body['categories']);
 
-        // Article 1 should only have visible categories (1, 2) not hidden (4) or deleted (5)
+        // Article 1 should only have visible categories (201, 202) not hidden (204) or deleted (205)
         self::assertCount(2, $body['categories'], 'Hidden and deleted categories should be filtered out');
 
-        // Verify the returned categories are the correct ones (1 and 2)
+        // Verify the returned categories are the correct ones (201 and 202)
         $categoryIds = array_map(
             fn(string $iri) => (int) basename($iri),
             $body['categories']
         );
         sort($categoryIds);
 
-        self::assertSame([1, 2], $categoryIds, 'Only visible categories should be returned');
+        self::assertSame([201, 202], $categoryIds, 'Only visible categories should be returned');
     }
 
     /**
@@ -74,10 +74,10 @@ final class MmEnableFieldsTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/articles/1');
         $body = $this->decodeResponseBody($response);
 
-        // Verify no category ID 5 (deleted) in the response
+        // Verify no category ID 205 (deleted) in the response
         $categoryIris = $body['categories'];
         foreach ($categoryIris as $iri) {
-            self::assertStringNotContainsString('/5', $iri, 'Deleted category should not appear');
+            self::assertStringNotContainsString('/205', $iri, 'Deleted category should not appear');
         }
     }
 
@@ -107,7 +107,7 @@ final class MmEnableFieldsTest extends ApiFunctionalTestCase
             // Embedded as objects
             $categoryIds = array_map(fn($cat) => $cat['uid'], $article1['categories']);
             sort($categoryIds);
-            self::assertSame([1, 2], $categoryIds, 'Only visible categories should be embedded');
+            self::assertSame([201, 202], $categoryIds, 'Only visible categories should be embedded');
         } else {
             // Embedded as IRIs
             self::assertCount(2, $article1['categories'], 'Only visible categories should be returned');
