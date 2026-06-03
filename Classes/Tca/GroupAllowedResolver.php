@@ -112,6 +112,9 @@ final readonly class GroupAllowedResolver
                     $cleanFields[] = $field;
                 }
             }
+            if ($cleanFields === []) {
+                continue;
+            }
             $normalised[$table] = $cleanFields;
         }
 
