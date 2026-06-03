@@ -77,6 +77,13 @@ final class TcaApiMiddleware implements MiddlewareInterface
         $request = $request
             ->withAttribute('tca_api.api_prefix', $apiPrefix)
             ->withAttribute('tca_api.request_prefix', $matchedRequestPrefix);
+
+        // The API middleware short-circuits the frontend RequestHandler, so
+        // $GLOBALS['TYPO3_REQUEST'] is never populated for downstream code that
+        // expects the b/w-compat global (e.g. RouteEnhancerProcessor reading
+        // the current language). Mirror the frontend RequestHandler behavior.
+        $GLOBALS['TYPO3_REQUEST'] = $request;
+
         $response = $this->dispatcher->dispatch($request, $settings);
 
         if ($corsEnabled) {

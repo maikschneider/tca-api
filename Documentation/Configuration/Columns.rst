@@ -82,6 +82,11 @@ All keys are optional.
      - Image processing options for ``ImageProcessor`` columns. Controls
        dimensions, crop variant selection, format conversion, and URL mode.
        See :ref:`image-processor` for all options.
+   * - ``route``
+     - URL generation options for ``RouteEnhancerProcessor`` columns and
+       virtual properties. Drives the TYPO3 site router so any
+       ``routeEnhancer`` configured on the target page applies transparently.
+       See :ref:`route-enhancer` for all options.
 
 ..  _field-type-support:
 
@@ -181,6 +186,33 @@ built-in processors:
            'groups'    => ['list', 'show'],
            'processor' => TypoLinkProcessor::class,
        ],
+
+``RouteEnhancerProcessor``
+   Generates a frontend URL per record from a typed ``route`` config and
+   defers URL construction to the TYPO3 site router, so any configured
+   ``routeEnhancer`` (e.g. an Extbase News plugin) applies transparently.
+   Most often used on a virtual property:
+
+   ..  code-block:: php
+
+       use MaikSchneider\TcaApi\Serializer\Processing\RouteEnhancerProcessor;
+
+       'virtualProperties' => [
+           'url' => [
+               'processor' => RouteEnhancerProcessor::class,
+               'route'     => [
+                   'pid'        => '{$tca_api.news.detailPid}',
+                   'extension'  => 'News',
+                   'plugin'     => 'Pi1',
+                   'controller' => 'News',
+                   'action'     => 'detail',
+                   'arguments'  => ['news' => '{uid}'],
+               ],
+           ],
+       ],
+
+   See :ref:`route-enhancer` for placeholder grammar, language handling,
+   and the full options reference.
 
 ..  _image-processor:
 
