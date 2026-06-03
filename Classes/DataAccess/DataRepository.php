@@ -130,6 +130,9 @@ final class DataRepository
     /**
      * Bulk-fetch hasMany related records via an MM intermediate table.
      * Returns [parentUid => [rows]] preserving MM sorting order.
+     *
+     * When $language is provided, only default-language (sys_language_uid IN (0,-1)) rows
+     * are fetched and language overlay is applied to the result set.
      */
     public function findHasManyByMM(
         string $foreignTable,
@@ -138,6 +141,7 @@ final class DataRepository
         string $mmParentKey,
         string $mmForeignKey,
         array $mmConstraints = [],
+        ?SiteLanguage $language = null,
     ): array {
         if ($parentUids === []) {
             return [];
@@ -162,6 +166,8 @@ final class DataRepository
             $qb->andWhere($qb->expr()->eq('mm.' . $col, $qb->createNamedParameter($val)));
         }
 
+        $this->applyLanguageConstraintForTable($qb, $foreignTable, $language, 'f');
+
         $rows = $qb->executeQuery()->fetchAllAssociative();
 
         $grouped = [];
@@ -169,6 +175,13 @@ final class DataRepository
             $parentUid = (int)$row['__parent_uid'];
             unset($row['__parent_uid']);
             $grouped[$parentUid][] = $row;
+        }
+
+        // Apply language overlay per parent group to preserve grouping.
+        if ($language !== null && $language->getLanguageId() !== 0) {
+            foreach ($grouped as $parentUid => $parentRows) {
+                $grouped[$parentUid] = $this->applyLanguageOverlayForTable($parentRows, $foreignTable, $language);
+            }
         }
 
         return $grouped;
@@ -268,6 +281,9 @@ final class DataRepository
      * Bulk-fetch hasMany related records via a back-pointer (foreign_field) on the child table.
      * Applies foreign_match_fields as fixed child-table constraints when provided.
      * Returns [parentUid => [rows]] ordered by the child table's default sorting.
+     *
+     * When $language is provided, only default-language (sys_language_uid IN (0,-1)) rows
+     * are fetched and language overlay is applied to the result set.
      */
     public function findHasManyByForeignField(
         string $foreignTable,
@@ -276,6 +292,7 @@ final class DataRepository
         ?string $foreignTableField = null,
         ?string $parentTable = null,
         array $foreignMatchFields = [],
+        ?SiteLanguage $language = null,
     ): array {
         if ($parentUids === []) {
             return [];
@@ -303,12 +320,21 @@ final class DataRepository
             ));
         }
 
+        $this->applyLanguageConstraintForTable($qb, $foreignTable, $language);
+
         $rows = $qb->executeQuery()->fetchAllAssociative();
 
         $grouped = [];
         foreach ($rows as $row) {
             $parentUid = (int)$row[$foreignField];
             $grouped[$parentUid][] = $row;
+        }
+
+        // Apply language overlay per parent group to preserve grouping.
+        if ($language !== null && $language->getLanguageId() !== 0) {
+            foreach ($grouped as $parentUid => $parentRows) {
+                $grouped[$parentUid] = $this->applyLanguageOverlayForTable($parentRows, $foreignTable, $language);
+            }
         }
 
         return $grouped;
@@ -336,6 +362,79 @@ final class DataRepository
             $languageField,
             $qb->createNamedParameter([0, -1], Connection::PARAM_INT_ARRAY),
         ));
+    }
+
+    /**
+     * Apply language constraint for a foreign table (used by MM/foreignField queries).
+     * Restricts to default-language rows (sys_language_uid IN (0, -1)) when a non-default
+     * language is active and the table supports translations.
+     */
+    private function applyLanguageConstraintForTable(QueryBuilder $qb, string $table, ?SiteLanguage $language, string $alias = ''): void
+    {
+        if ($language === null || $language->getLanguageId() === 0) {
+            return;
+        }
+
+        $languageField = $this->languageField($table);
+        if ($languageField === null) {
+            return;
+        }
+
+        $col = $alias !== '' ? $alias . '.' . $languageField : $languageField;
+        $qb->andWhere($qb->expr()->in(
+            $col,
+            $qb->createNamedParameter([0, -1], Connection::PARAM_INT_ARRAY),
+        ));
+    }
+
+    /**
+     * Apply language overlay for a foreign table (without requiring an ApiDefinition).
+     *
+     * Used by findHasManyByMM / findHasManyByForeignField to overlay child rows
+     * in the same manner as the main findById / findCollection paths.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     * @return array<int, array<string, mixed>>
+     */
+    private function applyLanguageOverlayForTable(array $rows, string $table, SiteLanguage $language): array
+    {
+        if ($rows === []) {
+            return $rows;
+        }
+
+        $languageField = $this->languageField($table);
+        $parentField = $this->translationParentField($table);
+        if ($languageField === null || $parentField === null) {
+            return $rows;
+        }
+
+        $parentUids = array_values(array_unique(array_map(static fn (array $row): int => (int)$row['uid'], $rows)));
+        $translations = $this->fetchTranslations($table, $languageField, $parentField, $language->getLanguageId(), $parentUids);
+        $fallbackType = $language->getFallbackType();
+
+        $overlaid = [];
+        foreach ($rows as $row) {
+            if (isset($row[$languageField]) && (int)$row[$languageField] === -1) {
+                $overlaid[] = $row;
+                continue;
+            }
+
+            $parentUid = (int)$row['uid'];
+            if (isset($translations[$parentUid])) {
+                $row = array_merge($row, $translations[$parentUid]);
+                $row['uid'] = $parentUid;
+                $overlaid[] = $row;
+                continue;
+            }
+
+            if ($fallbackType === 'strict') {
+                continue;
+            }
+
+            $overlaid[] = $row;
+        }
+
+        return $overlaid;
     }
 
     /**

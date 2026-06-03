@@ -128,6 +128,7 @@ final readonly class GroupFieldSerializer
             );
         } elseif ($mmTable !== null) {
             $hasOppositeField = isset($fieldConfig['MM_opposite_field']);
+            $language    = $preloaded['__language'] ?? null;
             $grouped     = $this->dataRepository->findHasManyByMM(
                 $foreignTable,
                 [$uid],
@@ -135,6 +136,7 @@ final readonly class GroupFieldSerializer
                 $hasOppositeField ? 'uid_foreign' : 'uid_local',
                 $hasOppositeField ? 'uid_local'  : 'uid_foreign',
                 $fieldConfig['MM_match_fields'] ?? [],
+                $language,
             );
             $relatedRows = $grouped[$uid] ?? [];
         } else {
