@@ -18,9 +18,9 @@ use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
  * Fixture data (sys_categories_reverse.csv + sys_category_record_mm_reverse.csv +
  *               articles.csv + colors.csv):
  *
- *   Category 10 → articles [2 (sf=1), 1 (sf=2)] + color [1 (sf=3)]
- *   Category 11 → article [1 (sf=1)]
- *   Category 12 → (no MM entries — empty items)
+ *   Category 20 → articles [2 (sf=1), 1 (sf=2)] + color [1 (sf=3)]
+ *   Category 21 → article [1 (sf=1)]
+ *   Category 22 → (no MM entries — empty items)
  *
  * sf = sorting_foreign (canonical reverse-side order column)
  */
@@ -122,7 +122,7 @@ final class ReverseMmTest extends ApiFunctionalTestCase
         $this->registerArticleResource();
         $this->registerColorResource();
 
-        $response = $this->executeApiRequest('/_api/rm-categories/10');
+        $response = $this->executeApiRequest('/_api/rm-categories/20');
 
         self::assertSame(200, $response->getStatusCode());
     }
@@ -138,7 +138,7 @@ final class ReverseMmTest extends ApiFunctionalTestCase
         $this->registerArticleResource();
         $this->registerColorResource();
 
-        $response = $this->executeApiRequest('/_api/rm-categories/10');
+        $response = $this->executeApiRequest('/_api/rm-categories/20');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -162,7 +162,7 @@ final class ReverseMmTest extends ApiFunctionalTestCase
         $this->registerArticleResource();
         $this->registerColorResource();
 
-        $response = $this->executeApiRequest('/_api/rm-categories/10');
+        $response = $this->executeApiRequest('/_api/rm-categories/20');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -185,7 +185,7 @@ final class ReverseMmTest extends ApiFunctionalTestCase
         $this->registerArticleResource();
         $this->registerColorResource();
 
-        $response = $this->executeApiRequest('/_api/rm-categories/10');
+        $response = $this->executeApiRequest('/_api/rm-categories/20');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -211,7 +211,7 @@ final class ReverseMmTest extends ApiFunctionalTestCase
         $this->registerArticleResource();
         $this->registerColorResource();
 
-        $response = $this->executeApiRequest('/_api/rm-categories/11');
+        $response = $this->executeApiRequest('/_api/rm-categories/21');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -237,7 +237,7 @@ final class ReverseMmTest extends ApiFunctionalTestCase
         $this->registerCategoryResource();
         $this->registerArticleResource();
 
-        $response = $this->executeApiRequest('/_api/rm-categories/12');
+        $response = $this->executeApiRequest('/_api/rm-categories/22');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -266,9 +266,9 @@ final class ReverseMmTest extends ApiFunctionalTestCase
             $byUid[$cat['uid']] = $cat;
         }
 
-        self::assertCount(3, $byUid[10]['items']);
-        self::assertCount(1, $byUid[11]['items']);
-        self::assertCount(0, $byUid[12]['items']);
+        self::assertCount(3, $byUid[20]['items']);
+        self::assertCount(1, $byUid[21]['items']);
+        self::assertCount(0, $byUid[22]['items']);
     }
 
     // ── ISC-32 regression guard ───────────────────────────────────────────────
