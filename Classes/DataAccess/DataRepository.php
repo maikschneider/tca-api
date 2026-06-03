@@ -128,8 +128,23 @@ final class DataRepository
     }
 
     /**
-     * Bulk-fetch hasMany related records via an MM intermediate table.
+     * Bulk-fetch hasMany related records via an MM (many-to-many) intermediate table.
      * Returns [parentUid => [rows]] preserving MM sorting order.
+     *
+     * @param string $foreignTable Target table (e.g., sys_category). QueryBuilder automatically
+     *                             applies enableFields restrictions (hidden, deleted, starttime,
+     *                             endtime) to filter this table.
+     * @param array<int> $parentUids Parent record UIDs to fetch relations for
+     * @param string $mmTable MM intermediate table (e.g., sys_category_record_mm)
+     * @param string $mmParentKey MM column pointing to parent (uid_local or uid_foreign)
+     * @param string $mmForeignKey MM column pointing to foreign (uid_foreign or uid_local)
+     * @param array<string, mixed> $mmConstraints Additional MM table constraints (MM_match_fields)
+     * @return array<int, array<int, array<string, mixed>>> Grouped rows by parent UID
+     *
+     * Security note: TYPO3's QueryBuilder automatically applies enableFields restrictions
+     * to the primary FROM table ($foreignTable), ensuring hidden/deleted records are filtered.
+     * The MM table does not receive restrictions, but this is correct since MM tables are
+     * structural and typically do not have enableFields columns.
      */
     public function findHasManyByMM(
         string $foreignTable,
