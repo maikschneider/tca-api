@@ -188,13 +188,13 @@ final class RelationSerializer
             );
         }
 
-        return $this->fetchHasManyRows($column, $field, $row, $parentTable);
+        return $this->fetchHasManyRows($column, $field, $row, $parentTable, $preloaded);
     }
 
     /**
      * Fetch hasMany rows directly from DB for a single parent (slow path — not preloaded).
      */
-    private function fetchHasManyRows(string $column, FieldTypeInterface&RelationalFieldTypeInterface $fieldObj, array $row, string $parentTable): array
+    private function fetchHasManyRows(string $column, FieldTypeInterface&RelationalFieldTypeInterface $fieldObj, array $row, string $parentTable, array $preloaded = []): array
     {
         $fieldConfig  = $fieldObj->getConfiguration();
         $foreignTable = $fieldConfig['foreign_table'] ?? null;
@@ -204,6 +204,7 @@ final class RelationSerializer
 
         $parentUid = (int)$row['uid'];
         $mmTable   = $fieldConfig['MM'] ?? null;
+        $language  = $preloaded['__language'] ?? null;
 
         if ($mmTable !== null) {
             $hasOppositeField = isset($fieldConfig['MM_opposite_field']);
@@ -214,6 +215,7 @@ final class RelationSerializer
                 $hasOppositeField ? 'uid_foreign' : 'uid_local',
                 $hasOppositeField ? 'uid_local'  : 'uid_foreign',
                 $fieldConfig['MM_match_fields'] ?? [],
+                $language,
             );
             return $grouped[$parentUid] ?? [];
         }
@@ -226,6 +228,7 @@ final class RelationSerializer
                 $fieldConfig['foreign_table_field'] ?? null,
                 $parentTable,
                 $fieldConfig['foreign_match_fields'] ?? [],
+                $language,
             );
             return $grouped[$parentUid] ?? [];
         }

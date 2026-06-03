@@ -1,0 +1,7 @@
+"sys_category"
+,"uid","pid","title","hidden","deleted","parent","sys_language_uid","l10n_parent"
+,800,0,"Frontend",0,0,0,0,0
+,801,0,"Backend",0,0,0,0,0
+,802,0,"Fullstack",0,0,0,0,0
+,850,0,"Frontend DE",0,0,0,1,800
+,851,0,"Backend DE",0,0,0,1,801

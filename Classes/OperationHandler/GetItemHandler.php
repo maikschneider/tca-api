@@ -53,14 +53,15 @@ class GetItemHandler implements OperationHandlerInterface
     {
         $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
         $baseUrl   = $apiPrefix . '/' . $config->resourceName;
+        $language  = $this->languageFromRequest($request);
 
-        $row = $this->dataRepository->findById($config->table, $uid, $config, $this->languageFromRequest($request));
+        $row = $this->dataRepository->findById($config->table, $uid, $config, $language);
         if ($row === null) {
             return $this->responseFactory->createResponse(404)
                 ->withHeader('Content-Type', 'application/ld+json');
         }
 
-        $preloaded  = $this->embedPreloader->preload([$row], $config);
+        $preloaded  = $this->embedPreloader->preload([$row], $config, $language);
         $serialized = $this->serializer->serialize($row, $config, $baseUrl, $fields, $preloaded, -1, [], 'show');
 
         $event = new AfterOperationEvent('show', $serialized);

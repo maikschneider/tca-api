@@ -10,6 +10,7 @@ use TYPO3\CMS\Core\Schema\Field\FileFieldType;
 use TYPO3\CMS\Core\Schema\Field\GroupFieldType;
 use TYPO3\CMS\Core\Schema\Field\RelationalFieldTypeInterface;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
+use TYPO3\CMS\Core\Site\Entity\SiteLanguage;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
@@ -36,9 +37,13 @@ final class EmbedPreloader
     ) {
     }
 
-    public function preload(array $rows, ApiDefinition $config): array
+    public function preload(array $rows, ApiDefinition $config, ?SiteLanguage $language = null): array
     {
         $preloaded = ['rows' => [], 'relations' => []];
+
+        // Store language in preloaded metadata so serializer slow paths can use it.
+        $effectiveLanguage = ($config->languageMode !== 'ignore') ? $language : null;
+        $preloaded['__language'] = $effectiveLanguage;
 
         if ($rows === []) {
             return $preloaded;
@@ -95,7 +100,7 @@ final class EmbedPreloader
                     $mmTable      = $fieldConfig['MM'] ?? null;
 
                     if ($mmTable !== null) {
-                        $this->preloadMm($preloaded, $column, $foreignTable, $fieldConfig, $parentUids);
+                        $this->preloadMm($preloaded, $column, $foreignTable, $fieldConfig, $parentUids, $effectiveLanguage);
                     } else {
                         $this->collectUidListRelations($preloaded, $uidsByTable, $column, $foreignTable, $rows);
                     }
@@ -125,7 +130,7 @@ final class EmbedPreloader
                 $mmTable = $fieldConfig['MM'] ?? null;
 
                 if ($mmTable !== null) {
-                    $this->preloadMm($preloaded, $column, $foreignTable, $fieldConfig, $parentUids);
+                    $this->preloadMm($preloaded, $column, $foreignTable, $fieldConfig, $parentUids, $effectiveLanguage);
                 } elseif (isset($fieldConfig['foreign_field'])) {
                     $this->preloadForeignField(
                         $preloaded,
@@ -136,6 +141,7 @@ final class EmbedPreloader
                         $fieldConfig['foreign_table_field'] ?? null,
                         $config->table,
                         $fieldConfig['foreign_match_fields'] ?? [],
+                        $effectiveLanguage,
                     );
                 } else {
                     $this->collectUidListRelations($preloaded, $uidsByTable, $column, $foreignTable, $rows);
@@ -183,7 +189,7 @@ final class EmbedPreloader
     /**
      * Preload a hasMany MM relation: fetch rows via JOIN, store in pool + relations.
      */
-    private function preloadMm(array &$preloaded, string $column, string $foreignTable, array $fieldConfig, array $parentUids): void
+    private function preloadMm(array &$preloaded, string $column, string $foreignTable, array $fieldConfig, array $parentUids, ?SiteLanguage $language = null): void
     {
         $mmTable          = $fieldConfig['MM'];
         $hasOppositeField = isset($fieldConfig['MM_opposite_field']);
@@ -195,6 +201,7 @@ final class EmbedPreloader
             $hasOppositeField ? 'uid_foreign' : 'uid_local',
             $hasOppositeField ? 'uid_local'  : 'uid_foreign',
             $fieldConfig['MM_match_fields'] ?? [],
+            $language,
         );
 
         foreach ($grouped as $parentUid => $childRows) {
@@ -208,7 +215,7 @@ final class EmbedPreloader
     /**
      * Preload a hasMany foreignField relation: fetch rows, store in pool + relations.
      */
-    private function preloadForeignField(array &$preloaded, string $column, string $foreignTable, string $foreignField, array $parentUids, ?string $foreignTableField = null, ?string $parentTable = null, array $foreignMatchFields = []): void
+    private function preloadForeignField(array &$preloaded, string $column, string $foreignTable, string $foreignField, array $parentUids, ?string $foreignTableField = null, ?string $parentTable = null, array $foreignMatchFields = [], ?SiteLanguage $language = null): void
     {
         $grouped = $this->dataRepository->findHasManyByForeignField(
             $foreignTable,
@@ -217,6 +224,7 @@ final class EmbedPreloader
             $foreignTableField,
             $parentTable,
             $foreignMatchFields,
+            $language,
         );
 
         foreach ($grouped as $parentUid => $childRows) {
