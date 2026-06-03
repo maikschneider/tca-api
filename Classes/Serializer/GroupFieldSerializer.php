@@ -7,6 +7,7 @@ namespace MaikSchneider\TcaApi\Serializer;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
+use MaikSchneider\TcaApi\Tca\GroupAllowedResolver;
 use MaikSchneider\TcaApi\Utility\UidListParser;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -22,6 +23,7 @@ final readonly class GroupFieldSerializer
 {
     public function __construct(
         private DataRepository $dataRepository,
+        private GroupAllowedResolver $groupAllowedResolver,
     ) {
     }
 
@@ -43,6 +45,15 @@ final readonly class GroupFieldSerializer
         RelationSerializer $relationSerializer,
         ResourceSerializer $serializer,
     ): array {
+        // Wildcard reverse-side MM: allowed='*' with MM + MM_oppositeUsage
+        if ($this->groupAllowedResolver->isWildcard($fieldConfig)) {
+            if (!isset($fieldConfig['MM'])) {
+                return [];
+            }
+
+            return $this->serializeReverseMm($column, $fieldConfig, $columnDef, $config, $row, $preloaded, $effectiveDepth, $visited, $operation, $apiPrefix, $relationSerializer, $serializer);
+        }
+
         $allowedTables = GeneralUtility::trimExplode(',', $fieldConfig['allowed'] ?? '', true);
 
         if ($allowedTables === []) {
@@ -54,6 +65,41 @@ final readonly class GroupFieldSerializer
         }
 
         return $this->serializeMultiTableGroup($column, $columnDef, $config, $row, $preloaded, $effectiveDepth, $visited, $operation, $apiPrefix, $relationSerializer, $serializer);
+    }
+
+    /**
+     * Reverse-side MM (allowed='*' + MM_oppositeUsage): read from preloaded pool when available,
+     * otherwise query findReverseMmRelations directly (cold path / unit tests).
+     */
+    private function serializeReverseMm(
+        string $column,
+        array $fieldConfig,
+        ColumnDefinition $columnDef,
+        ApiDefinition $config,
+        array $row,
+        array $preloaded,
+        int $effectiveDepth,
+        array $visited,
+        string $operation,
+        string $apiPrefix,
+        RelationSerializer $relationSerializer,
+        ResourceSerializer $serializer,
+    ): array {
+        $uid = (int)$row['uid'];
+
+        if (isset($preloaded['multiTableRelations'][$column][$uid])) {
+            $items = $preloaded['multiTableRelations'][$column][$uid];
+        } else {
+            $oppositeUsage = $this->groupAllowedResolver->resolveOppositeUsage($fieldConfig);
+            if ($oppositeUsage === []) {
+                return [];
+            }
+
+            $grouped = $this->dataRepository->findReverseMmRelations([$uid], $fieldConfig['MM'], $oppositeUsage);
+            $items = $grouped[$uid] ?? [];
+        }
+
+        return $this->serializeMultiTableGroup($column, $columnDef, $config, $row, $preloaded, $effectiveDepth, $visited, $operation, $apiPrefix, $relationSerializer, $serializer, $items);
     }
 
     /** Single allowed table: preloaded pool → MM slow path → UID-list slow path. */
@@ -116,10 +162,11 @@ final readonly class GroupFieldSerializer
         string $apiPrefix,
         RelationSerializer $relationSerializer,
         ResourceSerializer $serializer,
+        ?array $items = null,
     ): array {
         $uid = (int)$row['uid'];
 
-        $items = isset($preloaded['multiTableRelations'][$column][$uid])
+        $items ??= isset($preloaded['multiTableRelations'][$column][$uid])
             ? $preloaded['multiTableRelations'][$column][$uid]
             : $this->parseMultiTableGroupValues(trim((string)($row[$column] ?? '')));
 
