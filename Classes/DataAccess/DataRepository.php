@@ -53,6 +53,49 @@ final class DataRepository
         return $indexed;
     }
 
+    /**
+     * Language-aware bulk fetch: fetches rows by UID and applies language overlay.
+     *
+     * Restricts to default-language rows (sys_language_uid IN (0, -1)) so that
+     * translated rows stored under different UIDs are excluded from the base fetch,
+     * then overlays the result set with translations for the requested language.
+     * Returns rows indexed by their default-language UID.
+     *
+     * When $language is null or the table has no language support, behaves
+     * identically to findByIds().
+     */
+    public function findByIdsWithOverlay(string $table, array $uids, ?SiteLanguage $language): array
+    {
+        if ($uids === []) {
+            return [];
+        }
+
+        $qb = $this->connectionPool->getQueryBuilderForTable($table);
+        $qb->select('*')
+            ->from($table)
+            ->where(
+                $qb->expr()->in('uid', array_map(
+                    fn (int $uid) => $qb->createNamedParameter($uid),
+                    $uids,
+                ))
+            );
+
+        $this->applyLanguageConstraintForTable($qb, $table, $language);
+
+        $rows = $qb->executeQuery()->fetchAllAssociative();
+
+        if ($language !== null && $language->getLanguageId() !== 0 && $rows !== []) {
+            $rows = $this->applyLanguageOverlayForTable($rows, $table, $language);
+        }
+
+        $indexed = [];
+        foreach ($rows as $row) {
+            $indexed[(int)$row['uid']] = $row;
+        }
+
+        return $indexed;
+    }
+
     public function findById(string $table, int $uid, ApiDefinition $config, ?SiteLanguage $language = null): ?array
     {
         $qb = $this->connectionPool->getQueryBuilderForTable($table);

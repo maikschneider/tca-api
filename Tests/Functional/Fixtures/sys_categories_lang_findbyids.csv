@@ -1,0 +1,5 @@
+"sys_category"
+,"uid","pid","title","hidden","deleted","parent","sys_language_uid","l10n_parent"
+,920,0,"FBU Category Alpha",0,0,0,0,0
+,921,0,"FBU Category Beta (no DE)",0,0,0,0,0
+,923,0,"FBU Category Alpha DE",0,0,0,1,920

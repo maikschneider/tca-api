@@ -118,8 +118,9 @@ final readonly class GroupFieldSerializer
         RelationSerializer $relationSerializer,
         ResourceSerializer $serializer,
     ): array {
-        $uid     = (int)$row['uid'];
-        $mmTable = $fieldConfig['MM'] ?? null;
+        $uid      = (int)$row['uid'];
+        $mmTable  = $fieldConfig['MM'] ?? null;
+        $language = $preloaded['__language'] ?? null;
 
         if (isset($preloaded['relations'][$column])) {
             $relatedRows = UidListParser::mapToRows(
@@ -128,7 +129,6 @@ final readonly class GroupFieldSerializer
             );
         } elseif ($mmTable !== null) {
             $hasOppositeField = isset($fieldConfig['MM_opposite_field']);
-            $language    = $preloaded['__language'] ?? null;
             $grouped     = $this->dataRepository->findHasManyByMM(
                 $foreignTable,
                 [$uid],
@@ -142,7 +142,7 @@ final readonly class GroupFieldSerializer
         } else {
             $uids        = GeneralUtility::intExplode(',', (string)($row[$column] ?? ''), true);
             $relatedRows = $uids !== []
-                ? UidListParser::mapToRows($uids, $this->dataRepository->findByIds($foreignTable, $uids))
+                ? UidListParser::mapToRows($uids, $this->dataRepository->findByIdsWithOverlay($foreignTable, $uids, $language))
                 : [];
         }
 
@@ -201,8 +201,9 @@ final readonly class GroupFieldSerializer
         }
 
         // Bulk-fetch any missing rows per table
+        $language = $preloaded['__language'] ?? null;
         foreach ($missingByTable as $table => $uidSet) {
-            $fetched = $this->dataRepository->findByIds($table, array_keys($uidSet));
+            $fetched = $this->dataRepository->findByIdsWithOverlay($table, array_keys($uidSet), $language);
             foreach ($fetched as $fetchedUid => $fetchedRow) {
                 $rowsByTable[$table][$fetchedUid] = $fetchedRow;
             }

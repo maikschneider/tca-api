@@ -16,14 +16,14 @@ use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
  * (WHERE uid_local IN (defaultUid)) must still find the items stored under that uid.
  *
  * Fixture data:
- *   Category 910 (EN) "Reverse Alpha"        → DE translation 960 "Reverse Alpha DE"
- *   Category 911 (EN) "Reverse Beta"         → no DE translation (fallback expected)
- *   Category 912 (EN) "Reverse Gamma (empty)"→ no items
+ *   Category 930 (EN) "Reverse Alpha"        → DE translation 933 "Reverse Alpha DE"
+ *   Category 931 (EN) "Reverse Beta"         → no DE translation (fallback expected)
+ *   Category 932 (EN) "Reverse Gamma (empty)"→ no items
  *
  *   MM entries (uid_local = category, uid_foreign = article):
- *     Category 910 → articles [2 (sf=1), 1 (sf=2)]
- *     Category 911 → article  [1 (sf=1)]
- *     Category 912 → (none)
+ *     Category 930 → articles [2 (sf=1), 1 (sf=2)]
+ *     Category 931 → article  [1 (sf=1)]
+ *     Category 932 → (none)
  */
 final class LanguageReverseMmTranslatedParentTest extends ApiFunctionalTestCase
 {
@@ -100,7 +100,7 @@ final class LanguageReverseMmTranslatedParentTest extends ApiFunctionalTestCase
         $this->registerCategoryResource();
         $this->registerArticleResource();
 
-        $response = $this->executeApiRequest('/api/rv-lang-categories/910');
+        $response = $this->executeApiRequest('/api/rv-lang-categories/930');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -115,9 +115,9 @@ final class LanguageReverseMmTranslatedParentTest extends ApiFunctionalTestCase
         $this->registerCategoryResource();
         $this->registerArticleResource();
 
-        // Category 910 has a German translation (960). After overlay the uid is preserved
-        // as 910. The reverse-MM lookup WHERE uid_local IN (910) must find articles 2 + 1.
-        $response = $this->executeApiRequest('/de/api/rv-lang-categories/910');
+        // Category 930 has a German translation (933). After overlay the uid is preserved
+        // as 930. The reverse-MM lookup WHERE uid_local IN (930) must find articles 2 + 1.
+        $response = $this->executeApiRequest('/de/api/rv-lang-categories/930');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -136,7 +136,7 @@ final class LanguageReverseMmTranslatedParentTest extends ApiFunctionalTestCase
         $this->registerCategoryResource();
         $this->registerArticleResource();
 
-        $response = $this->executeApiRequest('/de/api/rv-lang-categories/910');
+        $response = $this->executeApiRequest('/de/api/rv-lang-categories/930');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -151,9 +151,9 @@ final class LanguageReverseMmTranslatedParentTest extends ApiFunctionalTestCase
         $this->registerCategoryResource();
         $this->registerArticleResource();
 
-        // Category 911 has no German translation → fallback to English title.
+        // Category 931 has no German translation → fallback to English title.
         // Its items must still be returned (uid preserved through fallback path too).
-        $response = $this->executeApiRequest('/de/api/rv-lang-categories/911');
+        $response = $this->executeApiRequest('/de/api/rv-lang-categories/931');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -166,7 +166,7 @@ final class LanguageReverseMmTranslatedParentTest extends ApiFunctionalTestCase
         $this->registerCategoryResource();
         $this->registerArticleResource();
 
-        $response = $this->executeApiRequest('/de/api/rv-lang-categories/912');
+        $response = $this->executeApiRequest('/de/api/rv-lang-categories/932');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -182,7 +182,7 @@ final class LanguageReverseMmTranslatedParentTest extends ApiFunctionalTestCase
         ]);
         $this->registerArticleResource();
 
-        $response = $this->executeApiRequest('/de/api/rv-lang-categories/910');
+        $response = $this->executeApiRequest('/de/api/rv-lang-categories/930');
         $body     = $this->decodeResponseBody($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -211,15 +211,15 @@ final class LanguageReverseMmTranslatedParentTest extends ApiFunctionalTestCase
             $byUid[$cat['uid']] = $cat;
         }
 
-        // Category 910 → title overlaid, 2 items
-        self::assertSame('Reverse Alpha DE', $byUid[910]['title']);
-        self::assertCount(2, $byUid[910]['items']);
+        // Category 930 → title overlaid, 2 items
+        self::assertSame('Reverse Alpha DE', $byUid[930]['title']);
+        self::assertCount(2, $byUid[930]['items']);
 
-        // Category 911 → fallback English title, 1 item
-        self::assertSame('Reverse Beta', $byUid[911]['title']);
-        self::assertCount(1, $byUid[911]['items']);
+        // Category 931 → fallback English title, 1 item
+        self::assertSame('Reverse Beta', $byUid[931]['title']);
+        self::assertCount(1, $byUid[931]['items']);
 
-        // Category 912 → no items
-        self::assertCount(0, $byUid[912]['items']);
+        // Category 932 → no items
+        self::assertCount(0, $byUid[932]['items']);
     }
 }
