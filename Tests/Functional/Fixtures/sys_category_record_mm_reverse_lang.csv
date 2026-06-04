@@ -1,0 +1,5 @@
+"sys_category_record_mm"
+,"uid_local","uid_foreign","tablenames","fieldname","sorting","sorting_foreign"
+,930,2,"tx_myext_domain_model_article","categories",1,1
+,930,1,"tx_myext_domain_model_article","categories",2,2
+,931,1,"tx_myext_domain_model_article","categories",1,1

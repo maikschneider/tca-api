@@ -1,0 +1,7 @@
+"tx_myext_domain_model_article"
+,"uid","pid","title","color_id","hidden","deleted","tstamp","crdate","sys_language_uid","l18n_parent"
+,900,1,"LangParent Article EN",0,0,0,1704067200,1704067200,0,0
+,901,1,"LangParent Article EN Two",0,0,0,1704067200,1704067200,0,0
+,902,1,"LangParent Article EN Empty",0,0,0,1704067200,1704067200,0,0
+,950,1,"LangParent Artikel DE",0,0,0,1704067200,1704067200,1,900
+,951,1,"LangParent Artikel DE Zwei",0,0,0,1704067200,1704067200,1,901

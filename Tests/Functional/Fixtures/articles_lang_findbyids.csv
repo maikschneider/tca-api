@@ -1,0 +1,8 @@
+"tx_myext_domain_model_article"
+,"uid","pid","title","color_id","related_colors","related_items","hidden","deleted","tstamp","crdate","sys_language_uid","l18n_parent"
+,980,1,"FBU Article EN One",970,"970,971","tx_myext_domain_model_color_970,tx_myext_domain_model_article_984",0,0,1704067200,1704067200,0,0
+,981,1,"FBU Article EN Two",971,"971,972","tx_myext_domain_model_color_971",0,0,1704067200,1704067200,0,0
+,982,1,"FBU Article EN Three (no DE color)",972,"","",0,0,1704067200,1704067200,0,0
+,983,1,"FBU Reverse Article EN One",0,"","",0,0,1704067200,1704067200,0,0
+,984,1,"FBU Reverse Article EN Two",0,"","",0,0,1704067200,1704067200,0,0
+,987,1,"FBU Reverse Article DE Two",0,"","",0,0,1704067200,1704067200,1,984

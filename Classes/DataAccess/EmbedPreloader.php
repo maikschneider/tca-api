@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\DataAccess;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\Tca\GroupAllowedResolver;
 use TYPO3\CMS\Core\Schema\Field\FileFieldType;
 use TYPO3\CMS\Core\Schema\Field\GroupFieldType;
 use TYPO3\CMS\Core\Schema\Field\RelationalFieldTypeInterface;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
+use TYPO3\CMS\Core\Site\Entity\SiteLanguage;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
@@ -31,12 +33,17 @@ final class EmbedPreloader
     public function __construct(
         private readonly DataRepository $dataRepository,
         private readonly TcaSchemaFactory $schemaFactory,
+        private readonly GroupAllowedResolver $groupAllowedResolver,
     ) {
     }
 
-    public function preload(array $rows, ApiDefinition $config): array
+    public function preload(array $rows, ApiDefinition $config, ?SiteLanguage $language = null): array
     {
         $preloaded = ['rows' => [], 'relations' => []];
+
+        // Store language in preloaded metadata so serializer slow paths can use it.
+        $effectiveLanguage = ($config->languageMode !== 'ignore') ? $language : null;
+        $preloaded['__language'] = $effectiveLanguage;
 
         if ($rows === []) {
             return $preloaded;
@@ -80,6 +87,12 @@ final class EmbedPreloader
 
             // type=group: preload single-table groups like a UID list; multi-table uses prefixed format.
             if ($field instanceof GroupFieldType) {
+                // Wildcard reverse-side MM: allowed='*' with MM + MM_oppositeUsage
+                if ($this->groupAllowedResolver->isWildcard($fieldConfig) && isset($fieldConfig['MM'])) {
+                    $this->preloadReverseMm($preloaded, $uidsByTable, $column, $fieldConfig, $parentUids);
+                    continue;
+                }
+
                 $allowedTables = GeneralUtility::trimExplode(',', $fieldConfig['allowed'] ?? '', true);
 
                 if (count($allowedTables) === 1) {
@@ -87,7 +100,7 @@ final class EmbedPreloader
                     $mmTable      = $fieldConfig['MM'] ?? null;
 
                     if ($mmTable !== null) {
-                        $this->preloadMm($preloaded, $column, $foreignTable, $fieldConfig, $parentUids);
+                        $this->preloadMm($preloaded, $column, $foreignTable, $fieldConfig, $parentUids, $effectiveLanguage);
                     } else {
                         $this->collectUidListRelations($preloaded, $uidsByTable, $column, $foreignTable, $rows);
                     }
@@ -117,7 +130,7 @@ final class EmbedPreloader
                 $mmTable = $fieldConfig['MM'] ?? null;
 
                 if ($mmTable !== null) {
-                    $this->preloadMm($preloaded, $column, $foreignTable, $fieldConfig, $parentUids);
+                    $this->preloadMm($preloaded, $column, $foreignTable, $fieldConfig, $parentUids, $effectiveLanguage);
                 } elseif (isset($fieldConfig['foreign_field'])) {
                     $this->preloadForeignField(
                         $preloaded,
@@ -128,6 +141,7 @@ final class EmbedPreloader
                         $fieldConfig['foreign_table_field'] ?? null,
                         $config->table,
                         $fieldConfig['foreign_match_fields'] ?? [],
+                        $effectiveLanguage,
                     );
                 } else {
                     $this->collectUidListRelations($preloaded, $uidsByTable, $column, $foreignTable, $rows);
@@ -135,9 +149,9 @@ final class EmbedPreloader
             }
         }
 
-        // Single findByIds per foreignTable — covers hasOne FKs + UID-list hasMany + group UID-list.
+        // Single findByIdsWithOverlay per foreignTable — covers hasOne FKs + UID-list hasMany + group UID-list.
         foreach ($uidsByTable as $foreignTable => $uidSet) {
-            $fetched = $this->dataRepository->findByIds($foreignTable, array_keys($uidSet));
+            $fetched = $this->dataRepository->findByIdsWithOverlay($foreignTable, array_keys($uidSet), $effectiveLanguage);
             $preloaded['rows'][$foreignTable] = ($preloaded['rows'][$foreignTable] ?? []) + $fetched;
         }
 
@@ -145,9 +159,37 @@ final class EmbedPreloader
     }
 
     /**
+     * Preload a reverse-side MM relation (allowed='*' + MM_oppositeUsage).
+     * Queries the MM table for uid_local IN (...) filtered by MM_oppositeUsage table+field pairs,
+     * stores results as multiTableRelations, and collects UIDs for the deferred bulk findByIds.
+     */
+    private function preloadReverseMm(array &$preloaded, array &$uidsByTable, string $column, array $fieldConfig, array $parentUids): void
+    {
+        $oppositeUsage = $this->groupAllowedResolver->resolveOppositeUsage($fieldConfig);
+        if ($oppositeUsage === [] || $parentUids === []) {
+            return;
+        }
+
+        $grouped = $this->dataRepository->findReverseMmRelations(
+            array_values($parentUids),
+            $fieldConfig['MM'],
+            $oppositeUsage,
+            $fieldConfig['MM_match_fields'] ?? [],
+        );
+
+        foreach ($parentUids as $parentUid) {
+            $items = $grouped[$parentUid] ?? [];
+            $preloaded['multiTableRelations'][$column][$parentUid] = $items;
+            foreach ($items as $item) {
+                $uidsByTable[$item['table']][$item['uid']] = true;
+            }
+        }
+    }
+
+    /**
      * Preload a hasMany MM relation: fetch rows via JOIN, store in pool + relations.
      */
-    private function preloadMm(array &$preloaded, string $column, string $foreignTable, array $fieldConfig, array $parentUids): void
+    private function preloadMm(array &$preloaded, string $column, string $foreignTable, array $fieldConfig, array $parentUids, ?SiteLanguage $language = null): void
     {
         $mmTable          = $fieldConfig['MM'];
         $hasOppositeField = isset($fieldConfig['MM_opposite_field']);
@@ -159,6 +201,7 @@ final class EmbedPreloader
             $hasOppositeField ? 'uid_foreign' : 'uid_local',
             $hasOppositeField ? 'uid_local'  : 'uid_foreign',
             $fieldConfig['MM_match_fields'] ?? [],
+            $language,
         );
 
         foreach ($grouped as $parentUid => $childRows) {
@@ -172,7 +215,7 @@ final class EmbedPreloader
     /**
      * Preload a hasMany foreignField relation: fetch rows, store in pool + relations.
      */
-    private function preloadForeignField(array &$preloaded, string $column, string $foreignTable, string $foreignField, array $parentUids, ?string $foreignTableField = null, ?string $parentTable = null, array $foreignMatchFields = []): void
+    private function preloadForeignField(array &$preloaded, string $column, string $foreignTable, string $foreignField, array $parentUids, ?string $foreignTableField = null, ?string $parentTable = null, array $foreignMatchFields = [], ?SiteLanguage $language = null): void
     {
         $grouped = $this->dataRepository->findHasManyByForeignField(
             $foreignTable,
@@ -181,6 +224,7 @@ final class EmbedPreloader
             $foreignTableField,
             $parentTable,
             $foreignMatchFields,
+            $language,
         );
 
         foreach ($grouped as $parentUid => $childRows) {
