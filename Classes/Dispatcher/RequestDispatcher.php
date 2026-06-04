@@ -188,7 +188,11 @@ final class RequestDispatcher
 
             $response = $response->withHeader('X-TCA-API-Cache', 'MISS');
             if ($tags !== []) {
-                $response = $response->withHeader('X-Cache-Tags', implode(',', $tags));
+                $response = $response->withHeader('X-Cache-Tag-Count', (string)\count($tags));
+                $joined = implode(',', $tags);
+                if (\strlen($joined) <= 4096) {
+                    $response = $response->withHeader('X-Cache-Tags', $joined);
+                }
             }
         }
 
