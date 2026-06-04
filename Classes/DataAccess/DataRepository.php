@@ -76,11 +76,11 @@ final class DataRepository
     public function findCollection(string $table, array $constraints, int $limit, int $offset, array $order, ApiDefinition $config, ?SiteLanguage $language = null): array
     {
         $qb = $this->connectionPool->getQueryBuilderForTable($table);
-        $qb->select('*')
-            ->from($table);
+        $qb->select('t.*')
+            ->from($table, 't');
 
-        $this->applyPidConstraint($qb, $config);
-        $this->applyLanguageConstraint($qb, $config, $language);
+        $this->applyPidConstraint($qb, $config, 't');
+        $this->applyLanguageConstraint($qb, $config, $language, 't');
 
         foreach ($constraints as [$filterClass, $context]) {
             $this->resolveFilter($filterClass)->apply($qb, $context);
@@ -107,14 +107,14 @@ final class DataRepository
             // Strict mode counts via applyLanguageOverlay, which needs the languageField
             // column to honour the sys_language_uid = -1 ("all languages") exemption.
             $languageField = $this->languageField($table);
-            $qb->select('uid', $languageField !== null ? $languageField : 'uid');
+            $qb->select('t.uid', $languageField !== null ? 't.' . $languageField : 't.uid');
         } else {
-            $qb->count('uid');
+            $qb->count('t.uid');
         }
-        $qb->from($table);
+        $qb->from($table, 't');
 
-        $this->applyPidConstraint($qb, $config);
-        $this->applyLanguageConstraint($qb, $config, $language);
+        $this->applyPidConstraint($qb, $config, 't');
+        $this->applyLanguageConstraint($qb, $config, $language, 't');
 
         foreach ($constraints as [$filterClass, $context]) {
             $this->resolveFilter($filterClass)->apply($qb, $context);
@@ -224,14 +224,15 @@ final class DataRepository
         return $grouped;
     }
 
-    private function applyPidConstraint(QueryBuilder $qb, ApiDefinition $config): void
+    private function applyPidConstraint(QueryBuilder $qb, ApiDefinition $config, string $alias = ''): void
     {
         if ($config->storagePid !== null) {
-            $qb->andWhere($qb->expr()->eq('pid', $qb->createNamedParameter($config->storagePid, Connection::PARAM_INT)));
+            $col = $alias !== '' ? $alias . '.pid' : 'pid';
+            $qb->andWhere($qb->expr()->eq($col, $qb->createNamedParameter($config->storagePid, Connection::PARAM_INT)));
         }
     }
 
-    private function applyLanguageConstraint(QueryBuilder $qb, ApiDefinition $config, ?SiteLanguage $language): void
+    private function applyLanguageConstraint(QueryBuilder $qb, ApiDefinition $config, ?SiteLanguage $language, string $alias = ''): void
     {
         if ($config->languageMode === 'ignore' || $language === null) {
             return;
@@ -242,8 +243,9 @@ final class DataRepository
             return;
         }
 
+        $col = $alias !== '' ? $alias . '.' . $languageField : $languageField;
         $qb->andWhere($qb->expr()->in(
-            $languageField,
+            $col,
             $qb->createNamedParameter([0, -1], Connection::PARAM_INT_ARRAY),
         ));
     }
