@@ -149,9 +149,9 @@ final class EmbedPreloader
             }
         }
 
-        // Single findByIds per foreignTable — covers hasOne FKs + UID-list hasMany + group UID-list.
+        // Single findByIdsWithOverlay per foreignTable — covers hasOne FKs + UID-list hasMany + group UID-list.
         foreach ($uidsByTable as $foreignTable => $uidSet) {
-            $fetched = $this->dataRepository->findByIds($foreignTable, array_keys($uidSet));
+            $fetched = $this->dataRepository->findByIdsWithOverlay($foreignTable, array_keys($uidSet), $effectiveLanguage);
             $preloaded['rows'][$foreignTable] = ($preloaded['rows'][$foreignTable] ?? []) + $fetched;
         }
 

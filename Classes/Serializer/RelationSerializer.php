@@ -73,7 +73,7 @@ final class RelationSerializer
         }
 
         $relatedRow = $preloaded['rows'][$foreignTable][$fkValue]
-            ?? $this->dataRepository->findById($foreignTable, $fkValue, $relatedConfig);
+            ?? $this->dataRepository->findById($foreignTable, $fkValue, $relatedConfig, $preloaded['__language'] ?? null);
 
         if ($relatedRow === null) {
             return null;
@@ -236,7 +236,7 @@ final class RelationSerializer
         // UID list stored in parent row's own column (no MM, no foreign_field).
         $uids = GeneralUtility::intExplode(',', (string)($row[$column] ?? ''), true);
         return $uids !== []
-            ? UidListParser::mapToRows($uids, $this->dataRepository->findByIds($foreignTable, $uids))
+            ? UidListParser::mapToRows($uids, $this->dataRepository->findByIdsWithOverlay($foreignTable, $uids, $language))
             : [];
     }
 

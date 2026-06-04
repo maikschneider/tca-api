@@ -9,6 +9,8 @@ return [
         'tstamp' => 'tstamp',
         'crdate' => 'crdate',
         'delete' => 'deleted',
+        'languageField' => 'sys_language_uid',
+        'transOrigPointerField' => 'l18n_parent',
         'enablecolumns' => [
             'disabled' => 'hidden',
         ],
@@ -23,6 +25,24 @@ return [
         ],
     ],
     'columns' => [
+        'sys_language_uid' => [
+            'label' => 'LLL:EXT:core/Resources/Private/Language/locallang_general.xlf:LGL.language',
+            'config' => [
+                'type' => 'language',
+            ],
+        ],
+        'l18n_parent' => [
+            'label' => 'LLL:EXT:core/Resources/Private/Language/locallang_general.xlf:LGL.l18n_parent',
+            'displayCond' => 'FIELD:sys_language_uid:>:0',
+            'config' => [
+                'type' => 'select',
+                'renderType' => 'selectSingle',
+                'items' => [['label' => '', 'value' => 0]],
+                'foreign_table' => 'tx_myext_domain_model_article',
+                'foreign_table_where' => 'AND {#tx_myext_domain_model_article}.{#pid}=###CURRENT_PID### AND {#tx_myext_domain_model_article}.{#sys_language_uid} IN (-1,0)',
+                'default' => 0,
+            ],
+        ],
         'hidden' => [
             'exclude' => true,
             'label' => 'LLL:EXT:core/Resources/Private/Language/locallang_general.xlf:LGL.visible',

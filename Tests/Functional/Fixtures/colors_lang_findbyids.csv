@@ -1,0 +1,7 @@
+"tx_myext_domain_model_color"
+,"uid","pid","name","hidden","deleted","sys_language_uid","l10n_parent"
+,970,1,"FBU Color One EN",0,0,0,0
+,971,1,"FBU Color Two EN",0,0,0,0
+,972,1,"FBU Color Three EN",0,0,0,0
+,975,1,"FBU Color One DE",0,0,1,970
+,976,1,"FBU Color Two DE",0,0,1,971
