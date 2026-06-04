@@ -251,6 +251,46 @@ final class CacheTest extends ApiFunctionalTestCase
         ]));
     }
 
+    // ── X-Cache-Tag-Count header ──────────────────────────────────────────────
+
+    public function testMissResponseIncludesCacheTagCountHeader(): void
+    {
+        $this->registerCachedResource();
+
+        $response = $this->executeApiRequest(self::PATH_COLLECTION);
+
+        // 1 table-level tag + 3 visible article tags (UIDs 1–3; UID 4 is hidden)
+        self::assertSame('4', $response->getHeaderLine('X-Cache-Tag-Count'));
+    }
+
+    public function testMissResponseOmitsTagsHeaderWhenTagsTotalExceedsLimit(): void
+    {
+        $this->registerResource(self::RESOURCE, array_merge(self::BASE_CONFIG, [
+            'cache' => ['enabled' => true, 'lifetime' => 3600],
+            'general' => array_merge(self::BASE_CONFIG['general'], ['itemsPerPage' => 150]),
+        ]));
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/articles_cache_tags_overflow.csv');
+
+        $response = $this->executeApiRequest(self::PATH_COLLECTION);
+
+        self::assertSame('MISS', $response->getHeaderLine('X-TCA-API-Cache'));
+        self::assertSame('', $response->getHeaderLine('X-Cache-Tags'));
+    }
+
+    public function testCacheTagCountReflectsActualTagCountWhenTagsExceedLimit(): void
+    {
+        $this->registerResource(self::RESOURCE, array_merge(self::BASE_CONFIG, [
+            'cache' => ['enabled' => true, 'lifetime' => 3600],
+            'general' => array_merge(self::BASE_CONFIG['general'], ['itemsPerPage' => 150]),
+        ]));
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/articles_cache_tags_overflow.csv');
+
+        $response = $this->executeApiRequest(self::PATH_COLLECTION);
+
+        // 1 table-level tag + 3 visible from articles.csv (UIDs 1–3) + 118 from overflow fixture
+        self::assertSame('122', $response->getHeaderLine('X-Cache-Tag-Count'));
+    }
+
     // ── Helper ───────────────────────────────────────────────────────────────
 
     public function testWriteOperationEmitsNoCacheHeader(): void
