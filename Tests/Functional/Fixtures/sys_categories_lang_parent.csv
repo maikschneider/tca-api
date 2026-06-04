@@ -1,0 +1,7 @@
+"sys_category"
+,"uid","pid","title","hidden","deleted","parent","sys_language_uid","l10n_parent"
+,910,0,"Alpha",0,0,0,0,0
+,911,0,"Beta",0,0,0,0,0
+,912,0,"Gamma",0,0,0,0,0
+,960,0,"Alpha DE",0,0,0,1,910
+,961,0,"Beta DE",0,0,0,1,911

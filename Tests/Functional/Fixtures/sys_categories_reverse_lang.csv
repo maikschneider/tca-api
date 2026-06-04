@@ -1,0 +1,6 @@
+"sys_category"
+,"uid","pid","title","hidden","deleted","parent","sys_language_uid","l10n_parent"
+,910,0,"Reverse Alpha",0,0,0,0,0
+,911,0,"Reverse Beta",0,0,0,0,0
+,912,0,"Reverse Gamma (empty)",0,0,0,0,0
+,960,0,"Reverse Alpha DE",0,0,0,1,910

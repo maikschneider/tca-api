@@ -371,7 +371,7 @@ final class DataRepository
      */
     private function applyLanguageConstraintForTable(QueryBuilder $qb, string $table, ?SiteLanguage $language, string $alias = ''): void
     {
-        if ($language === null || $language->getLanguageId() === 0) {
+        if ($language === null) {
             return;
         }
 
