@@ -178,6 +178,46 @@ discovers all implementations automatically via Symfony DI — no
         }
     }
 
+.. note::
+
+   ``DataRepository`` queries the main resource table under the alias ``t``
+   (``FROM {table} AS t``, ``SELECT t.*``). When your filter joins an
+   additional table, qualify any main-table column references with ``t.`` to
+   avoid ambiguous-column SQL errors.
+
+Joining an additional table
+---------------------------
+
+Use ``$qb->join()`` to add a JOIN inside ``apply()``. Reference the main
+table via its alias ``t``:
+
+..  code-block:: php
+
+    use MaikSchneider\TcaApi\Filter\FilterContext;
+    use MaikSchneider\TcaApi\Filter\FilterInterface;
+    use TYPO3\CMS\Core\Database\Query\QueryBuilder;
+
+    final class TagFilter implements FilterInterface
+    {
+        public function apply(QueryBuilder $qb, FilterContext $context): void
+        {
+            $qb->join(
+                    't',
+                    'tx_myext_domain_model_tag',
+                    'tag',
+                    $qb->expr()->eq('t.tag_id', $qb->quoteIdentifier('tag.uid')),
+                )
+                ->andWhere($qb->expr()->eq(
+                    'tag.name',
+                    $qb->createNamedParameter($context->value),
+                ));
+        }
+    }
+
+The first argument of ``join()`` must be ``'t'`` — the alias under which
+``DataRepository`` registered the resource table. Column references on the
+joined table (``tag.name`` above) need no alias prefix.
+
 ``FilterContext`` is a typed readonly value object:
 
 .. list-table::

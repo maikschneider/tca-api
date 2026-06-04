@@ -21,6 +21,12 @@ services:
   MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor:
     public: true
 
+  MaikSchneider\TcaApi\Serializer\Processing\RouteEnhancerProcessor:
+    public: true
+
+  MaikSchneider\TcaApi\Serializer\Processing\PlaceholderResolver:
+    public: true
+
   # ── Cache services ─────────────────────────────────────────────────
   cache.tca_api:
     class: TYPO3\CMS\Core\Cache\Frontend\FrontendInterface

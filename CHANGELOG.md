@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`RouteEnhancerProcessor`.** Generates speaking frontend URLs per record without writing routing code:
+  - New column processor `MaikSchneider\TcaApi\Serializer\Processing\RouteEnhancerProcessor`. Most often used on a virtual property to expose a record's URL alongside its data.
+  - New typed config sub-DTO `RouteDefinition` under the column key `route`. Keys: `pid` (literal int or placeholder), `extension`, `plugin`, `controller`, `action`, `arguments`, `parameters`, `absolute` (default `true`), `fragment`. All errors raised at boot time with key-specific messages.
+  - Placeholder grammar in `pid`, `arguments`, and `parameters`: `{column_name}` resolves from the raw DB row, `{$site.setting.key}` resolves from `SiteSettings`. Single-placeholder strings preserve their underlying type so `'{uid}'` stays an int.
+  - URL construction is delegated to `Site::getRouter()->generateUri()` — any `routeEnhancer` configured on the target page (e.g. an Extbase plugin) applies transparently.
+  - Multi-language aware: the current `SiteLanguage` is passed to the router as `_language`, so URLs are anchored to the matching language base (`/de/...`, `/fr/...`, …).
+  - New documentation page: [RouteEnhancer](Documentation/Configuration/RouteEnhancer.rst).
+- New helper `MaikSchneider\TcaApi\Serializer\Processing\PlaceholderResolver` — public service used by `RouteEnhancerProcessor`. Available for reuse by custom processors that need the same `{column}` / `{$setting.key}` grammar.
+
+### Changed
+
+- `TcaApiMiddleware` now sets `$GLOBALS['TYPO3_REQUEST']` before dispatching. The API middleware short-circuits the frontend `RequestHandler` (which is what normally populates this back-compat global), so processors and downstream code that rely on it had no access to the current request/language. This mirrors the same one-liner that `cms-frontend/Http/RequestHandler` performs.
+
 ## [0.2.0] - 2026-06-02
 
 ### Added

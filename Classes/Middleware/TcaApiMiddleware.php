@@ -77,6 +77,13 @@ final class TcaApiMiddleware implements MiddlewareInterface
         $request = $request
             ->withAttribute('tca_api.api_prefix', $apiPrefix)
             ->withAttribute('tca_api.request_prefix', $matchedRequestPrefix);
+
+        // The API middleware short-circuits the frontend RequestHandler, so
+        // $GLOBALS['TYPO3_REQUEST'] is never populated for downstream code that
+        // expects the b/w-compat global (e.g. RouteEnhancerProcessor reading
+        // the current language). Mirror the frontend RequestHandler behavior.
+        $GLOBALS['TYPO3_REQUEST'] = $request;
+
         $response = $this->dispatcher->dispatch($request, $settings);
 
         if ($corsEnabled) {
@@ -108,7 +115,7 @@ final class TcaApiMiddleware implements MiddlewareInterface
             ->withHeader('Access-Control-Allow-Origin', $origin)
             ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
             ->withHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Locale')
-            ->withHeader('Access-Control-Expose-Headers', 'Link, X-TCA-API-Cache, X-Cache-Tags')
+            ->withHeader('Access-Control-Expose-Headers', 'Link, X-TCA-API-Cache, X-Cache-Tags, X-Cache-Tag-Count')
             ->withHeader('Vary', 'Origin');
 
         if ($corsAllowCredentials) {

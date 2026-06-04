@@ -235,4 +235,73 @@ final class ColumnDefinitionTest extends TestCase
         $this->expectExceptionMessage('resourceType');
         ColumnDefinition::fromArray(['resourceType' => []]);
     }
+
+    // ── route ─────────────────────────────────────────────────────────────
+
+    #[Test]
+    public function validRouteConfigCreatesRouteDefinition(): void
+    {
+        $def = ColumnDefinition::fromArray([
+            'route' => [
+                'pid'       => 42,
+                'extension' => 'News',
+                'plugin'    => 'Pi1',
+                'arguments' => ['news' => '{uid}'],
+            ],
+        ]);
+
+        self::assertNotNull($def->route);
+        self::assertSame(42, $def->route->pid);
+        self::assertSame('News', $def->route->extension);
+        self::assertSame('Pi1', $def->route->plugin);
+        self::assertSame(['news' => '{uid}'], $def->route->arguments);
+    }
+
+    #[Test]
+    public function routeDefaultsToNullWhenKeyAbsent(): void
+    {
+        $def = ColumnDefinition::fromArray([]);
+        self::assertNull($def->route);
+    }
+
+    #[Test]
+    public function nonArrayRouteThrows(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('"route" must be an array');
+        ColumnDefinition::fromArray(['route' => 'not-an-array']);
+    }
+
+    #[Test]
+    public function invalidRouteInnerConfigThrowsWithContext(): void
+    {
+        // RouteDefinition::fromArray rejects missing pid → wrapped with "route" prefix.
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Column config "route"');
+        $this->expectExceptionMessage('"pid"');
+        ColumnDefinition::fromArray(['route' => ['extension' => 'News']]);
+    }
+
+    #[Test]
+    public function invalidRouteZeroPidThrows(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Column config "route"');
+        $this->expectExceptionMessage('"pid"');
+        ColumnDefinition::fromArray(['route' => ['pid' => 0]]);
+    }
+
+    #[Test]
+    public function invalidRouteExtensionWithoutPluginThrows(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Column config "route"');
+        $this->expectExceptionMessage('"extension" and "plugin"');
+        ColumnDefinition::fromArray([
+            'route' => [
+                'pid'       => 42,
+                'extension' => 'News',
+            ],
+        ]);
+    }
 }
