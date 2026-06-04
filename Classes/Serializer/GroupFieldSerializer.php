@@ -45,13 +45,12 @@ final readonly class GroupFieldSerializer
         RelationSerializer $relationSerializer,
         ResourceSerializer $serializer,
     ): array {
-        // Wildcard reverse-side MM: allowed='*' with MM + MM_oppositeUsage
         if ($this->groupAllowedResolver->isWildcard($fieldConfig)) {
-            if (!isset($fieldConfig['MM'])) {
-                return [];
+            if (isset($fieldConfig['MM'])) {
+                return $this->serializeReverseMm($column, $fieldConfig, $columnDef, $config, $row, $preloaded, $effectiveDepth, $visited, $operation, $apiPrefix, $relationSerializer, $serializer);
             }
 
-            return $this->serializeReverseMm($column, $fieldConfig, $columnDef, $config, $row, $preloaded, $effectiveDepth, $visited, $operation, $apiPrefix, $relationSerializer, $serializer);
+            return $this->serializeMultiTableGroup($column, $columnDef, $config, $row, $preloaded, $effectiveDepth, $visited, $operation, $apiPrefix, $relationSerializer, $serializer);
         }
 
         $allowedTables = GeneralUtility::trimExplode(',', $fieldConfig['allowed'] ?? '', true);
