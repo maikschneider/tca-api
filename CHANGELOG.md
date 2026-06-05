@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-04
+
 ### Added
 
 - **`RouteEnhancerProcessor`.** Generates speaking frontend URLs per record without writing routing code:
@@ -17,10 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Multi-language aware: the current `SiteLanguage` is passed to the router as `_language`, so URLs are anchored to the matching language base (`/de/...`, `/fr/...`, …).
   - New documentation page: [RouteEnhancer](Documentation/Configuration/RouteEnhancer.rst).
 - New helper `MaikSchneider\TcaApi\Serializer\Processing\PlaceholderResolver` — public service used by `RouteEnhancerProcessor`. Available for reuse by custom processors that need the same `{column}` / `{$setting.key}` grammar.
+- **Reverse MM relations.** `group` and `inline` columns can now resolve the foreign side of a MM relation. The relation direction is auto-detected from TCA `MM_opposite_field`; no extra config needed.
 
 ### Changed
 
 - `TcaApiMiddleware` now sets `$GLOBALS['TYPO3_REQUEST']` before dispatching. The API middleware short-circuits the frontend `RequestHandler` (which is what normally populates this back-compat global), so processors and downstream code that rely on it had no access to the current request/language. This mirrors the same one-liner that `cms-frontend/Http/RequestHandler` performs.
+- All queries in `DataRepository` now run the main resource table under the alias `t` (`FROM {table} AS t`, `SELECT t.*`). Custom filters that join additional tables must qualify main-table column references with `t.` — see [Filters documentation](Documentation/Configuration/Filters.rst).
+
+### Fixed
+
+- Limit `X-Cache-Tags` response header to prevent Apache's 8 190-byte `LimitRequestFieldSize` overflow (FastCGI "Premature end of script headers" on responses with many cached records).
 
 ## [0.2.0] - 2026-06-02
 
