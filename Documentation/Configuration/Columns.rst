@@ -72,6 +72,10 @@ All keys are optional.
    * - ``processor``
      - Column processor class. Does **not** trigger explicit mode. See
        :ref:`column-processors`.
+   * - ``callback``
+     - ``[ClassName::class, 'method']`` tuple invoked after all columns and
+       relations are resolved (but before virtual properties). Its return
+       value replaces the column's value. See :ref:`column-callbacks`.
    * - ``validators``
      - Array of validation rules. See :ref:`validation`.
    * - ``upload``
@@ -341,3 +345,58 @@ built-in processors:
 
 Custom processors must implement
 :php:`MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface`.
+
+..  _column-callbacks:
+
+Column callbacks
+================
+
+A ``callback`` is a lighter-weight alternative to a processor when you only need
+to post-process a single column. Unlike a processor — which receives just the
+raw column value — a callback runs **last**, after every column, relation, and
+relation has already been resolved into the response. It receives the
+fully serialized row and the raw DB row, and its return value **replaces** the
+column's value. Column callbacks run *before* virtual properties, so a virtual
+property can build on the final, callback-transformed column values.
+
+..  code-block:: php
+
+    use Vendor\MyExt\Api\ArticleCallbacks;
+
+    'columns' => [
+        'title'    => ['groups' => ['list', 'show']],
+        'color_id' => ['groups' => ['list', 'show'], 'embed' => true],
+        // Derive a label from the already-embedded relation:
+        'label'    => [
+            'groups'   => ['list', 'show'],
+            'callback' => [ArticleCallbacks::class, 'buildLabel'],
+        ],
+    ],
+
+The callback signature is ``(array $serializedRow, array $rawRow): mixed``:
+
+..  code-block:: php
+
+    final class ArticleCallbacks
+    {
+        public function buildLabel(array $serializedRow, array $rawRow): string
+        {
+            // $serializedRow already contains the resolved 'color_id' relation.
+            $color = $serializedRow['color_id']['name'] ?? 'n/a';
+
+            return sprintf('%s (%s)', $serializedRow['title'] ?? '', $color);
+        }
+    }
+
+The callback class is instantiated via :php:`GeneralUtility::makeInstance()`, so
+constructor dependency injection works. Because callbacks run after relation
+resolving, they can read embedded relations, processor output, and other columns
+from ``$serializedRow``. They run before virtual properties, so a virtual
+property may consume a column's callback result. Callbacks honour the same
+visibility rules as the column itself — they are skipped when the column is
+hidden by ``groups`` for the current operation or excluded by a sparse fieldset
+(``?fields[]=…``).
+
+The same ``callback`` key is also available on virtual properties (see
+:ref:`virtual-properties`), where it is the primary mechanism for computing a
+value that has no backing column.

@@ -154,6 +154,24 @@ final class ResourceSerializer
             $result[$column] = $this->relationSerializer->serializeHasManyField($column, $columnDef, $config, $row, $field, $preloaded, $remainingDepth, $visited, $operation, $apiPrefix, $this);
         }
 
+        // Column callbacks run after all columns and relations are resolved
+        foreach ($columnMap as $column => $columnDef) {
+            if ($columnDef->callback === null) {
+                continue;
+            }
+            if ($config->isExplicitMode && !$columnDef->isReadable($operation)) {
+                continue;
+            }
+            if ($fields !== [] && !\in_array($column, $fields, true)) {
+                continue;
+            }
+
+            /** @var array{class-string, string} $callback */
+            $callback = $columnDef->callback;
+            [$class, $method] = $callback;
+            $result[$column] = GeneralUtility::makeInstance($class)->$method($result, $row);
+        }
+
         foreach ($config->virtualProperties as $virtualPropertyName => $virtualPropDef) {
             if ($config->isExplicitMode && !$virtualPropDef->isReadable($operation)) {
                 continue;
@@ -165,12 +183,16 @@ final class ResourceSerializer
                 $columnField = $schema->getField($columnRef);
             }
 
+            // Establish the base value from a file column or processor, if defined.
             if ($columnField instanceof FileFieldType) {
                 $result[$virtualPropertyName] = $this->fileFieldSerializer->serialize($columnRef, $columnField, $virtualPropDef, $config->table, $uid);
             } elseif ($virtualPropDef->processor !== null) {
                 $value = $columnRef !== null ? ($row[$columnRef] ?? null) : null;
                 $result[$virtualPropertyName] = $this->applyColumnProcessor($value, $virtualPropDef, $result, $row);
-            } else {
+            }
+
+            // A callback, when present, always runs last
+            if ($virtualPropDef->callback !== null) {
                 /** @var array{class-string, string} $callback */
                 $callback = $virtualPropDef->callback;
                 [$class, $method] = $callback;
