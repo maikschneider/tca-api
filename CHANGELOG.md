@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Column callbacks.** The `callback` meta-key (`[ClassName::class, 'method']`) now works on normal columns, not just virtual properties. The callback runs after all columns and relations are resolved, but before virtual properties — so virtual properties can build on callback-transformed column values. It receives the serialized row and the raw DB row `(array $serializedRow, array $rawRow): mixed`, and its return value replaces the column's value. Callbacks honour the column's visibility (`groups`) and sparse-fieldset (`?fields[]=…`) gates. See [Columns documentation](Documentation/Configuration/Columns.rst).
+
+### Changed
+
+- **Virtual-property callbacks now always run.** Previously a virtual property's `callback` was only invoked when no file column or processor was defined. It now composes with them: the file/processor produces the base value and the callback runs last as a final transform, able to read every column, column callback, and earlier virtual property from `$serializedRow`. See [Virtual Properties documentation](Documentation/Configuration/VirtualProperties.rst).
+
 ## [0.3.0] - 2026-06-04
 
 ### Added

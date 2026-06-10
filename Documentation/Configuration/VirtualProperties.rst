@@ -5,8 +5,14 @@ Virtual Properties
 ==================
 
 Virtual properties are computed fields appended to the serialized output. They
-appear after all real columns and can be driven by a **callable** or a **column
-processor**.
+appear after all real columns (and after column callbacks) and can be driven by
+a **callable**, a **column processor**, or a **file/image column reference**.
+
+A ``callback`` is not mutually exclusive with a processor or file reference: when
+both are present, the processor/file produces the base value and the callback
+runs **last** as a final transform. A virtual-property callback always runs —
+after all columns and column callbacks, and after its own base value — so it can
+read any column or earlier virtual property from ``$serializedRow``.
 
 Callable
 ========
@@ -129,7 +135,9 @@ Virtual property options reference
    * - ``callback``
      - Callable ``[ClassName::class, 'method']`` that receives
        ``(array $serializedRow, array $rawRow)`` and returns any serializable
-       value.
+       value. Runs last — after all columns, column callbacks, and its own
+       base value — and composes with ``processor``/``image`` (transforms their
+       output) rather than replacing them.
    * - ``processor``
      - Column processor class implementing ``ColumnProcessorInterface``.
    * - ``column``

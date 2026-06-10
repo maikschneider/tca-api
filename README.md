@@ -259,6 +259,7 @@ Each entry in `columns` maps to a database column. All keys are optional:
 | `embed`        | `true` or `['depth' => N]` — inline related records instead of IRI strings |
 | `resourceName` | Override related resource name for relation columns |
 | `processor`    | Column processor class (does **not** trigger explicit mode) |
+| `callback`     | `[ClassName::class, 'method']` invoked after all columns and relations are resolved; its return value replaces the column's value. See [Column callbacks](#column-callbacks) |
 | `validators`   | Array of validation rules (see [Validation](#validation)) |
 | `upload`       | Enable file uploads for this column via `multipart/form-data`; must include at least `folder` (FAL storage ref, e.g. `1:/uploads/`). See [File uploads](#file-uploads) |
 | `image`        | Image processing options for `ImageProcessor` columns — controls dimensions, crop variant selection, format conversion, and URL mode. See [Image processor config](#image-processor-config) |
@@ -286,6 +287,36 @@ The serializer automatically handles all TYPO3 TCA field types. Relational types
 | `folder`, `none`, `passthrough`, `user` | Raw DB value | Implementation-defined |
 
 An explicit `processor` on a column definition always overrides the automatic handling described above.
+
+#### Column callbacks
+
+A `callback` is a lightweight alternative to a processor for post-processing a single column. Unlike a processor — which receives only the raw column value — a callback runs **after** every column and relation has been resolved, receives the fully serialized row plus the raw DB row, and its return value **replaces** the column's value:
+
+```php
+'columns' => [
+    'title'    => ['groups' => ['list', 'show']],
+    'color_id' => ['groups' => ['list', 'show'], 'embed' => true],
+    'label'    => [
+        'groups'   => ['list', 'show'],
+        'callback' => [ArticleCallbacks::class, 'buildLabel'],
+    ],
+],
+```
+
+```php
+final class ArticleCallbacks
+{
+    public function buildLabel(array $serializedRow, array $rawRow): string
+    {
+        // $serializedRow already contains the resolved 'color_id' relation.
+        $color = $serializedRow['color_id']['name'] ?? 'n/a';
+
+        return sprintf('%s (%s)', $serializedRow['title'] ?? '', $color);
+    }
+}
+```
+
+The signature is `(array $serializedRow, array $rawRow): mixed`. The class is built via `GeneralUtility::makeInstance()`, so constructor DI works. Because callbacks run after relation resolving — and **before** virtual properties — they can read embedded relations, processor output, and sibling columns from `$serializedRow`, and a virtual property can in turn build on a column's callback result. Callbacks honour the column's visibility (`groups`) and sparse-fieldset (`?fields[]=…`) gates. The same `callback` key is also available on [virtual properties](#virtual-properties).
 
 ### Filters
 
@@ -890,7 +921,9 @@ On PATCH, new inline children are **appended**; existing children are left untou
 
 ## Virtual properties
 
-Virtual properties are computed fields appended to the serialized output. They appear after all real columns and can be driven by a **callable** or a **column processor**.
+Virtual properties are computed fields appended to the serialized output. They appear after all real columns (and after column callbacks) and can be driven by a **callable**, a **column processor**, or a **file/image column reference**.
+
+A `callback` is not mutually exclusive with a processor or file reference: when both are present the processor/file produces the base value and the callback runs **last** as a final transform. A virtual-property callback always runs — after all columns, column callbacks, and its own base value — so it can read any column or earlier virtual property from `$serializedRow`.
 
 ### Callable
 
@@ -903,7 +936,7 @@ Virtual properties are computed fields appended to the serialized output. They a
 ],
 ```
 
-The callable receives `(array $serializedRow, array $rawRow)` and returns any serializable value. `$serializedRow` reflects columns already serialized in this request; `$rawRow` is the raw DB record.
+The callable receives `(array $serializedRow, array $rawRow)` and returns any serializable value. `$serializedRow` reflects columns already serialized in this request (including their callbacks); `$rawRow` is the raw DB record. When a `processor` or file `column` is also set, the callback receives that resolved base value under the property's key in `$serializedRow` and may transform it.
 
 ### Column processor
 
