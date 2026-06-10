@@ -10,10 +10,9 @@ use MaikSchneider\TcaApi\Tests\Functional\Fixtures\TestStaticValueProcessor;
 
 /**
  * Functional tests for the 'callback' meta-key on normal columns.
- *
- * A column callback is invoked at the very end of serialization — after every
- * column, relation, and virtual property is resolved — with (serializedRow,
- * rawRow). Its return value replaces the column's value in the response.
+ * A column callback is invoked after all columns and relations are resolved
+ * but before virtual properties, with (serializedRow, rawRow) as arguments.
+ * Its return value replaces the column's value in the response.
  */
 final class ColumnCallbackTest extends ApiFunctionalTestCase
 {
@@ -34,6 +33,15 @@ final class ColumnCallbackTest extends ApiFunctionalTestCase
             'default' => ['uid' => 'asc'],
         ],
     ];
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles_with_names.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles_embed.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/colors.csv');
+    }
 
     public function testCallbackTransformsTheSerializedColumnValue(): void
     {
@@ -216,14 +224,5 @@ final class ColumnCallbackTest extends ApiFunctionalTestCase
         $body = $this->decodeResponseBody($response);
 
         self::assertSame('Person Record', $body['title']);
-    }
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
-        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles_with_names.csv');
-        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles_embed.csv');
-        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/colors.csv');
     }
 }
