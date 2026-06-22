@@ -495,6 +495,12 @@ final readonly class ApiDefinition
             }
         }
 
-        return $pids === [] ? null : array_values(array_unique($pids));
+        if ($pids === []) {
+            throw new \InvalidArgumentException(
+                'TcaApi config: general.readStoragePids must be "*" or contain at least one integer pid.',
+            );
+        }
+
+        return array_values(array_unique($pids));
     }
 }
