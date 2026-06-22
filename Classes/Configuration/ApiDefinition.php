@@ -474,7 +474,7 @@ final readonly class ApiDefinition
      *   - '*'                 → null (read from all pages, regardless of the write target)
      *   - CSV string "1,2,3"  → [1, 2, 3]
      *   - array [1, 2, 3]     → [1, 2, 3]
-     *   - empty / no integers → null (defensive: never silently match nothing)
+     *   - empty / no integers → throws (misconfiguration: fail loud, never silently match nothing)
      */
     private static function resolveReadStoragePids(mixed $raw, ?int $storagePid): ?array
     {

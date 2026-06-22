@@ -115,13 +115,23 @@ final class ApiDefinitionTest extends TestCase
     }
 
     #[Test]
-    public function readStoragePidsFallsBackToNullWhenNoIntegers(): void
+    public function readStoragePidsThrowsWhenEmpty(): void
     {
         $cfg = self::minimalConfig();
         $cfg['general']['readStoragePids'] = [];
-        $def = ApiDefinition::fromArray($cfg);
 
-        self::assertNull($def->readStoragePids);
+        $this->expectException(\InvalidArgumentException::class);
+        ApiDefinition::fromArray($cfg);
+    }
+
+    #[Test]
+    public function readStoragePidsThrowsWhenNoIntegers(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['readStoragePids'] = ['foo', 'bar'];
+
+        $this->expectException(\InvalidArgumentException::class);
+        ApiDefinition::fromArray($cfg);
     }
 
     #[Test]
