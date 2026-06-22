@@ -55,6 +55,83 @@ final class ApiDefinitionTest extends TestCase
         self::assertSame([], $def->virtualProperties);
         self::assertFalse($def->isExplicitMode);
         self::assertSame(WriteMode::ACTING_USER, $def->writeMode);
+        self::assertNull($def->readStoragePids);
+    }
+
+    // ── readStoragePids resolution ──────────────────────────────────────
+
+    #[Test]
+    public function readStoragePidsDefaultsToWriteTargetWhenStoragePidSet(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['storagePid'] = 42;
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertSame(42, $def->storagePid);
+        self::assertSame([42], $def->readStoragePids);
+    }
+
+    #[Test]
+    public function readStoragePidsStarReadsAllWhileKeepingWriteTarget(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['storagePid']      = 42;
+        $cfg['general']['readStoragePids'] = '*';
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertSame(42, $def->storagePid);
+        self::assertNull($def->readStoragePids);
+    }
+
+    #[Test]
+    public function readStoragePidsAcceptsArray(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['storagePid']      = 42;
+        $cfg['general']['readStoragePids'] = [42, 17, 5];
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertSame([42, 17, 5], $def->readStoragePids);
+    }
+
+    #[Test]
+    public function readStoragePidsAcceptsCsvString(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['readStoragePids'] = '42, 17 ,5';
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertSame([42, 17, 5], $def->readStoragePids);
+    }
+
+    #[Test]
+    public function readStoragePidsDeduplicates(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['readStoragePids'] = [42, 42, 17];
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertSame([42, 17], $def->readStoragePids);
+    }
+
+    #[Test]
+    public function readStoragePidsThrowsWhenEmpty(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['readStoragePids'] = [];
+
+        $this->expectException(\InvalidArgumentException::class);
+        ApiDefinition::fromArray($cfg);
+    }
+
+    #[Test]
+    public function readStoragePidsThrowsWhenNoIntegers(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['readStoragePids'] = ['foo', 'bar'];
+
+        $this->expectException(\InvalidArgumentException::class);
+        ApiDefinition::fromArray($cfg);
     }
 
     #[Test]

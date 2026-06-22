@@ -29,6 +29,9 @@ final readonly class ApiDefinition
      * @param array<string, FilterDefinition>  $filters    normalised filter definitions
      * @param string[]                        $allowedOrder
      * @param array<string, string>           $defaultOrder
+     * @param int[]|null                      $readStoragePids resolved read-side pid constraint;
+     *                                                          null = no constraint (read all pages),
+     *                                                          non-empty list = WHERE pid IN (...)
      */
     public function __construct(
         public readonly string $table,
@@ -52,6 +55,7 @@ final readonly class ApiDefinition
         public readonly string $languageMode = 'auto',
         public readonly WriteMode $writeMode = WriteMode::ACTING_USER,
         public readonly CacheDefinition $cache = new CacheDefinition(),
+        public readonly ?array $readStoragePids = null,
     ) {
     }
 
@@ -430,6 +434,10 @@ final readonly class ApiDefinition
             );
         }
 
+        $storagePid = isset($general['storagePid']) && MathUtility::canBeInterpretedAsInteger($general['storagePid'])
+            ? (int)$general['storagePid']
+            : null;
+
         return new self(
             table:                  $general['table'],
             resourceName:           $general['resourceName'],
@@ -438,7 +446,7 @@ final readonly class ApiDefinition
             itemsPerPage:           isset($general['itemsPerPage']) ? (int)$general['itemsPerPage'] : null,
             maxItemsPerPage:        isset($general['maxItemsPerPage']) ? (int)$general['maxItemsPerPage'] : null,
             type:                   $generalType,
-            storagePid:             isset($general['storagePid']) && MathUtility::canBeInterpretedAsInteger($general['storagePid']) ? (int)$general['storagePid'] : null,
+            storagePid:             $storagePid,
             columns:                $columns,
             security:               $rawSecurity,
             filters:                $filters,
@@ -452,6 +460,47 @@ final readonly class ApiDefinition
             languageMode:           $languageMode,
             writeMode:              $writeMode,
             cache:                  $cache,
+            readStoragePids:        self::resolveReadStoragePids($general['readStoragePids'] ?? null, $storagePid),
         );
+    }
+
+    /**
+     * Resolves the read-side pid constraint.
+     *
+     * Returns null when reads should not be pid-constrained, or a non-empty list of pids
+     * to constrain reads with `pid IN (...)`.
+     *
+     *   - key absent          → fall back to the write target ([storagePid], or null if unset)
+     *   - '*'                 → null (read from all pages, regardless of the write target)
+     *   - CSV string "1,2,3"  → [1, 2, 3]
+     *   - array [1, 2, 3]     → [1, 2, 3]
+     *   - empty / no integers → throws (misconfiguration: fail loud, never silently match nothing)
+     */
+    private static function resolveReadStoragePids(mixed $raw, ?int $storagePid): ?array
+    {
+        if ($raw === null) {
+            return $storagePid !== null ? [$storagePid] : null;
+        }
+
+        if ($raw === '*') {
+            return null;
+        }
+
+        $values = \is_array($raw) ? $raw : explode(',', (string)$raw);
+        $pids   = [];
+        foreach ($values as $value) {
+            $value = \is_string($value) ? trim($value) : $value;
+            if (MathUtility::canBeInterpretedAsInteger($value)) {
+                $pids[] = (int)$value;
+            }
+        }
+
+        if ($pids === []) {
+            throw new \InvalidArgumentException(
+                'TcaApi config: general.readStoragePids must be "*" or contain at least one integer pid.',
+            );
+        }
+
+        return array_values(array_unique($pids));
     }
 }

@@ -385,10 +385,13 @@ final class DataRepository
 
     private function applyPidConstraint(QueryBuilder $qb, ApiDefinition $config, string $alias = ''): void
     {
-        if ($config->storagePid !== null) {
-            $col = $alias !== '' ? $alias . '.pid' : 'pid';
-            $qb->andWhere($qb->expr()->eq($col, $qb->createNamedParameter($config->storagePid, Connection::PARAM_INT)));
+        $pids = $config->readStoragePids;
+        if ($pids === null || $pids === []) {
+            return;
         }
+
+        $col = $alias !== '' ? $alias . '.pid' : 'pid';
+        $qb->andWhere($qb->expr()->in($col, $qb->createNamedParameter($pids, Connection::PARAM_INT_ARRAY)));
     }
 
     private function applyLanguageConstraint(QueryBuilder $qb, ApiDefinition $config, ?SiteLanguage $language, string $alias = ''): void
