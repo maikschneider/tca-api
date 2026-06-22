@@ -5,7 +5,8 @@ Developer Guide
 ===============
 
 This chapter covers the extensibility features of TCA_API: PSR-14 events, custom
-operation handlers, and the request attribute API.
+operation handlers, the request attribute API, and the Fluid / server-side data
+layer for using resource definitions outside the REST API.
 
 ..  toctree::
     :maxdepth: 1
@@ -14,5 +15,6 @@ operation handlers, and the request attribute API.
     Events
     CustomHandlers
     RequestAttributes
+    FluidDataLayer
     Architecture
     ConfigurationModule
