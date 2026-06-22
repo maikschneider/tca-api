@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Decoupled read/write storage pages.** New optional `general.readStoragePids` key widens the read-side pid constraint independently of `storagePid` (which stays the single write target). Accepts an array or comma-separated list of pids (reads use `pid IN (...)`), or the sentinel `'*'` to read from all pages regardless of the write target. When omitted, reads fall back to `storagePid` exactly as before — fully backward compatible. This enables "read from many places, write into one". See [Resource Definition documentation](Documentation/Configuration/ResourceDefinition.rst).
 - **Column callbacks.** The `callback` meta-key (`[ClassName::class, 'method']`) now works on normal columns, not just virtual properties. The callback runs after all columns and relations are resolved, but before virtual properties — so virtual properties can build on callback-transformed column values. It receives the serialized row and the raw DB row `(array $serializedRow, array $rawRow): mixed`, and its return value replaces the column's value. Callbacks honour the column's visibility (`groups`) and sparse-fieldset (`?fields[]=…`) gates. See [Columns documentation](Documentation/Configuration/Columns.rst).
 
 ### Changed

@@ -55,7 +55,16 @@ The ``general`` key defines the basic resource properties:
      - Upper limit for ``itemsPerPage``; when set, the requested page size is
        clamped to this value. No limit when omitted.
    * - ``storagePid``
-     - Page ID for newly created records.
+     - Page ID for newly created records. Also constrains reads to this page
+       unless ``readStoragePids`` is set. When omitted, reads are not
+       pid-constrained and writes target page 0.
+   * - ``readStoragePids``
+     - Widens the read-side pid constraint independently of ``storagePid``.
+       Accepts an array (``[42, 17, 5]``) or comma-separated list
+       (``'42,17,5'``) — reads then use ``pid IN (...)`` — or the sentinel
+       ``'*'`` to read from all pages regardless of the write target. When
+       omitted, reads fall back to ``storagePid``. This is the complete read
+       set: list the write page explicitly if it should also be readable.
    * - ``writeMode``
      - Write execution strategy. ``acting_user`` (default) — DataHandler runs
        under the authenticated user identity, preserving the actor for audit
@@ -85,6 +94,36 @@ checks entirely. Only use this for trusted, back-channel APIs.
 
     ``system_admin`` mode bypasses all TYPO3 access-control restrictions on
     writes. Never use it for public-facing endpoints.
+
+Storage pages (read vs. write)
+==============================
+
+``storagePid`` is the **single write target** — newly created records land
+there. By default it also constrains reads to that one page. To read from
+several pages while still writing into one, add ``readStoragePids``:
+
+..  code-block:: php
+
+    'general' => [
+        'table'           => 'tx_myext_domain_model_article',
+        'resourceName'    => 'articles',
+        'resourceType'    => 'Article',
+        'operations'      => ['list', 'show', 'create'],
+        'storagePid'      => 42,            // writes go here
+        'readStoragePids' => [42, 17, 5],   // reads span these pages
+    ],
+
+Use the sentinel ``'*'`` to read from every page regardless of the write
+target:
+
+..  code-block:: php
+
+    'storagePid'      => 42,    // writes go here
+    'readStoragePids' => '*',   // reads ignore pid entirely
+
+``readStoragePids`` is the complete read set — it does **not** implicitly
+include ``storagePid``. List the write page explicitly if it should be
+readable too.
 
 Minimal example (zero-config)
 ==============================
