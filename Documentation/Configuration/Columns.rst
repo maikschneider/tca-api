@@ -341,7 +341,20 @@ built-in processors:
         - Target file extension for format conversion, e.g. ``'webp'``.
       * - ``absolute``
         - ``bool``
-        - Force an absolute URL. Default: ``false``.
+        - Force a full scheme+host URL (e.g. ``https://example.com/fileadmin/…``).
+          Default: ``false`` — see the URL contract note below.
+
+..  note::
+
+    **URL contract.** Both ``FileProcessor`` and ``ImageProcessor`` emit
+    **root-absolute** URLs by default: every ``publicUrl`` (and each
+    ``cropVariants[*].publicUrl``) starts with a leading slash
+    (``/fileadmin/_processed_/foo.jpg``) so it resolves against the host root
+    regardless of the page path it is used on. URLs that are already absolute —
+    full URLs with a scheme (``http://``, ``https://``), scheme-relative URLs
+    (``//host/…``), and values that already start with ``/`` — are left
+    untouched. Set the image ``absolute`` option to ``true`` to emit a full
+    scheme+host URL instead.
 
 Custom processors must implement
 :php:`MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface`.

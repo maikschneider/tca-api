@@ -12,7 +12,7 @@ final class FileProcessor implements FileProcessorInterface
     public function process(FileReference $fileReference, ColumnDefinition $columnConfig): array
     {
         return [
-            'publicUrl' => $fileReference->getPublicUrl(),
+            'publicUrl' => UrlNormalizer::toRootRelative($fileReference->getPublicUrl()),
             'mimeType'  => $fileReference->getMimeType(),
             'fileSize'  => $fileReference->getSize(),
             'metadata'  => [

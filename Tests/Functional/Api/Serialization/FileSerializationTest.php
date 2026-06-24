@@ -163,6 +163,19 @@ final class FileSerializationTest extends ApiFunctionalTestCase
         self::assertSame('application/pdf', $body['downloads'][0]['mimeType']);
     }
 
+    public function testDownloadsItemPublicUrlIsRootAbsolute(): void
+    {
+        $response = $this->executeApiRequest('/_api/articles/411');
+        $body     = $this->decodeResponseBody($response);
+
+        // Issue #145: FileProcessor URLs must carry a leading slash so they
+        // resolve against the host root, not the current document path.
+        $url = $body['downloads'][0]['publicUrl'];
+        self::assertIsString($url);
+        self::assertStringStartsWith('/', $url);
+        self::assertStringStartsWith('/fileadmin/', $url);
+    }
+
     public function testDownloadsItemHasMetadataKey(): void
     {
         $response = $this->executeApiRequest('/_api/articles/411');
