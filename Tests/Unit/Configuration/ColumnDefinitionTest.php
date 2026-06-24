@@ -161,6 +161,14 @@ final class ColumnDefinitionTest extends TestCase
     }
 
     #[Test]
+    public function emptyValidatorTypeThrowsNonEmptyStringMessage(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('must be a non-empty string');
+        ColumnDefinition::fromArray(['validators' => [['type' => '']]]);
+    }
+
+    #[Test]
     public function invalidValidatorsNotArrayThrows(): void
     {
         $this->expectException(\InvalidArgumentException::class);
