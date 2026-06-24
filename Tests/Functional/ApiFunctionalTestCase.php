@@ -201,6 +201,58 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
     }
 
     /**
+     * Execute a multipart/form-data write request built as a *raw body stream*,
+     * the way a real PUT/PATCH request arrives over the wire.
+     *
+     * Unlike executeApiMultipartWriteRequestAs(), this does NOT inject parsed body
+     * or uploaded files via the PSR-7 setters. PHP's SAPI does not populate those
+     * for non-POST multipart requests, so this helper reproduces issue #143 and
+     * verifies that the middleware parses the raw body itself.
+     *
+     * @param array<string, string>                       $fields Scalar form fields
+     * @param array<int, array{name: string, filename: string, mimeType: string, content: string}> $files
+     */
+    protected function executeApiRawMultipartWriteRequestAs(
+        string $method,
+        string $path,
+        int $feUserId,
+        array $fields = [],
+        array $files = [],
+    ): ResponseInterface {
+        $uri      = 'http://localhost' . $path;
+        $boundary = '----testboundary' . uniqid();
+        $crlf     = "\r\n";
+
+        $parts = '';
+        foreach ($fields as $name => $value) {
+            $parts .= '--' . $boundary . $crlf;
+            $parts .= 'Content-Disposition: form-data; name="' . $name . '"' . $crlf . $crlf;
+            $parts .= $value . $crlf;
+        }
+        foreach ($files as $file) {
+            $parts .= '--' . $boundary . $crlf;
+            $parts .= 'Content-Disposition: form-data; name="' . $file['name'] . '"; filename="' . $file['filename'] . '"' . $crlf;
+            $parts .= 'Content-Type: ' . $file['mimeType'] . $crlf . $crlf;
+            $parts .= $file['content'] . $crlf;
+        }
+        $parts .= '--' . $boundary . '--' . $crlf;
+
+        $body = new Stream('php://temp', 'rw');
+        $body->write($parts);
+        $body->rewind();
+
+        $request = (new InternalRequest($uri))
+            ->withMethod($method)
+            ->withAddedHeader('Content-Type', 'multipart/form-data; boundary=' . $boundary)
+            ->withBody($body);
+
+        return $this->executeFrontendSubRequest(
+            $request,
+            (new InternalRequestContext())->withFrontendUserId($feUserId),
+        );
+    }
+
+    /**
      * Create a PSR-7 UploadedFile from raw content for use in test multipart requests.
      */
     protected function createUploadedFile(

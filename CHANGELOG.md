@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Virtual-property callbacks now always run.** Previously a virtual property's `callback` was only invoked when no file column or processor was defined. It now composes with them: the file/processor produces the base value and the callback runs last as a final transform, able to read every column, column callback, and earlier virtual property from `$serializedRow`. See [Virtual Properties documentation](Documentation/Configuration/VirtualProperties.rst).
 
+### Fixed
+
+- **Multipart `PUT`/`PATCH` uploads.** Form fields and uploaded files sent as `multipart/form-data` on `PUT`/`PATCH` update requests were silently dropped, because PHP's SAPI only populates `$_POST`/`$_FILES` (and therefore `getParsedBody()`/`getUploadedFiles()`) for `POST`. `TcaApiMiddleware` now parses the raw multipart body itself for these methods and re-injects the result, so update operations receive form data and files exactly like create. Adds a runtime dependency on `riverline/multipart-parser`. ([#143](https://github.com/maikschneider/tca-api/issues/143))
+
 ## [0.3.0] - 2026-06-04
 
 ### Added
