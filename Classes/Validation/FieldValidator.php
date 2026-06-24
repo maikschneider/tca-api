@@ -7,9 +7,22 @@ namespace MaikSchneider\TcaApi\Validation;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Loader\TcaValidatorDeriver;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
+use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
 
 final class FieldValidator
 {
+    /** @var array<class-string<ValidatorInterface>, ValidatorInterface>|null */
+    private ?array $validatorMap = null;
+
+    /**
+     * @param iterable<ValidatorInterface> $customValidators Auto-discovered via the 'tca_api.validator' tag.
+     */
+    public function __construct(
+        #[TaggedIterator('tca_api.validator')]
+        private readonly iterable $customValidators = [],
+    ) {
+    }
+
     /**
      * Validate $body against the column config.
      *
@@ -38,10 +51,7 @@ final class FieldValidator
                 }
                 if ($provided) {
                     foreach ($columnDef->validators as $validatorConfig) {
-                        $violation = $this->applyValidator($validatorConfig, $column, $body[$column]);
-                        if ($violation !== null) {
-                            $violations[] = $violation;
-                        }
+                        array_push($violations, ...$this->applyValidator($validatorConfig, $column, $body[$column], $config, $body, $partial));
                     }
                 }
             }
@@ -66,10 +76,7 @@ final class FieldValidator
                     continue;
                 }
                 foreach (TcaValidatorDeriver::deriveValidatorsForColumn($config->table, $column) as $validatorConfig) {
-                    $violation = $this->applyValidator($validatorConfig, $column, $body[$column]);
-                    if ($violation !== null) {
-                        $violations[] = $violation;
-                    }
+                    array_push($violations, ...$this->applyValidator($validatorConfig, $column, $body[$column], $config, $body, $partial));
                 }
             }
 
@@ -99,10 +106,7 @@ final class FieldValidator
             // declared validators
             if ($provided) {
                 foreach ($columnDef->validators as $validatorConfig) {
-                    $violation = $this->applyValidator($validatorConfig, $column, $body[$column]);
-                    if ($violation !== null) {
-                        $violations[] = $violation;
-                    }
+                    array_push($violations, ...$this->applyValidator($validatorConfig, $column, $body[$column], $config, $body, $partial));
                 }
             }
         }
@@ -111,11 +115,30 @@ final class FieldValidator
     }
 
     /**
-     * @return array{propertyPath: string, message: string, code: string}|null
+     * Apply one validator config to a column value.
+     *
+     * Built-in types resolve to the shipped checks below; a class-string type
+     * dispatches to the matching custom ValidatorInterface. Returns zero or more
+     * violations so a single custom validator can report multiple failures.
+     *
+     * @return list<array{propertyPath: string, message: string, code: string}>
      */
-    private function applyValidator(array $validatorConfig, string $column, mixed $value): ?array
-    {
-        return match ($validatorConfig['type'] ?? '') {
+    private function applyValidator(
+        array $validatorConfig,
+        string $column,
+        mixed $value,
+        ApiDefinition $config,
+        array $body,
+        bool $partial,
+    ): array {
+        $type = $validatorConfig['type'] ?? '';
+
+        // Custom validator: referenced by class-string, resolved from the DI tag.
+        if (\is_string($type) && $type !== '' && class_exists($type)) {
+            return $this->applyCustomValidator($type, $validatorConfig, $column, $value, $config, $body, $partial);
+        }
+
+        $violation = match ($type) {
             'maxLength' => $this->validateMaxLength($column, $value, (int)$validatorConfig['max']),
             'minLength' => $this->validateMinLength($column, $value, (int)$validatorConfig['min']),
             'regex'     => $this->validateRegex($column, $value, (string)$validatorConfig['pattern']),
@@ -125,6 +148,59 @@ final class FieldValidator
             'maxItems'  => $this->validateMaxItems($column, $value, (int)$validatorConfig['max']),
             default     => null,
         };
+
+        return $violation !== null ? [$violation] : [];
+    }
+
+    /**
+     * Resolve a custom validator by class-string and map its Violations to the
+     * internal violation-array shape (defaulting propertyPath to the column).
+     *
+     * @return list<array{propertyPath: string, message: string, code: string}>
+     */
+    private function applyCustomValidator(
+        string $type,
+        array $validatorConfig,
+        string $column,
+        mixed $value,
+        ApiDefinition $config,
+        array $body,
+        bool $partial,
+    ): array {
+        $context = new ValidationContext(
+            value:          $value,
+            table:          $config->table,
+            column:         $column,
+            options:        (array)($validatorConfig['options'] ?? []),
+            body:           $body,
+            partial:        $partial,
+            resourceConfig: $config,
+        );
+
+        $violations = [];
+        foreach ($this->resolveValidator($type)->validate($context) as $violation) {
+            $violations[] = $this->buildViolation($violation->propertyPath ?? $column, $violation->message, $violation->code);
+        }
+
+        return $violations;
+    }
+
+    private function resolveValidator(string $fqcn): ValidatorInterface
+    {
+        if ($this->validatorMap === null) {
+            $this->validatorMap = [];
+            foreach ($this->customValidators as $validator) {
+                $this->validatorMap[$validator::class] = $validator;
+            }
+        }
+
+        return $this->validatorMap[$fqcn] ?? throw new \InvalidArgumentException(
+            sprintf(
+                'No validator registered for class "%s". Ensure it implements %s and is a registered service (autoconfigure applies the "tca_api.validator" tag).',
+                $fqcn,
+                ValidatorInterface::class,
+            ),
+        );
     }
 
     /**

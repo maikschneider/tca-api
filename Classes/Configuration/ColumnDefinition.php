@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Configuration;
 
+use MaikSchneider\TcaApi\Validation\ValidatorInterface;
+
 /**
  * Typed value object for a single column or virtual property configuration.
  *
@@ -205,15 +207,40 @@ final readonly class ColumnDefinition
                 );
             }
             $validatorType = $validator['type'] ?? null;
-            if ($validatorType === null || !\in_array($validatorType, self::VALID_VALIDATOR_TYPES, true)) {
+            if (!\is_string($validatorType) || $validatorType === '') {
                 throw new \InvalidArgumentException(
                     sprintf(
-                        'Column config "validators[%s].type" is invalid ("%s"). Allowed: %s',
+                        'Column config "validators[%s].type" must be a non-empty string (a built-in type or a %s class-string).',
                         $index,
-                        $validatorType ?? 'null',
-                        implode(', ', self::VALID_VALIDATOR_TYPES),
+                        ValidatorInterface::class,
                     ),
                 );
+            }
+            // A custom validator is referenced by class-string; built-in types
+            // are the reserved keywords. Verify custom classes at boot so a typo
+            // or a missing interface fails loudly during configuration loading.
+            if (!\in_array($validatorType, self::VALID_VALIDATOR_TYPES, true)) {
+                if (!class_exists($validatorType)) {
+                    throw new \InvalidArgumentException(
+                        sprintf(
+                            'Column config "validators[%s].type" is invalid ("%s"). Allowed: %s — or a %s class-string.',
+                            $index,
+                            $validatorType,
+                            implode(', ', self::VALID_VALIDATOR_TYPES),
+                            ValidatorInterface::class,
+                        ),
+                    );
+                }
+                if (!is_a($validatorType, ValidatorInterface::class, true)) {
+                    throw new \InvalidArgumentException(
+                        sprintf(
+                            'Column config "validators[%s].type": class "%s" must implement %s.',
+                            $index,
+                            $validatorType,
+                            ValidatorInterface::class,
+                        ),
+                    );
+                }
             }
 
             // Validate regex pattern at config load time so broken patterns
