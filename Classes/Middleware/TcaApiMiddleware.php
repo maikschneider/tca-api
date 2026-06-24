@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Middleware;
 
 use MaikSchneider\TcaApi\Dispatcher\RequestDispatcher;
+use MaikSchneider\TcaApi\Http\MultipartRequestParser;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -22,6 +23,7 @@ final class TcaApiMiddleware implements MiddlewareInterface
     public function __construct(
         private readonly RequestDispatcher $dispatcher,
         private readonly ResponseFactoryInterface $responseFactory,
+        private readonly MultipartRequestParser $multipartRequestParser,
     ) {
     }
 
@@ -77,6 +79,11 @@ final class TcaApiMiddleware implements MiddlewareInterface
         $request = $request
             ->withAttribute('tca_api.api_prefix', $apiPrefix)
             ->withAttribute('tca_api.request_prefix', $matchedRequestPrefix);
+
+        // PHP's SAPI only parses multipart bodies for POST. Parse PUT/PATCH
+        // multipart bodies here so update handlers receive form fields and
+        // uploaded files via the standard PSR-7 accessors. See issue #143.
+        $request = $this->multipartRequestParser->enrich($request);
 
         // The API middleware short-circuits the frontend RequestHandler, so
         // $GLOBALS['TYPO3_REQUEST'] is never populated for downstream code that

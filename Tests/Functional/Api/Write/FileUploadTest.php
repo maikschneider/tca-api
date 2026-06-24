@@ -569,4 +569,59 @@ final class FileUploadTest extends ApiFunctionalTestCase
         self::assertStringEndsWith('.jpg', $fileRow['name']);
         self::assertStringNotContainsString('original-name', $fileRow['name']);
     }
+
+    // ── Regression #143: PUT/PATCH multipart parsed from the raw body stream ──
+
+    /**
+     * Reproduces issue #143: PHP's SAPI never populates getParsedBody()/getUploadedFiles()
+     * for PUT/PATCH multipart requests, so the middleware must parse the raw body itself.
+     * This test sends a genuine multipart body (no PSR-7 injection) and asserts that both
+     * the scalar field and the uploaded file reach the UpdateHandler.
+     */
+    public function testRawPutMultipartParsesScalarFieldsAndFiles(): void
+    {
+        $jpegContent = "\xFF\xD8\xFF\xE0" . str_repeat("\x00", 96);
+
+        $response = $this->executeApiRawMultipartWriteRequestAs(
+            method:   'PUT',
+            path:     '/_api/articles/1',
+            feUserId: 1,
+            fields:   ['title' => 'Raw Multipart Update'],
+            files:    [[
+                'name'     => 'profile_photo',
+                'filename' => 'avatar.jpg',
+                'mimeType' => 'image/jpeg',
+                'content'  => $jpegContent,
+            ]],
+        );
+
+        self::assertSame(200, $response->getStatusCode());
+
+        // Scalar field was parsed from the raw body and persisted.
+        $articleRow = $this->getConnectionPool()
+            ->getConnectionForTable('tx_myext_domain_model_article')
+            ->select(['title'], 'tx_myext_domain_model_article', ['uid' => 1])
+            ->fetchAssociative();
+
+        self::assertIsArray($articleRow);
+        self::assertSame('Raw Multipart Update', $articleRow['title'], 'Scalar field must be parsed from raw PUT multipart body');
+
+        // Uploaded file was parsed from the raw body and stored.
+        $refRow = $this->getConnectionPool()
+            ->getConnectionForTable('sys_file_reference')
+            ->select(
+                ['uid', 'uid_local'],
+                'sys_file_reference',
+                [
+                    'uid_foreign' => 1,
+                    'tablenames'  => 'tx_myext_domain_model_article',
+                    'fieldname'   => 'profile_photo',
+                    'deleted'     => 0,
+                ],
+            )
+            ->fetchAssociative();
+
+        self::assertIsArray($refRow, 'Uploaded file must be parsed from raw PUT multipart body');
+        self::assertGreaterThan(0, (int)$refRow['uid_local']);
+    }
 }
