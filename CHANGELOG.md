@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-24
+
 ### Added
 
 - **Decoupled read/write storage pages.** New optional `general.readStoragePids` key widens the read-side pid constraint independently of `storagePid` (which stays the single write target). Accepts an array or comma-separated list of pids (reads use `pid IN (...)`), or the sentinel `'*'` to read from all pages regardless of the write target. When omitted, reads fall back to `storagePid` exactly as before — fully backward compatible. This enables "read from many places, write into one". See [Resource Definition documentation](Documentation/Configuration/ResourceDefinition.rst).
