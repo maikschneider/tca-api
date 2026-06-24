@@ -99,6 +99,8 @@ final class ImageProcessorTest extends ApiFunctionalTestCase
 
         self::assertArrayHasKey('publicUrl', $body['profile_photo']);
         self::assertIsString($body['profile_photo']['publicUrl']);
+        // Issue #145: processed image URLs must be root-absolute (leading slash).
+        self::assertStringStartsWith('/', $body['profile_photo']['publicUrl']);
     }
 
     public function testSingleCropVariantHasPositiveIntegerDimensions(): void

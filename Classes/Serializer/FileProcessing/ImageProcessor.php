@@ -94,7 +94,7 @@ final class ImageProcessor implements FileProcessorInterface
             $this->buildInstructions($fileReference, $cropArea, $imageDef),
         );
 
-        $base['publicUrl'] = $this->imageService->getImageUri($processed, $imageDef->absolute);
+        $base['publicUrl'] = UrlNormalizer::toRootRelative($this->imageService->getImageUri($processed, $imageDef->absolute));
         $base['width']     = (int)$processed->getProperty('width');
         $base['height']    = (int)$processed->getProperty('height');
 
@@ -121,7 +121,7 @@ final class ImageProcessor implements FileProcessorInterface
             );
 
             $variants[$variantId] = [
-                'publicUrl' => $this->imageService->getImageUri($processed, $imageDef->absolute),
+                'publicUrl' => UrlNormalizer::toRootRelative($this->imageService->getImageUri($processed, $imageDef->absolute)),
                 'width'     => (int)$processed->getProperty('width'),
                 'height'    => (int)$processed->getProperty('height'),
             ];
