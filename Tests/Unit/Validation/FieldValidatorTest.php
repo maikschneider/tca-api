@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Unit\Validation;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\Tests\Unit\Validation\Fixtures\RecordingValidator;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use MaikSchneider\TcaApi\Validation\FieldValidator;
+use MaikSchneider\TcaApi\Validation\ValidationContext;
+use MaikSchneider\TcaApi\Validation\Violation;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -616,5 +619,122 @@ final class FieldValidatorTest extends TestCase
         $violations = $this->validator->validate(['tags' => 'not-an-array'], $def);
 
         self::assertSame([], $violations);
+    }
+
+    // ── Custom validators (#147) ──────────────────────────────────────────────
+
+    #[Test]
+    public function customValidatorReceivesFullContext(): void
+    {
+        $recorder = new RecordingValidator();
+        $validator = new FieldValidator([$recorder]);
+
+        $def = self::explicitDef([
+            'iban' => [
+                'groups'     => ['create', 'update'],
+                'validators' => [['type' => RecordingValidator::class, 'options' => ['country' => 'DE']]],
+            ],
+        ]);
+
+        $validator->validate(['iban' => 'DE123', 'holder' => 'Ada'], $def, partial: true);
+
+        self::assertInstanceOf(ValidationContext::class, $recorder->received);
+        self::assertSame('DE123', $recorder->received->value);
+        self::assertSame('iban', $recorder->received->column);
+        self::assertSame('tx_test', $recorder->received->table);
+        self::assertSame(['country' => 'DE'], $recorder->received->options);
+        self::assertSame(['iban' => 'DE123', 'holder' => 'Ada'], $recorder->received->body);
+        self::assertTrue($recorder->received->partial);
+        self::assertSame($def, $recorder->received->resourceConfig);
+    }
+
+    #[Test]
+    public function customValidatorViolationsAreMergedWithColumnAsDefaultPath(): void
+    {
+        $recorder = new RecordingValidator();
+        $recorder->toReturn = [new Violation('Invalid IBAN.', 'IBAN')];
+        $validator = new FieldValidator([$recorder]);
+
+        $def = self::explicitDef([
+            'iban' => [
+                'groups'     => ['create'],
+                'validators' => [['type' => RecordingValidator::class]],
+            ],
+        ]);
+
+        $violations = $validator->validate(['iban' => 'bad'], $def);
+
+        self::assertSame(
+            [['propertyPath' => 'iban', 'message' => 'Invalid IBAN.', 'code' => 'IBAN']],
+            $violations,
+        );
+    }
+
+    #[Test]
+    public function customValidatorMayReturnMultipleViolationsAndOverridePath(): void
+    {
+        $recorder = new RecordingValidator();
+        $recorder->toReturn = [
+            new Violation('First problem.', 'A'),
+            new Violation('Cross-field problem.', 'B', propertyPath: 'holder'),
+        ];
+        $validator = new FieldValidator([$recorder]);
+
+        $def = self::explicitDef([
+            'iban' => [
+                'groups'     => ['create'],
+                'validators' => [['type' => RecordingValidator::class]],
+            ],
+        ]);
+
+        $violations = $validator->validate(['iban' => 'bad'], $def);
+
+        self::assertCount(2, $violations);
+        self::assertSame('iban', $violations[0]['propertyPath']);
+        self::assertSame('holder', $violations[1]['propertyPath']);
+        self::assertSame('B', $violations[1]['code']);
+    }
+
+    #[Test]
+    public function builtInAndCustomValidatorsRunTogether(): void
+    {
+        $recorder = new RecordingValidator();
+        $recorder->toReturn = [new Violation('Invalid IBAN.', 'IBAN')];
+        $validator = new FieldValidator([$recorder]);
+
+        $def = self::explicitDef([
+            'iban' => [
+                'groups'     => ['create'],
+                'validators' => [
+                    ['type' => 'maxLength', 'max' => 3],
+                    ['type' => RecordingValidator::class],
+                ],
+            ],
+        ]);
+
+        $violations = $validator->validate(['iban' => 'toolong'], $def);
+
+        $codes = array_column($violations, 'code');
+        self::assertContains('MAX_LENGTH', $codes);
+        self::assertContains('IBAN', $codes);
+    }
+
+    #[Test]
+    public function unregisteredCustomValidatorThrows(): void
+    {
+        // RecordingValidator passes boot validation but is not provided to the
+        // FieldValidator instance, so resolution must fail loudly, not skip.
+        $validator = new FieldValidator([]);
+
+        $def = self::explicitDef([
+            'iban' => [
+                'groups'     => ['create'],
+                'validators' => [['type' => RecordingValidator::class]],
+            ],
+        ]);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('No validator registered');
+        $validator->validate(['iban' => 'x'], $def);
     }
 }

@@ -210,3 +210,70 @@ PATCH behaviour
 On PATCH requests (partial updates), validation only runs on fields that are
 present in the request body. Absent fields — including ``required`` ones — are
 skipped. Auto-derived validators follow the same rule.
+
+Custom validators
+=================
+
+When the built-in types are not enough, register your own rule by implementing
+:php:`MaikSchneider\TcaApi\Validation\ValidatorInterface` and referencing it by
+class-string as the validator ``type``. Implementations are auto-discovered via
+the ``tca_api.validator`` DI tag — no ``Services.yaml`` entry is needed as long
+as your extension uses ``autoconfigure`` (the TYPO3 default).
+
+..  code-block:: php
+
+    'iban' => [
+        'groups'     => ['list', 'show', 'create', 'update'],
+        'validators' => [
+            ['type' => \Acme\Validator\IbanValidator::class, 'options' => ['country' => 'DE']],
+        ],
+    ],
+
+The validator receives a typed
+:php:`MaikSchneider\TcaApi\Validation\ValidationContext` and returns a (possibly
+empty) list of :php:`MaikSchneider\TcaApi\Validation\Violation` objects:
+
+..  code-block:: php
+
+    use MaikSchneider\TcaApi\Validation\ValidationContext;
+    use MaikSchneider\TcaApi\Validation\ValidatorInterface;
+    use MaikSchneider\TcaApi\Validation\Violation;
+
+    final class IbanValidator implements ValidatorInterface
+    {
+        public function validate(ValidationContext $context): array
+        {
+            if (is_valid_iban((string)$context->value, $context->option('country'))) {
+                return [];
+            }
+
+            return [new Violation('Not a valid IBAN.', 'IBAN')];
+        }
+    }
+
+``ValidationContext`` exposes:
+
+..  list-table::
+    :header-rows: 1
+    :widths: 25 75
+
+    * - Property
+      - Description
+    * - ``value``
+      - The submitted value of the column being validated.
+    * - ``column`` / ``table``
+      - Column name and resource table.
+    * - ``options``
+      - Per-validator options from the config; use ``option($key, $default)``.
+    * - ``body``
+      - The full request body — enables cross-field rules.
+    * - ``partial``
+      - ``true`` on PATCH requests.
+    * - ``resourceConfig``
+      - The full :php:`ApiDefinition` for the resource.
+
+Each returned ``Violation`` carries a ``message`` and a machine-readable
+``code``; its ``propertyPath`` defaults to the validated column but can be set
+explicitly to point a violation at a different field. Violations merge into the
+same **422** Hydra error response as the built-in validators. Built-in and
+custom validators can be combined freely on the same column.

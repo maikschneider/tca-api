@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Unit\Configuration;
 
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
+use MaikSchneider\TcaApi\Tests\Unit\Validation\Fixtures\RecordingValidator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -210,6 +211,35 @@ final class ColumnDefinitionTest extends TestCase
             'validators' => [['type' => 'regex', 'pattern' => '/^[a-z]+$/']],
         ]);
         self::assertCount(1, $def->validators);
+    }
+
+    #[Test]
+    public function customValidatorClassStringIsAccepted(): void
+    {
+        $def = ColumnDefinition::fromArray([
+            'validators' => [['type' => RecordingValidator::class, 'options' => ['x' => 1]]],
+        ]);
+        self::assertSame(RecordingValidator::class, $def->validators[0]['type']);
+    }
+
+    #[Test]
+    public function nonExistentValidatorClassThrows(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('validators[0].type');
+        ColumnDefinition::fromArray([
+            'validators' => [['type' => 'Acme\\Nope\\MissingValidator']],
+        ]);
+    }
+
+    #[Test]
+    public function validatorClassNotImplementingInterfaceThrows(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('must implement');
+        ColumnDefinition::fromArray([
+            'validators' => [['type' => \stdClass::class]],
+        ]);
     }
 
     #[Test]
