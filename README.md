@@ -13,7 +13,7 @@
 
 </div>
 
-> **State:** Beta (0.2.0) — feedback and contributions very welcome. See [GitHub Discussions](https://github.com/maikschneider/tca-api/discussions) to help validate the architecture, security model, and design decisions before they stabilize.
+> **State:** Beta (0.4.0) — feedback and contributions very welcome. See [GitHub Discussions](https://github.com/maikschneider/tca-api/discussions) to help validate the architecture, security model, and design decisions before they stabilize.
 
 ## Motivation
 
@@ -30,7 +30,7 @@ See the [Motivation chapter](https://docs.typo3.org/p/maikschneider/tca-api/main
 - **Filtering** — Exact, partial, word-start, range, full-text search, and many-to-many filter strategies via query parameters; configurable defaults and private (non-overrideable) filters; extensible via `FilterInterface`
 - **Sorting** — Configurable allowed sort columns with defaults
 - **Pagination** — Offset-based pagination with Hydra `PartialCollectionView` links
-- **Validation** — Required, maxLength, minLength, and regex validators with structured 422 error responses
+- **Validation** — Built-in `required`, length, range, item-count, and regex validators with structured 422 error responses; auto-derived from TCA and extensible with custom rules via `ValidatorInterface`
 - **File uploads** — `multipart/form-data` file uploads on write endpoints with per-column FAL storage, size limits, and filename masks
 - **Access control** — Per-operation roles: `PUBLIC`, `FE_USER`, `FE_GROUP`, `BE_USER`, `BE_ADMIN`, `OWNER` (record-level ownership), or custom callables
 - **Write privilege model** — Actor-aware write context with configurable execution strategy, per-table access control, system-table deny list, and structured audit logging
@@ -708,13 +708,71 @@ Logs are written to TYPO3's logging framework and can be routed to any PSR-3 com
 
 ## Validation
 
-Configure validators per column:
+Configure validators per column. Validators are also **auto-derived from TCA**
+(e.g. `config.max` → `maxLength`, `config.required` → `required`) as a gap-fill —
+explicit validators always win.
 
-| Type        | Parameters     | Description              |
-|-------------|----------------|--------------------------|
-| `maxLength` | `max` (int)    | Maximum string length    |
-| `minLength` | `min` (int)    | Minimum string length    |
-| `regex`     | `pattern` (string) | PCRE pattern to match |
+| Type        | Parameters         | Description                 |
+|-------------|--------------------|-----------------------------|
+| `maxLength` | `max` (int)        | Maximum string length       |
+| `minLength` | `min` (int)        | Minimum string length       |
+| `minValue`  | `min` (int/float)  | Minimum numeric value       |
+| `maxValue`  | `max` (int/float)  | Maximum numeric value       |
+| `minItems`  | `min` (int)        | Minimum number of items     |
+| `maxItems`  | `max` (int)        | Maximum number of items     |
+| `regex`     | `pattern` (string) | PCRE pattern to match       |
+
+```php
+'rating' => [
+    'groups'     => ['list', 'show', 'create', 'update'],
+    'validators' => [
+        ['type' => 'minValue', 'min' => 1],
+        ['type' => 'maxValue', 'max' => 5],
+    ],
+],
+```
+
+### Custom validators
+
+When the built-in types are not enough, reference a class-string `type`
+implementing `MaikSchneider\TcaApi\Validation\ValidatorInterface`. Implementations
+are auto-discovered via the `tca_api.validator` DI tag — no `Services.yaml` entry
+is needed with `autoconfigure`.
+
+```php
+'iban' => [
+    'groups'     => ['list', 'show', 'create', 'update'],
+    'validators' => [
+        ['type' => \Acme\Validator\IbanValidator::class, 'options' => ['country' => 'DE']],
+    ],
+],
+```
+
+```php
+use MaikSchneider\TcaApi\Validation\ValidationContext;
+use MaikSchneider\TcaApi\Validation\ValidatorInterface;
+use MaikSchneider\TcaApi\Validation\Violation;
+
+final class IbanValidator implements ValidatorInterface
+{
+    public function validate(ValidationContext $context): array
+    {
+        if (is_valid_iban((string)$context->value, $context->option('country'))) {
+            return [];
+        }
+
+        return [new Violation('Not a valid IBAN.', 'IBAN')];
+    }
+}
+```
+
+The `ValidationContext` exposes the submitted `value`, the `column`/`table`,
+per-validator `options` (via `option($key, $default)`), the full request `body`
+(for cross-field rules), the `partial` (PATCH) flag, and the resource
+`resourceConfig`. Each returned `Violation` carries a `message` and a
+machine-readable `code`; its `propertyPath` defaults to the validated column but
+can target another field. Built-in and custom validators compose freely on the
+same column. See the [Validation documentation](Documentation/Configuration/Validation.rst).
 
 Validation failures return **422 Unprocessable Entity**:
 
