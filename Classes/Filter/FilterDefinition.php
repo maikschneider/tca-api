@@ -84,49 +84,50 @@ final readonly class FilterDefinition
     public static function fromRaw(string $table, string $column, mixed $raw, array $filterMap = []): self
     {
         if (\is_string($raw)) {
-            self::assertValidFilterClass($raw, $column);
-
-            $def = new self(
-                filterClass: $raw,
-                table:       $table,
-                column:      $column,
-            );
-
-            return ($filterMap[$raw] ?? null)?->preResolve($def) ?? $def;
-        }
-
-        if (\is_array($raw) && \is_string($raw[0] ?? null)) {
-            self::assertValidFilterClass($raw[0], $column);
-
+            $filterClass = $raw;
+            $options     = [];
+            $isPrivate   = false;
+            $default     = null;
+        } elseif (\is_array($raw) && \is_string($raw[0] ?? null)) {
             if (isset($raw[1]) && !\is_array($raw[1])) {
                 throw new \InvalidArgumentException(
                     sprintf('filter "%s" options (second element) must be an array.', $column),
                 );
             }
 
-            $options   = $raw[1] ?? [];
-            $isPrivate = (bool)($options['private'] ?? false);
-            $default   = $options['default'] ?? null;
-            $cleanOpts = array_diff_key($options, array_flip(['private', 'default']));
-
-            $def = new self(
-                filterClass: $raw[0],
-                table:       $table,
-                column:      $column,
-                options:     $cleanOpts,
-                isPrivate:   $isPrivate,
-                default:     $default,
+            $filterClass = $raw[0];
+            $rawOptions  = $raw[1] ?? [];
+            $isPrivate   = (bool)($rawOptions['private'] ?? false);
+            $default     = $rawOptions['default'] ?? null;
+            $options     = array_diff_key($rawOptions, array_flip(['private', 'default']));
+        } else {
+            throw new \InvalidArgumentException(
+                sprintf(
+                    'filter "%s" must be a class-string or [class-string, options-array].',
+                    $column,
+                ),
             );
-
-            return ($filterMap[$raw[0]] ?? null)?->preResolve($def) ?? $def;
         }
 
-        throw new \InvalidArgumentException(
-            sprintf(
-                'filter "%s" must be a class-string or [class-string, options-array].',
-                $column,
-            ),
+        self::assertValidFilterClass($filterClass, $column);
+
+        // A dotted key filters across relations: the declared filter becomes the leaf
+        // comparison and RelationPathFilter takes over the traversal (see its docblock).
+        if (str_contains($column, '.')) {
+            $options['__leafFilter'] = $filterClass;
+            $filterClass             = RelationPathFilter::class;
+        }
+
+        $def = new self(
+            filterClass: $filterClass,
+            table:       $table,
+            column:      $column,
+            options:     $options,
+            isPrivate:   $isPrivate,
+            default:     $default,
         );
+
+        return ($filterMap[$filterClass] ?? null)?->preResolve($def) ?? $def;
     }
 
     private static function assertValidFilterClass(string $filterClass, string $column): void

@@ -63,6 +63,8 @@ return [
         'title'      => ExactFilter::class,
         'color_id'   => ExactFilter::class,
         'categories' => MmFilter::class,
+        'color_id.name'    => ExactFilter::class,  // FK hop  → colour's name
+        'categories.title' => ExactFilter::class,  // MM hop  → a category's title
     ],
     'order' => [
         'allowed' => ['title', 'uid'],

@@ -1,0 +1,7 @@
+"tx_myext_domain_model_article"
+,"uid","pid","title","color_id","parent_id","hidden","deleted","tstamp","crdate"
+,2200,1,"RelPath Parent Red",1,0,0,0,1704067200,1704067200
+,2201,1,"RelPath Child of Red",0,2200,0,0,1704067200,1704067200
+,2202,1,"RelPath Parent Blue",2,0,0,0,1704067200,1704067200
+,2203,1,"RelPath Child of Blue",0,2202,0,0,1704067200,1704067200
+,2204,1,"RelPath Ghost-colored",990,0,0,0,1704067200,1704067200
