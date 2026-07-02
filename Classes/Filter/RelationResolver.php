@@ -81,16 +81,6 @@ final readonly class RelationResolver
     }
 
     /**
-     * The soft-delete column of a table, or null when the table has none.
-     */
-    public function deletedField(string $table): ?string
-    {
-        $delete = $GLOBALS['TCA'][$table]['ctrl']['delete'] ?? null;
-
-        return \is_string($delete) && $delete !== '' ? $delete : null;
-    }
-
-    /**
      * @param array<string, mixed> $config
      */
     private function resolveTargetTable(array $config): ?string

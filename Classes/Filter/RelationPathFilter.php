@@ -150,31 +150,29 @@ final class RelationPathFilter implements FilterInterface, FilterPreResolvableIn
 
     private function wrapHop(QueryBuilder $qb, RelationHop $hop, string $innerSet, int $level): string
     {
+        $srcAlias = 'src' . $level;
+        $sub      = $this->connectionPool->getQueryBuilderForTable($hop->sourceTable);
+        $sub->select($srcAlias . '.uid')->from($hop->sourceTable, $srcAlias);
+
         if ($hop->kind === RelationHop::KIND_MM) {
-            $alias = 'mm' . $level;
-            $parts = [
-                $qb->quoteIdentifier($alias . '.' . $hop->mmTargetKey) . ' IN (' . $innerSet . ')',
-            ];
+            // Source rows linked through the MM table to a UID in the inner set.
+            $mmAlias = 'mm' . $level;
+            $sub->join(
+                $srcAlias,
+                $hop->mmTable,
+                $mmAlias,
+                $sub->expr()->eq($mmAlias . '.' . $hop->mmSourceKey, $sub->quoteIdentifier($srcAlias . '.uid')),
+            )->where($sub->expr()->in($mmAlias . '.' . $hop->mmTargetKey, '(' . $innerSet . ')'));
+
             foreach ($hop->mmMatch as $col => $val) {
-                $parts[] = $qb->quoteIdentifier($alias . '.' . $col) . ' = ' . $qb->quote((string)$val);
+                $sub->andWhere($sub->expr()->eq($mmAlias . '.' . $col, $sub->quote((string)$val)));
             }
 
-            return sprintf(
-                'SELECT %s FROM %s %s WHERE %s',
-                $qb->quoteIdentifier($alias . '.' . $hop->mmSourceKey),
-                $qb->quoteIdentifier($hop->mmTable),
-                $qb->quoteIdentifier($alias),
-                implode(' AND ', $parts),
-            );
+            return $sub->getSQL();
         }
 
-        // FK hop: source rows whose fkColumn points into the inner set. Built through a
-        // real QueryBuilder so the source table's enable-field restrictions are applied.
-        $alias = 'fk' . $level;
-        $sub   = $this->connectionPool->getQueryBuilderForTable($hop->sourceTable);
-        $sub->select($alias . '.uid')
-            ->from($hop->sourceTable, $alias)
-            ->where($sub->expr()->in($alias . '.' . $hop->fkColumn, '(' . $innerSet . ')'));
+        // FK hop: source rows whose fkColumn points into the inner set.
+        $sub->where($sub->expr()->in($srcAlias . '.' . $hop->fkColumn, '(' . $innerSet . ')'));
 
         return $sub->getSQL();
     }
