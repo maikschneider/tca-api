@@ -6,12 +6,16 @@ namespace MaikSchneider\TcaApi\Tests\Functional\Configuration;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Exception\InvalidApiDefinitionException;
+use MaikSchneider\TcaApi\Filter\ExactFilter;
+use MaikSchneider\TcaApi\Filter\RelationPathFilter;
+use MaikSchneider\TcaApi\Filter\RelationResolver;
 use MaikSchneider\TcaApi\Loader\ApiDefinitionLoader;
 use MaikSchneider\TcaApi\Loader\TcaValidatorDeriver;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use TYPO3\CMS\Core\Cache\Frontend\PhpFrontend;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Package\PackageManager;
 
 /**
@@ -207,6 +211,74 @@ final class ApiDefinitionLoaderValidationTest extends TestCase
         $this->invokeValidate(['categories' => $definition]);
 
         self::assertNotNull($this->registry->get('categories'));
+    }
+
+    #[Test]
+    public function loaderThrowsWhenRelationPathFilterCannotBeResolved(): void
+    {
+        // The relation segment "nonexistent" is not a TCA column, so pre-resolution
+        // records a __pathError which boot validation must promote to a hard failure.
+        $GLOBALS['TCA']['tx_myext_domain_model_article']['columns']['title']['config'] = ['type' => 'input'];
+
+        $definition = ApiDefinition::fromArray(
+            [
+                'general' => [
+                    'table'        => 'tx_myext_domain_model_article',
+                    'resourceName' => 'articles',
+                    'resourceType' => 'Article',
+                ],
+                'columns' => ['title' => ['groups' => ['list', 'show']]],
+                'filters' => ['nonexistent.title' => ExactFilter::class],
+            ],
+            [RelationPathFilter::class => $this->makePathFilter()],
+        );
+        $this->registry->register('articles', $definition);
+
+        try {
+            $this->invokeValidate(['articles' => $definition]);
+            self::fail('Expected InvalidApiDefinitionException was not thrown.');
+        } catch (InvalidApiDefinitionException $e) {
+            self::assertStringContainsString("Filter 'nonexistent.title'", $e->getMessage());
+            self::assertStringContainsString("resource 'articles'", $e->getMessage());
+            self::assertStringContainsString('is not a known TCA column', $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function loaderDoesNotThrowForValidRelationPath(): void
+    {
+        $GLOBALS['TCA']['tx_myext_domain_model_article']['columns']['color_id']['config'] = [
+            'type'          => 'select',
+            'foreign_table' => 'tx_myext_domain_model_color',
+        ];
+
+        $definition = ApiDefinition::fromArray(
+            [
+                'general' => [
+                    'table'        => 'tx_myext_domain_model_article',
+                    'resourceName' => 'articles',
+                    'resourceType' => 'Article',
+                ],
+                'columns' => ['title' => ['groups' => ['list', 'show']]],
+                'filters' => ['color_id.name' => ExactFilter::class],
+            ],
+            [RelationPathFilter::class => $this->makePathFilter()],
+        );
+        $this->registry->register('articles', $definition);
+
+        $this->invokeValidate(['articles' => $definition]);
+
+        self::assertNotNull($this->registry->get('articles'));
+    }
+
+    private function makePathFilter(): RelationPathFilter
+    {
+        // preResolve only needs the resolver + $GLOBALS['TCA']; the ConnectionPool is
+        // used at apply() time, never during pre-resolution/validation.
+        return new RelationPathFilter(
+            $this->createMock(ConnectionPool::class),
+            new RelationResolver(),
+        );
     }
 
     /**
