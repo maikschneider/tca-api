@@ -30,6 +30,13 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
  */
 final class RelationPathFilter implements FilterInterface, FilterPreResolvableInterface
 {
+    /**
+     * Hard cap on the number of relation hops in a single path (the leaf column is not
+     * a hop). Bounds the depth of nested subqueries {@see resolvePath()} builds, so a
+     * misconfigured path cannot generate an unbounded query.
+     */
+    private const MAX_RELATION_HOPS = 3;
+
     /** @var array<class-string, FilterInterface>|null */
     private ?array $leafMap = null;
 
@@ -120,6 +127,14 @@ final class RelationPathFilter implements FilterInterface, FilterPreResolvableIn
             throw new \InvalidArgumentException(
                 sprintf('Relation path "%s" must be of the form "relation.….column".', $path),
             );
+        }
+
+        if (\count($segments) > self::MAX_RELATION_HOPS) {
+            throw new \InvalidArgumentException(sprintf(
+                'Relation path "%s" exceeds the maximum of %d relation hops.',
+                $path,
+                self::MAX_RELATION_HOPS,
+            ));
         }
 
         $hops    = [];
