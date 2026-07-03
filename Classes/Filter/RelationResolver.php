@@ -79,10 +79,14 @@ final readonly class RelationResolver
             );
         }
 
-        // Single-value FK: a select storing the related UID directly in the column.
-        if (\in_array($type, ['select', 'category', 'group'], true)
+        // Single-value FK: a `select` storing exactly one related UID directly in the
+        // column. Multi-value selects and non-MM group fields use comma-separated
+        // storage; resolving them as a single-value FK would match a CSV column against
+        // individual UIDs, so they are intentionally unsupported — use an MM relation.
+        if ($type === 'select'
             && \is_string($config['foreign_table'] ?? null)
             && $config['foreign_table'] !== ''
+            && (int)($config['maxitems'] ?? 1) === 1
         ) {
             return RelationHop::fk($table, $config['foreign_table'], $field);
         }

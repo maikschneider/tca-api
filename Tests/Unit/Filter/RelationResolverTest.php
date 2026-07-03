@@ -104,6 +104,37 @@ final class RelationResolverTest extends TestCase
     }
 
     #[Test]
+    public function resolveThrowsForNonMmGroupWithForeignTable(): void
+    {
+        // A group field without MM stores a comma-separated list, not a single UID.
+        $GLOBALS['TCA']['t']['columns']['rel']['config'] = [
+            'type'          => 'group',
+            'foreign_table' => 'tx_target',
+        ];
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('is not a filterable relation');
+
+        $this->resolver->resolve('t', 'rel');
+    }
+
+    #[Test]
+    public function resolveThrowsForMultiValueSelect(): void
+    {
+        // A multi-value select (maxitems > 1) also stores comma-separated UIDs.
+        $GLOBALS['TCA']['t']['columns']['rel']['config'] = [
+            'type'          => 'select',
+            'foreign_table' => 'tx_target',
+            'maxitems'      => 5,
+        ];
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('is not a filterable relation');
+
+        $this->resolver->resolve('t', 'rel');
+    }
+
+    #[Test]
     public function resolveReturnsInlineHopForForeignField(): void
     {
         $GLOBALS['TCA']['t']['columns']['items']['config'] = [
