@@ -41,7 +41,7 @@ final readonly class RelationResolver
 
         // MM relation (type=category, select/group with MM).
         if (isset($config['MM']) && \is_string($config['MM']) && $config['MM'] !== '') {
-            $target = $this->resolveTargetTable($config);
+            $target = $this->resolveTargetTable($config, $table, $field);
             if ($target === null) {
                 throw new \InvalidArgumentException(sprintf(
                     'Relation path: cannot determine the related table for MM relation "%s.%s".',
@@ -82,13 +82,27 @@ final readonly class RelationResolver
 
     /**
      * @param array<string, mixed> $config
+     *
+     * @throws \InvalidArgumentException when the group relation allows more than one table,
+     *                                   which leaves the filter target ambiguous.
      */
-    private function resolveTargetTable(array $config): ?string
+    private function resolveTargetTable(array $config, string $table, string $field): ?string
     {
         if (\is_string($config['foreign_table'] ?? null) && $config['foreign_table'] !== '') {
             return $config['foreign_table'];
         }
 
-        return $this->groupAllowedResolver->resolveAllowedTables($config)[0] ?? null;
+        $allowed = $this->groupAllowedResolver->resolveAllowedTables($config);
+        if (\count($allowed) > 1) {
+            throw new \InvalidArgumentException(sprintf(
+                'Relation path: MM relation "%s.%s" allows multiple tables (%s); '
+                . 'a relation-path filter needs a single, unambiguous target table.',
+                $table,
+                $field,
+                implode(', ', $allowed),
+            ));
+        }
+
+        return $allowed[0] ?? null;
     }
 }

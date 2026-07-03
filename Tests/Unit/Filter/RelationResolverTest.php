@@ -72,6 +72,38 @@ final class RelationResolverTest extends TestCase
     }
 
     #[Test]
+    public function resolveThrowsForMmRelationWithAmbiguousMultiTableTarget(): void
+    {
+        // Group MM with several allowed tables and no foreign_table → target ambiguous.
+        $GLOBALS['TCA']['t']['columns']['rel']['config'] = [
+            'type'    => 'group',
+            'MM'      => 'some_mm',
+            'allowed' => 'tx_a,tx_b',
+        ];
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('allows multiple tables (tx_a, tx_b)');
+
+        $this->resolver->resolve('t', 'rel');
+    }
+
+    #[Test]
+    public function resolveReturnsMmHopForSingleAllowedTableWithoutForeignTable(): void
+    {
+        // A single allowed table is unambiguous and must resolve normally.
+        $GLOBALS['TCA']['t']['columns']['rel']['config'] = [
+            'type'    => 'group',
+            'MM'      => 'some_mm',
+            'allowed' => 'tx_only',
+        ];
+
+        $hop = $this->resolver->resolve('t', 'rel');
+
+        self::assertSame(RelationHop::KIND_MM, $hop->kind);
+        self::assertSame('tx_only', $hop->targetTable);
+    }
+
+    #[Test]
     public function resolveReturnsFkHopForSingleValueSelect(): void
     {
         $GLOBALS['TCA']['t']['columns']['color_id']['config'] = [
