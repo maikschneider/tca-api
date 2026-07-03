@@ -171,6 +171,31 @@ final class RelationPathFilter implements FilterInterface, FilterPreResolvableIn
             return $sub->getSQL();
         }
 
+        if ($hop->kind === RelationHop::KIND_INLINE) {
+            // Source rows whose inline child (back-pointing via foreignField) is in the
+            // inner set. Joining the child table restricts it too; the parent stays
+            // restricted through the source table this query is built on.
+            $childAlias = 'inl' . $level;
+            $sub->join(
+                $srcAlias,
+                $hop->targetTable,
+                $childAlias,
+                $sub->expr()->eq($childAlias . '.' . $hop->foreignField, $sub->quoteIdentifier($srcAlias . '.uid')),
+            )->where($sub->expr()->in($childAlias . '.uid', '(' . $innerSet . ')'));
+
+            if ($hop->foreignTableField !== null) {
+                $sub->andWhere($sub->expr()->eq(
+                    $childAlias . '.' . $hop->foreignTableField,
+                    $sub->quote($hop->sourceTable),
+                ));
+            }
+            foreach ($hop->foreignMatchFields as $col => $val) {
+                $sub->andWhere($sub->expr()->eq($childAlias . '.' . $col, $sub->quote((string)$val)));
+            }
+
+            return $sub->getSQL();
+        }
+
         // FK hop: source rows whose fkColumn points into the inner set.
         $sub->where($sub->expr()->in($srcAlias . '.' . $hop->fkColumn, '(' . $innerSet . ')'));
 

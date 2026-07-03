@@ -104,6 +104,43 @@ final class RelationResolverTest extends TestCase
     }
 
     #[Test]
+    public function resolveReturnsInlineHopForForeignField(): void
+    {
+        $GLOBALS['TCA']['t']['columns']['items']['config'] = [
+            'type'          => 'inline',
+            'foreign_table' => 'tx_child',
+            'foreign_field' => 'parent_uid',
+        ];
+
+        $hop = $this->resolver->resolve('t', 'items');
+
+        self::assertSame(RelationHop::KIND_INLINE, $hop->kind);
+        self::assertSame('t', $hop->sourceTable);
+        self::assertSame('tx_child', $hop->targetTable);
+        self::assertSame('parent_uid', $hop->foreignField);
+        self::assertNull($hop->foreignTableField);
+        self::assertSame([], $hop->foreignMatchFields);
+    }
+
+    #[Test]
+    public function resolveReturnsInlineHopWithDiscriminators(): void
+    {
+        $GLOBALS['TCA']['t']['columns']['items']['config'] = [
+            'type'                 => 'inline',
+            'foreign_table'        => 'tx_child',
+            'foreign_field'        => 'parent_uid',
+            'foreign_table_field'  => 'parent_table',
+            'foreign_match_fields' => ['variant' => 'a'],
+        ];
+
+        $hop = $this->resolver->resolve('t', 'items');
+
+        self::assertSame(RelationHop::KIND_INLINE, $hop->kind);
+        self::assertSame('parent_table', $hop->foreignTableField);
+        self::assertSame(['variant' => 'a'], $hop->foreignMatchFields);
+    }
+
+    #[Test]
     public function resolveReturnsFkHopForSingleValueSelect(): void
     {
         $GLOBALS['TCA']['t']['columns']['color_id']['config'] = [

@@ -1,0 +1,8 @@
+"tx_myext_domain_model_color"
+,"uid","pid","name","hidden","deleted","foreign_article_id","field_to_match","parent_tablename"
+,2310,1,"InlinePlain",0,0,2300,"",""
+,2311,1,"InlineTypeA",0,0,2300,"type_a",""
+,2312,1,"InlineTypeB",0,0,2300,"type_b",""
+,2313,1,"InlineFromArticle",0,0,2300,"","tx_myext_domain_model_article"
+,2314,1,"InlineFromColor",0,0,2300,"","tx_myext_domain_model_color"
+,2315,1,"InlineDeleted",0,1,2300,"",""

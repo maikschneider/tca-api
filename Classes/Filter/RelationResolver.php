@@ -14,9 +14,9 @@ use MaikSchneider\TcaApi\Tca\GroupAllowedResolver;
  * are pre-resolved — the same reason the ApiDefinitionLoader validators read raw TCA.
  * The migrated TCA already carries `MM` / `foreign_table` for `type=category`.
  *
- * Supported relation kinds (v1): single-value `select` FK and MM (incl. `type=category`
- * and `type=group` with `MM`). Inline (`foreign_field`) and non-MM group relations are
- * rejected with a clear message.
+ * Supported relation kinds: single-value `select` FK, MM (incl. `type=category` and
+ * `type=group` with `MM`), and `type=inline` (`foreign_field`). Non-MM group relations
+ * (comma-separated storage) are rejected with a clear message.
  */
 final readonly class RelationResolver
 {
@@ -63,6 +63,22 @@ final readonly class RelationResolver
             );
         }
 
+        // Inline relation: the child table stores a back-pointer to the source UID.
+        if ($type === 'inline'
+            && \is_string($config['foreign_table'] ?? null) && $config['foreign_table'] !== ''
+            && \is_string($config['foreign_field'] ?? null) && $config['foreign_field'] !== ''
+        ) {
+            return RelationHop::inline(
+                sourceTable: $table,
+                targetTable: $config['foreign_table'],
+                foreignField: $config['foreign_field'],
+                foreignTableField: \is_string($config['foreign_table_field'] ?? null) && $config['foreign_table_field'] !== ''
+                    ? $config['foreign_table_field']
+                    : null,
+                foreignMatchFields: \is_array($config['foreign_match_fields'] ?? null) ? $config['foreign_match_fields'] : [],
+            );
+        }
+
         // Single-value FK: a select storing the related UID directly in the column.
         if (\in_array($type, ['select', 'category', 'group'], true)
             && \is_string($config['foreign_table'] ?? null)
@@ -73,7 +89,7 @@ final readonly class RelationResolver
 
         throw new \InvalidArgumentException(sprintf(
             'Relation path: "%s.%s" (type=%s) is not a filterable relation. '
-            . 'Supported: single-value select FK and MM/category relations.',
+            . 'Supported: single-value select FK, MM/category, and inline (foreign_field) relations.',
             $table,
             $field,
             $type === '' ? 'unknown' : $type,
