@@ -65,7 +65,8 @@ final class RelationPathFilter implements FilterInterface, FilterPreResolvableIn
         try {
             [$hops, $leafTable, $leafColumn] = $this->resolvePath($definition->table, $definition->column);
         } catch (\InvalidArgumentException $e) {
-            // Defer the failure to request time so a single bad path never breaks boot.
+            // Record the failure for boot-time validation
+            // (ApiDefinitionLoader will surface __pathError as an InvalidApiDefinitionException).
             return $definition->withOptions(['__pathError' => $e->getMessage()]);
         }
 
@@ -143,6 +144,23 @@ final class RelationPathFilter implements FilterInterface, FilterPreResolvableIn
             $hop     = $this->resolver->resolve($current, $segment);
             $hops[]  = $hop;
             $current = $hop->targetTable;
+        }
+
+        // The leaf column is compared in SQL against the resolved leaf table, so a typo
+        // there would otherwise only fail at runtime. Reject it here (i.e. at boot) —
+        // guarded so a leaf table without TCA columns is not falsely rejected, and the
+        // universal system columns uid/pid (absent from TCA `columns`) are allowed.
+        $leafColumns = $GLOBALS['TCA'][$current]['columns'] ?? null;
+        if (\is_array($leafColumns)
+            && $leafColumn !== 'uid'
+            && $leafColumn !== 'pid'
+            && !isset($leafColumns[$leafColumn])
+        ) {
+            throw new \InvalidArgumentException(sprintf(
+                'Relation path: leaf column "%s.%s" is not a known TCA column.',
+                $current,
+                $leafColumn,
+            ));
         }
 
         return [$hops, $current, $leafColumn];

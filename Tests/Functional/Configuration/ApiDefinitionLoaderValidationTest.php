@@ -251,6 +251,7 @@ final class ApiDefinitionLoaderValidationTest extends TestCase
             'type'          => 'select',
             'foreign_table' => 'tx_myext_domain_model_color',
         ];
+        $GLOBALS['TCA']['tx_myext_domain_model_color']['columns']['name']['config'] = ['type' => 'input'];
 
         $definition = ApiDefinition::fromArray(
             [
@@ -269,6 +270,40 @@ final class ApiDefinitionLoaderValidationTest extends TestCase
         $this->invokeValidate(['articles' => $definition]);
 
         self::assertNotNull($this->registry->get('articles'));
+    }
+
+    #[Test]
+    public function loaderThrowsWhenRelationPathLeafColumnIsUnknown(): void
+    {
+        // Relations resolve fine, but the leaf column "namee" is a typo — it must be
+        // rejected at boot, not left to fail as a runtime SQL error.
+        $GLOBALS['TCA']['tx_myext_domain_model_article']['columns']['color_id']['config'] = [
+            'type'          => 'select',
+            'foreign_table' => 'tx_myext_domain_model_color',
+        ];
+        $GLOBALS['TCA']['tx_myext_domain_model_color']['columns']['name']['config'] = ['type' => 'input'];
+
+        $definition = ApiDefinition::fromArray(
+            [
+                'general' => [
+                    'table'        => 'tx_myext_domain_model_article',
+                    'resourceName' => 'articles',
+                    'resourceType' => 'Article',
+                ],
+                'columns' => ['title' => ['groups' => ['list', 'show']]],
+                'filters' => ['color_id.namee' => ExactFilter::class],
+            ],
+            [RelationPathFilter::class => $this->makePathFilter()],
+        );
+        $this->registry->register('articles', $definition);
+
+        try {
+            $this->invokeValidate(['articles' => $definition]);
+            self::fail('Expected InvalidApiDefinitionException was not thrown.');
+        } catch (InvalidApiDefinitionException $e) {
+            self::assertStringContainsString("Filter 'color_id.namee'", $e->getMessage());
+            self::assertStringContainsString('leaf column "tx_myext_domain_model_color.namee"', $e->getMessage());
+        }
     }
 
     private function makePathFilter(): RelationPathFilter
