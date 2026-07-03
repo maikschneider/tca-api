@@ -205,8 +205,12 @@ final readonly class OpenApiOperationBuilder
                 continue;
             }
             $shortName = basename(str_replace('\\', '/', $filterConfig->filterClass)) ?: $filterConfig->filterClass;
+            // Relation-path (dotted) keys only work via the bracket form: PHP rewrites
+            // dots in top-level parameter names to underscores. Plain keys accept both,
+            // so keep advertising them top-level.
+            $paramName = str_contains($field, '.') ? 'filters[' . $field . ']' : $field;
             $params[] = [
-                'name' => $field,
+                'name' => $paramName,
                 'in' => 'query',
                 'required' => false,
                 'description' => 'Filter by ' . $field . ' (' . $shortName . ')',

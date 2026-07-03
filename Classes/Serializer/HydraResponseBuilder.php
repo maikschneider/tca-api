@@ -106,9 +106,13 @@ final class HydraResponseBuilder
             if ($filterDef->isPrivate) {
                 continue;
             }
-            if (!\in_array($field, $variables, true)) {
-                $variables[] = $field;
-                $mappings[]  = ['@type' => 'IriTemplateMapping', 'variable' => $field, 'property' => $field, 'required' => false];
+            // Relation-path (dotted) keys only work via the bracket form: PHP rewrites
+            // dots in top-level parameter names to underscores. Plain keys accept both,
+            // so keep advertising them as plain top-level variables.
+            $var = str_contains($field, '.') ? 'filters[' . $field . ']' : $field;
+            if (!\in_array($var, $variables, true)) {
+                $variables[] = $var;
+                $mappings[]  = ['@type' => 'IriTemplateMapping', 'variable' => $var, 'property' => $field, 'required' => false];
             }
         }
 
