@@ -63,6 +63,38 @@ Basic filters
         'slug'   => WordStartFilter::class,        // ?filters[slug]=Fo  → LIKE Fo%
     ],
 
+Filtering by related records
+----------------------------
+
+Several tools touch related records; the right one depends on *what* you filter
+by and *where* the reference is stored:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 34 33 33
+
+   * - Goal
+     - Filter
+     - Example
+   * - Single-value FK's UID (stored on the row)
+     - comparison filter on the FK column
+     - ``'color_id' => ExactFilter::class`` → ``?filters[color_id]=2``
+   * - MM membership (the related UID)
+     - ``MmFilter``
+     - ``'categories' => MmFilter::class`` → ``?filters[categories]=5``
+   * - A *column* of a related record (FK, MM or inline; one or more hops)
+     - relation-path (dotted key)
+     - ``'categories.title' => ExactFilter::class`` → ``?filters[categories.title]=News``
+   * - An inline child's UID (no column on the parent)
+     - relation-path with ``.uid``
+     - ``'related_items.uid' => ExactFilter::class``
+
+* ``relationField.uid`` also works for FK and MM relations, but prefer the FK
+  column filter or ``MmFilter`` there — they avoid the extra join to the target
+  table (the path form additionally requires the related record to be visible).
+* Relation-path (dotted) filters must use the bracket form ``?filters[…]`` —
+  PHP rewrites dots in top-level parameter names to underscores.
+
 Many-to-many filter
 -------------------
 
