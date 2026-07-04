@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Collection;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\Filter\RelationResolver;
+use MaikSchneider\TcaApi\Filter\RelationSubqueryBuilder;
 use MaikSchneider\TcaApi\Filter\SearchFilter;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
+use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Functional tests for #154: SearchFilter's `columns` list may mix the resource's own
@@ -65,6 +70,36 @@ final class SearchFilterRelationPathTest extends ApiFunctionalTestCase
     {
         // "First" only appears in article 1's own title.
         self::assertSame([1], $this->search('First'));
+    }
+
+    public function testPreResolvedSearchPathsProduceSameResult(): void
+    {
+        // registerResource() skips preResolve; register with a filterMap so the search
+        // paths are resolved at build time (the production path) and used in apply().
+        $builder = new RelationSubqueryBuilder(
+            GeneralUtility::makeInstance(ConnectionPool::class),
+            new RelationResolver(),
+        );
+        $definition = ApiDefinition::fromArray(
+            [
+                'general' => [
+                    'table'        => 'tx_myext_domain_model_article',
+                    'resourceName' => 'articles-cross-search-pre',
+                    'resourceType' => 'Article',
+                    'operations'   => ['list'],
+                ],
+                'columns' => ['title' => ['groups' => ['list', 'show']]],
+                'filters' => [
+                    'q' => [SearchFilter::class, ['columns' => ['title', 'categories.title', 'color_id.name']]],
+                ],
+                'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
+            ],
+            [SearchFilter::class => new SearchFilter($builder)],
+        );
+        $this->getApiRegistry()->register('articles-cross-search-pre', $definition);
+
+        self::assertSame([2], $this->search('API', 'articles-cross-search-pre'));
+        self::assertSame([1], $this->search('Red', 'articles-cross-search-pre'));
     }
 
     public function testMatchesMmRelatedColumn(): void
