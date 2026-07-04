@@ -72,6 +72,11 @@ final class SearchFilter implements FilterInterface, FilterPreResolvableInterfac
         $paths   = $context->option('__searchPaths', []);
         $orParts = [];
 
+        // Dotted columns sharing the same relation path (e.g. categories.title and
+        // categories.description) are grouped so their leaf LIKEs run inside ONE subquery
+        /** @var array<string, array{hops: list<RelationHop>, leafTable: string, leafColumns: list<string>}> $groups */
+        $groups = [];
+
         foreach ($columns as $col) {
             if (!str_contains($col, '.')) {
                 $orParts[] = $qb->expr()->like($col, $qb->createNamedParameter($pattern));
@@ -86,17 +91,32 @@ final class SearchFilter implements FilterInterface, FilterPreResolvableInterfac
                 ['hops' => $hops, 'leafTable' => $leafTable, 'leafColumn' => $leafColumn] = $path;
             }
 
-            $prefix     = 'search_' . substr(md5($col), 0, 8) . '_';
-            $currentSet = $this->subqueryBuilder->buildUidSubquery(
+            // Everything before the last dot is the relation path; identical prefixes share
+            // the same resolved hops and leaf table, so they can share one subquery.
+            $groupKey = substr($col, 0, (int)strrpos($col, '.'));
+            if (!isset($groups[$groupKey])) {
+                $groups[$groupKey] = ['hops' => $hops, 'leafTable' => $leafTable, 'leafColumns' => []];
+            }
+            $groups[$groupKey]['leafColumns'][] = $leafColumn;
+        }
+
+        foreach ($groups as $groupKey => $group) {
+            $leafColumns = $group['leafColumns'];
+            $prefix      = 'search_' . substr(md5($groupKey), 0, 8) . '_';
+            $currentSet  = $this->subqueryBuilder->buildUidSubquery(
                 $qb,
-                $hops,
-                $leafTable,
+                $group['hops'],
+                $group['leafTable'],
                 $prefix,
-                function (QueryBuilder $leafQb, string $leafAlias) use ($leafColumn, $pattern): void {
-                    $leafQb->andWhere($leafQb->expr()->like(
-                        $leafAlias . '.' . $leafColumn,
-                        $leafQb->createNamedParameter($pattern),
-                    ));
+                function (QueryBuilder $leafQb, string $leafAlias) use ($leafColumns, $pattern): void {
+                    $likes = [];
+                    foreach ($leafColumns as $leafColumn) {
+                        $likes[] = $leafQb->expr()->like(
+                            $leafAlias . '.' . $leafColumn,
+                            $leafQb->createNamedParameter($pattern),
+                        );
+                    }
+                    $leafQb->andWhere($leafQb->expr()->or(...$likes));
                 },
             );
             $orParts[] = $qb->expr()->in('t.uid', '(' . $currentSet . ')');

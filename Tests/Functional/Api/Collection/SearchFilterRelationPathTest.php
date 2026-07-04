@@ -108,6 +108,28 @@ final class SearchFilterRelationPathTest extends ApiFunctionalTestCase
         self::assertSame([2], $this->search('API'));
     }
 
+    public function testTwoColumnsSharingARelationPathAreGrouped(): void
+    {
+        // categories.title and categories.description share the "categories" hop, so they
+        // are searched through a single subquery. Result must still be correct.
+        $this->registerResource('articles-cross-search-grouped', [
+            'general' => [
+                'table'        => 'tx_myext_domain_model_article',
+                'resourceName' => 'articles-cross-search-grouped',
+                'resourceType' => 'Article',
+                'operations'   => ['list'],
+            ],
+            'columns' => ['title' => ['groups' => ['list', 'show']]],
+            'filters' => [
+                'q' => [SearchFilter::class, ['columns' => ['categories.title', 'categories.description']]],
+            ],
+            'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
+        ]);
+
+        // "API" matches category 3's title (description is empty) → article 2.
+        self::assertSame([2], $this->search('API', 'articles-cross-search-grouped'));
+    }
+
     public function testMatchesFkRelatedColumn(): void
     {
         // "Blue" appears only as article 2's colour name.
