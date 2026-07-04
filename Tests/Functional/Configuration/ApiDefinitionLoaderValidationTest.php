@@ -9,6 +9,8 @@ use MaikSchneider\TcaApi\Exception\InvalidApiDefinitionException;
 use MaikSchneider\TcaApi\Filter\ExactFilter;
 use MaikSchneider\TcaApi\Filter\RelationPathFilter;
 use MaikSchneider\TcaApi\Filter\RelationResolver;
+use MaikSchneider\TcaApi\Filter\RelationSubqueryBuilder;
+use MaikSchneider\TcaApi\Filter\SearchFilter;
 use MaikSchneider\TcaApi\Loader\ApiDefinitionLoader;
 use MaikSchneider\TcaApi\Loader\TcaValidatorDeriver;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
@@ -306,13 +308,55 @@ final class ApiDefinitionLoaderValidationTest extends TestCase
         }
     }
 
+    #[Test]
+    public function loaderThrowsWhenSearchFilterHasInvalidRelationColumn(): void
+    {
+        // A dotted column in SearchFilter's `columns` with a typo'd leaf must be rejected
+        // at boot, exactly like a relation-path filter key.
+        $GLOBALS['TCA']['tx_myext_domain_model_article']['columns']['color_id']['config'] = [
+            'type'          => 'select',
+            'foreign_table' => 'tx_myext_domain_model_color',
+        ];
+        $GLOBALS['TCA']['tx_myext_domain_model_color']['columns']['name']['config'] = ['type' => 'input'];
+
+        $definition = ApiDefinition::fromArray(
+            [
+                'general' => [
+                    'table'        => 'tx_myext_domain_model_article',
+                    'resourceName' => 'articles',
+                    'resourceType' => 'Article',
+                ],
+                'columns' => ['title' => ['groups' => ['list', 'show']]],
+                'filters' => [
+                    'q' => [SearchFilter::class, ['columns' => ['title', 'color_id.namee']]],
+                ],
+            ],
+            [SearchFilter::class => $this->makeSearchFilter()],
+        );
+        $this->registry->register('articles', $definition);
+
+        try {
+            $this->invokeValidate(['articles' => $definition]);
+            self::fail('Expected InvalidApiDefinitionException was not thrown.');
+        } catch (InvalidApiDefinitionException $e) {
+            self::assertStringContainsString("Filter 'q'", $e->getMessage());
+            self::assertStringContainsString('leaf column "tx_myext_domain_model_color.namee"', $e->getMessage());
+        }
+    }
+
     private function makePathFilter(): RelationPathFilter
     {
-        // preResolve only needs the resolver + $GLOBALS['TCA']; the ConnectionPool is
-        // used at apply() time, never during pre-resolution/validation.
+        // preResolve only needs the builder's resolvePath + $GLOBALS['TCA']; the
+        // ConnectionPool is used at apply() time, never during pre-resolution/validation.
         return new RelationPathFilter(
-            $this->createMock(ConnectionPool::class),
-            new RelationResolver(),
+            new RelationSubqueryBuilder($this->createMock(ConnectionPool::class), new RelationResolver()),
+        );
+    }
+
+    private function makeSearchFilter(): SearchFilter
+    {
+        return new SearchFilter(
+            new RelationSubqueryBuilder($this->createMock(ConnectionPool::class), new RelationResolver()),
         );
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Collection;
 
+use MaikSchneider\TcaApi\Filter\SearchFilter;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -25,6 +26,34 @@ final class FilterRelationPathMmTest extends ApiFunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/sys_categories.csv');
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles.csv');
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/sys_category_record_mm.csv');
+    }
+
+    public function testSearchFilterAsPathLeafDoesPartialMatchOnRelatedColumn(): void
+    {
+        // SearchFilter as the leaf of a relation path: LIKE across the related table's
+        // columns, then mapped back through the MM hop.
+        $this->registerResource('articles-cat-search', [
+            'general' => [
+                'table'        => 'tx_myext_domain_model_article',
+                'resourceName' => 'articles-cat-search',
+                'resourceType' => 'Article',
+                'operations'   => ['list'],
+            ],
+            'columns' => ['title' => ['groups' => ['list', 'show']]],
+            'filters' => [
+                // Search across two columns of the related table (multiple LIKE params).
+                'categories.title' => [SearchFilter::class, ['columns' => ['title', 'description']]],
+            ],
+            'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
+        ]);
+
+        // Partial "YPO" matches category "TYPO3" (uid 2) → article 1 (ExactFilter would not).
+        $body = $this->decodeResponseBody(
+            $this->executeApiRequest('/_api/articles-cat-search', ['filters' => ['categories.title' => 'YPO']]),
+        );
+
+        self::assertSame(1, $body['hydra:totalItems']);
+        self::assertSame(1, $body['hydra:member'][0]['uid']);
     }
 
     public function testMmHopFiltersByCategoryTitle(): void
