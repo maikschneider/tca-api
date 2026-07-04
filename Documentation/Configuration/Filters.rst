@@ -63,6 +63,38 @@ Basic filters
         'slug'   => WordStartFilter::class,        // ?filters[slug]=Fo  → LIKE Fo%
     ],
 
+Filtering by related records
+----------------------------
+
+Several tools touch related records; the right one depends on *what* you filter
+by and *where* the reference is stored:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 34 33 33
+
+   * - Goal
+     - Filter
+     - Example
+   * - Single-value FK's UID (stored on the row)
+     - comparison filter on the FK column
+     - ``'color_id' => ExactFilter::class`` → ``?filters[color_id]=2``
+   * - MM membership (the related UID)
+     - ``MmFilter``
+     - ``'categories' => MmFilter::class`` → ``?filters[categories]=5``
+   * - A *column* of a related record (FK, MM or inline; one or more hops)
+     - relation-path (dotted key)
+     - ``'categories.title' => ExactFilter::class`` → ``?filters[categories.title]=News``
+   * - An inline child's UID (no column on the parent)
+     - relation-path with ``.uid``
+     - ``'related_items.uid' => ExactFilter::class``
+
+* ``relationField.uid`` also works for FK and MM relations, but prefer the FK
+  column filter or ``MmFilter`` there — they avoid the extra join to the target
+  table (the path form additionally requires the related record to be visible).
+* Relation-path (dotted) filters must use the bracket form ``?filters[…]`` —
+  PHP rewrites dots in top-level parameter names to underscores.
+
 Many-to-many filter
 -------------------
 
@@ -87,6 +119,77 @@ config from TCA automatically (requires a valid ``MM`` key on the field):
             ],
         ],
     ],
+
+Relation-path filters
+---------------------
+
+A **dotted filter key** filters the resource by a column reached through one or
+more relations. The last path segment is a scalar column on the deepest related
+table; the segments before it are relations to traverse. The declared filter
+(``ExactFilter`` below) performs the comparison on that column — the dot in the
+key is detected automatically, so there is no extra filter class to register:
+
+..  code-block:: php
+
+    use MaikSchneider\TcaApi\Filter\ExactFilter;
+
+    'filters' => [
+        'color_id.name'           => ExactFilter::class,  // one FK hop     → the colour's name
+        'categories.title'        => ExactFilter::class,  // one MM hop     → a category's title
+        'related_items.name'      => ExactFilter::class,  // one inline hop → an inline child's name
+        'categories.parent.title' => ExactFilter::class,  // two hops       → a category's parent's title
+    ],
+
+Usage (dotted keys require the bracket form — see the note below):
+
+..  code-block:: text
+
+    ?filters[color_id.name]=Red
+    ?filters[categories.title]=News
+    ?filters[categories.parent.title]=Root
+
+Any comparison filter can be the leaf. ``ExactFilter`` is the default;
+``RangeFilter``, ``WordStartFilter`` and ``PartialFilter`` compare the leaf
+column directly, and their options are forwarded through the options form:
+
+..  code-block:: php
+
+    'filters' => [
+        'stock.updated_at' => [RangeFilter::class, ['type' => 'date']],
+    ],
+
+How it works
+~~~~~~~~~~~~
+
+Each relation hop wraps the previous result in an ``IN (subquery)`` that maps
+related UIDs back to the holder record, built inside-out and de-duplicating, so
+pagination and counts stay correct. Every hop is built through the native query
+builder, so each intermediate table's enable-field restrictions (``deleted``,
+``hidden`` / disabled, start/end time, ``fe_group``) are applied at every
+level — a hidden or deleted intermediate record never leaks a match.
+
+Supported relations and limits
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* **Supported:** single-value ``select`` foreign-key relations; MM relations
+  (including ``type=category`` and ``type=group`` with ``MM``); and ``type=inline``
+  relations (``foreign_field``, honouring the ``foreign_table_field`` and
+  ``foreign_match_fields`` discriminators).
+* **Not supported:** non-MM group relations (comma-separated storage — add ``MM``
+  to the field instead), and MM/group relations that allow **more than one**
+  table (the target table would be ambiguous).
+* **Maximum of 3 relation hops** per path.
+* Invalid paths — unknown column, unsupported or ambiguous relation, or too many
+  hops — are rejected at boot with a clear ``InvalidApiDefinitionException``, so
+  the misconfiguration surfaces immediately rather than on the first request that
+  uses the filter.
+
+..  note::
+
+    Relation-path filters must be supplied via the bracket form
+    (``?filters[categories.title]=News``). PHP rewrites dots in *top-level*
+    query-parameter names to underscores, so ``?categories.title=News`` would
+    not match — dots inside ``filters[…]`` are preserved.
 
 Search filter
 -------------

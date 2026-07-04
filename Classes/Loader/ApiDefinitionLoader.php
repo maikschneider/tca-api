@@ -161,6 +161,21 @@ final readonly class ApiDefinitionLoader
                 }
             }
 
+            // Relation-path filters (dotted keys) record an unresolvable path in
+            // __pathError during pre-resolution; surface it as a hard boot failure
+            // instead of deferring the error to the first request that uses the filter.
+            foreach ($definition->filters as $filterKey => $filterDef) {
+                $pathError = $filterDef->option('__pathError');
+                if (\is_string($pathError)) {
+                    throw new InvalidApiDefinitionException(sprintf(
+                        "Filter '%s' in resource '%s' is not a valid relation path: %s",
+                        $filterKey,
+                        $resourceName,
+                        $pathError,
+                    ));
+                }
+            }
+
             $this->validateWildcardGroupColumns($resourceName, $definition, $resolver);
         }
     }

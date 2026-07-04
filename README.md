@@ -27,7 +27,7 @@ See the [Motivation chapter](https://docs.typo3.org/p/maikschneider/tca-api/main
 - **Hydra JSON-LD** — Responses follow the [Hydra](https://www.hydra-cg.com/) specification (`application/ld+json`)
 - **Configuration-driven** — Expose tables by registering a PHP configuration array; no custom controllers needed
 - **Serialization groups** — Use `groups` to control which columns appear per operation
-- **Filtering** — Exact, partial, word-start, range, full-text search, and many-to-many filter strategies via query parameters; configurable defaults and private (non-overrideable) filters; extensible via `FilterInterface`
+- **Filtering** — Exact, partial, word-start, range, full-text search, and many-to-many filter strategies via query parameters; relation-path filters (`categories.title`) filter by fields of related records across one or more hops; configurable defaults and private (non-overrideable) filters; extensible via `FilterInterface`
 - **Sorting** — Configurable allowed sort columns with defaults
 - **Pagination** — Offset-based pagination with Hydra `PartialCollectionView` links
 - **Validation** — Built-in `required`, length, range, item-count, and regex validators with structured 422 error responses; auto-derived from TCA and extensible with custom rules via `ValidatorInterface`
@@ -369,6 +369,50 @@ use MaikSchneider\TcaApi\Filter\WordStartFilter;
 | `MmFilter` | Subquery via MM intermediate table | `mm_table`, `mm_local_key`, `mm_foreign_key`, `mm_constraints` (derived from TCA when omitted) |
 
 For `MmFilter`, if the options array is omitted the extension derives the MM config from TCA automatically (requires a valid `MM` key on the field).
+
+#### Filtering related records: which filter?
+
+Several tools touch related records; the right one depends on *what* you filter by and *where* the reference is stored:
+
+| Goal | Filter | Example |
+|------|--------|---------|
+| Single-value FK's UID (stored on the row) | comparison filter on the FK column | `'color_id' => ExactFilter::class` → `?filters[color_id]=2` |
+| MM membership (the related UID) | `MmFilter` | `'categories' => MmFilter::class` → `?filters[categories]=5` |
+| A *column* of a related record (FK, MM or inline; one or more hops) | relation-path (dotted key) | `'categories.title' => ExactFilter::class` → `?filters[categories.title]=News` |
+| An inline child's UID (no column on the parent) | relation-path with `.uid` | `'related_items.uid' => ExactFilter::class` |
+
+`relationField.uid` also works for FK and MM relations, but prefer the FK-column filter or `MmFilter` there — they avoid the extra join to the target table (the path form additionally requires the related record to be visible). Relation-path (dotted) filters must use the bracket form `?filters[...]` — PHP rewrites dots in top-level parameter names to underscores.
+
+#### Relation-path filters
+
+A **dotted filter key** filters the resource by a column reached through one or more relations. The last segment is a scalar column on the deepest related table; the segments before it are relations to traverse. The declared filter performs the comparison on that column — the dot is detected automatically, so there is no extra filter class to name:
+
+```php
+use MaikSchneider\TcaApi\Filter\ExactFilter;
+
+'filters' => [
+    'color_id.name'           => ExactFilter::class,  // one FK hop     → the colour's name
+    'categories.title'        => ExactFilter::class,  // one MM hop     → a category's title
+    'related_items.name'      => ExactFilter::class,  // one inline hop → an inline child's name
+    'categories.parent.title' => ExactFilter::class,  // two hops       → a category's parent's title
+],
+```
+
+```
+?filters[color_id.name]=Red
+?filters[categories.title]=News
+?filters[categories.parent.title]=Root
+```
+
+Any comparison filter can be the leaf (`ExactFilter` is the default; `RangeFilter`, `WordStartFilter`, `PartialFilter` compare the leaf column directly). Each hop wraps the previous result in an `IN (subquery)`, built inside-out and de-duplicating, so pagination and counts stay correct. Every hop is built through the native query builder, so each intermediate table's enable-field restrictions (`deleted`, `hidden`, start/end time, `fe_group`) apply — a hidden or deleted intermediate never leaks a match.
+
+| Aspect | Behaviour |
+|--------|-----------|
+| Supported relations | Single-value `select` foreign-key relations; MM relations (incl. `type=category` and `type=group` with `MM`); `type=inline` (`foreign_field`, incl. `foreign_table_field` / `foreign_match_fields` discriminators) |
+| Not supported | Non-MM group relations (comma-separated storage), and MM/group relations allowing more than one table (ambiguous target) |
+| Max depth | 3 relation hops per path |
+| Query syntax | **Bracket form only** — `?filters[categories.title]=News`. PHP rewrites dots in top-level parameter names to underscores, so `?categories.title=…` would not match |
+| Invalid paths | Rejected at boot with `InvalidApiDefinitionException` (unknown column, unsupported/ambiguous relation, too many hops) — surfaced immediately, not on first request |
 
 #### Default values and private filters
 

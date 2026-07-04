@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Relation-path filters.** A filter key containing a dot now filters the resource by a column reached through one or more relation hops — `'color_id.name'` (one FK hop), `'categories.title'` (one MM hop), or `'categories.parent.title'` (chained hops). The dotted key is auto-detected: no new filter class to name in config — the declared filter (e.g. `ExactFilter`) becomes the leaf comparison and the new `RelationPathFilter` resolves each hop from TCA and builds the nested `IN` subqueries (de-duplicating, so pagination stays correct). Supports single-value `select`/`type=category` FK relations, MM relations, and `type=inline` (`foreign_field`, honouring `foreign_table_field` / `foreign_match_fields` discriminators); each hop honours the related table's soft-delete/enable-field restrictions. Non-MM group relations and multi-table (ambiguous) relations are rejected at boot. Path filters are supplied via the bracket form (`?filters[categories.title]=News`). ([#150](https://github.com/maikschneider/tca-api/issues/150))
+
 ## [0.4.0] - 2026-06-24
 
 ### Added

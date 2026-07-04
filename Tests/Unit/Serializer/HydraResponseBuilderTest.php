@@ -258,6 +258,33 @@ final class HydraResponseBuilderTest extends TestCase
     }
 
     #[Test]
+    public function buildCollectionSearchTemplateUsesBracketFormForDottedFilterKeys(): void
+    {
+        $config = $this->makeConfigWithFilters([
+            'categories.title' => new FilterDefinition(ExactFilter::class, 'tx_test', 'categories.title'),
+            'color_id'         => new FilterDefinition(ExactFilter::class, 'tx_test', 'color_id'),
+        ]);
+
+        $body      = $this->decodeCollection($this->builder->buildCollection([], 0, '/api/test', 1, 10, [], $config));
+        $mappings  = $body['hydra:search']['hydra:mapping'];
+        $variables = array_column($mappings, 'variable');
+
+        // A relation-path (dotted) key only matches via ?filters[…]; a plain top-level
+        // variable such as "categories.title" would never bind (PHP mangles the dot).
+        self::assertContains('filters[categories.title]', $variables);
+        self::assertNotContains('categories.title', $variables);
+        // Plain keys stay top-level.
+        self::assertContains('color_id', $variables);
+
+        // The mapping's logical property remains the dotted field name.
+        $dotted = array_values(array_filter(
+            $mappings,
+            static fn (array $m): bool => $m['variable'] === 'filters[categories.title]',
+        ))[0];
+        self::assertSame('categories.title', $dotted['property']);
+    }
+
+    #[Test]
     public function buildCollectionSearchTemplateExcludesAllPrivateFilters(): void
     {
         $config = $this->makeConfigWithFilters([
