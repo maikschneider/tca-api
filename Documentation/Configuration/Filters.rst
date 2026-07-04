@@ -213,6 +213,29 @@ The search filter allows searching across multiple columns simultaneously:
 Usage: ``?filters[q]=typo3`` — searches across all configured columns with
 ``WHERE (title LIKE '%typo3%' OR teaser LIKE '%typo3%' OR body LIKE '%typo3%')``.
 
+Searching related records
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+An entry in ``columns`` may be a **relation path** (dotted), so a single search can span
+the resource's own columns and columns of related records — matched via the same hop
+resolution as :ref:`relation-path filters <filters>` and OR-ed together:
+
+..  code-block:: php
+
+    'filters' => [
+        'q' => [
+            SearchFilter::class,
+            ['columns' => ['title', 'categories.title', 'color_id.name']],
+        ],
+    ],
+
+``?filters[q]=news`` then matches the article's own ``title`` **or** any of its categories'
+``title`` **or** its colour's ``name``. Related columns are matched through a
+``t.uid IN (subquery)`` (honouring the related table's enable-field restrictions), so
+pagination stays correct. The ``match`` mode applies to every column, own and related.
+Dotted columns are resolved and validated at boot — a typo or unsupported relation is
+rejected with an ``InvalidApiDefinitionException`` rather than failing at request time.
+
 Range filter
 ------------
 

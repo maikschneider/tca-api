@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Filter;
 
-use Doctrine\DBAL\ParameterType;
 use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
-use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 
 /**
@@ -20,23 +18,11 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
  *
  * The last path segment is a scalar column on the deepest related table; the comparison
  * against it is delegated to the *declared* leaf filter (`ExactFilter` by default), so
- * path filters inherit the full comparison vocabulary (exact, range, like, …).
- *
- * SQL shape: the value comparison runs against the deepest table, and each relation hop
- * wraps the previous result in an `IN (subquery)` that maps related UIDs back to the
- * holder record — built inside-out and de-duplicating, so pagination stays correct.
- * All value parameters are namespaced onto the outer query builder to avoid `:dcValue*`
- * collisions with the main query.
+ * path filters inherit the full comparison vocabulary (exact, range, like, …). The hop
+ * traversal and parameter handling live in {@see RelationSubqueryBuilder}.
  */
 final class RelationPathFilter implements FilterInterface, FilterPreResolvableInterface
 {
-    /**
-     * Hard cap on the number of relation hops in a single path (the leaf column is not
-     * a hop). Bounds the depth of nested subqueries {@see resolvePath()} builds, so a
-     * misconfigured path cannot generate an unbounded query.
-     */
-    private const MAX_RELATION_HOPS = 3;
-
     /** @var array<class-string, FilterInterface>|null */
     private ?array $leafMap = null;
 
@@ -44,8 +30,7 @@ final class RelationPathFilter implements FilterInterface, FilterPreResolvableIn
      * @param iterable<FilterInterface> $filters
      */
     public function __construct(
-        private readonly ConnectionPool $connectionPool,
-        private readonly RelationResolver $resolver,
+        private readonly RelationSubqueryBuilder $subqueryBuilder,
         #[TaggedIterator('tca_api.filter')]
         private readonly iterable $filters = [],
     ) {
@@ -63,7 +48,7 @@ final class RelationPathFilter implements FilterInterface, FilterPreResolvableIn
         }
 
         try {
-            [$hops, $leafTable, $leafColumn] = $this->resolvePath($definition->table, $definition->column);
+            [$hops, $leafTable, $leafColumn] = $this->subqueryBuilder->resolvePath($definition->table, $definition->column);
         } catch (\InvalidArgumentException $e) {
             // Record the failure for boot-time validation
             // (ApiDefinitionLoader will surface __pathError as an InvalidApiDefinitionException).
@@ -89,162 +74,32 @@ final class RelationPathFilter implements FilterInterface, FilterPreResolvableIn
         $leafColumn = $context->option('__leafColumn');
 
         if (!\is_array($hops) || !\is_string($leafTable) || !\is_string($leafColumn)) {
-            [$hops, $leafTable, $leafColumn] = $this->resolvePath($context->table, $context->column);
+            [$hops, $leafTable, $leafColumn] = $this->subqueryBuilder->resolvePath($context->table, $context->column);
         }
 
-        // 1. Leaf comparison — the declared filter builds the WHERE on the deepest table.
-        $leafQb = $this->connectionPool->getQueryBuilderForTable($leafTable);
-        $leafQb->select('leaf.uid')->from($leafTable, 'leaf');
-        $this->leafFilter($context)->apply($leafQb, new FilterContext(
-            value:          $context->value,
-            table:          $leafTable,
-            column:         $leafColumn,
-            options:        $this->leafOptions($context),
-            request:        $context->request,
-            resourceConfig: $context->resourceConfig,
-        ));
+        /** @var list<RelationHop> $hops */
 
-        // Namespace the leaf filter's parameters onto the outer builder so they never
-        // collide with the main query's own :dcValue* placeholders.
+        // The declared leaf filter builds the WHERE on the deepest table; the builder folds
+        // the hops back to the resource table and namespaces the leaf parameters onto $qb.
         $prefix     = 'relpath_' . substr(md5($context->column), 0, 8) . '_';
-        $currentSet = $this->rebindParameters($leafQb, $qb, $prefix);
-
-        // 2. Fold the relation hops from the deepest back to the resource table.
-        for ($i = \count($hops) - 1; $i >= 0; $i--) {
-            $currentSet = $this->wrapHop($qb, $hops[$i], $currentSet, $i);
-        }
+        $currentSet = $this->subqueryBuilder->buildUidSubquery(
+            $qb,
+            $hops,
+            $leafTable,
+            $prefix,
+            function (QueryBuilder $leafQb, string $leafAlias) use ($context, $leafTable, $leafColumn): void {
+                $this->leafFilter($context)->apply($leafQb, new FilterContext(
+                    value:          $context->value,
+                    table:          $leafTable,
+                    column:         $leafColumn,
+                    options:        $this->leafOptions($context),
+                    request:        $context->request,
+                    resourceConfig: $context->resourceConfig,
+                ));
+            },
+        );
 
         $qb->andWhere($qb->expr()->in('t.uid', '(' . $currentSet . ')'));
-    }
-
-    /**
-     * @return array{0: list<RelationHop>, 1: string, 2: string}
-     */
-    private function resolvePath(string $table, string $path): array
-    {
-        $segments   = explode('.', $path);
-        $leafColumn = (string)array_pop($segments);
-        if ($segments === [] || $leafColumn === '') {
-            throw new \InvalidArgumentException(
-                sprintf('Relation path "%s" must be of the form "relation.….column".', $path),
-            );
-        }
-
-        if (\count($segments) > self::MAX_RELATION_HOPS) {
-            throw new \InvalidArgumentException(sprintf(
-                'Relation path "%s" exceeds the maximum of %d relation hops.',
-                $path,
-                self::MAX_RELATION_HOPS,
-            ));
-        }
-
-        $hops    = [];
-        $current = $table;
-        foreach ($segments as $segment) {
-            $hop     = $this->resolver->resolve($current, $segment);
-            $hops[]  = $hop;
-            $current = $hop->targetTable;
-        }
-
-        // The leaf column is compared in SQL against the resolved leaf table, so a typo
-        // there would otherwise only fail at runtime. Reject it here (i.e. at boot) —
-        // guarded so a leaf table without TCA columns is not falsely rejected, and the
-        // universal system columns uid/pid (absent from TCA `columns`) are allowed.
-        $leafColumns = $GLOBALS['TCA'][$current]['columns'] ?? null;
-        if (\is_array($leafColumns)
-            && $leafColumn !== 'uid'
-            && $leafColumn !== 'pid'
-            && !isset($leafColumns[$leafColumn])
-        ) {
-            throw new \InvalidArgumentException(sprintf(
-                'Relation path: leaf column "%s.%s" is not a known TCA column.',
-                $current,
-                $leafColumn,
-            ));
-        }
-
-        return [$hops, $current, $leafColumn];
-    }
-
-    private function wrapHop(QueryBuilder $qb, RelationHop $hop, string $innerSet, int $level): string
-    {
-        $srcAlias = 'src' . $level;
-        $sub      = $this->connectionPool->getQueryBuilderForTable($hop->sourceTable);
-        $sub->select($srcAlias . '.uid')->from($hop->sourceTable, $srcAlias);
-
-        if ($hop->kind === RelationHop::KIND_MM) {
-            // Source rows linked through the MM table to a UID in the inner set.
-            $mmAlias = 'mm' . $level;
-            $sub->join(
-                $srcAlias,
-                $hop->mmTable,
-                $mmAlias,
-                $sub->expr()->eq($mmAlias . '.' . $hop->mmSourceKey, $sub->quoteIdentifier($srcAlias . '.uid')),
-            )->where($sub->expr()->in($mmAlias . '.' . $hop->mmTargetKey, '(' . $innerSet . ')'));
-
-            foreach ($hop->mmMatch as $col => $val) {
-                $sub->andWhere($sub->expr()->eq($mmAlias . '.' . $col, $sub->quote((string)$val)));
-            }
-
-            return $sub->getSQL();
-        }
-
-        if ($hop->kind === RelationHop::KIND_INLINE) {
-            // Source rows whose inline child (back-pointing via foreignField) is in the
-            // inner set. Joining the child table restricts it too; the parent stays
-            // restricted through the source table this query is built on.
-            $childAlias = 'inl' . $level;
-            $sub->join(
-                $srcAlias,
-                $hop->targetTable,
-                $childAlias,
-                $sub->expr()->eq($childAlias . '.' . $hop->foreignField, $sub->quoteIdentifier($srcAlias . '.uid')),
-            )->where($sub->expr()->in($childAlias . '.uid', '(' . $innerSet . ')'));
-
-            if ($hop->foreignTableField !== null) {
-                $sub->andWhere($sub->expr()->eq(
-                    $childAlias . '.' . $hop->foreignTableField,
-                    $sub->quote($hop->sourceTable),
-                ));
-            }
-            foreach ($hop->foreignMatchFields as $col => $val) {
-                $sub->andWhere($sub->expr()->eq($childAlias . '.' . $col, $sub->quote((string)$val)));
-            }
-
-            return $sub->getSQL();
-        }
-
-        // FK hop: source rows whose fkColumn points into the inner set.
-        $sub->where($sub->expr()->in($srcAlias . '.' . $hop->fkColumn, '(' . $innerSet . ')'));
-
-        return $sub->getSQL();
-    }
-
-    /**
-     * Lifts every parameter bound on $from onto $to under a unique prefix, and rewrites
-     * the corresponding placeholders in $from's SQL. Returns the rewritten SQL.
-     */
-    private function rebindParameters(QueryBuilder $from, QueryBuilder $to, string $prefix): string
-    {
-        $sql    = $from->getSQL();
-        $params = $from->getParameters();
-        if ($params === []) {
-            return $sql;
-        }
-
-        $types = $from->getParameterTypes();
-
-        $sql = preg_replace_callback(
-            '/:(\w+)/',
-            static fn (array $m): string => \array_key_exists($m[1], $params) ? ':' . $prefix . $m[1] : $m[0],
-            $sql,
-        ) ?? $sql;
-
-        foreach ($params as $name => $value) {
-            $to->setParameter($prefix . $name, $value, $types[$name] ?? ParameterType::STRING);
-        }
-
-        return $sql;
     }
 
     private function leafFilter(FilterContext $context): FilterInterface

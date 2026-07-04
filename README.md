@@ -365,7 +365,7 @@ use MaikSchneider\TcaApi\Filter\WordStartFilter;
 | `PartialFilter` | `WHERE column LIKE %value%` | — |
 | `WordStartFilter` | `WHERE column LIKE value%` | — |
 | `RangeFilter` | Comparison operators on a column (numeric, string or date) | `value` must be `['gte'=>…, 'lte'=>…, 'gt'=>…, 'lt'=>…]`. The DBAL parameter type is inferred from the column's TCA (`number`, `datetime`, …); the optional `type` (`int`\|`float`\|`string`\|`date`\|`datetime`) overrides it |
-| `SearchFilter` | `OR` across multiple columns (LIKE) | `columns` (required), `match` (`partial`\|`word_start`, default `partial`) |
+| `SearchFilter` | `OR` (LIKE) across own columns **and relation-path columns** | `columns` (required; entries may be dotted, e.g. `categories.title`), `match` (`partial`\|`word_start`, default `partial`) |
 | `MmFilter` | Subquery via MM intermediate table | `mm_table`, `mm_local_key`, `mm_foreign_key`, `mm_constraints` (derived from TCA when omitted) |
 
 For `MmFilter`, if the options array is omitted the extension derives the MM config from TCA automatically (requires a valid `MM` key on the field).

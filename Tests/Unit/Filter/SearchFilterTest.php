@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Unit\Filter;
 
 use MaikSchneider\TcaApi\Filter\FilterContext;
+use MaikSchneider\TcaApi\Filter\RelationResolver;
+use MaikSchneider\TcaApi\Filter\RelationSubqueryBuilder;
 use MaikSchneider\TcaApi\Filter\SearchFilter;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Expression\CompositeExpression;
 use TYPO3\CMS\Core\Database\Query\Expression\ExpressionBuilder;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
@@ -20,6 +23,8 @@ final class SearchFilterTest extends TestCase
     /** @var ExpressionBuilder&\PHPUnit\Framework\MockObject\MockObject */
     private ExpressionBuilder $expr;
 
+    private RelationSubqueryBuilder $subqueryBuilder;
+
     protected function setUp(): void
     {
         $this->expr = $this->createMock(ExpressionBuilder::class);
@@ -28,6 +33,12 @@ final class SearchFilterTest extends TestCase
         $this->qb->method('expr')->willReturn($this->expr);
         $this->qb->method('escapeLikeWildcards')->willReturnArgument(0);
         $this->qb->method('createNamedParameter')->willReturnArgument(0);
+
+        // Plain-column tests never touch the builder; the ConnectionPool mock is unused.
+        $this->subqueryBuilder = new RelationSubqueryBuilder(
+            $this->createMock(ConnectionPool::class),
+            new RelationResolver(),
+        );
     }
 
     // ── Early return guard ────────────────────────────────────────────────────
@@ -37,7 +48,7 @@ final class SearchFilterTest extends TestCase
     {
         $this->qb->expects(self::never())->method('andWhere');
 
-        $filter = new SearchFilter();
+        $filter = new SearchFilter($this->subqueryBuilder);
         $filter->apply($this->qb, new FilterContext(value: 'hello', table: '', column: 'title'));
     }
 
@@ -46,7 +57,7 @@ final class SearchFilterTest extends TestCase
     {
         $this->qb->expects(self::never())->method('andWhere');
 
-        $filter = new SearchFilter();
+        $filter = new SearchFilter($this->subqueryBuilder);
         $filter->apply($this->qb, new FilterContext(
             value: 'hello',
             table: '',
@@ -69,7 +80,7 @@ final class SearchFilterTest extends TestCase
         $this->expr->method('or')->willReturn($this->makeComposite());
         $this->qb->expects(self::once())->method('andWhere');
 
-        $filter = new SearchFilter();
+        $filter = new SearchFilter($this->subqueryBuilder);
         $filter->apply($this->qb, new FilterContext(
             value: 'hello',
             table: '',
@@ -85,7 +96,7 @@ final class SearchFilterTest extends TestCase
         $this->expr->method('or')->willReturn($this->makeComposite());
         $this->qb->expects(self::once())->method('andWhere');
 
-        $filter = new SearchFilter();
+        $filter = new SearchFilter($this->subqueryBuilder);
         $filter->apply($this->qb, new FilterContext(
             value: 'test',
             table: '',
@@ -109,7 +120,7 @@ final class SearchFilterTest extends TestCase
         $this->expr->method('or')->willReturn($this->makeComposite());
         $this->qb->method('createNamedParameter')->willReturnArgument(0);
 
-        $filter = new SearchFilter();
+        $filter = new SearchFilter($this->subqueryBuilder);
         $filter->apply($this->qb, new FilterContext(
             value: 'hello',
             table: '',
@@ -135,7 +146,7 @@ final class SearchFilterTest extends TestCase
         $this->expr->method('or')->willReturn($this->makeComposite());
         $this->qb->method('createNamedParameter')->willReturnArgument(0);
 
-        $filter = new SearchFilter();
+        $filter = new SearchFilter($this->subqueryBuilder);
         $filter->apply($this->qb, new FilterContext(
             value: 'hello',
             table: '',

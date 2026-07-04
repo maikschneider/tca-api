@@ -8,6 +8,7 @@ use MaikSchneider\TcaApi\Filter\ExactFilter;
 use MaikSchneider\TcaApi\Filter\FilterContext;
 use MaikSchneider\TcaApi\Filter\RelationPathFilter;
 use MaikSchneider\TcaApi\Filter\RelationResolver;
+use MaikSchneider\TcaApi\Filter\RelationSubqueryBuilder;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -21,13 +22,16 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
  */
 final class RelationPathFilterTest extends TestCase
 {
+    /** @param iterable<\MaikSchneider\TcaApi\Filter\FilterInterface> $filters */
+    private function makeFilter(ConnectionPool $pool, iterable $filters = []): RelationPathFilter
+    {
+        return new RelationPathFilter(new RelationSubqueryBuilder($pool, new RelationResolver()), $filters);
+    }
+
     #[Test]
     public function applyRejectsPathExceedingMaxRelationHops(): void
     {
-        $filter = new RelationPathFilter(
-            $this->createMock(ConnectionPool::class),
-            new RelationResolver(),
-        );
+        $filter = $this->makeFilter($this->createMock(ConnectionPool::class));
 
         // 4 relation hops (+ leaf column) exceeds the cap of 3.
         $context = new FilterContext(
@@ -46,10 +50,7 @@ final class RelationPathFilterTest extends TestCase
     #[Test]
     public function applyRejectsMalformedPath(): void
     {
-        $filter = new RelationPathFilter(
-            $this->createMock(ConnectionPool::class),
-            new RelationResolver(),
-        );
+        $filter = $this->makeFilter($this->createMock(ConnectionPool::class));
 
         // Trailing dot → empty leaf column.
         $context = new FilterContext(value: 'x', table: 't', column: 'categories.');
@@ -63,10 +64,7 @@ final class RelationPathFilterTest extends TestCase
     #[Test]
     public function applyRethrowsDeferredPathError(): void
     {
-        $filter = new RelationPathFilter(
-            $this->createMock(ConnectionPool::class),
-            new RelationResolver(),
-        );
+        $filter = $this->makeFilter($this->createMock(ConnectionPool::class));
 
         // A path error recorded at boot (preResolve) surfaces here at request time.
         $context = new FilterContext(
@@ -93,7 +91,7 @@ final class RelationPathFilterTest extends TestCase
         $pool->method('getQueryBuilderForTable')->willReturn($leafQb);
 
         // Empty filter iterable → no leaf filter is registered.
-        $filter = new RelationPathFilter($pool, new RelationResolver(), []);
+        $filter = $this->makeFilter($pool, []);
 
         $context = new FilterContext(
             value:   'x',
