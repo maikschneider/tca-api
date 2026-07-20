@@ -8,6 +8,7 @@ use MaikSchneider\TcaApi\Controller\ApiDocumentationController;
 use MaikSchneider\TcaApi\Dispatcher\RequestContext;
 use MaikSchneider\TcaApi\OpenApi\OpenApiBuilder;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
+use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Site\SiteFinder;
 
@@ -23,6 +24,10 @@ final class ApiDocumentationModuleTest extends ApiFunctionalTestCase
 {
     public function testControllerResolvesWithAllDependencies(): void
     {
+        if (!class_exists(ComponentFactory::class)) {
+            self::markTestSkipped('The Integrations backend module is TYPO3 v14+ only.');
+        }
+
         // Fails if any injected backend service (ComponentFactory, PageRenderer,
         // ModuleTemplateFactory, OpenApiBuilder, …) cannot be wired.
         self::assertInstanceOf(
