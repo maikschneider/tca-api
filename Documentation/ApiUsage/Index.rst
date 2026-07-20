@@ -172,6 +172,18 @@ Access to both endpoints is controlled by the ``tca_api.openApiExposed`` and
 ``tca_api.swaggerUiEnabled`` site settings respectively. Both default to
 ``PUBLIC``.
 
+Backend module (TYPO3 v14+)
+---------------------------
+
+On TYPO3 v14 the extension registers a **TCA API** module under the
+*Integrations* main module (alongside *Reactions* and *Webhooks*) that renders
+the Swagger UI directly in the backend. It is available to administrators and is
+**always enabled** — independent of the ``tca_api.enabled``,
+``tca_api.openApiExposed``, and ``tca_api.swaggerUiEnabled`` site settings that
+gate the public frontend endpoints. The specification is built per site; when
+more than one site is configured, a site selector is shown in the module's doc
+header.
+
 API Platform Admin
 ==================
 

@@ -202,6 +202,10 @@ The extension generates a live **OpenAPI 3.1.0 JSON spec** from the registered r
 
 Access to both endpoints is controlled by the `tca_api.openApiExposed` and `tca_api.swaggerUiEnabled` site settings respectively. Both default to `PUBLIC`.
 
+### Backend module (TYPO3 v14+)
+
+On TYPO3 v14 the extension registers a **TCA API** module under the *Integrations* main module (alongside *Reactions* and *Webhooks*) that renders the Swagger UI directly in the backend. It is available to administrators and is **always enabled** — independent of the `tca_api.enabled`, `tca_api.openApiExposed`, and `tca_api.swaggerUiEnabled` site settings that gate the public frontend endpoints. The specification is built per site; when more than one site is configured, a site selector is shown in the module's doc header.
+
 ## API Platform
 
 TCA_API responses are compatible with [API Platform](https://api-platform.com/) and its ecosystem. A bundled React-based admin UI is available via the `maikschneider/api-platform-admin` site set — add it to your site's dependencies to activate it. This UI is intended for testing during extension development and may be removed in a future version.
