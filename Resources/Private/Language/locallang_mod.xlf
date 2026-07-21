@@ -15,6 +15,9 @@
 			<trans-unit id="module.site.dropdown" resname="module.site.dropdown">
 				<source>Site</source>
 			</trans-unit>
+			<trans-unit id="module.openInNewTab" resname="module.openInNewTab">
+				<source>Open in new tab</source>
+			</trans-unit>
 			<trans-unit id="module.noSites.title" resname="module.noSites.title">
 				<source>No site configured</source>
 			</trans-unit>

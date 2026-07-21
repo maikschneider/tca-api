@@ -8,12 +8,16 @@ use MaikSchneider\TcaApi\Dispatcher\RequestContext;
 use MaikSchneider\TcaApi\OpenApi\OpenApiBuilder;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
+use TYPO3\CMS\Backend\Template\Components\ButtonBar;
 use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Http\ServerRequest;
+use TYPO3\CMS\Core\Imaging\IconFactory;
+use TYPO3\CMS\Core\Imaging\IconSize;
 use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Site\Entity\Site;
@@ -31,6 +35,7 @@ use TYPO3\CMS\Core\Utility\PathUtility;
  * to admins, regardless of how (or whether) the API is exposed publicly.
  */
 #[AsController]
+#[Autoconfigure(public: true)]
 final readonly class ApiDocumentationController
 {
     private const LLL = 'LLL:EXT:tca_api/Resources/Private/Language/locallang_mod.xlf';
@@ -44,6 +49,7 @@ final readonly class ApiDocumentationController
         private PageRenderer $pageRenderer,
         private SiteFinder $siteFinder,
         private OpenApiBuilder $openApiBuilder,
+        private IconFactory $iconFactory,
     ) {
     }
 
@@ -52,6 +58,9 @@ final readonly class ApiDocumentationController
         $view = $this->moduleTemplateFactory->create($request);
         $view->setTitle($this->getLanguageService()->sL(self::LLL . ':mlang_tabs_tab'));
         $view->assign('domId', self::DOM_ID);
+
+        // Restore the "Integrations" submodule switcher (Reactions / Webhooks / …).
+        $view->makeDocHeaderModuleMenu();
 
         $sites = $this->siteFinder->getAllSites();
         if ($sites === []) {
@@ -76,7 +85,12 @@ final readonly class ApiDocumentationController
             );
         }
 
-        $this->registerSwaggerAssets($this->buildSpecification($site, $request));
+        $context = $this->createRequestContext($site, $request);
+        $specification = $this->openApiBuilder->build($context);
+        $specification['servers'] = [['url' => $context->baseUrl]];
+        $this->registerSwaggerAssets($specification);
+
+        $this->addOpenInNewTabButton($view, $context->baseUrl . $context->prefix . '/swagger-ui');
 
         $view->assign('hasSites', true);
         $view->assign('siteIdentifier', $site->getIdentifier());
@@ -84,17 +98,17 @@ final readonly class ApiDocumentationController
     }
 
     /**
-     * Build the OpenAPI specification for a site, reusing the exact same builder
-     * that backs the public `openapi.json` endpoint — but without any access gate.
+     * Build a RequestContext for a site, anchored at the site base so it resolves
+     * baseUrl + apiPrefix exactly as a real frontend request would. The resulting
+     * context feeds both the OpenAPI build (via {@see OpenApiBuilder}, reusing the
+     * exact same builder that backs the public `openapi.json` endpoint, without any
+     * access gate) and the "open in new tab" frontend URL.
      *
-     * @return array<string, mixed>
+     * A site may have a host-less base (e.g. "/") — fall back to the current backend
+     * host so the resulting absolute URLs stay usable.
      */
-    private function buildSpecification(Site $site, ServerRequestInterface $request): array
+    private function createRequestContext(Site $site, ServerRequestInterface $request): RequestContext
     {
-        // A synthetic request anchored at the site base lets RequestContext resolve
-        // baseUrl + apiPrefix exactly as a real frontend request would. A site may
-        // have a host-less base (e.g. "/") — fall back to the current backend host
-        // so the resulting "servers" URL stays absolute.
         $base = $site->getBase();
         if ($base->getHost() === '') {
             $backendUri = $request->getUri();
@@ -104,36 +118,36 @@ final readonly class ApiDocumentationController
                 ->withPort($backendUri->getPort());
         }
 
-        $context = new RequestContext($site->getSettings(), new ServerRequest($base));
-        $specification = $this->openApiBuilder->build($context);
-
-        // Point Swagger UI's "Try it out" at the real API base for this site.
-        $specification['servers'] = [['url' => $context->baseUrl . $context->prefix]];
-
-        return $specification;
+        return new RequestContext($site->getSettings(), new ServerRequest($base));
     }
 
     /**
      * Register Swagger UI assets against the backend PageRenderer.
      *
-     * The bundle is added as a header file (so the `SwaggerUIBundle` global is
-     * defined before the footer init runs) and the init block is added as inline
-     * footer code with `csp: true`, which makes PageRenderer emit it with the
-     * backend Content-Security-Policy nonce. No custom CSP mutation is required:
-     * the default backend policy already allows same-origin scripts, nonce'd
-     * inline scripts, `style-src 'unsafe-inline'` (Swagger injects styles) and
-     * `img-src data:` (Swagger icons).
+     * Four static files are added the same way (via {@see PageRenderer::addCssFile()} /
+     * {@see PageRenderer::addJsFile()}): the vendored Swagger bundle plus two small
+     * backend-only override files that live next to it under Resources/Public/SwaggerUI/:
+     *
+     * - `swagger-ui-backend.css` — corrects the bundle's unconditional dark-mode title
+     *   colour (invisible on the light backend) and hides the redundant "Servers" box.
+     * - `swagger-ui-backend.js` — mirrors the backend's effective colour scheme onto a
+     *   `dark-mode` class so Swagger's own (otherwise `html.dark-mode`-gated) dark theme
+     *   activates. The backend never uses that class itself, so it only flips Swagger.
+     *
+     * Only the bootstrap call is emitted inline (it carries the per-site spec, which is
+     * dynamic and cannot be a static file). It is added as inline footer code with
+     * `csp: true`, so PageRenderer emits it with the backend CSP nonce; the static JS
+     * bundle is a header file, so `SwaggerUIBundle` is defined before the footer init runs.
      *
      * @param array<string, mixed> $specification
      */
     private function registerSwaggerAssets(array $specification): void
     {
-        $this->pageRenderer->addCssFile(
-            PathUtility::getPublicResourceWebPath('EXT:tca_api/Resources/Public/SwaggerUI/swagger-ui.css'),
-        );
-        $this->pageRenderer->addJsFile(
-            PathUtility::getPublicResourceWebPath('EXT:tca_api/Resources/Public/SwaggerUI/swagger-ui-bundle.js'),
-        );
+        $base = 'EXT:tca_api/Resources/Public/SwaggerUI/';
+        $this->pageRenderer->addCssFile(PathUtility::getPublicResourceWebPath($base . 'swagger-ui.css'));
+        $this->pageRenderer->addCssFile(PathUtility::getPublicResourceWebPath($base . 'swagger-ui-backend.css'));
+        $this->pageRenderer->addJsFile(PathUtility::getPublicResourceWebPath($base . 'swagger-ui-bundle.js'));
+        $this->pageRenderer->addJsFile(PathUtility::getPublicResourceWebPath($base . 'swagger-ui-backend.js'));
 
         // JSON_HEX_TAG neutralises "</script>", making the spec safe to inline.
         $specJson = (string)json_encode(
@@ -155,26 +169,40 @@ final readonly class ApiDocumentationController
         $this->pageRenderer->addJsFooterInlineCode('tca-api-swagger-ui', $init, csp: true);
     }
 
+    private function addOpenInNewTabButton(ModuleTemplate $view, string $url): void
+    {
+        $button = $this->componentFactory->createLinkButton()
+            ->setHref($url)
+            ->setTitle($this->getLanguageService()->sL(self::LLL . ':module.openInNewTab'))
+            ->setShowLabelText(true)
+            ->setIcon($this->iconFactory->getIcon('actions-window-open', IconSize::SMALL))
+            ->setAttributes(['target' => '_blank', 'rel' => 'noopener noreferrer']);
+
+        $view->getDocHeaderComponent()->getButtonBar()->addButton($button, ButtonBar::BUTTON_POSITION_RIGHT);
+    }
+
     /**
+     * Add the site switcher as its own docheader dropdown button.
+     *
      * @param array<string, Site> $sites
      */
     private function addSiteMenu(ModuleTemplate $view, array $sites, string $selectedIdentifier): void
     {
-        $menu = $this->componentFactory->createMenu();
-        $menu->setIdentifier('tca-api-site');
-        $menu->setLabel($this->getLanguageService()->sL(self::LLL . ':module.site.dropdown'));
+        $dropdown = $this->componentFactory->createDropDownButton()
+            ->setLabel($this->getLanguageService()->sL(self::LLL . ':module.site.dropdown'))
+            ->setShowLabelText(true)
+            ->setShowActiveLabelText(true)
+            ->setIcon($this->iconFactory->getIcon('actions-globe', IconSize::SMALL));
 
         foreach ($sites as $identifier => $site) {
-            $menuItem = $this->componentFactory->createMenuItem()
+            $item = $this->componentFactory->createDropDownRadio()
                 ->setHref((string)$this->uriBuilder->buildUriFromRoute(self::MODULE_IDENTIFIER, ['site' => $identifier]))
-                ->setTitle($site->getIdentifier());
-            if ($identifier === $selectedIdentifier) {
-                $menuItem->setActive(true);
-            }
-            $menu->addMenuItem($menuItem);
+                ->setLabel($site->getIdentifier())
+                ->setActive($identifier === $selectedIdentifier);
+            $dropdown->addItem($item);
         }
 
-        $view->getDocHeaderComponent()->getMenuRegistry()->addMenu($menu);
+        $view->getDocHeaderComponent()->getButtonBar()->addButton($dropdown, ButtonBar::BUTTON_POSITION_LEFT, 2);
     }
 
     private function getLanguageService(): LanguageService

@@ -1,0 +1,31 @@
+/*
+ * Backend-only corrections layered on top of the vendored swagger-ui.css.
+ *
+ * The bundle groups `.swagger-ui .info .title` together with a set of
+ * `html.dark-mode …` selectors and assigns them all a light-grey colour
+ * unconditionally — so the API title (and base URL) render invisible on the
+ * light backend. Restore a readable colour whenever dark mode is not active;
+ * in dark mode Swagger's own grey is correct and left untouched.
+ *
+ * The `.scheme-container` (Swagger's "Servers" box) is hidden: it would hold a
+ * single, fixed server entry — the current site's API base — which is redundant
+ * with the docheader site switcher and only introduced a stray box-shadow and a
+ * label/select overlap. Hiding it does not change behaviour: Swagger keeps
+ * servers[0] selected as the "Try it out" base regardless of the box's visibility.
+ */
+.swagger-ui .topbar {
+    display: none;
+}
+
+.swagger-ui .scheme-container {
+    display: none;
+}
+
+.swagger-ui .info {
+    margin: 20px 0;
+}
+
+html:not(.dark-mode) .swagger-ui .info .title,
+html:not(.dark-mode) .swagger-ui .info .base-url {
+    color: #3b4151;
+}
