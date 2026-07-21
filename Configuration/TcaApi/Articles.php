@@ -15,6 +15,10 @@ return [
         'resourceType' => 'Article',
         'operations' => ['list', 'show', 'create', 'update', 'delete'],
         'storagePid' => 1,
+        'group' => [
+            'name' => 'Editorial',
+            'description' => 'Editorial content endpoints',
+        ],
     ],
     'columns' => [
         'title' => [

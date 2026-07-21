@@ -202,6 +202,31 @@ The extension generates a live **OpenAPI 3.1.0 JSON spec** from the registered r
 
 Access to both endpoints is controlled by the `tca_api.openApiExposed` and `tca_api.swaggerUiEnabled` site settings respectively. Both default to `PUBLIC`.
 
+### Endpoint grouping
+
+By default each resource's operations appear under its own section in Swagger UI, named after the resource's `resourceType`. Use `general.group` to place several resources under a shared, named section (an OpenAPI tag):
+
+```php
+// Configuration/TcaApi/Articles.php
+'general' => [
+    'table'        => 'tx_myext_domain_model_article',
+    'resourceName' => 'articles',
+    'resourceType' => 'Article',
+    'group'        => 'Editorial',
+],
+```
+
+To add a description shown above the group in Swagger UI, use the array form:
+
+```php
+'group' => [
+    'name'        => 'Editorial',
+    'description' => 'Editorial content endpoints',
+],
+```
+
+Point several resources at the same `group` name to merge them into one section. Sections are listed in the order the resources are registered; the first configured `description` for a given group wins. When no `group` is set, the resource falls back to its `resourceType`, so grouping is entirely opt-in and changes nothing for existing configs.
+
 ### Backend module (TYPO3 v14+)
 
 On TYPO3 v14 the extension registers a **TCA API** module under the *Integrations* main module (alongside *Reactions* and *Webhooks*) that renders the Swagger UI directly in the backend. It is available to administrators and is **always enabled** — independent of the `tca_api.enabled`, `tca_api.openApiExposed`, and `tca_api.swaggerUiEnabled` site settings that gate the public frontend endpoints. The specification is built per site; when more than one site is configured, a site selector is shown in the module's doc header.
@@ -225,6 +250,7 @@ TCA_API responses are compatible with [API Platform](https://api-platform.com/) 
 | `maxItemsPerPage` | Upper limit for `itemsPerPage`; when set, the requested page size is clamped to this value. No limit when omitted         |
 | `storagePid`      | Page ID for newly created records                                                                                         |
 | `writeMode`       | Write execution strategy: `acting_user` (default) or `system_admin` — see [Write privilege model](#write-privilege-model) |
+| `group`           | OpenAPI tag used to group this resource's operations in Swagger UI — a string, or `['name' => …, 'description' => …]`; defaults to `resourceType` — see [Endpoint grouping](#endpoint-grouping) |
 
 ### Column visibility
 

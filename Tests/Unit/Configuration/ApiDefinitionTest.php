@@ -645,4 +645,98 @@ final class ApiDefinitionTest extends TestCase
         $this->expectExceptionMessage('general.language.mode has invalid value ""');
         ApiDefinition::fromArray($cfg);
     }
+
+    // ── group (OpenAPI tag) ─────────────────────────────────────────────
+
+    #[Test]
+    public function groupDefaultsToNullAndTagNameFallsBackToResourceType(): void
+    {
+        $def = ApiDefinition::fromArray(self::minimalConfig());
+
+        self::assertNull($def->group);
+        self::assertNull($def->groupDescription);
+        self::assertSame('Test', $def->tagName());
+    }
+
+    #[Test]
+    public function groupAsStringSetsTagName(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['group'] = 'Editorial';
+
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertSame('Editorial', $def->group);
+        self::assertNull($def->groupDescription);
+        self::assertSame('Editorial', $def->tagName());
+    }
+
+    #[Test]
+    public function groupAsArrayWithNameAndDescription(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['group'] = ['name' => 'Editorial', 'description' => 'Editorial content endpoints'];
+
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertSame('Editorial', $def->group);
+        self::assertSame('Editorial content endpoints', $def->groupDescription);
+        self::assertSame('Editorial', $def->tagName());
+    }
+
+    #[Test]
+    public function groupAsArrayWithoutDescriptionKeepsDescriptionNull(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['group'] = ['name' => 'Editorial'];
+
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertSame('Editorial', $def->group);
+        self::assertNull($def->groupDescription);
+    }
+
+    #[Test]
+    public function emptyStringGroupThrows(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['group'] = '';
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('general.group must be a non-empty string');
+        ApiDefinition::fromArray($cfg);
+    }
+
+    #[Test]
+    public function groupArrayWithoutNameThrows(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['group'] = ['description' => 'no name here'];
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('general.group.name must be a non-empty string');
+        ApiDefinition::fromArray($cfg);
+    }
+
+    #[Test]
+    public function groupArrayWithEmptyDescriptionThrows(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['group'] = ['name' => 'Editorial', 'description' => ''];
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('general.group.description must be a non-empty string');
+        ApiDefinition::fromArray($cfg);
+    }
+
+    #[Test]
+    public function groupWithInvalidScalarTypeThrows(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['group'] = 42;
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('general.group must be a string or an array');
+        ApiDefinition::fromArray($cfg);
+    }
 }
