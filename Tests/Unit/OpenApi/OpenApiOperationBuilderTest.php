@@ -34,8 +34,29 @@ final class OpenApiOperationBuilderTest extends TestCase
         self::assertContains('color_id', $names);
     }
 
+    #[Test]
+    public function operationsAreTaggedWithConfiguredGroup(): void
+    {
+        $config  = $this->makeConfigWithFilters([], group: 'Editorial');
+        $builder = new OpenApiOperationBuilder();
+
+        self::assertSame(['Editorial'], $builder->buildListOperation('test', 'Test', $config)['tags']);
+        self::assertSame(['Editorial'], $builder->buildShowOperation('test', 'Test', $config)['tags']);
+        self::assertSame(['Editorial'], $builder->buildCreateOperation('test', 'Test', $config)['tags']);
+        self::assertSame(['Editorial'], $builder->buildUpdateOperation('test', 'Test', $config, partial: false)['tags']);
+        self::assertSame(['Editorial'], $builder->buildDeleteOperation('test', $config)['tags']);
+    }
+
+    #[Test]
+    public function operationTagFallsBackToResourceTypeWhenNoGroupConfigured(): void
+    {
+        $config = $this->makeConfigWithFilters([]);
+
+        self::assertSame(['Test'], (new OpenApiOperationBuilder())->buildListOperation('test', 'Test', $config)['tags']);
+    }
+
     /** @param array<string, FilterDefinition> $filters */
-    private function makeConfigWithFilters(array $filters): ApiDefinition
+    private function makeConfigWithFilters(array $filters, ?string $group = null): ApiDefinition
     {
         return new ApiDefinition(
             table: 'tx_test',
@@ -58,6 +79,7 @@ final class OpenApiOperationBuilderTest extends TestCase
             isExplicitMode: false,
             writeMode: WriteMode::ACTING_USER,
             cache: new CacheDefinition(),
+            group: $group,
         );
     }
 }

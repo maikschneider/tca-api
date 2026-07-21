@@ -14,6 +14,7 @@ final readonly class OpenApiOperationBuilder
         return [
             'summary' => 'List ' . $resourceType . ' collection',
             'operationId' => 'list' . $this->toPascalCase($resourceName),
+            'tags' => [$config->tagName()],
             'x-typo3-access-role' => $this->accessRoleValue($config->securityRole('list')),
             'parameters' => $this->buildQueryParams($resourceName, $config),
             'responses' => [
@@ -37,6 +38,7 @@ final readonly class OpenApiOperationBuilder
         return [
             'summary' => 'Get single ' . $resourceType,
             'operationId' => 'show' . $this->toPascalCase($resourceName),
+            'tags' => [$config->tagName()],
             'x-typo3-access-role' => $this->accessRoleValue($config->securityRole('show')),
             'parameters' => [
                 [
@@ -79,6 +81,7 @@ final readonly class OpenApiOperationBuilder
         return [
             'summary' => 'Create ' . $resourceType,
             'operationId' => 'create' . $this->toPascalCase($resourceName),
+            'tags' => [$config->tagName()],
             'x-typo3-access-role' => $this->accessRoleValue($config->securityRole('create')),
             'requestBody' => [
                 'required' => true,
@@ -129,6 +132,7 @@ final readonly class OpenApiOperationBuilder
         return [
             'summary' => $method . ' ' . $resourceType,
             'operationId' => ($partial ? 'patch' : 'update') . $this->toPascalCase($resourceName),
+            'tags' => [$config->tagName()],
             'x-typo3-access-role' => $this->accessRoleValue($config->securityRole('update')),
             'requestBody' => [
                 'required' => true,
@@ -165,6 +169,7 @@ final readonly class OpenApiOperationBuilder
         return [
             'summary' => 'Delete resource',
             'operationId' => 'delete' . $this->toPascalCase($resourceName),
+            'tags' => [$config->tagName()],
             'x-typo3-access-role' => $this->accessRoleValue($config->securityRole('delete')),
             'responses' => [
                 '204' => ['description' => 'Deleted'],

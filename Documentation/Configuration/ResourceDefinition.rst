@@ -71,6 +71,11 @@ The ``general`` key defines the basic resource properties:
        purposes. ``system_admin`` — uses a synthetic backend-admin context,
        bypassing all TYPO3 ACL boundaries. Only enable for fully trusted,
        internal-only APIs.
+   * - ``group``
+     - OpenAPI tag grouping this resource's operations in Swagger UI. A string
+       (``'Editorial'``) or an array with a ``name`` and optional
+       ``description``. Defaults to ``resourceType`` — see
+       :ref:`endpoint-grouping`.
 
 Write mode
 ==========
@@ -124,6 +129,38 @@ target:
 ``readStoragePids`` is the complete read set — it does **not** implicitly
 include ``storagePid``. List the write page explicitly if it should be
 readable too.
+
+..  _endpoint-grouping:
+
+Endpoint grouping (OpenAPI tags)
+================================
+
+By default each resource gets its own Swagger UI section, named after its
+``resourceType``. Set ``group`` to place several resources under a shared,
+named section:
+
+..  code-block:: php
+
+    'general' => [
+        'table'        => 'tx_myext_domain_model_article',
+        'resourceName' => 'articles',
+        'resourceType' => 'Article',
+        'group'        => 'Editorial',
+    ],
+
+Use the array form to add a description shown above the section:
+
+..  code-block:: php
+
+    'group' => [
+        'name'        => 'Editorial',
+        'description' => 'Editorial content endpoints',
+    ],
+
+Point several resources at the same ``name`` to merge them into one section.
+Sections appear in resource-registration order; the first configured
+``description`` for a group wins. Omitting ``group`` falls back to
+``resourceType``, so grouping is fully opt-in and backward compatible.
 
 Minimal example (zero-config)
 ==============================

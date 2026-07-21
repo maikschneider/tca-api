@@ -29,7 +29,7 @@ readonly class OpenApiBuilder
             $info['description'] = $description;
         }
 
-        return [
+        $document = [
             'openapi' => '3.1.0',
             'info' => $info,
             'paths' => $this->pathsBuilder->build($resources, $ctx),
@@ -37,5 +37,38 @@ readonly class OpenApiBuilder
                 'schemas' => $this->schemasBuilder->build($resources),
             ],
         ];
+
+        $tags = $this->buildTags($resources);
+        if ($tags !== []) {
+            $document['tags'] = $tags;
+        }
+
+        return $document;
+    }
+
+    /**
+     * Builds the top-level OpenAPI tags list from the resource groups.
+     *
+     * One entry per distinct tag, in resource-registration order (which drives the
+     * section order in Swagger UI). A configured group description is attached to its
+     * tag; the first description wins if the same tag is declared more than once.
+     *
+     * @param array<string, \MaikSchneider\TcaApi\Configuration\ApiDefinition> $resources
+     * @return list<array{name: string, description?: string}>
+     */
+    private function buildTags(array $resources): array
+    {
+        $tags = [];
+        foreach ($resources as $config) {
+            $name = $config->tagName();
+            if (!isset($tags[$name])) {
+                $tags[$name] = ['name' => $name];
+            }
+            if ($config->groupDescription !== null && !isset($tags[$name]['description'])) {
+                $tags[$name]['description'] = $config->groupDescription;
+            }
+        }
+
+        return array_values($tags);
     }
 }
