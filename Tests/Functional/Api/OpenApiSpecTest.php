@@ -266,6 +266,48 @@ final class OpenApiSpecTest extends ApiFunctionalTestCase
         self::assertArrayNotHasKey('ColorWriteMultipart', $schemas);
     }
 
+    public function testOperationsAreTaggedWithConfiguredGroup(): void
+    {
+        $response = $this->executeApiRequest('/_api/openapi.json');
+        self::assertSame(200, $response->getStatusCode());
+
+        $paths = $this->decodeResponseBody($response)['paths'];
+
+        // articles declares group => Editorial
+        self::assertSame(['Editorial'], $paths['/_api/articles']['get']['tags']);
+        self::assertSame(['Editorial'], $paths['/_api/articles']['post']['tags']);
+        self::assertSame(['Editorial'], $paths['/_api/articles/{uid}']['delete']['tags']);
+    }
+
+    public function testOperationTagFallsBackToResourceTypeWhenNoGroupConfigured(): void
+    {
+        $response = $this->executeApiRequest('/_api/openapi.json');
+        self::assertSame(200, $response->getStatusCode());
+
+        $paths = $this->decodeResponseBody($response)['paths'];
+
+        // colors has no group → falls back to its resourceType "Color"
+        self::assertSame(['Color'], $paths['/_api/colors']['get']['tags']);
+    }
+
+    public function testSpecDeclaresTopLevelTagsWithDescriptions(): void
+    {
+        $response = $this->executeApiRequest('/_api/openapi.json');
+        self::assertSame(200, $response->getStatusCode());
+
+        $body = $this->decodeResponseBody($response);
+        self::assertArrayHasKey('tags', $body);
+
+        $tagsByName = array_column($body['tags'], null, 'name');
+
+        self::assertArrayHasKey('Editorial', $tagsByName);
+        self::assertSame('Editorial content endpoints', $tagsByName['Editorial']['description']);
+
+        // Fallback tag is declared too, without a description.
+        self::assertArrayHasKey('Color', $tagsByName);
+        self::assertArrayNotHasKey('description', $tagsByName['Color']);
+    }
+
     public function testFieldsQueryParamUsesArraySchema(): void
     {
         $response = $this->executeApiRequest('/_api/openapi.json');

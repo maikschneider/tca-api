@@ -56,7 +56,20 @@ final readonly class ApiDefinition
         public readonly WriteMode $writeMode = WriteMode::ACTING_USER,
         public readonly CacheDefinition $cache = new CacheDefinition(),
         public readonly ?array $readStoragePids = null,
+        public readonly ?string $group = null,
+        public readonly ?string $groupDescription = null,
     ) {
+    }
+
+    /**
+     * OpenAPI tag under which this resource's operations are grouped in Swagger UI.
+     *
+     * Falls back to the resourceType when no explicit group is configured, so every
+     * resource gets its own section out of the box instead of a single "default" bucket.
+     */
+    public function tagName(): string
+    {
+        return $this->group ?? $this->resourceType;
     }
 
     /**
@@ -438,6 +451,12 @@ final readonly class ApiDefinition
             ? (int)$general['storagePid']
             : null;
 
+        // ── group (OpenAPI tag) ──────────────────────────────────────────
+        // Accepted shapes:
+        //   'group' => 'Editorial'                                  — tag name only
+        //   'group' => ['name' => 'Editorial', 'description' => …]  — tag name + description
+        [$group, $groupDescription] = self::resolveGroup($general['group'] ?? null, $label);
+
         return new self(
             table:                  $general['table'],
             resourceName:           $general['resourceName'],
@@ -461,6 +480,54 @@ final readonly class ApiDefinition
             writeMode:              $writeMode,
             cache:                  $cache,
             readStoragePids:        self::resolveReadStoragePids($general['readStoragePids'] ?? null, $storagePid),
+            group:                  $group,
+            groupDescription:       $groupDescription,
+        );
+    }
+
+    /**
+     * Normalises the general.group config into a [name, description] pair.
+     *
+     * @return array{0: ?string, 1: ?string} tag name and optional description (both null when unset)
+     */
+    private static function resolveGroup(mixed $raw, string $label): array
+    {
+        if ($raw === null) {
+            return [null, null];
+        }
+
+        if (\is_string($raw)) {
+            if ($raw === '') {
+                throw new \InvalidArgumentException(
+                    sprintf('TcaApi config for "%s": general.group must be a non-empty string.', $label),
+                );
+            }
+
+            return [$raw, null];
+        }
+
+        if (\is_array($raw)) {
+            $name = $raw['name'] ?? null;
+            if (!\is_string($name) || $name === '') {
+                throw new \InvalidArgumentException(
+                    sprintf('TcaApi config for "%s": general.group.name must be a non-empty string.', $label),
+                );
+            }
+            $description = $raw['description'] ?? null;
+            if ($description !== null && (!\is_string($description) || $description === '')) {
+                throw new \InvalidArgumentException(
+                    sprintf('TcaApi config for "%s": general.group.description must be a non-empty string.', $label),
+                );
+            }
+
+            return [$name, $description];
+        }
+
+        throw new \InvalidArgumentException(
+            sprintf(
+                'TcaApi config for "%s": general.group must be a string or an array with a "name" (and optional "description").',
+                $label,
+            ),
         );
     }
 
