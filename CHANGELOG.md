@@ -9,9 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Configurable endpoint grouping (OpenAPI tags).** A new optional `general.group` key sets the OpenAPI tag under which a resource's operations are grouped in Swagger UI. Accepts a plain string (`'group' => 'Editorial'`) or an array with a name and optional description (`'group' => ['name' => 'Editorial', 'description' => '…']`). Point several resources at the same name to merge them into one section; the description becomes a top-level tag description. When omitted, a resource falls back to its `resourceType` as the tag, so every resource gets its own section out of the box — fully backward compatible, no single "default" bucket. See [OpenAPI spec & Swagger UI documentation](README.md#endpoint-grouping). ([#159](https://github.com/maikschneider/tca-api/issues/159))
+
+## [0.5.0] - 2026-07-21
+
+### Added
+
 - **Relation-path filters.** A filter key containing a dot now filters the resource by a column reached through one or more relation hops — `'color_id.name'` (one FK hop), `'categories.title'` (one MM hop), or `'categories.parent.title'` (chained hops). The dotted key is auto-detected: no new filter class to name in config — the declared filter (e.g. `ExactFilter`) becomes the leaf comparison and the new `RelationPathFilter` resolves each hop from TCA and builds the nested `IN` subqueries (de-duplicating, so pagination stays correct). Supports single-value `select`/`type=category` FK relations, MM relations, and `type=inline` (`foreign_field`, honouring `foreign_table_field` / `foreign_match_fields` discriminators); each hop honours the related table's soft-delete/enable-field restrictions. Non-MM group relations and multi-table (ambiguous) relations are rejected at boot. Path filters are supplied via the bracket form (`?filters[categories.title]=News`). ([#150](https://github.com/maikschneider/tca-api/issues/150))
 - **Cross-entity search in `SearchFilter`.** `SearchFilter`'s `columns` list may now include relation-path (dotted) entries — `['title', 'categories.title', 'color_id.name']` — so a single `?filters[q]=…` LIKE-searches the resource's own columns **and** columns of related records, OR-ed together. Related columns are matched through a `t.uid IN (subquery)` (with per-hop enable-field restrictions), and dotted columns are resolved and validated at boot. The hop-resolution/subquery logic is shared with relation-path filters via the new `RelationSubqueryBuilder`. ([#154](https://github.com/maikschneider/tca-api/issues/154))
-- **Configurable endpoint grouping (OpenAPI tags).** A new optional `general.group` key sets the OpenAPI tag under which a resource's operations are grouped in Swagger UI. Accepts a plain string (`'group' => 'Editorial'`) or an array with a name and optional description (`'group' => ['name' => 'Editorial', 'description' => '…']`). Point several resources at the same name to merge them into one section; the description becomes a top-level tag description. When omitted, a resource falls back to its `resourceType` as the tag, so every resource gets its own section out of the box — fully backward compatible, no single "default" bucket. See [OpenAPI spec & Swagger UI documentation](README.md#endpoint-grouping). ([#159](https://github.com/maikschneider/tca-api/issues/159))
+
+### Changed
+
+- **Restrict TYPO3 core version.** Exclude TYPO3 13.4.33 and 14.3.5 compatibility because of a regression that breaks all write operations, see [TYPO3 issue #110242](https://forge.typo3.org/issues/110242). ([#157](https://github.com/maikschneider/tca-api/issues/157))
 
 ## [0.4.0] - 2026-06-24
 
