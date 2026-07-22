@@ -7,9 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-22
+
 ### Added
 
 - **Configurable endpoint grouping (OpenAPI tags).** A new optional `general.group` key sets the OpenAPI tag under which a resource's operations are grouped in Swagger UI. Accepts a plain string (`'group' => 'Editorial'`) or an array with a name and optional description (`'group' => ['name' => 'Editorial', 'description' => '…']`). Point several resources at the same name to merge them into one section; the description becomes a top-level tag description. When omitted, a resource falls back to its `resourceType` as the tag, so every resource gets its own section out of the box — fully backward compatible, no single "default" bucket. See [OpenAPI spec & Swagger UI documentation](README.md#endpoint-grouping). ([#159](https://github.com/maikschneider/tca-api/issues/159))
+- **"Integrations" backend module (TYPO3 v14+).** A backend module registered under the v14 "Integrations" main module (sibling to Reactions and Webhooks) renders the interactive OpenAPI documentation (Swagger UI) directly in the backend. The specification is built server-side per site — reusing the same builder that backs the public `openapi.json` endpoint — and is always available to administrators, independent of the `tca_api.enabled` / `tca_api.swaggerUiEnabled` / `tca_api.openApiExposed` site settings that gate the public frontend. A site switcher (shown when more than one site is configured) rebuilds the spec per site, an "Open in new tab" button links to the frontend Swagger UI, and the module honours the backend colour scheme (light/dark). No module is registered on TYPO3 v13. ([#156](https://github.com/maikschneider/tca-api/issues/156))
 
 ## [0.5.0] - 2026-07-21
 
