@@ -22,7 +22,6 @@ use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Site\Entity\Site;
 use TYPO3\CMS\Core\Site\SiteFinder;
-use TYPO3\CMS\Core\Utility\PathUtility;
 
 /**
  * Backend module rendering the TCA API OpenAPI documentation (Swagger UI)
@@ -143,11 +142,10 @@ final readonly class ApiDocumentationController
      */
     private function registerSwaggerAssets(array $specification): void
     {
-        $base = 'EXT:tca_api/Resources/Public/SwaggerUI/';
-        $this->pageRenderer->addCssFile(PathUtility::getPublicResourceWebPath($base . 'swagger-ui.css'));
-        $this->pageRenderer->addCssFile(PathUtility::getPublicResourceWebPath($base . 'swagger-ui-backend.css'));
-        $this->pageRenderer->addJsFile(PathUtility::getPublicResourceWebPath($base . 'swagger-ui-bundle.js'));
-        $this->pageRenderer->addJsFile(PathUtility::getPublicResourceWebPath($base . 'swagger-ui-backend.js'));
+        $this->pageRenderer->addCssFile('EXT:tca_api/Resources/Public/SwaggerUI/swagger-ui.css');
+        $this->pageRenderer->addCssFile('EXT:tca_api/Resources/Public/SwaggerUI/swagger-ui-backend.css');
+        $this->pageRenderer->addJsFile('EXT:tca_api/Resources/Public/SwaggerUI/swagger-ui-bundle.js');
+        $this->pageRenderer->addJsFile('EXT:tca_api/Resources/Public/SwaggerUI/swagger-ui-backend.js');
 
         // JSON_HEX_TAG neutralises "</script>", making the spec safe to inline.
         $specJson = (string)json_encode(
