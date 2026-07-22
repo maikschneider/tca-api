@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+	<file source-language="en" datatype="plaintext" original="messages" date="2026-07-20T00:00:00Z" product-name="tca_api">
+		<header/>
+		<body>
+			<trans-unit id="mlang_tabs_tab" resname="mlang_tabs_tab">
+				<source>TCA API</source>
+			</trans-unit>
+			<trans-unit id="mlang_labels_tablabel" resname="mlang_labels_tablabel">
+				<source>REST API documentation</source>
+			</trans-unit>
+			<trans-unit id="mlang_labels_tabdescr" resname="mlang_labels_tabdescr">
+				<source>Interactive OpenAPI documentation (Swagger UI) for the database tables exposed through the TCA API. Always available to administrators, independent of the frontend site settings.</source>
+			</trans-unit>
+			<trans-unit id="module.site.dropdown" resname="module.site.dropdown">
+				<source>Site</source>
+			</trans-unit>
+			<trans-unit id="module.openInNewTab" resname="module.openInNewTab">
+				<source>Open in new tab</source>
+			</trans-unit>
+			<trans-unit id="module.noSites.title" resname="module.noSites.title">
+				<source>No site configured</source>
+			</trans-unit>
+			<trans-unit id="module.noSites.message" resname="module.noSites.message">
+				<source>The API documentation is generated per site. Configure at least one site to view it.</source>
+			</trans-unit>
+		</body>
+	</file>
+</xliff>

@@ -1,0 +1,24 @@
+<html
+    xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+    data-namespace-typo3-fluid="true"
+>
+
+<f:layout name="Module" />
+
+<f:section name="Content">
+    <f:if condition="{hasSites}">
+        <f:then>
+            <div id="{domId}"></div>
+        </f:then>
+        <f:else>
+            <f:be.infobox
+                state="1"
+                title="{f:translate(key: 'LLL:EXT:tca_api/Resources/Private/Language/locallang_mod.xlf:module.noSites.title')}"
+            >
+                <f:translate key="LLL:EXT:tca_api/Resources/Private/Language/locallang_mod.xlf:module.noSites.message" />
+            </f:be.infobox>
+        </f:else>
+    </f:if>
+</f:section>
+
+</html>

@@ -8,6 +8,8 @@ services:
     resource: '../Classes/*'
     exclude:
       - '../Classes/ConfigurationModuleProvider/'
+      # Registered conditionally in Services.php — depends on v14-only backend API.
+      - '../Classes/Controller/'
 
   _instanceof:
     MaikSchneider\TcaApi\OperationHandler\OperationHandlerInterface:
