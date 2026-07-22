@@ -36,6 +36,10 @@ return [
             '_default' => [
                 'target' => ApiDocumentationController::class . '::indexAction',
             ],
+            'download' => [
+                'path' => '/module/integrations/tca-api/download',
+                'target' => ApiDocumentationController::class . '::downloadAction',
+            ],
         ],
     ],
 ];

@@ -18,6 +18,9 @@
 			<trans-unit id="module.openInNewTab" resname="module.openInNewTab">
 				<source>Open in new tab</source>
 			</trans-unit>
+			<trans-unit id="module.download" resname="module.download">
+				<source>Download openapi.json</source>
+			</trans-unit>
 			<trans-unit id="module.noSites.title" resname="module.noSites.title">
 				<source>No site configured</source>
 			</trans-unit>

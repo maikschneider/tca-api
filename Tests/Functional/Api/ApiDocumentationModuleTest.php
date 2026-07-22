@@ -106,6 +106,46 @@ final class ApiDocumentationModuleTest extends ApiFunctionalTestCase
         self::assertStringContainsString('"/_api/articles"', $html);
     }
 
+    public function testDownloadActionServesSpecAsOpenApiJsonAttachment(): void
+    {
+        if (!class_exists(ComponentFactory::class)) {
+            self::markTestSkipped('The Integrations backend module is TYPO3 v14+ only.');
+        }
+
+        $request = (new ServerRequest('http://localhost/typo3/module/integrations/tca-api/download'))
+            ->withQueryParams(['site' => 'main']);
+        $response = $this->get(ApiDocumentationController::class)->downloadAction($request);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('application/json', $response->getHeaderLine('Content-Type'));
+        self::assertSame(
+            'attachment; filename="openapi.json"',
+            $response->getHeaderLine('Content-Disposition'),
+        );
+
+        // The downloaded file is the same access-gate-free spec the module renders,
+        // with the site origin as server URL (no doubled "/_api" prefix).
+        $spec = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('3.1.0', $spec['openapi']);
+        self::assertSame('http://localhost', $spec['servers'][0]['url']);
+        self::assertArrayHasKey('/_api/articles', $spec['paths']);
+    }
+
+    public function testDownloadActionFallsBackToFirstSiteForUnknownSiteParam(): void
+    {
+        if (!class_exists(ComponentFactory::class)) {
+            self::markTestSkipped('The Integrations backend module is TYPO3 v14+ only.');
+        }
+
+        $request = (new ServerRequest('http://localhost/typo3/module/integrations/tca-api/download'))
+            ->withQueryParams(['site' => 'does-not-exist']);
+        $response = $this->get(ApiDocumentationController::class)->downloadAction($request);
+
+        self::assertSame(200, $response->getStatusCode());
+        $spec = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertNotEmpty($spec['paths']);
+    }
+
     /**
      * Invoke the controller's indexAction directly, bypassing the backend module routing and template wiring.
      */
