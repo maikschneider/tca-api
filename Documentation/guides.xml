@@ -16,8 +16,8 @@
                interlink-shortcode="maikschneider/tca-api"
     />
     <project title="TCA_API"
-             release="0.3.0"
-             version="0.3.0"
+             release="0.5.0"
+             version="0.5.0"
              copyright="since 2024 by Maik Schneider &amp; Contributors"
     />
     <inventory id="t3coreapi"
