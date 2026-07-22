@@ -71,7 +71,7 @@ Current state
 
 ..  attention::
 
-    TCA_API is currently in **beta state** (version 0.4.0). The API surface may
+    TCA_API is currently in **beta state** (version 0.5.0). The API surface may
     change between minor releases. It is not yet recommended for production use
     without thorough testing.
 
