@@ -154,7 +154,7 @@ the response.
 OpenAPI spec & Swagger UI
 =========================
 
-The extension generates a live **OpenAPI 3.0 JSON spec** from the registered
+The extension generates a live **OpenAPI 3.1.0 JSON spec** from the registered
 resources and exposes two additional endpoints:
 
 .. list-table::
