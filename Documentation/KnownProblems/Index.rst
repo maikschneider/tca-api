@@ -7,7 +7,7 @@ Known Problems
 Current state
 =============
 
-TCA_API is in **beta state** (version 0.5.0). While the core functionality is
+TCA_API is in **beta state** (version 0.6.0). While the core functionality is
 stable and tested, the API surface may change between minor releases.
 
 Planned features
