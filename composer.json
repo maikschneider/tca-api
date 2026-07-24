@@ -78,7 +78,7 @@
 			},
 			"cms-package-dir": "{$vendor-dir}/typo3/cms",
 			"extension-key": "tca_api",
-			"version": "0.6.0",
+			"version": "0.6.1",
 			"web-dir": "public"
 		}
 	},

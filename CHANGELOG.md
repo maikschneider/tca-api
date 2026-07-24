@@ -7,8 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-07-24
+
+### Added
+
+- **Download button in the backend Integrations docs module.** The backend Swagger UI module (TYPO3 v14+) gained a docheader button that downloads the generated OpenAPI specification as JSON for the currently shown site. The spec is built server-side via the same `OpenApiBuilder` that backs the public `openapi.json` endpoint, so the download is available to admins regardless of the public access gates. ([#164](https://github.com/maikschneider/tca-api/issues/164))
+
 ### Fixed
 
+- **Backend docs module now respects the site base path and enabled state.** The Integrations documentation module (TYPO3 v14+) previously listed every configured site and anchored the OpenAPI `servers` URL at the origin only, dropping any sub-path — so a site served under a base path (e.g. `https://example.com/bootstrap`) pointed its docs at the root. The module now only lists sites where the API is actually active (site imports the `tca_api` set and does not set `tca_api.enabled = false`, mirroring `TcaApiMiddleware`), and resolves the full site base URL (origin **and** path) for both the Swagger UI server and the download. Sites without the API are hidden; requesting one via `downloadAction` yields 404. ([#168](https://github.com/maikschneider/tca-api/issues/168))
+- **Empty collection responses are now cache-invalidated.** The base `{table}` cache tag is now attached at cache activation in `RequestDispatcher` rather than only per-record in `ResourceSerializer`, so a cached empty `list` response (which serialises no records and therefore emitted no table tag) is flushed when a record is later added to the table. ([#169](https://github.com/maikschneider/tca-api/issues/169))
 - Documentation: correct the cache invalidation section — API write operations (`create`/`update`/`delete`) do trigger cache invalidation via `AfterWriteEvent`/`WriteCacheInvalidationListener`; the old "do not trigger" note was stale (#165)
 
 ## [0.6.0] - 2026-07-22
