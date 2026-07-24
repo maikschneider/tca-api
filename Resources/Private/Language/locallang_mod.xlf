@@ -21,11 +21,11 @@
 			<trans-unit id="module.download" resname="module.download">
 				<source>Download openapi.json</source>
 			</trans-unit>
-			<trans-unit id="module.noSites.title" resname="module.noSites.title">
-				<source>No site configured</source>
+			<trans-unit id="module.notEnabled.title" resname="module.notEnabled.title">
+				<source>TCA API not enabled</source>
 			</trans-unit>
-			<trans-unit id="module.noSites.message" resname="module.noSites.message">
-				<source>The API documentation is generated per site. Configure at least one site to view it.</source>
+			<trans-unit id="module.notEnabled.message" resname="module.notEnabled.message">
+				<source>No site has the TCA API enabled. Import the TCA API site set on a site and keep "Enable API" turned on to view its documentation here.</source>
 			</trans-unit>
 		</body>
 	</file>

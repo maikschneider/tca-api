@@ -9,6 +9,7 @@ use MaikSchneider\TcaApi\OpenApi\OpenApiBuilder;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\UriInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
@@ -29,10 +30,16 @@ use TYPO3\CMS\Core\Site\SiteFinder;
  * beneath the TYPO3 v14 "Integrations" main module.
  *
  * The specification is built server-side, per site, and embedded inline into
- * Swagger UI. This deliberately bypasses the `tca_api.enabled` /
- * `tca_api.swaggerUiEnabled` / `tca_api.openApiExposed` site settings that gate
- * the public frontend endpoints: the backend documentation is always available
- * to admins, regardless of how (or whether) the API is exposed publicly.
+ * Swagger UI. Only sites where the API is actually active are shown — mirroring
+ * {@see \MaikSchneider\TcaApi\Middleware\TcaApiMiddleware}, that means the site
+ * imports the tca_api site set (so `tca_api.apiPrefix` exists) and does not set
+ * `tca_api.enabled = false`. A site without the API produces no endpoints, so
+ * documenting it would be misleading.
+ *
+ * It deliberately bypasses only the *public access gates* — `tca_api.swaggerUiEnabled`
+ * and `tca_api.openApiExposed` — which govern how the spec/UI are exposed to
+ * anonymous frontend visitors: the backend documentation stays available to admins
+ * regardless of how (or whether) the API is exposed publicly.
  */
 #[AsController]
 #[Autoconfigure(public: true)]
@@ -65,9 +72,9 @@ final readonly class ApiDocumentationController
         // Restore the "Integrations" submodule switcher (Reactions / Webhooks / …).
         $view->makeDocHeaderModuleMenu();
 
-        $sites = $this->siteFinder->getAllSites();
+        $sites = $this->enabledSites();
         if ($sites === []) {
-            $view->assign('hasSites', false);
+            $view->assign('hasEnabledSite', false);
             return $view->renderResponse('ApiDocumentation/Index');
         }
 
@@ -88,15 +95,21 @@ final readonly class ApiDocumentationController
             );
         }
 
-        $context = $this->createRequestContext($site, $request);
+        $baseUri = $this->resolveSiteBaseUri($site, $request);
+        $context = new RequestContext($site->getSettings(), new ServerRequest($baseUri));
+        // The full site base — origin *and* path (e.g. "https://example.com/bootstrap") —
+        // so a site served under a sub-path resolves to its own docs. RequestContext::baseUrl
+        // is origin-only and would drop the path, pointing every sub-path site at the root.
+        $siteBaseUrl = rtrim((string)$baseUri, '/');
+
         $specification = $this->openApiBuilder->build($context);
-        $specification['servers'] = [['url' => $context->baseUrl]];
+        $specification['servers'] = [['url' => $siteBaseUrl]];
         $this->registerSwaggerAssets($specification);
 
         $this->addDownloadButton($view, $site->getIdentifier());
-        $this->addOpenInNewTabButton($view, $context->baseUrl . $context->prefix . '/swagger-ui');
+        $this->addOpenInNewTabButton($view, $siteBaseUrl . $context->prefix . '/swagger-ui');
 
-        $view->assign('hasSites', true);
+        $view->assign('hasEnabledSite', true);
         $view->assign('siteIdentifier', $site->getIdentifier());
         return $view->renderResponse('ApiDocumentation/Index');
     }
@@ -104,16 +117,18 @@ final readonly class ApiDocumentationController
     /**
      * Serve the OpenAPI specification for the selected site as a downloadable
      * `openapi.json` file. Like {@see indexAction()}, this builds the spec via
-     * {@see OpenApiBuilder} without consulting the frontend access gates, so the
-     * download is always available to admins regardless of how (or whether) the
-     * API is exposed publicly — it does not depend on the gated frontend endpoint.
+     * {@see OpenApiBuilder} without consulting the public access gates, so the
+     * download is available to admins regardless of how the API is exposed publicly.
+     * It is limited to sites where the API is actually enabled ({@see enabledSites()});
+     * requesting a site without it yields 404.
      *
      * The target site is taken from the `site` query parameter (set by the docheader
-     * download button to the site currently shown), falling back to the first site.
+     * download button to the site currently shown), falling back to the first
+     * enabled site.
      */
     public function downloadAction(ServerRequestInterface $request): ResponseInterface
     {
-        $sites = $this->siteFinder->getAllSites();
+        $sites = $this->enabledSites();
         if ($sites === []) {
             return $this->responseFactory->createResponse(404);
         }
@@ -121,9 +136,10 @@ final readonly class ApiDocumentationController
         $requested = (string)($request->getQueryParams()['site'] ?? '');
         $site = $sites[$requested] ?? reset($sites);
 
-        $context = $this->createRequestContext($site, $request);
+        $baseUri = $this->resolveSiteBaseUri($site, $request);
+        $context = new RequestContext($site->getSettings(), new ServerRequest($baseUri));
         $specification = $this->openApiBuilder->build($context);
-        $specification['servers'] = [['url' => $context->baseUrl]];
+        $specification['servers'] = [['url' => rtrim((string)$baseUri, '/')]];
 
         $response = $this->responseFactory->createResponse(200)
             ->withHeader('Content-Type', 'application/json')
@@ -134,16 +150,40 @@ final readonly class ApiDocumentationController
     }
 
     /**
-     * Build a RequestContext for a site, anchored at the site base so it resolves
-     * baseUrl + apiPrefix exactly as a real frontend request would. The resulting
-     * context feeds both the OpenAPI build (via {@see OpenApiBuilder}, reusing the
-     * exact same builder that backs the public `openapi.json` endpoint, without any
-     * access gate) and the "open in new tab" frontend URL.
+     * All configured sites where the TCA API is actually active, keyed by identifier.
+     *
+     * @return array<string, Site>
+     */
+    private function enabledSites(): array
+    {
+        return array_filter($this->siteFinder->getAllSites(), $this->isApiEnabledForSite(...));
+    }
+
+    /**
+     * Whether the TCA API is active for a site, mirroring the two gates
+     * {@see \MaikSchneider\TcaApi\Middleware\TcaApiMiddleware} applies: the site must
+     * import the tca_api site set (so `tca_api.apiPrefix` is defined) and must not set
+     * `tca_api.enabled = false`. Sites failing either gate expose no API and are hidden
+     * from the module — the public-only `swaggerUiEnabled` / `openApiExposed` gates are
+     * intentionally NOT consulted here.
+     */
+    private function isApiEnabledForSite(Site $site): bool
+    {
+        $settings = $site->getSettings();
+
+        return $settings->has('tca_api.apiPrefix') && (bool)$settings->get('tca_api.enabled', true);
+    }
+
+    /**
+     * Resolve the absolute base URI of a site — origin *and* path — as the anchor for
+     * both the per-site OpenAPI build and the frontend URLs (servers, "open in new tab").
+     * Keeping the path is essential: a site served under a sub-path (base
+     * "https://example.com/bootstrap") must resolve to its own docs, not the root site's.
      *
      * A site may have a host-less base (e.g. "/") — fall back to the current backend
      * host so the resulting absolute URLs stay usable.
      */
-    private function createRequestContext(Site $site, ServerRequestInterface $request): RequestContext
+    private function resolveSiteBaseUri(Site $site, ServerRequestInterface $request): UriInterface
     {
         $base = $site->getBase();
         if ($base->getHost() === '') {
@@ -154,7 +194,7 @@ final readonly class ApiDocumentationController
                 ->withPort($backendUri->getPort());
         }
 
-        return new RequestContext($site->getSettings(), new ServerRequest($base));
+        return $base;
     }
 
     /**
