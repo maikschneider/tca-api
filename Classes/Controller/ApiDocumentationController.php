@@ -9,6 +9,7 @@ use MaikSchneider\TcaApi\OpenApi\OpenApiBuilder;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\UriInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder;
@@ -88,13 +89,19 @@ final readonly class ApiDocumentationController
             );
         }
 
-        $context = $this->createRequestContext($site, $request);
+        $baseUri = $this->resolveSiteBaseUri($site, $request);
+        $context = new RequestContext($site->getSettings(), new ServerRequest($baseUri));
+        // The full site base — origin *and* path (e.g. "https://example.com/bootstrap") —
+        // so a site served under a sub-path resolves to its own docs. RequestContext::baseUrl
+        // is origin-only and would drop the path, pointing every sub-path site at the root.
+        $siteBaseUrl = rtrim((string)$baseUri, '/');
+
         $specification = $this->openApiBuilder->build($context);
-        $specification['servers'] = [['url' => $context->baseUrl]];
+        $specification['servers'] = [['url' => $siteBaseUrl]];
         $this->registerSwaggerAssets($specification);
 
         $this->addDownloadButton($view, $site->getIdentifier());
-        $this->addOpenInNewTabButton($view, $context->baseUrl . $context->prefix . '/swagger-ui');
+        $this->addOpenInNewTabButton($view, $siteBaseUrl . $context->prefix . '/swagger-ui');
 
         $view->assign('hasSites', true);
         $view->assign('siteIdentifier', $site->getIdentifier());
@@ -121,9 +128,10 @@ final readonly class ApiDocumentationController
         $requested = (string)($request->getQueryParams()['site'] ?? '');
         $site = $sites[$requested] ?? reset($sites);
 
-        $context = $this->createRequestContext($site, $request);
+        $baseUri = $this->resolveSiteBaseUri($site, $request);
+        $context = new RequestContext($site->getSettings(), new ServerRequest($baseUri));
         $specification = $this->openApiBuilder->build($context);
-        $specification['servers'] = [['url' => $context->baseUrl]];
+        $specification['servers'] = [['url' => rtrim((string)$baseUri, '/')]];
 
         $response = $this->responseFactory->createResponse(200)
             ->withHeader('Content-Type', 'application/json')
@@ -134,16 +142,15 @@ final readonly class ApiDocumentationController
     }
 
     /**
-     * Build a RequestContext for a site, anchored at the site base so it resolves
-     * baseUrl + apiPrefix exactly as a real frontend request would. The resulting
-     * context feeds both the OpenAPI build (via {@see OpenApiBuilder}, reusing the
-     * exact same builder that backs the public `openapi.json` endpoint, without any
-     * access gate) and the "open in new tab" frontend URL.
+     * Resolve the absolute base URI of a site — origin *and* path — as the anchor for
+     * both the per-site OpenAPI build and the frontend URLs (servers, "open in new tab").
+     * Keeping the path is essential: a site served under a sub-path (base
+     * "https://example.com/bootstrap") must resolve to its own docs, not the root site's.
      *
      * A site may have a host-less base (e.g. "/") — fall back to the current backend
      * host so the resulting absolute URLs stay usable.
      */
-    private function createRequestContext(Site $site, ServerRequestInterface $request): RequestContext
+    private function resolveSiteBaseUri(Site $site, ServerRequestInterface $request): UriInterface
     {
         $base = $site->getBase();
         if ($base->getHost() === '') {
@@ -154,7 +161,7 @@ final readonly class ApiDocumentationController
                 ->withPort($backendUri->getPort());
         }
 
-        return new RequestContext($site->getSettings(), new ServerRequest($base));
+        return $base;
     }
 
     /**

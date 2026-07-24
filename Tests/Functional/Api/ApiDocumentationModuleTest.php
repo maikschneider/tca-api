@@ -198,7 +198,7 @@ final class ApiDocumentationModuleTest extends ApiFunctionalTestCase
         }
 
         // A site with a host-less base ("/") drives the "$base->getHost() === ''" branch in
-        // createRequestContext, which falls back to the current (backend) request's host.
+        // resolveSiteBaseUri, which falls back to the current (backend) request's host.
         $hostless = new Site('hostless', 1, ['base' => '/']);
         $siteFinder = $this->createMock(SiteFinder::class);
         $siteFinder->method('getAllSites')->willReturn(['hostless' => $hostless]);
@@ -211,6 +211,47 @@ final class ApiDocumentationModuleTest extends ApiFunctionalTestCase
         self::assertSame(200, $response->getStatusCode());
         $spec = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
         self::assertSame('http://backend.example.org:8443', $spec['servers'][0]['url']);
+    }
+
+    public function testIndexActionOpenInNewTabLinkRespectsSiteBasePath(): void
+    {
+        if (!class_exists(ComponentFactory::class)) {
+            self::markTestSkipped('The Integrations backend module is TYPO3 v14+ only.');
+        }
+
+        // Regression guard: a site served under a sub-path must produce an "open in new tab"
+        // link (and servers URL) under that same path, not at the domain root. Previously the
+        // origin-only base dropped "/bootstrap", so the link opened the root site's docs.
+        $subPathSite = new Site('bootstrap', 1, ['base' => 'https://sites.example.org/bootstrap/']);
+        $siteFinder = $this->createMock(SiteFinder::class);
+        $siteFinder->method('getAllSites')->willReturn(['bootstrap' => $subPathSite]);
+
+        $html = (string)$this->controllerWithSiteFinder($siteFinder)->indexAction($this->buildBackendRequest())->getBody();
+
+        // The open-in-new-tab button links under the site's own sub-path.
+        self::assertStringContainsString('https://sites.example.org/bootstrap/_api/swagger-ui', $html);
+        // And Try-it-out targets the same sub-path base, not the domain root.
+        self::assertStringContainsString('"url":"https://sites.example.org/bootstrap"', $html);
+        self::assertStringNotContainsString('"url":"https://sites.example.org"', $html);
+    }
+
+    public function testDownloadActionServerUrlRespectsSiteBasePath(): void
+    {
+        if (!class_exists(ComponentFactory::class)) {
+            self::markTestSkipped('The Integrations backend module is TYPO3 v14+ only.');
+        }
+
+        $subPathSite = new Site('bootstrap', 1, ['base' => 'https://sites.example.org/bootstrap/']);
+        $siteFinder = $this->createMock(SiteFinder::class);
+        $siteFinder->method('getAllSites')->willReturn(['bootstrap' => $subPathSite]);
+
+        $request = (new ServerRequest('http://localhost/typo3/module/integrations/tca-api/download'))
+            ->withQueryParams(['site' => 'bootstrap']);
+        $response = $this->controllerWithSiteFinder($siteFinder)->downloadAction($request);
+
+        $spec = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        // servers URL keeps the sub-path so "Try it out" hits the site's own endpoints.
+        self::assertSame('https://sites.example.org/bootstrap', $spec['servers'][0]['url']);
     }
 
     /**
