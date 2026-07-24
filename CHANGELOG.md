@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Documentation: correct the cache invalidation section — API write operations (`create`/`update`/`delete`) do trigger cache invalidation via `AfterWriteEvent`/`WriteCacheInvalidationListener`; the old "do not trigger" note was stale (#165)
+
 ## [0.6.0] - 2026-07-22
 
 ### Added

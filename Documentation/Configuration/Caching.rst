@@ -86,16 +86,18 @@ Response headers
 Cache invalidation
 ==================
 
-Cache entries are invalidated automatically via a TYPO3 DataHandler hook
-(``clearCachePostProc``) whenever a record is created, updated, or deleted
-through the TYPO3 backend. All cached responses tagged with the affected table
-name are flushed.
+Cache entries are invalidated automatically from two sources, so cached
+responses stay in sync no matter how a record changes:
 
-..  note::
-
-    API write operations (``POST``, ``PUT``, ``PATCH``, ``DELETE``) do **not**
-    trigger cache invalidation. Cached responses for a table remain valid until
-    the next backend (DataHandler) operation touches the same table.
+*   **TYPO3 backend edits** — a DataHandler hook (``clearCachePostProc``) flushes
+    all cached responses tagged with the affected table name whenever a record is
+    created, updated, or deleted through the backend.
+*   **API write operations** (``POST``, ``PUT``, ``PATCH``, ``DELETE``) — each
+    write dispatches an ``AfterWriteEvent`` and ``WriteCacheInvalidationListener``
+    flushes the affected tags: ``create`` flushes the table tag (``{table}``);
+    ``update`` and ``delete`` flush both the table tag (``{table}``) and the
+    record tag (``{table}_{uid}``). Writing a record via the API and reading it
+    back immediately returns the fresh state.
 
 Cache backend
 =============
