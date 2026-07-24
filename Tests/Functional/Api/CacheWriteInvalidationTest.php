@@ -130,6 +130,55 @@ final class CacheWriteInvalidationTest extends ApiFunctionalTestCase
     }
 
     /**
+     * Regression: an empty collection response (zero serialized rows) must still
+     * carry the base '{table}' cache tag, otherwise the entry can never be
+     * flushed by a later write and stays stale until its lifetime expires.
+     */
+    public function testEmptyCollectionResponseCarriesTableTag(): void
+    {
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/pages_empty_storage.csv');
+        $this->registerResource(self::RESOURCE, array_merge(self::CONFIG, [
+            'general' => array_merge(self::CONFIG['general'], ['storagePid' => 2]),
+            'cache' => ['enabled' => true, 'lifetime' => 3600],
+        ]));
+
+        // pid 2 holds no articles → collection is empty.
+        $response = $this->executeApiRequest(self::PATH_COLLECTION);
+
+        self::assertSame('MISS', $response->getHeaderLine('X-TCA-API-Cache'));
+        self::assertSame('1', $response->getHeaderLine('X-Cache-Tag-Count'));
+        self::assertSame(self::TABLE, $response->getHeaderLine('X-Cache-Tags'));
+    }
+
+    /**
+     * Regression: a cached empty collection must be invalidated when a record is
+     * created, so the newly created record becomes visible instead of a stale
+     * empty list being served from cache.
+     */
+    public function testCreateInvalidatesCachedEmptyListResponse(): void
+    {
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/pages_empty_storage.csv');
+        $this->registerResource(self::RESOURCE, array_merge(self::CONFIG, [
+            'general' => array_merge(self::CONFIG['general'], ['storagePid' => 2]),
+            'cache' => ['enabled' => true, 'lifetime' => 3600],
+        ]));
+
+        // Warm the cache with an empty collection, then confirm it is cached.
+        $this->executeApiRequest(self::PATH_COLLECTION);
+        $warm = $this->executeApiRequest(self::PATH_COLLECTION);
+        self::assertSame('HIT', $warm->getHeaderLine('X-TCA-API-Cache'));
+
+        // Create a record on the same storage pid.
+        $createResponse = $this->executeApiWriteRequest('POST', self::PATH_COLLECTION, ['title' => 'First in empty list']);
+        self::assertSame(201, $createResponse->getStatusCode(), 'Create failed: ' . (string)$createResponse->getBody());
+
+        // Re-fetch — the empty entry must have been flushed and the new record shown.
+        $second = $this->executeApiRequest(self::PATH_COLLECTION);
+        self::assertSame('MISS', $second->getHeaderLine('X-TCA-API-Cache'), 'Empty collection cache was not invalidated after CREATE');
+        self::assertStringContainsString('First in empty list', (string)$second->getBody());
+    }
+
+    /**
      * Verify that cache invalidation only happens for resources with cache enabled.
      */
     public function testWriteOnUncachedResourceDoesNotCrash(): void
