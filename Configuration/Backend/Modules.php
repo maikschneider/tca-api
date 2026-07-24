@@ -36,6 +36,10 @@ return [
             '_default' => [
                 'target' => ApiDocumentationController::class . '::indexAction',
             ],
+            'download' => [
+                'path' => '/download',
+                'target' => ApiDocumentationController::class . '::downloadAction',
+            ],
         ],
     ],
 ];

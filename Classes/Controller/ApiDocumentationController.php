@@ -6,6 +6,7 @@ namespace MaikSchneider\TcaApi\Controller;
 
 use MaikSchneider\TcaApi\Dispatcher\RequestContext;
 use MaikSchneider\TcaApi\OpenApi\OpenApiBuilder;
+use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
@@ -39,6 +40,8 @@ final readonly class ApiDocumentationController
 {
     private const LLL = 'LLL:EXT:tca_api/Resources/Private/Language/locallang_mod.xlf';
     private const MODULE_IDENTIFIER = 'tca_api_documentation';
+    // Named sub-routes register as "{moduleIdentifier}.{routeName}" (see ModuleRegistry).
+    private const DOWNLOAD_ROUTE = self::MODULE_IDENTIFIER . '.download';
     private const DOM_ID = 'tca-api-swagger-ui';
 
     public function __construct(
@@ -49,6 +52,7 @@ final readonly class ApiDocumentationController
         private SiteFinder $siteFinder,
         private OpenApiBuilder $openApiBuilder,
         private IconFactory $iconFactory,
+        private ResponseFactoryInterface $responseFactory,
     ) {
     }
 
@@ -89,11 +93,44 @@ final readonly class ApiDocumentationController
         $specification['servers'] = [['url' => $context->baseUrl]];
         $this->registerSwaggerAssets($specification);
 
+        $this->addDownloadButton($view, $site->getIdentifier());
         $this->addOpenInNewTabButton($view, $context->baseUrl . $context->prefix . '/swagger-ui');
 
         $view->assign('hasSites', true);
         $view->assign('siteIdentifier', $site->getIdentifier());
         return $view->renderResponse('ApiDocumentation/Index');
+    }
+
+    /**
+     * Serve the OpenAPI specification for the selected site as a downloadable
+     * `openapi.json` file. Like {@see indexAction()}, this builds the spec via
+     * {@see OpenApiBuilder} without consulting the frontend access gates, so the
+     * download is always available to admins regardless of how (or whether) the
+     * API is exposed publicly — it does not depend on the gated frontend endpoint.
+     *
+     * The target site is taken from the `site` query parameter (set by the docheader
+     * download button to the site currently shown), falling back to the first site.
+     */
+    public function downloadAction(ServerRequestInterface $request): ResponseInterface
+    {
+        $sites = $this->siteFinder->getAllSites();
+        if ($sites === []) {
+            return $this->responseFactory->createResponse(404);
+        }
+
+        $requested = (string)($request->getQueryParams()['site'] ?? '');
+        $site = $sites[$requested] ?? reset($sites);
+
+        $context = $this->createRequestContext($site, $request);
+        $specification = $this->openApiBuilder->build($context);
+        $specification['servers'] = [['url' => $context->baseUrl]];
+
+        $response = $this->responseFactory->createResponse(200)
+            ->withHeader('Content-Type', 'application/json')
+            ->withHeader('Content-Disposition', 'attachment; filename="openapi.json"');
+        $response->getBody()->write((string)json_encode($specification, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+        return $response;
     }
 
     /**
@@ -175,6 +212,22 @@ final readonly class ApiDocumentationController
             ->setShowLabelText(true)
             ->setIcon($this->iconFactory->getIcon('actions-window-open', IconSize::SMALL))
             ->setAttributes(['target' => '_blank', 'rel' => 'noopener noreferrer']);
+
+        $view->getDocHeaderComponent()->getButtonBar()->addButton($button, ButtonBar::BUTTON_POSITION_RIGHT);
+    }
+
+    /**
+     * Add the "Download openapi.json" button, linking to the module's download
+     * sub-route for the currently selected site.
+     */
+    private function addDownloadButton(ModuleTemplate $view, string $selectedIdentifier): void
+    {
+        $href = (string)$this->uriBuilder->buildUriFromRoute(self::DOWNLOAD_ROUTE, ['site' => $selectedIdentifier]);
+        $button = $this->componentFactory->createLinkButton()
+            ->setHref($href)
+            ->setTitle($this->getLanguageService()->sL(self::LLL . ':module.download'))
+            ->setShowLabelText(true)
+            ->setIcon($this->iconFactory->getIcon('actions-download', IconSize::SMALL));
 
         $view->getDocHeaderComponent()->getButtonBar()->addButton($button, ButtonBar::BUTTON_POSITION_RIGHT);
     }

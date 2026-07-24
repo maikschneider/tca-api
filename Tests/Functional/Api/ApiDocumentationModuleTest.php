@@ -8,15 +8,22 @@ use MaikSchneider\TcaApi\Controller\ApiDocumentationController;
 use MaikSchneider\TcaApi\Dispatcher\RequestContext;
 use MaikSchneider\TcaApi\OpenApi\OpenApiBuilder;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
+use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Backend\Module\ModuleData;
 use TYPO3\CMS\Backend\Module\ModuleProvider;
 use TYPO3\CMS\Backend\Routing\Route;
+use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
+use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Http\NormalizedParams;
 use TYPO3\CMS\Core\Http\ServerRequest;
+use TYPO3\CMS\Core\Imaging\IconFactory;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
+use TYPO3\CMS\Core\Page\PageRenderer;
+use TYPO3\CMS\Core\Site\Entity\Site;
 use TYPO3\CMS\Core\Site\SiteFinder;
 
 /**
@@ -106,10 +113,120 @@ final class ApiDocumentationModuleTest extends ApiFunctionalTestCase
         self::assertStringContainsString('"/_api/articles"', $html);
     }
 
+    public function testDownloadActionServesSpecAsOpenApiJsonAttachment(): void
+    {
+        if (!class_exists(ComponentFactory::class)) {
+            self::markTestSkipped('The Integrations backend module is TYPO3 v14+ only.');
+        }
+
+        $request = (new ServerRequest('http://localhost/typo3/module/integrations/tca-api/download'))
+            ->withQueryParams(['site' => 'main']);
+        $response = $this->get(ApiDocumentationController::class)->downloadAction($request);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('application/json', $response->getHeaderLine('Content-Type'));
+        self::assertSame(
+            'attachment; filename="openapi.json"',
+            $response->getHeaderLine('Content-Disposition'),
+        );
+
+        // The downloaded file is the same access-gate-free spec the module renders,
+        // with the site origin as server URL (no doubled "/_api" prefix).
+        $spec = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('3.1.0', $spec['openapi']);
+        self::assertSame('http://localhost', $spec['servers'][0]['url']);
+        self::assertArrayHasKey('/_api/articles', $spec['paths']);
+    }
+
+    public function testDownloadActionFallsBackToFirstSiteForUnknownSiteParam(): void
+    {
+        if (!class_exists(ComponentFactory::class)) {
+            self::markTestSkipped('The Integrations backend module is TYPO3 v14+ only.');
+        }
+
+        $request = (new ServerRequest('http://localhost/typo3/module/integrations/tca-api/download'))
+            ->withQueryParams(['site' => 'does-not-exist']);
+        $response = $this->get(ApiDocumentationController::class)->downloadAction($request);
+
+        self::assertSame(200, $response->getStatusCode());
+        $spec = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertNotEmpty($spec['paths']);
+    }
+
+    public function testIndexActionRendersNoSitesInfoboxWhenNoSiteIsConfigured(): void
+    {
+        if (!class_exists(ComponentFactory::class)) {
+            self::markTestSkipped('The Integrations backend module is TYPO3 v14+ only.');
+        }
+
+        // Drive the "$sites === []" early-return branch with an empty SiteFinder.
+        $siteFinder = $this->createMock(SiteFinder::class);
+        $siteFinder->method('getAllSites')->willReturn([]);
+
+        $response = $this->controllerWithSiteFinder($siteFinder)->indexAction($this->buildBackendRequest());
+
+        self::assertSame(200, $response->getStatusCode());
+        // The "no sites" infobox is rendered instead of Swagger UI.
+        self::assertStringContainsString('Configure at least one site to view it.', (string)$response->getBody());
+        self::assertStringNotContainsString('id="tca-api-swagger-ui"', (string)$response->getBody());
+    }
+
+    public function testIndexActionRendersSiteSwitcherWhenMultipleSitesExist(): void
+    {
+        if (!class_exists(ComponentFactory::class)) {
+            self::markTestSkipped('The Integrations backend module is TYPO3 v14+ only.');
+        }
+
+        // Drive the "count($sites) > 1" branch: the real "main" site (first, so it is the
+        // selected one with full settings) plus a synthetic second site.
+        $main = $this->get(SiteFinder::class)->getSiteByIdentifier('main');
+        $second = new Site('second', 1, ['base' => 'https://second.example.org/']);
+        $siteFinder = $this->createMock(SiteFinder::class);
+        $siteFinder->method('getAllSites')->willReturn(['main' => $main, 'second' => $second]);
+
+        $html = (string)$this->controllerWithSiteFinder($siteFinder)->indexAction($this->buildBackendRequest())->getBody();
+
+        // Both sites appear as items in the docheader site switcher dropdown.
+        self::assertStringContainsString('>main<', $html);
+        self::assertStringContainsString('>second<', $html);
+    }
+
+    public function testDownloadActionFallsBackToRequestHostForHostlessSiteBase(): void
+    {
+        if (!class_exists(ComponentFactory::class)) {
+            self::markTestSkipped('The Integrations backend module is TYPO3 v14+ only.');
+        }
+
+        // A site with a host-less base ("/") drives the "$base->getHost() === ''" branch in
+        // createRequestContext, which falls back to the current (backend) request's host.
+        $hostless = new Site('hostless', 1, ['base' => '/']);
+        $siteFinder = $this->createMock(SiteFinder::class);
+        $siteFinder->method('getAllSites')->willReturn(['hostless' => $hostless]);
+
+        // A distinctive host+port proves the fallback fired: a host-full site base would be
+        // used verbatim and never pick up "backend.example.org:8443".
+        $request = new ServerRequest('http://backend.example.org:8443/typo3/module/integrations/tca-api/download');
+        $response = $this->controllerWithSiteFinder($siteFinder)->downloadAction($request);
+
+        self::assertSame(200, $response->getStatusCode());
+        $spec = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('http://backend.example.org:8443', $spec['servers'][0]['url']);
+    }
+
     /**
-     * Invoke the controller's indexAction directly, bypassing the backend module routing and template wiring.
+     * Invoke the container-built controller's indexAction directly, bypassing the
+     * backend module routing and template wiring.
      */
     private function renderModule(): ResponseInterface
+    {
+        return $this->get(ApiDocumentationController::class)->indexAction($this->buildBackendRequest());
+    }
+
+    /**
+     * Build a backend request carrying the attributes the ModuleTemplate render
+     * pipeline relies on, and set up the admin backend user + language service.
+     */
+    private function buildBackendRequest(): ServerRequestInterface
     {
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/be_users.csv');
         $backendUser = $this->setUpBackendUser(2);
@@ -130,8 +247,25 @@ final class ApiDocumentationModuleTest extends ApiFunctionalTestCase
             ->withAttribute('module', $module)
             ->withAttribute('moduleData', $moduleData)
             ->withAttribute('route', $route);
-        $request = $request->withAttribute('normalizedParams', NormalizedParams::createFromRequest($request));
 
-        return $this->get(ApiDocumentationController::class)->indexAction($request);
+        return $request->withAttribute('normalizedParams', NormalizedParams::createFromRequest($request));
+    }
+
+    /**
+     * Rebuild the controller with all real collaborators from the container except
+     * a caller-supplied SiteFinder, so tests can control what getAllSites() returns.
+     */
+    private function controllerWithSiteFinder(SiteFinder $siteFinder): ApiDocumentationController
+    {
+        return new ApiDocumentationController(
+            $this->get(ModuleTemplateFactory::class),
+            $this->get(ComponentFactory::class),
+            $this->get(UriBuilder::class),
+            $this->get(PageRenderer::class),
+            $siteFinder,
+            $this->get(OpenApiBuilder::class),
+            $this->get(IconFactory::class),
+            $this->get(ResponseFactoryInterface::class),
+        );
     }
 }
