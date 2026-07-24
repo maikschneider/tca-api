@@ -627,9 +627,10 @@ Enable tag-based HTTP response caching for `list` and `show` operations per reso
 
 #### Cache invalidation
 
-Invalidation fires automatically via a DataHandler `clearCachePostProc` hook. When a record is **saved or deleted through the TYPO3 backend**, all cached responses tagged for the affected table are flushed.
+Invalidation fires automatically from two sources, so cached responses stay in sync no matter how a record changes:
 
-> **Note:** Write operations performed through the API itself (`create`, `update`, `delete`) do **not** trigger this hook. Cached `list`/`show` responses will remain valid until the next DataHandler operation touches the same table or the TTL expires. If your application writes records via the API and reads them back immediately, configure a short `lifetime` or disable caching for that resource.
+- **TYPO3 backend edits** — a DataHandler `clearCachePostProc` hook flushes all cached responses tagged for the affected table whenever a record is saved or deleted through the backend.
+- **API write operations** (`create`, `update`, `delete`) — each write dispatches an `AfterWriteEvent`, and `WriteCacheInvalidationListener` flushes the affected tags: the whole table on `create`, plus the specific `{table}_{uid}` item on `update`/`delete`. Writing a record via the API and reading it back immediately returns the fresh state.
 
 #### Cache backend
 
