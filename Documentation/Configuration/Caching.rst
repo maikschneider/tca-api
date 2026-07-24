@@ -94,9 +94,10 @@ responses stay in sync no matter how a record changes:
     created, updated, or deleted through the backend.
 *   **API write operations** (``POST``, ``PUT``, ``PATCH``, ``DELETE``) — each
     write dispatches an ``AfterWriteEvent`` and ``WriteCacheInvalidationListener``
-    flushes the affected tags: the whole table on ``create``, plus the specific
-    ``{table}_{uid}`` item on ``update``/``delete``. Writing a record via the API
-    and reading it back immediately returns the fresh state.
+    flushes the affected tags: ``create`` flushes the table tag (``{table}``);
+    ``update`` and ``delete`` flush both the table tag (``{table}``) and the
+    record tag (``{table}_{uid}``). Writing a record via the API and reading it
+    back immediately returns the fresh state.
 
 Cache backend
 =============
