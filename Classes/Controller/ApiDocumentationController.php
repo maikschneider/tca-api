@@ -30,10 +30,16 @@ use TYPO3\CMS\Core\Site\SiteFinder;
  * beneath the TYPO3 v14 "Integrations" main module.
  *
  * The specification is built server-side, per site, and embedded inline into
- * Swagger UI. This deliberately bypasses the `tca_api.enabled` /
- * `tca_api.swaggerUiEnabled` / `tca_api.openApiExposed` site settings that gate
- * the public frontend endpoints: the backend documentation is always available
- * to admins, regardless of how (or whether) the API is exposed publicly.
+ * Swagger UI. Only sites where the API is actually active are shown — mirroring
+ * {@see \MaikSchneider\TcaApi\Middleware\TcaApiMiddleware}, that means the site
+ * imports the tca_api site set (so `tca_api.apiPrefix` exists) and does not set
+ * `tca_api.enabled = false`. A site without the API produces no endpoints, so
+ * documenting it would be misleading.
+ *
+ * It deliberately bypasses only the *public access gates* — `tca_api.swaggerUiEnabled`
+ * and `tca_api.openApiExposed` — which govern how the spec/UI are exposed to
+ * anonymous frontend visitors: the backend documentation stays available to admins
+ * regardless of how (or whether) the API is exposed publicly.
  */
 #[AsController]
 #[Autoconfigure(public: true)]
@@ -66,9 +72,9 @@ final readonly class ApiDocumentationController
         // Restore the "Integrations" submodule switcher (Reactions / Webhooks / …).
         $view->makeDocHeaderModuleMenu();
 
-        $sites = $this->siteFinder->getAllSites();
+        $sites = $this->enabledSites();
         if ($sites === []) {
-            $view->assign('hasSites', false);
+            $view->assign('hasEnabledSite', false);
             return $view->renderResponse('ApiDocumentation/Index');
         }
 
@@ -103,7 +109,7 @@ final readonly class ApiDocumentationController
         $this->addDownloadButton($view, $site->getIdentifier());
         $this->addOpenInNewTabButton($view, $siteBaseUrl . $context->prefix . '/swagger-ui');
 
-        $view->assign('hasSites', true);
+        $view->assign('hasEnabledSite', true);
         $view->assign('siteIdentifier', $site->getIdentifier());
         return $view->renderResponse('ApiDocumentation/Index');
     }
@@ -111,16 +117,18 @@ final readonly class ApiDocumentationController
     /**
      * Serve the OpenAPI specification for the selected site as a downloadable
      * `openapi.json` file. Like {@see indexAction()}, this builds the spec via
-     * {@see OpenApiBuilder} without consulting the frontend access gates, so the
-     * download is always available to admins regardless of how (or whether) the
-     * API is exposed publicly — it does not depend on the gated frontend endpoint.
+     * {@see OpenApiBuilder} without consulting the public access gates, so the
+     * download is available to admins regardless of how the API is exposed publicly.
+     * It is limited to sites where the API is actually enabled ({@see enabledSites()});
+     * requesting a site without it yields 404.
      *
      * The target site is taken from the `site` query parameter (set by the docheader
-     * download button to the site currently shown), falling back to the first site.
+     * download button to the site currently shown), falling back to the first
+     * enabled site.
      */
     public function downloadAction(ServerRequestInterface $request): ResponseInterface
     {
-        $sites = $this->siteFinder->getAllSites();
+        $sites = $this->enabledSites();
         if ($sites === []) {
             return $this->responseFactory->createResponse(404);
         }
@@ -139,6 +147,31 @@ final readonly class ApiDocumentationController
         $response->getBody()->write((string)json_encode($specification, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         return $response;
+    }
+
+    /**
+     * All configured sites where the TCA API is actually active, keyed by identifier.
+     *
+     * @return array<string, Site>
+     */
+    private function enabledSites(): array
+    {
+        return array_filter($this->siteFinder->getAllSites(), $this->isApiEnabledForSite(...));
+    }
+
+    /**
+     * Whether the TCA API is active for a site, mirroring the two gates
+     * {@see \MaikSchneider\TcaApi\Middleware\TcaApiMiddleware} applies: the site must
+     * import the tca_api site set (so `tca_api.apiPrefix` is defined) and must not set
+     * `tca_api.enabled = false`. Sites failing either gate expose no API and are hidden
+     * from the module — the public-only `swaggerUiEnabled` / `openApiExposed` gates are
+     * intentionally NOT consulted here.
+     */
+    private function isApiEnabledForSite(Site $site): bool
+    {
+        $settings = $site->getSettings();
+
+        return $settings->has('tca_api.apiPrefix') && (bool)$settings->get('tca_api.enabled', true);
     }
 
     /**

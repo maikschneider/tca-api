@@ -159,16 +159,53 @@ final class ApiDocumentationModuleTest extends ApiFunctionalTestCase
             self::markTestSkipped('The Integrations backend module is TYPO3 v14+ only.');
         }
 
-        // Drive the "$sites === []" early-return branch with an empty SiteFinder.
+        // Drive the empty-set early-return branch with an empty SiteFinder.
         $siteFinder = $this->createMock(SiteFinder::class);
         $siteFinder->method('getAllSites')->willReturn([]);
 
         $response = $this->controllerWithSiteFinder($siteFinder)->indexAction($this->buildBackendRequest());
 
         self::assertSame(200, $response->getStatusCode());
-        // The "no sites" infobox is rendered instead of Swagger UI.
-        self::assertStringContainsString('Configure at least one site to view it.', (string)$response->getBody());
+        // The "not enabled" infobox is rendered instead of Swagger UI.
+        self::assertStringContainsString('No site has the TCA API enabled.', (string)$response->getBody());
         self::assertStringNotContainsString('id="tca-api-swagger-ui"', (string)$response->getBody());
+    }
+
+    public function testIndexActionHidesSiteThatDidNotImportTheApiSet(): void
+    {
+        if (!class_exists(ComponentFactory::class)) {
+            self::markTestSkipped('The Integrations backend module is TYPO3 v14+ only.');
+        }
+
+        // A site without the tca_api site set has no tca_api.* settings, so the API is
+        // inactive for it (mirrors TcaApiMiddleware's "!has(apiPrefix)" gate). It must NOT
+        // be documented — otherwise the module invents docs for an endpoint that 404s.
+        $withoutSet = $this->makeSite('plain', 'https://plain.example.org/', tcaApi: []);
+        $siteFinder = $this->createMock(SiteFinder::class);
+        $siteFinder->method('getAllSites')->willReturn(['plain' => $withoutSet]);
+
+        $html = (string)$this->controllerWithSiteFinder($siteFinder)->indexAction($this->buildBackendRequest())->getBody();
+
+        self::assertStringContainsString('No site has the TCA API enabled.', $html);
+        self::assertStringNotContainsString('id="tca-api-swagger-ui"', $html);
+    }
+
+    public function testIndexActionHidesSiteWithApiExplicitlyDisabled(): void
+    {
+        if (!class_exists(ComponentFactory::class)) {
+            self::markTestSkipped('The Integrations backend module is TYPO3 v14+ only.');
+        }
+
+        // The set is imported but tca_api.enabled = false, so the middleware serves nothing
+        // for this site — the module must not document it either.
+        $disabled = $this->makeSite('off', 'https://off.example.org/', ['apiPrefix' => '/_api/', 'enabled' => false]);
+        $siteFinder = $this->createMock(SiteFinder::class);
+        $siteFinder->method('getAllSites')->willReturn(['off' => $disabled]);
+
+        $html = (string)$this->controllerWithSiteFinder($siteFinder)->indexAction($this->buildBackendRequest())->getBody();
+
+        self::assertStringContainsString('No site has the TCA API enabled.', $html);
+        self::assertStringNotContainsString('id="tca-api-swagger-ui"', $html);
     }
 
     public function testIndexActionRendersSiteSwitcherWhenMultipleSitesExist(): void
@@ -177,18 +214,21 @@ final class ApiDocumentationModuleTest extends ApiFunctionalTestCase
             self::markTestSkipped('The Integrations backend module is TYPO3 v14+ only.');
         }
 
-        // Drive the "count($sites) > 1" branch: the real "main" site (first, so it is the
-        // selected one with full settings) plus a synthetic second site.
+        // Drive the "count($sites) > 1" branch with two enabled sites, plus a disabled one
+        // that must be filtered out of the switcher entirely.
         $main = $this->get(SiteFinder::class)->getSiteByIdentifier('main');
-        $second = new Site('second', 1, ['base' => 'https://second.example.org/']);
+        $second = $this->makeSite('second', 'https://second.example.org/');
+        $disabled = $this->makeSite('off', 'https://off.example.org/', ['apiPrefix' => '/_api/', 'enabled' => false]);
         $siteFinder = $this->createMock(SiteFinder::class);
-        $siteFinder->method('getAllSites')->willReturn(['main' => $main, 'second' => $second]);
+        $siteFinder->method('getAllSites')->willReturn(['main' => $main, 'second' => $second, 'off' => $disabled]);
 
         $html = (string)$this->controllerWithSiteFinder($siteFinder)->indexAction($this->buildBackendRequest())->getBody();
 
-        // Both sites appear as items in the docheader site switcher dropdown.
+        // Both enabled sites appear as items in the docheader site switcher dropdown …
         self::assertStringContainsString('>main<', $html);
         self::assertStringContainsString('>second<', $html);
+        // … but the disabled site is not offered.
+        self::assertStringNotContainsString('>off<', $html);
     }
 
     public function testDownloadActionFallsBackToRequestHostForHostlessSiteBase(): void
@@ -199,7 +239,7 @@ final class ApiDocumentationModuleTest extends ApiFunctionalTestCase
 
         // A site with a host-less base ("/") drives the "$base->getHost() === ''" branch in
         // resolveSiteBaseUri, which falls back to the current (backend) request's host.
-        $hostless = new Site('hostless', 1, ['base' => '/']);
+        $hostless = $this->makeSite('hostless', '/');
         $siteFinder = $this->createMock(SiteFinder::class);
         $siteFinder->method('getAllSites')->willReturn(['hostless' => $hostless]);
 
@@ -222,7 +262,7 @@ final class ApiDocumentationModuleTest extends ApiFunctionalTestCase
         // Regression guard: a site served under a sub-path must produce an "open in new tab"
         // link (and servers URL) under that same path, not at the domain root. Previously the
         // origin-only base dropped "/bootstrap", so the link opened the root site's docs.
-        $subPathSite = new Site('bootstrap', 1, ['base' => 'https://sites.example.org/bootstrap/']);
+        $subPathSite = $this->makeSite('bootstrap', 'https://sites.example.org/bootstrap/');
         $siteFinder = $this->createMock(SiteFinder::class);
         $siteFinder->method('getAllSites')->willReturn(['bootstrap' => $subPathSite]);
 
@@ -241,7 +281,7 @@ final class ApiDocumentationModuleTest extends ApiFunctionalTestCase
             self::markTestSkipped('The Integrations backend module is TYPO3 v14+ only.');
         }
 
-        $subPathSite = new Site('bootstrap', 1, ['base' => 'https://sites.example.org/bootstrap/']);
+        $subPathSite = $this->makeSite('bootstrap', 'https://sites.example.org/bootstrap/');
         $siteFinder = $this->createMock(SiteFinder::class);
         $siteFinder->method('getAllSites')->willReturn(['bootstrap' => $subPathSite]);
 
@@ -252,6 +292,42 @@ final class ApiDocumentationModuleTest extends ApiFunctionalTestCase
         $spec = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
         // servers URL keeps the sub-path so "Try it out" hits the site's own endpoints.
         self::assertSame('https://sites.example.org/bootstrap', $spec['servers'][0]['url']);
+    }
+
+    public function testDownloadActionReturns404WhenNoSiteHasApiEnabled(): void
+    {
+        if (!class_exists(ComponentFactory::class)) {
+            self::markTestSkipped('The Integrations backend module is TYPO3 v14+ only.');
+        }
+
+        // Only a disabled site exists → no downloadable spec, even though the site is
+        // configured. Guards against the module leaking an openapi.json for a dead API.
+        $disabled = $this->makeSite('off', 'https://off.example.org/', ['apiPrefix' => '/_api/', 'enabled' => false]);
+        $siteFinder = $this->createMock(SiteFinder::class);
+        $siteFinder->method('getAllSites')->willReturn(['off' => $disabled]);
+
+        $request = (new ServerRequest('http://localhost/typo3/module/integrations/tca-api/download'))
+            ->withQueryParams(['site' => 'off']);
+        $response = $this->controllerWithSiteFinder($siteFinder)->downloadAction($request);
+
+        self::assertSame(404, $response->getStatusCode());
+    }
+
+    /**
+     * Build a synthetic Site. By default it carries a tca_api settings tree (so the API
+     * counts as enabled); pass tcaApi: [] to model a site that never imported the tca_api
+     * set, or tcaApi with 'enabled' => false to model an explicitly disabled API.
+     *
+     * @param array<string, mixed> $tcaApi
+     */
+    private function makeSite(string $identifier, string $base, array $tcaApi = ['apiPrefix' => '/_api/']): Site
+    {
+        $configuration = ['base' => $base];
+        if ($tcaApi !== []) {
+            $configuration['settings'] = ['tca_api' => $tcaApi];
+        }
+
+        return new Site($identifier, 1, $configuration);
     }
 
     /**

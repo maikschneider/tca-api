@@ -6,16 +6,16 @@
 <f:layout name="Module" />
 
 <f:section name="Content">
-    <f:if condition="{hasSites}">
+    <f:if condition="{hasEnabledSite}">
         <f:then>
             <div id="{domId}"></div>
         </f:then>
         <f:else>
             <f:be.infobox
                 state="1"
-                title="{f:translate(key: 'LLL:EXT:tca_api/Resources/Private/Language/locallang_mod.xlf:module.noSites.title')}"
+                title="{f:translate(key: 'LLL:EXT:tca_api/Resources/Private/Language/locallang_mod.xlf:module.notEnabled.title')}"
             >
-                <f:translate key="LLL:EXT:tca_api/Resources/Private/Language/locallang_mod.xlf:module.noSites.message" />
+                <f:translate key="LLL:EXT:tca_api/Resources/Private/Language/locallang_mod.xlf:module.notEnabled.message" />
             </f:be.infobox>
         </f:else>
     </f:if>
