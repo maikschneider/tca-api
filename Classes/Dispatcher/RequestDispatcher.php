@@ -155,6 +155,7 @@ final class RequestDispatcher
         // ── Activate cache tag collection for cache-miss path ────────────
         if ($cacheKey !== null) {
             $this->cacheTagCollector->activate();
+            $this->cacheTagCollector->addTag($config->table);
         }
 
         $response = null;
