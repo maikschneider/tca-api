@@ -318,6 +318,22 @@ The serializer automatically handles all TYPO3 TCA field types. Relational types
 
 An explicit `processor` on a column definition always overrides the automatic handling described above.
 
+#### Datetime round-trips
+
+`datetime` columns are symmetric: responses always carry a genuine UTC instant, and an instant sent back on `create`/`update` is stored as that same instant. This holds for both persistence modes (Unix timestamp and native `dbType`), on every supported TYPO3 version, and across DST boundaries — the API never applies the server's UTC offset to your value.
+
+```jsonc
+// send any of these — they are the same instant, and all round-trip identically
+{ "published_at": "2026-08-15T12:30:00Z" }
+{ "published_at": "2026-08-15T14:30:00+02:00" }
+{ "published_at": 1786797000 }               // raw Unix timestamp
+
+// GET always returns the canonical UTC form
+{ "published_at": "2026-08-15T12:30:00+00:00" }
+```
+
+A value sent **without** a timezone designator (`"2026-08-15T12:30:00"` or `"2026-08-15 12:30:00"`) is interpreted as UTC, matching the response format. Send an explicit offset whenever you mean local time.
+
 #### Column callbacks
 
 A `callback` is a lightweight alternative to a processor for post-processing a single column. Unlike a processor — which receives only the raw column value — a callback runs **after** every column and relation has been resolved, receives the fully serialized row plus the raw DB row, and its return value **replaces** the column's value:
