@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Serializer;
 
+use TYPO3\CMS\Core\Information\Typo3Version;
+
 /**
  * Formats raw datetime values from TCA columns to ISO 8601 (ATOM) strings.
  *
@@ -75,14 +77,43 @@ final class DateTimeValueFormatter
         $format = self::DB_TYPE_FORMATS[$dbType] ?? self::DB_TYPE_FORMATS['datetime'];
         // The '!' prefix resets all date/time fields to the Unix epoch before parsing,
         // ensuring date-only values get T00:00:00 and time-only values get 1970-01-01.
-        // UTC is used explicitly so output is timezone-independent across all environments.
-        $date = \DateTimeImmutable::createFromFormat('!' . $format, $stringValue, new \DateTimeZone('UTC'));
+        $date = \DateTimeImmutable::createFromFormat(
+            '!' . $format,
+            $stringValue,
+            $this->nativeStorageTimeZone($dbType),
+        );
 
         if ($date === false) {
             // Fallback: return raw value if parsing fails
             return $stringValue;
         }
 
-        return $date->format(\DateTimeInterface::ATOM);
+        return $date->setTimezone(new \DateTimeZone('UTC'))->format(\DateTimeInterface::ATOM);
+    }
+
+    /**
+     * The timezone a native SQL column's wall-clock value is stored in.
+     *
+     * This is a core-version-dependent convention, not a choice this extension makes:
+     *
+     *   TYPO3 v13 writes native columns through `gmdate()` (DataHandler.php:2177-2181),
+     *   so the stored wall clock is UTC.
+     *
+     *   TYPO3 v14 converts to the server timezone before formatting
+     *   (`QueryHelper::transformDateTimeToDatabaseValue()`, "native DATETIME values are
+     *   stored in server LOCALTIME"), and reads them back the same way
+     *   (`DateTimeFactory`: "The database always contains server localtime in native
+     *   fields"). The stored wall clock is therefore server-local.
+     *
+     * The conversion applies to `dbType=datetime` only — v14 leaves `date` and `time`
+     * columns in the parsed value's own timezone, matching v13's UTC output.
+     */
+    private function nativeStorageTimeZone(string $dbType): \DateTimeZone
+    {
+        if ($dbType === 'datetime' && (new Typo3Version())->getMajorVersion() >= 14) {
+            return new \DateTimeZone(date_default_timezone_get());
+        }
+
+        return new \DateTimeZone('UTC');
     }
 }

@@ -30,6 +30,7 @@ final class DataWriteService
     public function __construct(
         private readonly TableAccessControl $tableAccessControl,
         private readonly WriteAuditLogger $auditLogger,
+        private readonly DateTimeInputNormalizer $dateTimeInputNormalizer = new DateTimeInputNormalizer(),
     ) {
     }
 
@@ -54,6 +55,10 @@ final class DataWriteService
         foreach (array_keys($dataMap) as $table) {
             $this->assertTableAccess('write', (string)$table, $context);
         }
+
+        // Normalise datetime input here — the single choke point covers the main
+        // record and every related record created in the same datamap.
+        $dataMap = $this->dateTimeInputNormalizer->normalizeDataMap($dataMap);
 
         $this->auditLogDataMap('create/update', $dataMap, $context);
 

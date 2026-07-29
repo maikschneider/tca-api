@@ -36,12 +36,29 @@ final class DatetimeSerializationTest extends ApiFunctionalTestCase
         ],
     ];
 
+    private string $originalTimeZone;
+
     protected function setUp(): void
     {
         parent::setUp();
+
+        // event_date is a native dbType=datetime column, so its stored wall clock is
+        // UTC on TYPO3 v13 and server localtime on v14. Pinning UTC makes the two
+        // conventions coincide, keeping the expectations below valid on both.
+        // DatetimeWriteTest covers the non-UTC case via a full round-trip.
+        $this->originalTimeZone = date_default_timezone_get();
+        date_default_timezone_set('UTC');
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['phpTimeZone'] = 'UTC';
+
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles.csv');
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles_datetime.csv');
+    }
+
+    protected function tearDown(): void
+    {
+        date_default_timezone_set($this->originalTimeZone);
+        parent::tearDown();
     }
 
     public function testDatetimeColumnsAreSerializedAsIso8601(): void
@@ -56,7 +73,7 @@ final class DatetimeSerializationTest extends ApiFunctionalTestCase
         // Unix timestamp (no dbType) → ISO 8601
         self::assertSame('2024-01-01T00:00:00+00:00', $body['published_at']);
 
-        // Native datetime (dbType=datetime) → ISO 8601, always UTC regardless of server timezone
+        // Native datetime (dbType=datetime) → ISO 8601, normalised to UTC
         self::assertSame('2024-06-15T10:30:00+00:00', $body['event_date']);
     }
 
