@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-07-29
+
 ### Fixed
 
 - **Datetime writes no longer shift ISO 8601 instants by the server UTC offset.** The read path always emits a genuine UTC instant, but the write path handed values to `DataHandler` unchanged, which reinterpreted them — differently per core version. On TYPO3 v13, `type: datetime` columns *without* `dbType` were mangled by core's backend-JS convention (`$value -= (int)date('Z', $value)`), shifting a correct instant by the server offset **at the event's own date**, so the error followed DST and no constant client-side correction was possible. A new `DateTimeInputNormalizer`, applied at the single write choke point in `DataWriteService::processDataMap()`, now converts incoming datetimes to an int Unix timestamp for timestamp columns (which `DataHandler` stores verbatim, bypassing the mangling entirely) and to an explicit-offset UTC ISO 8601 string for native `dbType` columns. It covers the main record and every related record in the same datamap, and a value carrying no timezone designator is read as UTC to match the response contract. ([#170](https://github.com/maikschneider/tca-api/issues/170))
