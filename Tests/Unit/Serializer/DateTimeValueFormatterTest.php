@@ -7,14 +7,30 @@ namespace MaikSchneider\TcaApi\Tests\Unit\Serializer;
 use MaikSchneider\TcaApi\Serializer\DateTimeValueFormatter;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use TYPO3\CMS\Core\Information\Typo3Version;
 
 final class DateTimeValueFormatterTest extends TestCase
 {
     private DateTimeValueFormatter $formatter;
 
+    private string $originalTimeZone;
+
     protected function setUp(): void
     {
         $this->formatter = new DateTimeValueFormatter();
+
+        // A native dbType=datetime column stores a bare wall clock whose timezone is a
+        // core-version convention: UTC on TYPO3 v13 (written via gmdate()), server
+        // localtime on v14. Pinning UTC makes both conventions coincide, so the shared
+        // expectations below hold on every core version in the support matrix.
+        // The localtime convention gets its own test.
+        $this->originalTimeZone = date_default_timezone_get();
+        date_default_timezone_set('UTC');
+    }
+
+    protected function tearDown(): void
+    {
+        date_default_timezone_set($this->originalTimeZone);
     }
 
     #[Test]
@@ -89,5 +105,39 @@ final class DateTimeValueFormatterTest extends TestCase
     {
         $result = $this->formatter->format('not-a-date', 'datetime');
         self::assertSame('not-a-date', $result);
+    }
+
+    /**
+     * Native dbType=datetime values are read back in the timezone core stores them in:
+     * server localtime from TYPO3 v14 on, UTC before that. Either way the output is a
+     * genuine instant normalised to UTC — which is what makes the write path in
+     * {@see \MaikSchneider\TcaApi\DataAccess\DateTimeInputNormalizer} round-trip.
+     *
+     * @see https://github.com/maikschneider/tca-api/issues/170
+     */
+    #[Test]
+    public function nativeDatetimeIsReadInCoreStorageTimeZone(): void
+    {
+        date_default_timezone_set('Europe/Berlin');
+
+        $isLocaltimeStorage = (new Typo3Version())->getMajorVersion() >= 14;
+
+        // Summer — Europe/Berlin is UTC+02:00 (CEST)
+        self::assertSame(
+            $isLocaltimeStorage ? '2024-06-15T08:30:00+00:00' : '2024-06-15T10:30:00+00:00',
+            $this->formatter->format('2024-06-15 10:30:00', 'datetime'),
+        );
+
+        // Winter — Europe/Berlin is UTC+01:00 (CET). The offset differs from summer,
+        // which is precisely why a constant correction cannot work.
+        self::assertSame(
+            $isLocaltimeStorage ? '2024-12-24T09:30:00+00:00' : '2024-12-24T10:30:00+00:00',
+            $this->formatter->format('2024-12-24 10:30:00', 'datetime'),
+        );
+
+        // dbType=date and dbType=time stay UTC on every core version — v14 only
+        // converts the timezone for dbType=datetime.
+        self::assertSame('2024-06-15T00:00:00+00:00', $this->formatter->format('2024-06-15', 'date'));
+        self::assertSame('1970-01-01T14:30:00+00:00', $this->formatter->format('14:30:00', 'time'));
     }
 }

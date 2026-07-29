@@ -159,6 +159,32 @@ decoded before output; sensitive types are excluded entirely.
 An explicit ``processor`` on a column definition always overrides the automatic
 handling described above.
 
+..  _datetime-round-trips:
+
+Datetime round-trips
+====================
+
+``datetime`` columns are symmetric: responses always carry a genuine UTC instant,
+and an instant sent back on ``create``/``update`` is stored as that same instant.
+This holds for both persistence modes (Unix timestamp and native ``dbType``), on
+every supported TYPO3 version, and across DST boundaries — the API never applies
+the server's UTC offset to your value.
+
+..  code-block:: json
+
+    {"published_at": "2026-08-15T12:30:00Z"}
+    {"published_at": "2026-08-15T14:30:00+02:00"}
+    {"published_at": 1786797000}
+
+All three are the same instant and round-trip identically; a ``GET`` returns the
+canonical UTC form ``"2026-08-15T12:30:00+00:00"``.
+
+..  note::
+
+    A value sent **without** a timezone designator (``"2026-08-15T12:30:00"`` or
+    ``"2026-08-15 12:30:00"``) is interpreted as UTC, matching the response
+    format. Send an explicit offset whenever you mean local time.
+
 ..  _column-processors:
 
 Column processors

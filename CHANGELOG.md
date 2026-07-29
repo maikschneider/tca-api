@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Datetime writes no longer shift ISO 8601 instants by the server UTC offset.** The read path always emits a genuine UTC instant, but the write path handed values to `DataHandler` unchanged, which reinterpreted them — differently per core version. On TYPO3 v13, `type: datetime` columns *without* `dbType` were mangled by core's backend-JS convention (`$value -= (int)date('Z', $value)`), shifting a correct instant by the server offset **at the event's own date**, so the error followed DST and no constant client-side correction was possible. A new `DateTimeInputNormalizer`, applied at the single write choke point in `DataWriteService::processDataMap()`, now converts incoming datetimes to an int Unix timestamp for timestamp columns (which `DataHandler` stores verbatim, bypassing the mangling entirely) and to an explicit-offset UTC ISO 8601 string for native `dbType` columns. It covers the main record and every related record in the same datamap, and a value carrying no timezone designator is read as UTC to match the response contract. ([#170](https://github.com/maikschneider/tca-api/issues/170))
+- **Native `dbType: datetime` columns are now read back in the timezone core stores them in.** TYPO3 changed this convention between major versions: v13 writes native columns through `gmdate()` (UTC wall clock), while v14 converts to server localtime (`QueryHelper::transformDateTimeToDatabaseValue()`, and `DateTimeFactory`: *"The database always contains server localtime in native fields"*). `DateTimeValueFormatter` hardcoded UTC, so on v14 with a non-UTC server every `dbType: datetime` value was served off by the server offset in both directions. It now follows the core convention and normalises the result to UTC. `dbType: date` and `dbType: time` are unaffected — v14 does not convert those. ([#170](https://github.com/maikschneider/tca-api/issues/170))
+
+  **Behaviour change:** on TYPO3 v14 with a non-UTC server timezone, `dbType: datetime` values in API responses shift by the server offset relative to 0.6.1. The new value is the correct instant; the old one was the stored wall clock mislabelled as UTC.
+
 ## [0.6.1] - 2026-07-24
 
 ### Added
