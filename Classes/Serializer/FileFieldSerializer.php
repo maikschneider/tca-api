@@ -8,6 +8,7 @@ use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Serializer\FileProcessing\FileProcessor;
 use MaikSchneider\TcaApi\Serializer\FileProcessing\FileProcessorInterface;
 use MaikSchneider\TcaApi\Serializer\FileProcessing\ImageProcessor;
+use MaikSchneider\TcaApi\Serializer\Processing\ProcessorGuard;
 use TYPO3\CMS\Core\Resource\FileRepository;
 use TYPO3\CMS\Core\Schema\Field\FileFieldType;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -27,6 +28,7 @@ final class FileFieldSerializer
 {
     public function __construct(
         private readonly FileRepository $fileRepository,
+        private readonly ProcessorGuard $processorGuard,
     ) {
     }
 
@@ -35,11 +37,21 @@ final class FileFieldSerializer
         $processor = $this->resolveProcessor($columnDef, $field);
         $fileRefs  = $this->fileRepository->findByRelation($table, $column, $uid);
 
+        $process = fn ($ref) => $this->processorGuard->run(
+            fn () => $processor->process($ref, $columnDef),
+            $processor::class,
+            $table,
+            $column,
+            $uid,
+        );
+
         if (($field->getConfiguration()['maxitems'] ?? 0) === 1) {
-            return isset($fileRefs[0]) ? $processor->process($fileRefs[0], $columnDef) : null;
+            return isset($fileRefs[0]) ? $process($fileRefs[0]) : null;
         }
 
-        return array_map(fn ($ref) => $processor->process($ref, $columnDef), $fileRefs);
+        // A reference that fails processing is dropped rather than left as a null hole,
+        // so the remaining files in a multi-file field still serialize normally.
+        return array_values(array_filter(array_map($process, $fileRefs), static fn ($v) => $v !== null));
     }
 
     private function resolveProcessor(ColumnDefinition $columnDef, FileFieldType $field): FileProcessorInterface

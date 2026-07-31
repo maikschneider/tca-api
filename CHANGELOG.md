@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A malformed `crop` value no longer fails the whole API response.** `ImageProcessor` derived its crop-variant ids by decoding the stored crop JSON itself and casting the result to an array. A payload that decodes to a scalar — most commonly JSON that was `json_encode()`d twice by an import or a third-party extension — became `[0 => '…']`, so the variant id passed to `CropVariantCollection::getCropArea(string $id)` was the integer `0` and the request died with a `TypeError`. The decoded shape is now validated and non-string keys are skipped, matching what `CropVariantCollection::create()` already did with the same input: the image serialises normally with an empty `cropVariants` map, exactly as the TYPO3 frontend renders it. ([#172](https://github.com/maikschneider/tca-api/issues/172))
+
+### Added
+
+- **Error containment around column and file processors.** A processor operates on one cell of one record, but a throwing processor previously propagated out of the serializer and failed the entire response — so one corrupt row took down a whole collection endpoint. All processor invocations in `ResourceSerializer` and `FileFieldSerializer` now run through a new `ProcessorGuard`, which scopes a failure to that column: the value degrades to `null` and the failure is logged at `error` level with table, uid, column, processor class and the original exception, so the offending record stays findable. In a multi-file field a reference that fails is dropped rather than left as a `null` hole. Setting `tca_api.debugMode` re-throws the original throwable instead, so development and CI fail loudly while production degrades. ([#172](https://github.com/maikschneider/tca-api/issues/172))
+
 ## [0.6.2] - 2026-07-29
 
 ### Fixed

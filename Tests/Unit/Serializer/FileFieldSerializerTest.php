@@ -7,8 +7,10 @@ namespace MaikSchneider\TcaApi\Tests\Unit\Serializer;
 use MaikSchneider\TcaApi\Serializer\FileFieldSerializer;
 use MaikSchneider\TcaApi\Serializer\FileProcessing\FileProcessor;
 use MaikSchneider\TcaApi\Serializer\FileProcessing\ImageProcessor;
+use MaikSchneider\TcaApi\Serializer\Processing\ProcessorGuard;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Core\Resource\FileRepository;
 
 /**
@@ -28,6 +30,7 @@ final class FileFieldSerializerTest extends TestCase
 
         $this->serializer = new FileFieldSerializer(
             $this->createMock(FileRepository::class),
+            new ProcessorGuard($this->createMock(LoggerInterface::class)),
         );
 
         $this->detect = new \ReflectionMethod(FileFieldSerializer::class, 'detectProcessorClass');

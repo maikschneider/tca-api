@@ -1,0 +1,4 @@
+"sys_file_reference"
+,"uid","pid","uid_local","uid_foreign","tablenames","fieldname","sorting_foreign","title","description","alternative","link","crop","hidden","deleted"
+,11,1,1,413,"tx_myext_domain_model_article","profile_photo",1,"Malformed Crop A","Crop overwritten by the test","Photo alt text","","",0,0
+,12,1,1,414,"tx_myext_domain_model_article","profile_photo",1,"Malformed Crop B","Crop overwritten by the test","Photo alt text","","",0,0
