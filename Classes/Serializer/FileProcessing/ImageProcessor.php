@@ -109,11 +109,19 @@ final class ImageProcessor implements FileProcessorInterface
         string $cropJson,
         ImageDefinition $imageDef,
     ): array {
-        $collection  = CropVariantCollection::create($cropJson);
-        $variantIds  = array_keys((array)json_decode($cropJson, true));
-        $variants    = [];
+        $collection = CropVariantCollection::create($cropJson);
+        $decoded    = json_decode($cropJson, true);
+        $variants   = [];
 
-        foreach ($variantIds as $variantId) {
+        if (!\is_array($decoded)) {
+            return $variants;
+        }
+
+        foreach (array_keys($decoded) as $variantId) {
+            if (!\is_string($variantId)) {
+                continue;
+            }
+
             $cropArea  = $collection->getCropArea($variantId);
             $processed = $this->imageService->applyProcessingInstructions(
                 $fileReference,

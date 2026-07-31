@@ -8,6 +8,7 @@ use MaikSchneider\TcaApi\Cache\CacheTagCollector;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface;
+use MaikSchneider\TcaApi\Serializer\Processing\ProcessorGuard;
 use MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use TYPO3\CMS\Core\Schema\Field\FileFieldType;
@@ -48,6 +49,7 @@ final class ResourceSerializer
         private readonly CacheTagCollector $cacheTagCollector,
         private readonly FileFieldSerializer $fileFieldSerializer,
         private readonly RelationSerializer $relationSerializer,
+        private readonly ProcessorGuard $processorGuard,
         private readonly DateTimeValueFormatter $dateTimeValueFormatter = new DateTimeValueFormatter(),
     ) {
     }
@@ -138,11 +140,17 @@ final class ResourceSerializer
                 $isLinkField = ($GLOBALS['TCA'][$config->table]['columns'][$column]['config']['type'] ?? '') === 'link';
                 if (!$isProcessorDefined && $isLinkField) {
                     $processor = GeneralUtility::makeInstance(TypoLinkProcessor::class);
-                    $result[$column] = $processor->process($value, $columnDef, ['serializedRow' => $result, 'rawRow' => $row]);
+                    $result[$column] = $this->processorGuard->run(
+                        fn () => $processor->process($value, $columnDef, ['serializedRow' => $result, 'rawRow' => $row]),
+                        TypoLinkProcessor::class,
+                        $config->table,
+                        $column,
+                        $uid,
+                    );
                     continue;
                 }
 
-                $result[$column] = $this->applyColumnProcessor($value, $columnDef, $result, $row);
+                $result[$column] = $this->applyColumnProcessor($value, $columnDef, $result, $row, $config->table, $column, $uid);
                 continue;
             }
 
@@ -188,7 +196,7 @@ final class ResourceSerializer
                 $result[$virtualPropertyName] = $this->fileFieldSerializer->serialize($columnRef, $columnField, $virtualPropDef, $config->table, $uid);
             } elseif ($virtualPropDef->processor !== null) {
                 $value = $columnRef !== null ? ($row[$columnRef] ?? null) : null;
-                $result[$virtualPropertyName] = $this->applyColumnProcessor($value, $virtualPropDef, $result, $row);
+                $result[$virtualPropertyName] = $this->applyColumnProcessor($value, $virtualPropDef, $result, $row, $config->table, $virtualPropertyName, $uid);
             }
 
             // A callback, when present, always runs last
@@ -249,8 +257,15 @@ final class ResourceSerializer
         return $this->columnMapCache[$cacheKey] = $columnMap;
     }
 
-    private function applyColumnProcessor(mixed $value, ColumnDefinition $columnDef, array $serializedRow, array $rawRow): mixed
-    {
+    private function applyColumnProcessor(
+        mixed $value,
+        ColumnDefinition $columnDef,
+        array $serializedRow,
+        array $rawRow,
+        string $table,
+        string $column,
+        int $uid,
+    ): mixed {
         if ($columnDef->processor === null) {
             return $value;
         }
@@ -259,7 +274,13 @@ final class ResourceSerializer
         $processorClass = $columnDef->processor;
         $processor = GeneralUtility::makeInstance($processorClass);
 
-        return $processor->process($value, $columnDef, ['serializedRow' => $serializedRow, 'rawRow' => $rawRow]);
+        return $this->processorGuard->run(
+            fn () => $processor->process($value, $columnDef, ['serializedRow' => $serializedRow, 'rawRow' => $rawRow]),
+            $processorClass,
+            $table,
+            $column,
+            $uid,
+        );
     }
 
     /** Returns the TcaSchema for a table, cached to avoid repeated factory calls per collection row. */
