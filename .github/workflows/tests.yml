@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   unit-tests:
-    name: Unit (PHP ${{ matrix.php-version }})
+    name: Unit (PHP ${{ matrix.php-version }}, TYPO3 ${{ matrix.typo3-version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
