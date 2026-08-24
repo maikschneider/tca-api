@@ -1,0 +1,4 @@
+"sys_file_reference"
+,"uid","pid","uid_local","uid_foreign","tablenames","fieldname","sorting_foreign","title","description","alternative","link","crop","hidden","deleted","t3ver_oid","t3ver_wsid","t3ver_state","t3ver_stage"
+,200,1,200,2500,"tx_myext_domain_model_article","downloads",1,"Live Title","Live Description","","",NULL,0,0,0,0,0,0
+,201,1,200,2500,"tx_myext_domain_model_article","downloads",1,"Workspace Title","Workspace Description","","",NULL,0,0,200,1,0,0
