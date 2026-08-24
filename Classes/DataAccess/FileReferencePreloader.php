@@ -15,6 +15,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\FrontendRestrictionContainer;
 use TYPO3\CMS\Core\Database\Query\Restriction\RootLevelRestriction;
 use TYPO3\CMS\Core\Database\Query\Restriction\WorkspaceRestriction;
+use TYPO3\CMS\Core\Domain\Repository\PageRepository;
 use TYPO3\CMS\Core\Http\ApplicationType;
 use TYPO3\CMS\Core\Resource\Event\EnrichFileMetaDataEvent;
 use TYPO3\CMS\Core\Resource\Exception\ResourceDoesNotExistException;
@@ -77,7 +78,9 @@ final class FileReferencePreloader
             return $empty;
         }
 
-        $referenceRows = $this->fetchReferenceRows($config->table, $columns, $parentUids);
+        $referenceRows = $this->overlayWorkspaceVersions(
+            $this->fetchReferenceRows($config->table, $columns, $parentUids),
+        );
 
         $this->warmFileObjects(array_map(static fn (array $row) => (int)$row['uid_local'], $referenceRows));
 
@@ -120,6 +123,37 @@ final class FileReferencePreloader
         }
 
         return $columns;
+    }
+
+    /**
+     * Applies the workspace overlay ResourceFactory would apply when it loads a
+     * reference row itself (PageRepository::checkRecord), so a workspace preview
+     * sees the versioned title, crop and sorting rather than the live values.
+     * Rows deleted in the workspace drop out. A no-op in the live workspace.
+     *
+     * @param  list<array<string, mixed>> $referenceRows
+     * @return list<array<string, mixed>>
+     */
+    private function overlayWorkspaceVersions(array $referenceRows): array
+    {
+        if ((int)$this->context->getPropertyFromAspect('workspace', 'id', 0) <= 0) {
+            return $referenceRows;
+        }
+
+        $pageRepository = GeneralUtility::makeInstance(PageRepository::class);
+
+        $overlaid = [];
+        foreach ($referenceRows as $row) {
+            $pageRepository->versionOL('sys_file_reference', $row);
+            if (\is_array($row)) {
+                $overlaid[] = $row;
+            }
+        }
+
+        // The overlay can change sorting_foreign, which the query already applied.
+        usort($overlaid, static fn (array $a, array $b) => (int)$a['sorting_foreign'] <=> (int)$b['sorting_foreign']);
+
+        return $overlaid;
     }
 
     /**
