@@ -151,6 +151,19 @@ Use the ``fields`` parameter to request only specific columns:
 Only the requested fields (plus ``@id``, ``@type``, and ``uid``) are included in
 the response.
 
+Virtual properties are addressed by their property name and are subject to the
+same filter — a virtual property that is not listed is neither serialized nor
+computed, so its processor or callback never runs:
+
+..  code-block:: text
+
+    GET /_api/news?fields[]=title&fields[]=url
+
+..  note::
+    A virtual property whose callback reads other keys from the serialized row
+    sees only the fields that were requested alongside it. Request its
+    dependencies explicitly.
+
 OpenAPI spec & Swagger UI
 =========================
 

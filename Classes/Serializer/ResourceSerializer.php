@@ -185,6 +185,9 @@ final class ResourceSerializer
             if ($config->isExplicitMode && !$virtualPropDef->isReadable($operation)) {
                 continue;
             }
+            if ($fields !== [] && !\in_array($virtualPropertyName, $fields, true)) {
+                continue;
+            }
 
             $columnRef   = $virtualPropDef->column;
             $columnField = null;

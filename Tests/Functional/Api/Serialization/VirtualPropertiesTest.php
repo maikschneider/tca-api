@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Serialization;
 
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
+use MaikSchneider\TcaApi\Tests\Functional\Fixtures\TestCountingProcessor;
 use MaikSchneider\TcaApi\Tests\Functional\Fixtures\TestDisplayNameCallable;
 use MaikSchneider\TcaApi\Tests\Functional\Fixtures\TestStaticValueProcessor;
 
@@ -176,6 +177,98 @@ final class VirtualPropertiesTest extends ApiFunctionalTestCase
 
         $body = $this->decodeResponseBody($response);
         self::assertArrayNotHasKey('displayName', $body);
+    }
+
+    public function testVirtualPropertyOmittedWhenNotInFields(): void
+    {
+        $this->registerResource('people', array_merge(self::BASE_CONFIG, [
+            'virtualProperties' => [
+                'displayName' => [
+                    'callback' => [TestDisplayNameCallable::class, 'displayName'],
+                    'groups' => ['list', 'show'],
+                ],
+            ],
+        ]));
+
+        $response = $this->executeApiRequest('/_api/people/10', ['fields' => ['title']]);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertArrayHasKey('title', $body);
+        self::assertArrayNotHasKey('displayName', $body);
+    }
+
+    public function testVirtualPropertyReturnedWhenListedInFields(): void
+    {
+        $this->registerResource('people', array_merge(self::BASE_CONFIG, [
+            'virtualProperties' => [
+                'displayName' => [
+                    'callback' => [TestDisplayNameCallable::class, 'displayName'],
+                    'groups' => ['list', 'show'],
+                ],
+            ],
+        ]));
+
+        $response = $this->executeApiRequest('/_api/people/10', ['fields' => ['displayName']]);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame('Doe, John', $body['displayName']);
+        self::assertArrayNotHasKey('title', $body);
+    }
+
+    public function testCollectionAppliesFieldsToVirtualProperties(): void
+    {
+        $this->registerResource('people', array_merge(self::BASE_CONFIG, [
+            'virtualProperties' => [
+                'displayName' => [
+                    'callback' => [TestDisplayNameCallable::class, 'displayName'],
+                    'groups' => ['list', 'show'],
+                ],
+            ],
+        ]));
+
+        $response = $this->executeApiRequest('/_api/people', ['fields' => ['title']]);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertNotEmpty($body['hydra:member']);
+        foreach ($body['hydra:member'] as $member) {
+            self::assertArrayNotHasKey('displayName', $member);
+        }
+    }
+
+    public function testProcessorIsNotRunForVirtualPropertyOutsideFields(): void
+    {
+        $this->registerResource('people', array_merge(self::BASE_CONFIG, [
+            'virtualProperties' => [
+                'computedValue' => [
+                    'processor' => TestCountingProcessor::class,
+                    'groups' => ['list', 'show'],
+                ],
+            ],
+        ]));
+
+        TestCountingProcessor::reset();
+        $this->executeApiRequest('/_api/people', ['fields' => ['title']]);
+
+        self::assertSame(0, TestCountingProcessor::$invocations);
+    }
+
+    public function testProcessorRunsForVirtualPropertyInsideFields(): void
+    {
+        $this->registerResource('people', array_merge(self::BASE_CONFIG, [
+            'virtualProperties' => [
+                'computedValue' => [
+                    'processor' => TestCountingProcessor::class,
+                    'groups' => ['list', 'show'],
+                ],
+            ],
+        ]));
+
+        TestCountingProcessor::reset();
+        $response = $this->executeApiRequest('/_api/people/10', ['fields' => ['computedValue']]);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame('counted-value', $body['computedValue']);
+        self::assertSame(1, TestCountingProcessor::$invocations);
     }
 
     protected function setUp(): void
