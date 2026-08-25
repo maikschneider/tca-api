@@ -27,7 +27,7 @@
 	"require": {
 		"php": "^8.2",
 		"riverline/multipart-parser": "^2.2",
-		"typo3/cms-core": "^13.4 !=13.4.33 || ^14.3 !=14.3.5"
+		"typo3/cms-core": "^13.4 || ^14.3"
 	},
 	"require-dev": {
 		"armin/editorconfig-cli": "^2.1",
@@ -46,6 +46,9 @@
 		"typo3/cms-webhooks": "^13.4 || ^14.0",
 		"typo3/cms-workspaces": "^13.4 || ^14.0",
 		"typo3/testing-framework": "^9.5"
+	},
+	"conflict": {
+		"typo3/cms-core": "13.4.33 || 14.3.5"
 	},
 	"suggest": {
 		"typo3/cms-lowlevel": "Provides the Configuration module in TYPO3 backend where the TCA API configuration tree is displayed"
