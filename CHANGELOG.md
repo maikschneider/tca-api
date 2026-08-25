@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`fields[]` now also applies to virtual properties.** The sparse-fieldset filter was applied to plain columns and to column callbacks, but the `virtualProperties` loop in `ResourceSerializer` only checked group visibility — so a request narrowed to a single column still returned every virtual property in the group, and still paid for it. Virtual properties are typically the most expensive part of a response (image processing, route generation), and a client had no way to opt out. A virtual property that is not listed in `fields[]` is now neither serialized nor computed: its processor and callback never run. ([#175](https://github.com/maikschneider/tca-api/issues/175))
+
+  **Behaviour change:** a client that passes `fields[]` and relies on virtual properties being returned regardless must now name them explicitly. A virtual-property callback reading other keys off the serialized row sees only the fields requested alongside it.
+
 - **A malformed `crop` value no longer fails the whole API response.** `ImageProcessor` derived its crop-variant ids by decoding the stored crop JSON itself and casting the result to an array. A payload that decodes to a scalar — most commonly JSON that was `json_encode()`d twice by an import or a third-party extension — became `[0 => '…']`, so the variant id passed to `CropVariantCollection::getCropArea(string $id)` was the integer `0` and the request died with a `TypeError`. The decoded shape is now validated and non-string keys are skipped, matching what `CropVariantCollection::create()` already did with the same input: the image serialises normally with an empty `cropVariants` map, exactly as the TYPO3 frontend renders it. ([#172](https://github.com/maikschneider/tca-api/issues/172))
 
 ### Added

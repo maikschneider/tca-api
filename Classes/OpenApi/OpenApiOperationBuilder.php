@@ -44,7 +44,7 @@ final readonly class OpenApiOperationBuilder
                 [
                     'name' => 'fields',
                     'in' => 'query',
-                    'description' => 'Sparse fieldset: only return the specified columns (plus @type, @id, uid)',
+                    'description' => 'Sparse fieldset: only return the specified columns and virtual properties (plus @type, @id, uid)',
                     'explode' => true,
                     'schema' => ['type' => 'array', 'items' => ['type' => 'string']],
                 ],
@@ -240,7 +240,7 @@ final readonly class OpenApiOperationBuilder
         $params[] = [
             'name' => 'fields',
             'in' => 'query',
-            'description' => 'Sparse fieldset: only return the specified columns (plus @type, @id, uid)',
+            'description' => 'Sparse fieldset: only return the specified columns and virtual properties (plus @type, @id, uid)',
             'explode' => true,
             'schema' => ['type' => 'array', 'items' => ['type' => 'string']],
         ];
