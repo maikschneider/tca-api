@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-25
+
+First stable release.
+
 ### Fixed
 
 - **`fields[]` now also applies to virtual properties.** The sparse-fieldset filter was applied to plain columns and to column callbacks, but the `virtualProperties` loop in `ResourceSerializer` only checked group visibility — so a request narrowed to a single column still returned every virtual property in the group, and still paid for it. Virtual properties are typically the most expensive part of a response (image processing, route generation), and a client had no way to opt out. A virtual property that is not listed in `fields[]` is now neither serialized nor computed: its processor and callback never run. ([#175](https://github.com/maikschneider/tca-api/issues/175))
