@@ -385,6 +385,43 @@ built-in processors:
 Custom processors must implement
 :php:`MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface`.
 
+..  _processor-error-containment:
+
+Processor failures are contained
+--------------------------------
+
+A processor operates on one cell of one record, so a failure is scoped to that
+cell rather than to the response. When a column or file processor throws, the
+column serializes as ``null`` and the whole record — and the rest of the
+collection — is returned normally. In a multi-file field the reference that
+failed is dropped rather than left as a ``null`` hole.
+
+Every contained failure is logged at ``error`` level with the table, uid,
+column, processor class and the original exception, so the offending record
+stays findable instead of silently disappearing.
+
+..  code-block:: text
+
+    ERROR TCA API column processing failed
+      table:     tx_myext_domain_model_article
+      uid:       17
+      column:    teaser_image
+      processor: MaikSchneider\TcaApi\Serializer\FileProcessing\ImageProcessor
+      exception: TypeError
+      message:   …, file, line
+
+Set the ``tca_api.debugMode`` site setting to re-throw the original throwable
+instead — development and CI then fail loudly, while production degrades. This
+containment applies to processors only; a :ref:`callback <column-callbacks>` is
+your own code and is not guarded.
+
+..  note::
+
+    Custom processors should **not** blanket-catch their own exceptions. An
+    unlogged swallow inside a processor turns a genuine bug into "this column
+    has no value"; letting it reach the guard produces the same degraded output
+    plus a log entry that names the cause.
+
 ..  _column-callbacks:
 
 Column callbacks

@@ -23,6 +23,7 @@ TCA_API is configured through two mechanisms:
     Filters
     Sorting
     Security
+    WritePrivileges
     Relations
     Validation
     FileUploads
