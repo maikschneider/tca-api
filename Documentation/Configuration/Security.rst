@@ -220,7 +220,9 @@ any of these tables returns **403 Forbidden**:
 - ``fe_sessions``
 - ``sys_filemounts``, ``sys_be_shortcuts``, ``sys_action``, ``sys_log``
 
-This protection is unconditional and cannot be overridden by configuration.
+This protection is unconditional — no resource configuration can unblock these
+tables. The policy can be tightened further (an allow list, or additional denied
+tables) and every write is audit-logged; see :ref:`write-privileges`.
 
 Denied access
 =============

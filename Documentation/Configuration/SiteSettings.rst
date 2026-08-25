@@ -42,8 +42,9 @@ General
     :type: bool
     :default: ``false``
 
-    Return verbose error details in API responses. **Disable on production
-    sites.**
+    Return verbose error details in API responses, and re-throw contained
+    processor failures instead of degrading the column to ``null`` (see
+    :ref:`processor-error-containment`). **Disable on production sites.**
 
 API specification
 =================

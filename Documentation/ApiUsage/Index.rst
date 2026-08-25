@@ -225,6 +225,27 @@ relations, and available filters without further configuration:
         <HydraAdmin entrypoint="https://example.com/_api/" />
     );
 
+Bundled admin site set
+----------------------
+
+The extension also ships a ready-made admin as a second site set,
+``maikschneider/api-platform-admin``. Adding it to a site turns that site's
+pages into a React-based API Platform Admin wired to the configured
+``tca_api.apiPrefix``:
+
+..  code-block:: yaml
+
+    dependencies:
+      - maikschneider/tca-api
+      - maikschneider/api-platform-admin
+
+..  warning::
+
+    This bundled UI is intended for exploring an API during extension
+    development, not for production use, and may be removed in a future
+    release. It renders on every page of the site it is added to — use a
+    dedicated site or a separate TYPO3 site configuration for it.
+
 File uploads
 ============
 
