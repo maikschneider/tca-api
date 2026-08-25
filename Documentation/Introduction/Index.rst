@@ -89,18 +89,3 @@ is a runnable TYPO3 project that exercises a range of TCA_API resource
 configurations in one place — a working reference for how the configuration
 options in this manual fit together. It is in early stages and evolves
 alongside the extension.
-
-Current state
-=============
-
-..  attention::
-
-    TCA_API is currently in **beta state** (version 0.6.2). The API surface may
-    change between minor releases. It is not yet recommended for production use
-    without thorough testing.
-
-    **Feedback and contributions are very welcome.** This is the right moment to
-    validate the architecture, security model, and design decisions before they
-    stabilize. If you have experience with TYPO3 REST APIs or security auditing,
-    your input is especially valuable. Please join the conversation in the
-    `GitHub Discussions <https://github.com/maikschneider/tca-api/discussions>`__.
