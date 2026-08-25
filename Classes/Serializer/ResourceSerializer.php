@@ -57,7 +57,7 @@ final class ResourceSerializer
     /**
      * Serialize a single raw DB row.
      *
-     * @param array  $preloaded      ['rows' => [foreignTable => [uid => row]], 'relations' => [column => [parentUid => [uid, ...]]]]
+     * @param array  $preloaded      ['rows' => [foreignTable => [uid => row]], 'relations' => [column => [parentUid => [uid, ...]]], 'files' => [table => PreloadedFileReferences]]
      * @param int    $remainingDepth -1 = top level (use per-column embed config); ≥0 = recursive budget from parent embed
      * @param array  $visited        ['table:uid' => true] cycle-prevention guard
      * @param string $operation      Current operation context: 'list', 'show', 'create', 'update', or '' for default
@@ -72,9 +72,10 @@ final class ResourceSerializer
         array $visited = [],
         string $operation = '',
     ): array {
-        $uid       = (int)$row['uid'];
-        $schema    = $this->getSchema($config->table);
-        $columnMap = $this->resolveColumnMap($config);
+        $uid           = (int)$row['uid'];
+        $schema        = $this->getSchema($config->table);
+        $columnMap     = $this->resolveColumnMap($config);
+        $preloadedFiles = $preloaded['files'][$config->table] ?? null;
 
         // The base '{table}' tag is added by RequestDispatcher at cache activation
         $this->cacheTagCollector->addTag($config->table . '_' . $uid);
@@ -110,7 +111,7 @@ final class ResourceSerializer
             }
 
             if ($field instanceof FileFieldType) {
-                $result[$column] = $this->fileFieldSerializer->serialize($column, $field, $columnDef, $config->table, $uid);
+                $result[$column] = $this->fileFieldSerializer->serialize($column, $field, $columnDef, $config->table, $uid, $preloadedFiles);
                 continue;
             }
 
@@ -196,7 +197,7 @@ final class ResourceSerializer
 
             // Establish the base value from a file column or processor, if defined.
             if ($columnField instanceof FileFieldType) {
-                $result[$virtualPropertyName] = $this->fileFieldSerializer->serialize($columnRef, $columnField, $virtualPropDef, $config->table, $uid);
+                $result[$virtualPropertyName] = $this->fileFieldSerializer->serialize($columnRef, $columnField, $virtualPropDef, $config->table, $uid, $preloadedFiles);
             } elseif ($virtualPropDef->processor !== null) {
                 $value = $columnRef !== null ? ($row[$columnRef] ?? null) : null;
                 $result[$virtualPropertyName] = $this->applyColumnProcessor($value, $virtualPropDef, $result, $row, $config->table, $virtualPropertyName, $uid);

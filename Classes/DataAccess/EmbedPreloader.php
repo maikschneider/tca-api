@@ -20,6 +20,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   [
  *     'rows'      => [foreignTable => [uid => row]],
  *     'relations' => [column => [parentUid => [uid, ...]]],
+ *     'files'     => [table => PreloadedFileReferences],
  *   ]
  *
  * `rows` is a flat pool of all fetched rows — both hasOne and hasMany resolve from it.
@@ -34,6 +35,7 @@ final class EmbedPreloader
         private readonly DataRepository $dataRepository,
         private readonly TcaSchemaFactory $schemaFactory,
         private readonly GroupAllowedResolver $groupAllowedResolver,
+        private readonly FileReferencePreloader $fileReferencePreloader,
     ) {
     }
 
@@ -60,6 +62,8 @@ final class EmbedPreloader
             fn (int $uid) => $uid > 0,
         ));
 
+        $preloaded['files'][$config->table] = $this->fileReferencePreloader->preload($config, $parentUids);
+
         foreach ($config->columns as $column => $columnDef) {
             if ($columnDef->embedDepth() === 0) {
                 continue;
@@ -79,6 +83,7 @@ final class EmbedPreloader
                 continue;
             }
 
+            // File columns are resolved by the FileReferencePreloader above.
             if ($field instanceof FileFieldType) {
                 continue;
             }

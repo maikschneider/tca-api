@@ -1,0 +1,14 @@
+"sys_file_reference"
+,"uid","pid","uid_local","uid_foreign","tablenames","fieldname","sorting_foreign","title","description","alternative","link","crop","hidden","deleted"
+,100,1,100,2400,"tx_myext_domain_model_article","downloads",1,"Bulk Title 0","Bulk Description 0","","",NULL,0,0
+,101,1,101,2401,"tx_myext_domain_model_article","downloads",1,"Bulk Title 1","Bulk Description 1","","",NULL,0,0
+,102,1,102,2402,"tx_myext_domain_model_article","downloads",1,"Bulk Title 2","Bulk Description 2","","",NULL,0,0
+,103,1,103,2403,"tx_myext_domain_model_article","downloads",1,"Bulk Title 3","Bulk Description 3","","",NULL,0,0
+,104,1,104,2404,"tx_myext_domain_model_article","downloads",1,"Bulk Title 4","Bulk Description 4","","",NULL,0,0
+,105,1,105,2405,"tx_myext_domain_model_article","downloads",1,"Bulk Title 5","Bulk Description 5","","",NULL,0,0
+,106,1,106,2406,"tx_myext_domain_model_article","downloads",1,"Bulk Title 6","Bulk Description 6","","",NULL,0,0
+,107,1,107,2407,"tx_myext_domain_model_article","downloads",1,"Bulk Title 7","Bulk Description 7","","",NULL,0,0
+,108,1,108,2408,"tx_myext_domain_model_article","downloads",1,"Bulk Title 8","Bulk Description 8","","",NULL,0,0
+,109,1,109,2409,"tx_myext_domain_model_article","downloads",1,"Bulk Title 9","Bulk Description 9","","",NULL,0,0
+,110,1,110,2410,"tx_myext_domain_model_article","downloads",1,"Bulk Title 10","Bulk Description 10","","",NULL,0,0
+,111,1,111,2411,"tx_myext_domain_model_article","downloads",1,"Bulk Title 11","Bulk Description 11","","",NULL,0,0

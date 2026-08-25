@@ -1,0 +1,3 @@
+"sys_file"
+,"uid","pid","storage","identifier","identifier_hash","folder_hash","mime_type","name","sha1","size","creation_date","modification_date","type","missing","extension"
+,200,0,1,"/user_upload/workspace.pdf","wsidhash00000000000000000000000000000000","wsfolder00000000000000000000000000000000","application/pdf","workspace.pdf","wssha00000000000000000000000000000000000",2048,1704067200,1704067200,5,0,"pdf"

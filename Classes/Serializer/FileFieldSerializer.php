@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Serializer;
 
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
+use MaikSchneider\TcaApi\DataAccess\PreloadedFileReferences;
 use MaikSchneider\TcaApi\Serializer\FileProcessing\FileProcessor;
 use MaikSchneider\TcaApi\Serializer\FileProcessing\FileProcessorInterface;
 use MaikSchneider\TcaApi\Serializer\FileProcessing\ImageProcessor;
@@ -16,8 +17,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 /**
  * Serializes type=file TCA columns to their JSON-LD representation.
  *
- * Resolves sys_file_reference records via FileRepository and processes
- * each reference through a FileProcessorInterface. The processor is chosen as
+ * References come from the page-wide preload when the record is covered by it,
+ * and from FileRepository otherwise — an embedded record, or a context the
+ * preloader does not handle. Each reference is then run through a
+ * FileProcessorInterface. The processor is chosen as
  * follows: an explicit 'processor' on the column definition wins; otherwise
  * the TCA 'allowed' extension list is compared against GFX/imagefile_ext —
  * all-image subsets use ImageProcessor, everything else uses FileProcessor.
@@ -32,10 +35,17 @@ final class FileFieldSerializer
     ) {
     }
 
-    public function serialize(string $column, FileFieldType $field, ColumnDefinition $columnDef, string $table, int $uid): mixed
-    {
+    public function serialize(
+        string $column,
+        FileFieldType $field,
+        ColumnDefinition $columnDef,
+        string $table,
+        int $uid,
+        ?PreloadedFileReferences $preloadedReferences = null,
+    ): mixed {
         $processor = $this->resolveProcessor($columnDef, $field);
-        $fileRefs  = $this->fileRepository->findByRelation($table, $column, $uid);
+        $fileRefs  = $preloadedReferences?->find($column, $uid)
+            ?? $this->fileRepository->findByRelation($table, $column, $uid);
 
         $process = fn ($ref) => $this->processorGuard->run(
             fn () => $processor->process($ref, $columnDef),
