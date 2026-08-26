@@ -8,6 +8,8 @@ services:
     resource: '../Classes/*'
     exclude:
       - '../Classes/ConfigurationModuleProvider/'
+      # Compiler passes are wired in Services.php, never as services.
+      - '../Classes/DependencyInjection/'
       # Registered conditionally in Services.php — depends on v14-only backend API.
       - '../Classes/Controller/'
 
@@ -19,12 +21,6 @@ services:
     arguments:
       $allowList: []
       $denyList: []
-
-  MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor:
-    public: true
-
-  MaikSchneider\TcaApi\Serializer\Processing\RouteEnhancerProcessor:
-    public: true
 
   MaikSchneider\TcaApi\Serializer\Processing\PlaceholderResolver:
     public: true

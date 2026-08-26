@@ -4,12 +4,18 @@ declare(strict_types=1);
 
 use MaikSchneider\TcaApi\ConfigurationModuleProvider\TcaApiConfigurationProvider;
 use MaikSchneider\TcaApi\Controller\ApiDocumentationController;
+use MaikSchneider\TcaApi\DependencyInjection\PublicProcessorPass;
+use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
 
 return static function (ContainerConfigurator $containerConfigurator, ContainerBuilder $containerBuilder): void {
     $services = $containerConfigurator->services();
+
+    // Runs before removal so private processor definitions are still around to be
+    // marked public — see PublicProcessorPass.
+    $containerBuilder->addCompilerPass(new PublicProcessorPass(), PassConfig::TYPE_BEFORE_REMOVING);
 
     // The "Integrations" backend module (Swagger UI) depends on the v14-only
     // ComponentFactory. Excluded from the Classes/* autowiring glob in

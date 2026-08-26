@@ -276,10 +276,13 @@ final class ResourceSerializer
 
         /** @var class-string<ColumnProcessorInterface> $processorClass */
         $processorClass = $columnDef->processor;
-        $processor = GeneralUtility::makeInstance($processorClass);
 
+        // Constructed inside the guard so a processor that cannot be built — most
+        // often an un-injectable constructor — is reported with its class, table,
+        // column and uid instead of an ArgumentCountError from nowhere.
         return $this->processorGuard->run(
-            fn () => $processor->process($value, $columnDef, ['serializedRow' => $serializedRow, 'rawRow' => $rawRow]),
+            fn () => GeneralUtility::makeInstance($processorClass)
+                ->process($value, $columnDef, ['serializedRow' => $serializedRow, 'rawRow' => $rawRow]),
             $processorClass,
             $table,
             $column,

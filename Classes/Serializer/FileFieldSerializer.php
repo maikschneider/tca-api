@@ -43,13 +43,16 @@ final class FileFieldSerializer
         int $uid,
         ?PreloadedFileReferences $preloadedReferences = null,
     ): mixed {
-        $processor = $this->resolveProcessor($columnDef, $field);
-        $fileRefs  = $preloadedReferences?->find($column, $uid)
+        $processorClass = $this->resolveProcessorClass($columnDef, $field);
+        $fileRefs       = $preloadedReferences?->find($column, $uid)
             ?? $this->fileRepository->findByRelation($table, $column, $uid);
 
+        // Constructed inside the guard so a processor that cannot be built — most
+        // often an un-injectable constructor — is reported with its class, table,
+        // column and uid instead of an ArgumentCountError from nowhere.
         $process = fn ($ref) => $this->processorGuard->run(
-            fn () => $processor->process($ref, $columnDef),
-            $processor::class,
+            fn () => GeneralUtility::makeInstance($processorClass)->process($ref, $columnDef),
+            $processorClass,
             $table,
             $column,
             $uid,
@@ -64,17 +67,14 @@ final class FileFieldSerializer
         return array_values(array_filter(array_map($process, $fileRefs), static fn ($v) => $v !== null));
     }
 
-    private function resolveProcessor(ColumnDefinition $columnDef, FileFieldType $field): FileProcessorInterface
+    /** @return class-string<FileProcessorInterface> */
+    private function resolveProcessorClass(ColumnDefinition $columnDef, FileFieldType $field): string
     {
-        if ($columnDef->processor !== null) {
-            /** @var class-string<FileProcessorInterface> $processorClass */
-            $processorClass = $columnDef->processor;
-            return GeneralUtility::makeInstance($processorClass);
-        }
-
         /** @var class-string<FileProcessorInterface> $processorClass */
-        $processorClass = $this->detectProcessorClass($field->getAllowedFileExtensions());
-        return GeneralUtility::makeInstance($processorClass);
+        $processorClass = $columnDef->processor
+            ?? $this->detectProcessorClass($field->getAllowedFileExtensions());
+
+        return $processorClass;
     }
 
     private function detectProcessorClass(array $allowedExtensions): string
