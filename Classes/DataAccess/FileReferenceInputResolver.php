@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\DataAccess;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\Configuration\LinkDefinition;
+use Psr\Http\Message\ServerRequestInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\MathUtility;
 use TYPO3\CMS\Core\Utility\StringUtility;
 
@@ -24,6 +27,11 @@ use TYPO3\CMS\Core\Utility\StringUtility;
  *   "photo": [12, 15]                            — several
  *   "photo": [{"fileUid": 12, "title": "Hero"}]  — with reference overrides
  *   "photo": []                                  — detach everything
+ *
+ * Linking is opt-in per column via the `link` config: the client names the file
+ * by uid, and uids are enumerable, so without a declared scope an authenticated
+ * caller could attach any file in the installation to their own record and read
+ * its name and path back out of the response.
  */
 #[Autoconfigure(public: true)]
 final readonly class FileReferenceInputResolver
@@ -38,7 +46,7 @@ final readonly class FileReferenceInputResolver
     {
     }
 
-    public function resolve(array $body, ApiDefinition $config): ResolvedFileReferenceInput
+    public function resolve(array $body, ApiDefinition $config, ?ServerRequestInterface $request = null): ResolvedFileReferenceInput
     {
         $remainingBody = $body;
         $references    = [];
@@ -53,6 +61,12 @@ final readonly class FileReferenceInputResolver
             }
 
             unset($remainingBody[$column]);
+
+            $link = $config->getColumn($column)?->link;
+            if ($link === null) {
+                $violations[] = $this->violation($column, null, 'does not accept links to existing files. Declare a "link" scope on the column to allow it.', 'LINKING_DISABLED');
+                continue;
+            }
 
             $items = $this->normalizeItems($value);
             if ($items === null) {
@@ -74,8 +88,13 @@ final readonly class FileReferenceInputResolver
                     $violations[] = $this->violation($column, $index, 'must carry a numeric "fileUid".', 'INVALID_FILE_INPUT');
                     continue;
                 }
-                if (!$this->fileExists($fileUid)) {
+                $file = $this->findFile($fileUid);
+                if ($file === null) {
                     $violations[] = $this->violation($column, $index, sprintf('references file %d, which does not exist.', $fileUid), 'FILE_NOT_FOUND');
+                    continue;
+                }
+                if (!$this->isLinkable($file, $link, $request)) {
+                    $violations[] = $this->violation($column, $index, sprintf('references file %d, which is outside the folders this column may link.', $fileUid), 'FILE_NOT_LINKABLE');
                     continue;
                 }
 
@@ -131,14 +150,36 @@ final readonly class FileReferenceInputResolver
         return array_intersect_key($item, array_flip(self::WRITABLE_REFERENCE_FIELDS));
     }
 
-    private function fileExists(int $fileUid): bool
+    /** @return array<string, mixed>|null */
+    private function findFile(int $fileUid): ?array
     {
         $found = $this->connectionPool
             ->getConnectionForTable('sys_file')
-            ->select(['uid'], 'sys_file', ['uid' => $fileUid])
+            ->select(['uid', 'storage', 'identifier'], 'sys_file', ['uid' => $fileUid])
             ->fetchAssociative();
 
-        return $found !== false;
+        return $found === false ? null : $found;
+    }
+
+    /**
+     * Both constraints must hold when both are configured, so a custom check can
+     * narrow the declared folders but never widen them.
+     *
+     * @param array<string, mixed> $file
+     */
+    private function isLinkable(array $file, LinkDefinition $link, ?ServerRequestInterface $request): bool
+    {
+        if (!$link->coversFolder((int)$file['storage'], (string)$file['identifier'])) {
+            return false;
+        }
+
+        if ($link->check === null) {
+            return true;
+        }
+
+        [$class, $method] = $link->check;
+
+        return (bool)GeneralUtility::makeInstance($class)->$method($file, $request);
     }
 
     /** @return array{propertyPath: string, message: string, code: string} */

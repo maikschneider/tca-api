@@ -88,7 +88,7 @@ trait WriteOperationTrait
         // Pulled out before the relation resolver runs: a type=file column stores
         // the reference count, so its input is neither a scalar to write nor a
         // sys_file_reference uid to resolve.
-        $linkedFiles = $this->fileReferenceResolver->resolve($body, $config);
+        $linkedFiles = $this->fileReferenceResolver->resolve($body, $config, $request);
         if ($linkedFiles->violations !== []) {
             return $this->hydraResponseBuilder->buildValidationError($linkedFiles->violations);
         }

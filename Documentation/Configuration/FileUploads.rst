@@ -252,7 +252,55 @@ Linking an existing file
 
 Uploading is not the only way to fill a ``type=file`` column. A JSON write may
 reference a file that is already in FAL by its ``sys_file`` uid — no
-``multipart/form-data``, and no ``upload`` key on the column:
+``multipart/form-data`` needed.
+
+Linking is **opt-in per column**. The client names the file by uid, and uids are
+enumerable, so a column without a ``link`` scope rejects every link: otherwise
+any authenticated caller could attach an arbitrary file from the installation to
+their own record and read its name and path back out of the response.
+
+..  code-block:: php
+
+    'downloads' => [
+        'groups' => ['list', 'show', 'create', 'update'],
+        'link'   => ['folders' => ['1:/downloads/', '2:/shared/']],
+    ],
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 80
+
+   * - Key
+     - Description
+   * - ``folders``
+     - List of FAL folder identifiers a linkable file must live in. Sub-folders
+       qualify, so ``1:/downloads/`` also covers ``1:/downloads/2026/``. Use
+       ``1:/`` for a whole storage.
+   * - ``check``
+     - ``[ClassName::class, 'method']`` called with the ``sys_file`` row and the
+       request; must return ``true``. Runs **after** ``folders``, so it can
+       narrow the declared scope but never widen it.
+
+At least one of the two is required — an empty scope would allow every file in
+the installation, so it is rejected at load time.
+
+..  code-block:: php
+
+    'downloads' => [
+        'groups' => ['list', 'show', 'create', 'update'],
+        'link'   => [
+            'folders' => ['1:/downloads/'],
+            'check'   => [DownloadPolicy::class, 'mayLink'],
+        ],
+    ],
+
+..  note::
+
+    TYPO3 has no per-frontend-user FAL permissions — file mounts are a backend
+    concept — so ``folders`` is the coarse, declarative boundary and ``check`` is
+    where a per-user or per-record policy belongs.
+
+With a scope declared, all of these are accepted:
 
 ..  code-block:: json
 
@@ -287,6 +335,10 @@ Rejections are ``422``:
    * - ``INVALID_FILE_INPUT``
      - The value is neither a uid, a list of uids, nor objects carrying
        ``fileUid``.
+   * - ``LINKING_DISABLED``
+     - The column declares no ``link`` scope.
+   * - ``FILE_NOT_LINKABLE``
+     - The file is outside the column's ``folders``, or ``check`` refused it.
 
 When a request uploads a file **and** links one on the same column, the upload
 wins and the link is ignored.

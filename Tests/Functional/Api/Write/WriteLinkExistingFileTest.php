@@ -6,6 +6,7 @@ namespace MaikSchneider\TcaApi\Tests\Functional\Api\Write;
 
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
+use MaikSchneider\TcaApi\Tests\Functional\Fixtures\TestFileLinkChecker;
 
 /**
  * Linking an existing FAL file through a JSON write on a type=file column.
@@ -36,8 +37,14 @@ final class WriteLinkExistingFileTest extends ApiFunctionalTestCase
             ],
             'columns' => [
                 'title'         => ['groups' => ['list', 'show', 'create', 'update'], 'required' => true],
-                'profile_photo' => ['groups' => ['list', 'show', 'create', 'update']],
-                'downloads'     => ['groups' => ['list', 'show', 'create', 'update']],
+                'profile_photo' => [
+                    'groups' => ['list', 'show', 'create', 'update'],
+                    'link'   => ['folders' => ['1:/user_upload/']],
+                ],
+                'downloads' => [
+                    'groups' => ['list', 'show', 'create', 'update'],
+                    'link'   => ['folders' => ['1:/user_upload/']],
+                ],
             ],
             'security' => [
                 'create' => AccessRole::FE_USER,
@@ -140,6 +147,87 @@ final class WriteLinkExistingFileTest extends ApiFunctionalTestCase
 
         self::assertSame(422, $response->getStatusCode());
         self::assertSame('INVALID_FILE_INPUT', $body['violations'][0]['code']);
+    }
+
+    public function testColumnWithoutLinkScopeRejectsLinking(): void
+    {
+        // Same column, no 'link' key: linking is opt-in.
+        $this->registerResource('unscoped-articles', [
+            'general' => [
+                'table'        => self::ARTICLE_TABLE,
+                'resourceName' => 'unscoped-articles',
+                'resourceType' => 'Article',
+                'operations'   => ['list', 'show', 'create'],
+                'storagePid'   => 1,
+            ],
+            'columns' => [
+                'title'         => ['groups' => ['list', 'show', 'create'], 'required' => true],
+                'profile_photo' => ['groups' => ['list', 'show', 'create']],
+            ],
+            'security' => ['create' => AccessRole::FE_USER],
+        ]);
+
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/unscoped-articles', 1, [
+            'title'         => 'Article linking through an unscoped column',
+            'profile_photo' => 1,
+        ]);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(422, $response->getStatusCode());
+        self::assertSame('LINKING_DISABLED', $body['violations'][0]['code']);
+    }
+
+    public function testFileOutsideTheDeclaredFoldersIsRejected(): void
+    {
+        // sys_file 3 lives in 1:/protected/, which no column declares.
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/file-articles', 1, [
+            'title'     => 'Article reaching outside its scope',
+            'downloads' => [3],
+        ]);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(422, $response->getStatusCode());
+        self::assertSame('FILE_NOT_LINKABLE', $body['violations'][0]['code']);
+    }
+
+    public function testCheckCallableCanNarrowTheFolderScope(): void
+    {
+        $this->registerResource('checked-articles', [
+            'general' => [
+                'table'        => self::ARTICLE_TABLE,
+                'resourceName' => 'checked-articles',
+                'resourceType' => 'Article',
+                'operations'   => ['list', 'show', 'create'],
+                'storagePid'   => 1,
+            ],
+            'columns' => [
+                'title'     => ['groups' => ['list', 'show', 'create'], 'required' => true],
+                'downloads' => [
+                    'groups' => ['list', 'show', 'create'],
+                    'link'   => [
+                        'folders' => ['1:/user_upload/'],
+                        'check'   => [TestFileLinkChecker::class, 'isPdf'],
+                    ],
+                ],
+            ],
+            'security' => ['create' => AccessRole::FE_USER],
+        ]);
+
+        // sys_file 2 is the PDF, 1 is the JPEG; both are inside the declared folder.
+        $allowed = $this->executeApiWriteRequestAs('POST', '/_api/checked-articles', 1, [
+            'title'     => 'Article with a PDF',
+            'downloads' => [2],
+        ]);
+        self::assertSame(201, $allowed->getStatusCode());
+
+        $refused = $this->executeApiWriteRequestAs('POST', '/_api/checked-articles', 1, [
+            'title'     => 'Article with a JPEG',
+            'downloads' => [1],
+        ]);
+        $body = $this->decodeResponseBody($refused);
+
+        self::assertSame(422, $refused->getStatusCode());
+        self::assertSame('FILE_NOT_LINKABLE', $body['violations'][0]['code']);
     }
 
     private function linkedFileUid(int $articleUid, string $column): ?int
