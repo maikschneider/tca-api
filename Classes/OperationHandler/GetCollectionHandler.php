@@ -43,6 +43,11 @@ class GetCollectionHandler implements OperationHandlerInterface
         $order        = (array)$request->getAttribute('tca_api.order', []);
         $fields       = (array)$request->getAttribute('tca_api.fields', []);
 
+        $rejected = $this->rejectUnsortableColumns($order, $config);
+        if ($rejected !== null) {
+            return $rejected;
+        }
+
         return $this->doHandle($request, $config, $page, $itemsPerPage, $filters, $order, $fields);
     }
 
@@ -116,6 +121,34 @@ class GetCollectionHandler implements OperationHandlerInterface
         }
 
         return $safe;
+    }
+
+    /**
+     * A sort column the resource does not declare is a client error, not a no-op.
+     * Silently falling back to the default order returns a 200 whose row order
+     * looks intentional and is not, which is indistinguishable from bad data.
+     */
+    private function rejectUnsortableColumns(array $requested, ApiDefinition $config): ?ResponseInterface
+    {
+        $unknown = array_diff(array_keys($requested), $config->allowedOrder);
+
+        if ($unknown === []) {
+            return null;
+        }
+
+        $description = $config->allowedOrder === []
+            ? sprintf(
+                'Resource "%s" declares no sortable columns, so order[%s] cannot be applied.',
+                $config->resourceName,
+                implode('], order[', $unknown),
+            )
+            : sprintf(
+                'Cannot sort by "%s". Sortable columns are: %s.',
+                implode('", "', $unknown),
+                implode(', ', $config->allowedOrder),
+            );
+
+        return $this->hydraResponseBuilder->buildError(400, $description, 'Bad Request');
     }
 
     private function resolveOrder(array $requested, ApiDefinition $config): array

@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **File writes no longer steal another record's file references.** `attachFileReferences()` put the reference *count* in the parent `type=file` column, but `checkValueForFile()` reads that column as a list of `sys_file_reference` uids — so attaching two files to a record re-parented references 1 and 2 from wherever they belonged. The column now receives the `NEW_ref` placeholders and DataHandler writes the count once they resolve. Affects every upload that attached more than one file, or one file to an installation whose `sys_file_reference` uid 1 was in use ([#187](https://github.com/maikschneider/tca-api/issues/187)).
+### Changed
+
+- **BREAKING:** An `order` parameter naming a column outside `order.allowed` now returns `400 Bad Request` instead of silently falling back to the default order (#186).
 
 ## [1.0.0] - 2026-08-25
 

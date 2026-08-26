@@ -40,5 +40,10 @@ Sorting is controlled via the ``order`` query parameter:
     GET /_api/articles?order[title]=asc
     GET /_api/articles?order[uid]=desc
 
-Only columns listed in ``allowed`` are accepted. If the client requests an
-unsupported column, the default order is used instead.
+Only columns listed in ``allowed`` are accepted. Requesting any other column
+returns ``400 Bad Request`` naming the offending column and the sortable set, so
+a typo or a forgotten ``allowed`` entry surfaces instead of silently producing a
+differently ordered ``200``.
+
+A resource without an ``order`` section has no sortable columns at all, so every
+``order`` parameter on it is rejected. Declare ``allowed`` to opt in.

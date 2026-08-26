@@ -50,13 +50,32 @@ final class CollectionSortingTest extends ApiFunctionalTestCase
         self::assertSame([1, 2, 3], $uids);
     }
 
-    public function testOrderOnUndeclaredColumnIsIgnored(): void
+    public function testOrderOnUndeclaredColumnIsRejected(): void
     {
-        // 'deleted' is not declared sortable — must not throw, must return 200
+        // 'deleted' is not declared sortable
         $response = $this->executeApiRequest('/_api/articles', ['order' => ['deleted' => 'asc']]);
         $body = $this->decodeResponseBody($response);
 
-        self::assertSame(200, $response->getStatusCode());
-        self::assertSame(3, $body['hydra:totalItems']);
+        self::assertSame(400, $response->getStatusCode());
+        self::assertStringContainsString('deleted', $body['hydra:description']);
+        self::assertStringContainsString('title, uid', $body['hydra:description']);
+    }
+
+    public function testResourceWithoutOrderConfigRejectsAnySortColumn(): void
+    {
+        $response = $this->executeApiRequest('/_api/colors', ['order' => ['title' => 'asc']]);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertStringContainsString('no sortable columns', $body['hydra:description']);
+    }
+
+    public function testRejectionNamesEverySortableColumnThatIsMissing(): void
+    {
+        $response = $this->executeApiRequest('/_api/articles', ['order' => ['title' => 'asc', 'bodytext' => 'desc']]);
+        $body = $this->decodeResponseBody($response);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertStringContainsString('bodytext', $body['hydra:description']);
     }
 }
