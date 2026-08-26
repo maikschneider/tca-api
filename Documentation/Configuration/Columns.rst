@@ -69,6 +69,11 @@ All keys are optional.
        when multiple resources are registered for the same table, or to
        explicitly control which resource's security and column config applies
        to nested writes. See :ref:`relations` for a full example.
+   * - ``nestedWrite``
+     - Access role required to create a related record **through this column**.
+       Also opts the column into nested creation when the child table has no
+       resource of its own. Same shapes as a ``security`` entry. See
+       :ref:`relations`.
    * - ``processor``
      - Column processor class. Does **not** trigger explicit mode. See
        :ref:`column-processors`.

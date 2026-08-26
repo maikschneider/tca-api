@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`nestedWrite` column option.** Declares the access role required to create a related record through that column, and opts the column into nested creation when the child table has no resource of its own — no more registering a resource with `operations => []` purely to be found by `resolveChildConfig()` ([#191](https://github.com/maikschneider/tca-api/issues/191)).
+
 ### Changed
 
 - **BREAKING:** A nested object on a relation column whose table is not registered as an API resource is now rejected with `422` / `UNRESOLVABLE_RELATION` instead of being dropped from the write ([#185](https://github.com/maikschneider/tca-api/issues/185)).

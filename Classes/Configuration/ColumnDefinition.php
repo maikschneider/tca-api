@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Configuration;
 
+use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Validation\ValidatorInterface;
 
 /**
@@ -33,6 +34,7 @@ final readonly class ColumnDefinition
         public readonly ?UploadDefinition $upload = null,
         public readonly ?ImageDefinition $image = null,
         public readonly ?RouteDefinition $route = null,
+        public readonly mixed $nestedWrite = null,
     ) {
     }
 
@@ -326,6 +328,15 @@ final readonly class ColumnDefinition
             }
         }
 
+        // ── nestedWrite ──────────────────────────────────────────────────
+        $nestedWrite = $raw['nestedWrite'] ?? null;
+        if ($nestedWrite !== null && !self::isSecurityRole($nestedWrite)) {
+            throw new \InvalidArgumentException(
+                'Column config "nestedWrite" must be an AccessRole enum, '
+                . '[AccessRole, groupIds] tuple, or [class-string, method-string] callable.',
+            );
+        }
+
         return new self(
             groups:       $groups,
             type:         $type,
@@ -340,6 +351,22 @@ final readonly class ColumnDefinition
             upload:       $upload,
             image:        $image,
             route:        $route,
+            nestedWrite:  $nestedWrite,
         );
+    }
+
+    /** Same shapes ApiDefinition accepts under "security". */
+    private static function isSecurityRole(mixed $role): bool
+    {
+        if ($role instanceof AccessRole) {
+            return true;
+        }
+
+        if (!\is_array($role) || !isset($role[0])) {
+            return false;
+        }
+
+        return $role[0] instanceof AccessRole
+            || (\is_string($role[0]) && \is_string($role[1] ?? null));
     }
 }
