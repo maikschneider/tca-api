@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING:** A nested object on a relation column whose table is not registered as an API resource is now rejected with `422` / `UNRESOLVABLE_RELATION` instead of being dropped from the write ([#185](https://github.com/maikschneider/tca-api/issues/185)).
+
 ## [1.0.0] - 2026-08-25
 
 First stable release.
