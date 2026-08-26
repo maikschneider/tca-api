@@ -244,3 +244,49 @@ stored file references are serialized in read responses:
             'upload'    => ['folder' => '1:/images/', 'maxSize' => '10M'],
         ],
     ],
+
+..  _linking-existing-files:
+
+Linking an existing file
+========================
+
+Uploading is not the only way to fill a ``type=file`` column. A JSON write may
+reference a file that is already in FAL by its ``sys_file`` uid — no
+``multipart/form-data``, and no ``upload`` key on the column:
+
+..  code-block:: json
+
+    { "profile_photo": 12 }
+    { "downloads": [12, 15] }
+    { "downloads": [{ "fileUid": 12, "title": "Handbook", "description": "…" }] }
+
+The object form additionally sets fields on the reference itself. Writable
+there: ``title``, ``description``, ``alternative``, ``link`` and ``crop``.
+
+An empty list detaches every reference on that column:
+
+..  code-block:: json
+
+    { "profile_photo": [] }
+
+As with uploads, an update **replaces** the column's references rather than
+appending to them.
+
+Rejections are ``422``:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Code
+     - Meaning
+   * - ``FILE_NOT_FOUND``
+     - No ``sys_file`` with that uid.
+   * - ``TOO_MANY_FILES``
+     - More files than the column's TCA ``maxitems`` allows.
+   * - ``INVALID_FILE_INPUT``
+     - The value is neither a uid, a list of uids, nor objects carrying
+       ``fileUid``.
+
+When a request uploads a file **and** links one on the same column, the upload
+wins and the link is ignored.

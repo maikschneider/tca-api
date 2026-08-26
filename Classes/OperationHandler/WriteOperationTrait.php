@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\OperationHandler;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\DataAccess\FileReferenceInputResolver;
 use MaikSchneider\TcaApi\DataAccess\RelationInputResolver;
 use MaikSchneider\TcaApi\DataAccess\ResolvedInput;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
@@ -24,6 +25,7 @@ use Psr\Http\Message\ServerRequestInterface;
  * @property HydraResponseBuilder $hydraResponseBuilder
  * @property FieldValidator $fieldValidator
  * @property RelationInputResolver $relationResolver
+ * @property FileReferenceInputResolver $fileReferenceResolver
  */
 trait WriteOperationTrait
 {
@@ -83,13 +85,25 @@ trait WriteOperationTrait
             return $this->hydraResponseBuilder->buildValidationError($violations);
         }
 
-        $resolved = $this->relationResolver->resolve($body, $config, $config->storagePid ?? 0, $request);
+        // Pulled out before the relation resolver runs: a type=file column stores
+        // the reference count, so its input is neither a scalar to write nor a
+        // sys_file_reference uid to resolve.
+        $linkedFiles = $this->fileReferenceResolver->resolve($body, $config);
+        if ($linkedFiles->violations !== []) {
+            return $this->hydraResponseBuilder->buildValidationError($linkedFiles->violations);
+        }
+
+        $resolved = $this->relationResolver->resolve($linkedFiles->body, $config, $config->storagePid ?? 0, $request);
         if ($resolved->violations !== []) {
             return $this->hydraResponseBuilder->buildValidationError($resolved->violations);
         }
 
         $data        = $this->filterWritableColumns($resolved->scalarBody, $config);
         $storedFiles = $uploadedFiles !== [] ? $this->storeUploadedFiles($uploadedFiles, $config) : [];
+
+        // An uploaded file and a linked one on the same column would fight over the
+        // same reference set, so the upload wins and the link is ignored.
+        $storedFiles += $linkedFiles->references;
 
         return ['data' => $data, 'resolved' => $resolved, 'storedFiles' => $storedFiles];
     }
