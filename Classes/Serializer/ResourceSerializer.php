@@ -227,13 +227,22 @@ final class ResourceSerializer
         array $preloaded = [],
         string $operation = '',
     ): array {
-        $this->preparedProcessors = [];
-        $this->prepareProcessors($rows, $config, $fields, $operation);
+        // Saved and restored so a prepared batch cannot outlive its collection:
+        // this serializer is a shared service, and a later single-record
+        // serialize() must fall back to an unprepared processor.
+        $outer = $this->preparedProcessors;
 
-        return array_map(
-            fn (array $row) => $this->serialize($row, $config, $baseUrl, $fields, $preloaded, -1, [], $operation),
-            $rows,
-        );
+        try {
+            $this->preparedProcessors = [];
+            $this->prepareProcessors($rows, $config, $fields, $operation);
+
+            return array_map(
+                fn (array $row) => $this->serialize($row, $config, $baseUrl, $fields, $preloaded, -1, [], $operation),
+                $rows,
+            );
+        } finally {
+            $this->preparedProcessors = $outer;
+        }
     }
 
     /**
@@ -242,8 +251,8 @@ final class ResourceSerializer
      * per row.
      *
      * Only processors that will actually run are prepared: a column hidden by
-     * groups or dropped by a sparse fieldset never reaches process(), and must
-     * not cause a preload query either.
+     * groups, dropped by a sparse fieldset, or serialized through the file branch
+     * never reaches process(), and must not cause a preload query either.
      *
      * @param array<int, array<string, mixed>> $rows
      */
@@ -254,6 +263,7 @@ final class ResourceSerializer
         }
 
         $definitions = $this->resolveColumnMap($config) + $config->virtualProperties;
+        $schema      = $this->getSchema($config->table);
         $prepared    = [];
 
         foreach ($definitions as $name => $definition) {
@@ -266,6 +276,13 @@ final class ResourceSerializer
                 continue;
             }
             if ($fields !== [] && !\in_array($name, $fields, true)) {
+                continue;
+            }
+
+            // FileFieldSerializer owns type=file columns, and a virtual property
+            // sourcing one goes the same way, so the column processor never runs.
+            $sourceColumn = $definition->column ?? $name;
+            if ($schema->hasField($sourceColumn) && $schema->getField($sourceColumn) instanceof FileFieldType) {
                 continue;
             }
             if (!is_a($processorClass, PreloadingProcessorInterface::class, true)

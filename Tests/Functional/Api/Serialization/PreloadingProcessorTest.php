@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Serialization;
 
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
+use MaikSchneider\TcaApi\Tests\Functional\Fixtures\TestPreloadingFileProcessor;
 use MaikSchneider\TcaApi\Tests\Functional\Fixtures\TestPreloadingProcessor;
 
 /**
@@ -20,6 +21,7 @@ final class PreloadingProcessorTest extends ApiFunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles.csv');
         TestPreloadingProcessor::reset();
+        TestPreloadingFileProcessor::reset();
 
         $this->registerResource('preload-articles', [
             'general' => [
@@ -68,6 +70,47 @@ final class PreloadingProcessorTest extends ApiFunctionalTestCase
 
         // process() must still work without a prior prepare().
         self::assertSame(0, TestPreloadingProcessor::$prepareCalls);
+        self::assertSame('unbatched', $body['batched']);
+    }
+
+    public function testFileBackedVirtualPropertySkipsThePreload(): void
+    {
+        // profile_photo is type=file, so FileFieldSerializer owns it and the column
+        // processor never runs — preparing it would be a query for nothing.
+        $this->registerResource('preload-articles', [
+            'general' => [
+                'table'        => 'tx_myext_domain_model_article',
+                'resourceName' => 'preload-articles',
+                'resourceType' => 'Article',
+                'operations'   => ['list', 'show'],
+                'storagePid'   => 1,
+            ],
+            'columns' => ['title' => ['groups' => ['list', 'show']]],
+            'virtualProperties' => [
+                'photo' => [
+                    'groups'    => ['list', 'show'],
+                    'column'    => 'profile_photo',
+                    'processor' => TestPreloadingFileProcessor::class,
+                ],
+            ],
+            'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
+        ]);
+
+        $this->executeApiRequest('/_api/preload-articles');
+
+        self::assertSame(0, TestPreloadingFileProcessor::$prepareCalls);
+    }
+
+    public function testPreparedBatchDoesNotOutliveTheCollection(): void
+    {
+        $this->executeApiRequest('/_api/preload-articles');
+        self::assertSame(1, TestPreloadingProcessor::$prepareCalls);
+
+        // A later single-record request on the same serializer instance must fall
+        // back to an unprepared processor.
+        $body = $this->decodeResponseBody($this->executeApiRequest('/_api/preload-articles/1'));
+
+        self::assertSame(1, TestPreloadingProcessor::$prepareCalls);
         self::assertSame('unbatched', $body['batched']);
     }
 

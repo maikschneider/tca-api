@@ -397,6 +397,11 @@ to fetch everything for the page in one go:
 
 ..  code-block:: php
 
+    use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+    use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
+    use MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface;
+    use MaikSchneider\TcaApi\Serializer\Processing\PreloadingProcessorInterface;
+
     final class LabelProcessor implements ColumnProcessorInterface, PreloadingProcessorInterface
     {
         private array $labels = [];
