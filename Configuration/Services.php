@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 use MaikSchneider\TcaApi\ConfigurationModuleProvider\TcaApiConfigurationProvider;
 use MaikSchneider\TcaApi\Controller\ApiDocumentationController;
-use MaikSchneider\TcaApi\DependencyInjection\PublicProcessorPass;
-use Symfony\Component\DependencyInjection\Compiler\PassConfig;
+use MaikSchneider\TcaApi\Serializer\FileProcessing\FileProcessorInterface;
+use MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
@@ -13,9 +13,19 @@ use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
 return static function (ContainerConfigurator $containerConfigurator, ContainerBuilder $containerBuilder): void {
     $services = $containerConfigurator->services();
 
-    // Runs before removal so private processor definitions are still around to be
-    // marked public — see PublicProcessorPass.
-    $containerBuilder->addCompilerPass(new PublicProcessorPass(), PassConfig::TYPE_BEFORE_REMOVING);
+    // Processors are named by class-string in a resource config and built with
+    // GeneralUtility::makeInstance(), which injects constructor dependencies only
+    // for services the container exposes. Extensions default to `public: false`,
+    // so a private processor definition is dropped during compilation and
+    // makeInstance() falls back to `new` — a processor with a constructor then
+    // dies with an ArgumentCountError pointing nowhere near the cause.
+    //
+    // Autoconfiguration marks them public wherever they are declared, without this
+    // extension having to walk (and thereby autoload) every definition in the
+    // container.
+    foreach ([ColumnProcessorInterface::class, FileProcessorInterface::class] as $processorInterface) {
+        $containerBuilder->registerForAutoconfiguration($processorInterface)->setPublic(true);
+    }
 
     // The "Integrations" backend module (Swagger UI) depends on the v14-only
     // ComponentFactory. Excluded from the Classes/* autowiring glob in

@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Column and file processors with constructor dependencies no longer die with an `ArgumentCountError`. A compiler pass marks every `ColumnProcessorInterface` / `FileProcessorInterface` implementation public, so `GeneralUtility::makeInstance()` resolves them from the container regardless of the extension's `public: false` default. Processor construction also moved inside `ProcessorGuard`, so a processor that cannot be built is reported with its class, table, column and uid ([#189](https://github.com/maikschneider/tca-api/issues/189)).
+- Column and file processors with constructor dependencies no longer die with an `ArgumentCountError`. Container autoconfiguration marks every `ColumnProcessorInterface` / `FileProcessorInterface` implementation public, so `GeneralUtility::makeInstance()` resolves them from the container regardless of the extension's `public: false` default. Processor construction also moved inside `ProcessorGuard`, so a processor that cannot be built is reported with its class, table, column and uid ([#189](https://github.com/maikschneider/tca-api/issues/189)).
 
 ## [1.0.0] - 2026-08-25
 

@@ -12,13 +12,13 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 /**
  * Processors are named by class-string in a resource config and built with
  * makeInstance(), which only injects constructor dependencies for services the
- * container exposes. PublicProcessorPass marks them public so an extension does
+ * container exposes. Autoconfiguration marks them public so an extension does
  * not have to know that.
  *
  * Both processors below have constructor dependencies and no `public: true` of
- * their own — building them proves the pass ran.
+ * their own — building them proves autoconfiguration applied.
  */
-final class PublicProcessorPassTest extends ApiFunctionalTestCase
+final class ProcessorAutoconfigurationTest extends ApiFunctionalTestCase
 {
     public function testProcessorWithConstructorDependenciesIsResolvedFromTheContainer(): void
     {

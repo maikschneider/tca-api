@@ -8,8 +8,6 @@ services:
     resource: '../Classes/*'
     exclude:
       - '../Classes/ConfigurationModuleProvider/'
-      # Compiler passes are wired in Services.php, never as services.
-      - '../Classes/DependencyInjection/'
       # Registered conditionally in Services.php — depends on v14-only backend API.
       - '../Classes/Controller/'
 
