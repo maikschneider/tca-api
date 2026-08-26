@@ -113,6 +113,19 @@ final class FileProcessorAutoDetectionTest extends ApiFunctionalTestCase
         self::assertArrayHasKey('publicUrl', $item);
         self::assertArrayHasKey('mimeType', $item);
         self::assertArrayHasKey('fileSize', $item);
+        self::assertArrayHasKey('uid', $item);
+        self::assertArrayHasKey('name', $item);
+        self::assertArrayHasKey('extension', $item);
+    }
+
+    public function testDownloadsCarryTheOriginalFileIdentity(): void
+    {
+        $response = $this->executeApiRequest('/_api/articles/411');
+        $body     = $this->decodeResponseBody($response);
+
+        $item = $body['downloads'][0];
+        self::assertSame('document.pdf', $item['name']);
+        self::assertSame('pdf', $item['extension']);
     }
 
     public function testDownloadsAutoDetectedFileProcessorMetadataLacksAlternativeKey(): void

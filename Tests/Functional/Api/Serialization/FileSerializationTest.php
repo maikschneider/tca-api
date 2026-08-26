@@ -39,6 +39,17 @@ final class FileSerializationTest extends ApiFunctionalTestCase
         self::assertIsArray($body['profile_photo']);
     }
 
+    public function testProfilePhotoCarriesTheOriginalFileIdentity(): void
+    {
+        $response = $this->executeApiRequest('/_api/articles/410');
+        $body     = $this->decodeResponseBody($response);
+
+        // sys_file 1, not the sys_file_reference uid — the file is what a client matches on.
+        self::assertSame(1, $body['profile_photo']['uid']);
+        self::assertSame('profile.jpg', $body['profile_photo']['name']);
+        self::assertSame('jpg', $body['profile_photo']['extension']);
+    }
+
     public function testProfilePhotoHasPublicUrlKey(): void
     {
         $response = $this->executeApiRequest('/_api/articles/410');
