@@ -8,6 +8,7 @@ use MaikSchneider\TcaApi\Cache\CacheTagCollector;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface;
+use MaikSchneider\TcaApi\Serializer\Processing\PreloadingProcessorInterface;
 use MaikSchneider\TcaApi\Serializer\Processing\ProcessorGuard;
 use MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
@@ -43,6 +44,9 @@ final class ResourceSerializer
 
     /** @var array<string, array<string, ColumnDefinition>> Column maps cached per table+mode to avoid rebuilding on every row in a collection. */
     private array $columnMapCache = [];
+
+    /** @var array<string, array<class-string, ColumnProcessorInterface>> Processors prepared for the current collection, per table. */
+    private array $preparedProcessors = [];
 
     public function __construct(
         private readonly TcaSchemaFactory $schemaFactory,
@@ -223,10 +227,69 @@ final class ResourceSerializer
         array $preloaded = [],
         string $operation = '',
     ): array {
+        $this->preparedProcessors = [];
+        $this->prepareProcessors($rows, $config, $fields, $operation);
+
         return array_map(
             fn (array $row) => $this->serialize($row, $config, $baseUrl, $fields, $preloaded, -1, [], $operation),
             $rows,
         );
+    }
+
+    /**
+     * Give every PreloadingProcessorInterface the whole page before serialization
+     * starts, so a processor doing its own lookup can batch it instead of paying
+     * per row.
+     *
+     * Only processors that will actually run are prepared: a column hidden by
+     * groups or dropped by a sparse fieldset never reaches process(), and must
+     * not cause a preload query either.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     */
+    private function prepareProcessors(array $rows, ApiDefinition $config, array $fields, string $operation): void
+    {
+        if ($rows === []) {
+            return;
+        }
+
+        $definitions = $this->resolveColumnMap($config) + $config->virtualProperties;
+        $prepared    = [];
+
+        foreach ($definitions as $name => $definition) {
+            $processorClass = $definition->processor;
+
+            if ($processorClass === null || isset($prepared[$processorClass])) {
+                continue;
+            }
+            if ($config->isExplicitMode && !$definition->isReadable($operation)) {
+                continue;
+            }
+            if ($fields !== [] && !\in_array($name, $fields, true)) {
+                continue;
+            }
+            if (!is_a($processorClass, PreloadingProcessorInterface::class, true)
+                || !is_a($processorClass, ColumnProcessorInterface::class, true)
+            ) {
+                continue;
+            }
+
+            $prepared[$processorClass] = true;
+            $processor                 = GeneralUtility::makeInstance($processorClass);
+
+            $this->processorGuard->run(
+                fn () => $processor->prepare($rows, $config),
+                $processorClass,
+                $config->table,
+                (string)$name,
+                0,
+            );
+
+            // Held so process() runs on the instance that was prepared. Keyed by
+            // table as well, so an embedded resource using the same processor
+            // class does not read a batch prepared for the parent's rows.
+            $this->preparedProcessors[$config->table][$processorClass] = $processor;
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -276,7 +339,8 @@ final class ResourceSerializer
 
         /** @var class-string<ColumnProcessorInterface> $processorClass */
         $processorClass = $columnDef->processor;
-        $processor = GeneralUtility::makeInstance($processorClass);
+        $processor = $this->preparedProcessors[$table][$processorClass]
+            ?? GeneralUtility::makeInstance($processorClass);
 
         return $this->processorGuard->run(
             fn () => $processor->process($value, $columnDef, ['serializedRow' => $serializedRow, 'rawRow' => $rawRow]),

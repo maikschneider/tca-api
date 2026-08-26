@@ -385,6 +385,38 @@ built-in processors:
 Custom processors must implement
 :php:`MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface`.
 
+..  _preloading-processors:
+
+Batching a processor's own lookups
+----------------------------------
+
+:php:`process()` is called once per record, so a processor that does its own
+query issues one per row. Implement
+:php:`MaikSchneider\TcaApi\Serializer\Processing\PreloadingProcessorInterface`
+to fetch everything for the page in one go:
+
+..  code-block:: php
+
+    final class LabelProcessor implements ColumnProcessorInterface, PreloadingProcessorInterface
+    {
+        private array $labels = [];
+
+        public function prepare(array $rows, ApiDefinition $config): void
+        {
+            $this->labels = $this->repository->findLabelsFor(array_column($rows, 'uid'));
+        }
+
+        public function process(mixed $value, ColumnDefinition $config, array $context): mixed
+        {
+            return $this->labels[$context['rawRow']['uid']] ?? $this->repository->findLabelFor(...);
+        }
+    }
+
+:php:`prepare()` runs once per collection, before serialization starts, and only
+for processors that will actually run — a column hidden by ``groups`` or dropped
+by a sparse fieldset costs no preload. It does **not** run for a single-record
+request, so :php:`process()` must still work without it.
+
 ..  _processor-error-containment:
 
 Processor failures are contained

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`PreloadingProcessorInterface`.** A processor can now implement `prepare(array $rows, ApiDefinition $config)` to fetch what it needs for a whole collection in one query, instead of paying per record. Embedded columns already had `EmbedPreloader` and `FileReferencePreloader`; processors had nothing ([#190](https://github.com/maikschneider/tca-api/issues/190)).
+
 ## [1.0.0] - 2026-08-25
 
 First stable release.
