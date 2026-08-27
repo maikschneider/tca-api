@@ -128,7 +128,7 @@ final readonly class FileReferenceInputResolver
             return array_is_list($value) ? $value : [$value];
         }
 
-        return MathUtility::canBeInterpretedAsInteger($value) ? [$value] : null;
+        return $this->isReadableAsUid($value) ? [$value] : null;
     }
 
     private function fileUid(mixed $item): ?int
@@ -137,7 +137,16 @@ final readonly class FileReferenceInputResolver
             $item = $item['fileUid'] ?? null;
         }
 
-        return MathUtility::canBeInterpretedAsInteger($item) ? (int)$item : null;
+        return $this->isReadableAsUid($item) ? (int)$item : null;
+    }
+
+    /**
+     * Booleans are filtered before the numeric test: canBeInterpretedAsInteger()
+     * accepts `true` and would turn it into a link to file 1.
+     */
+    private function isReadableAsUid(mixed $value): bool
+    {
+        return !\is_bool($value) && MathUtility::canBeInterpretedAsInteger($value);
     }
 
     /** @return array<string, mixed> */

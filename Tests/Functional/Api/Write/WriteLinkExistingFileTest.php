@@ -149,6 +149,20 @@ final class WriteLinkExistingFileTest extends ApiFunctionalTestCase
         self::assertSame('INVALID_FILE_INPUT', $body['violations'][0]['code']);
     }
 
+    public function testBooleanInputIsRejected(): void
+    {
+        foreach ([true, [true], [['fileUid' => true]]] as $value) {
+            $response = $this->executeApiWriteRequestAs('POST', '/_api/file-articles', 1, [
+                'title'         => 'Article with a boolean',
+                'profile_photo' => $value,
+            ]);
+            $body = $this->decodeResponseBody($response);
+
+            self::assertSame(422, $response->getStatusCode());
+            self::assertSame('INVALID_FILE_INPUT', $body['violations'][0]['code']);
+        }
+    }
+
     public function testColumnWithoutLinkScopeRejectsLinking(): void
     {
         // Same column, no 'link' key: linking is opt-in.
