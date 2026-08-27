@@ -277,12 +277,19 @@ their own record and read its name and path back out of the response.
        qualify, so ``1:/downloads/`` also covers ``1:/downloads/2026/``. Use
        ``1:/`` for a whole storage.
    * - ``check``
-     - ``[ClassName::class, 'method']`` called with the ``sys_file`` row and the
-       request; must return ``true``. Runs **after** ``folders``, so it can
-       narrow the declared scope but never widen it.
+     - ``[ClassName::class, 'method']`` called with the complete ``sys_file`` row
+       and the PSR-7 request; must return ``true``. Runs **after** ``folders``,
+       so it can narrow the declared scope but never widen it.
+
+       ..  code-block:: php
+
+           public function mayLink(array $file, ?ServerRequestInterface $request): bool
+           {
+               return $file['mime_type'] === 'application/pdf';
+           }
 
 At least one of the two is required — an empty scope would allow every file in
-the installation, so it is rejected at load time.
+the installation, so it is rejected when the definition is built.
 
 ..  code-block:: php
 

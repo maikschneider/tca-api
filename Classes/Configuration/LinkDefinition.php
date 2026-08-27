@@ -26,7 +26,7 @@ final readonly class LinkDefinition
      * @param array{0: class-string, 1: string}|null $check  [class, method] called with the sys_file row and the
      *                                                  request; must return true for the link to be allowed.
      */
-    public function __construct(
+    private function __construct(
         public array $folders = [],
         public ?array $check = null,
     ) {

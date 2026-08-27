@@ -150,12 +150,17 @@ final readonly class FileReferenceInputResolver
         return array_intersect_key($item, array_flip(self::WRITABLE_REFERENCE_FIELDS));
     }
 
-    /** @return array<string, mixed>|null */
+    /**
+     * The whole row, not just what the folder gate needs: link.check is handed
+     * this array and a policy will reach for name, mime_type or an own column.
+     *
+     * @return array<string, mixed>|null
+     */
     private function findFile(int $fileUid): ?array
     {
         $found = $this->connectionPool
             ->getConnectionForTable('sys_file')
-            ->select(['uid', 'storage', 'identifier'], 'sys_file', ['uid' => $fileUid])
+            ->select(['*'], 'sys_file', ['uid' => $fileUid])
             ->fetchAssociative();
 
         return $found === false ? null : $found;
