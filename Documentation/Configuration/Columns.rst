@@ -255,6 +255,10 @@ built-in processors:
    configurable processing options. By default the processor is used for every
    ``type=file`` TCA column that has no explicit ``processor`` key.
 
+   ``uid``, ``name`` and ``extension`` identify the underlying ``sys_file``, not
+   the file reference — they are what a client matches a file on across
+   responses. Both processors emit them.
+
    Options are controlled via the ``image`` sub-key on the column definition:
 
    ..  code-block:: php
@@ -281,6 +285,9 @@ built-in processors:
 
        {
            "hero_image": {
+               "uid": 12,
+               "name": "hero.jpg",
+               "extension": "jpg",
                "publicUrl": "/fileadmin/hero.jpg",
                "mimeType": "image/jpeg",
                "fileSize": 204800,
@@ -324,6 +331,9 @@ built-in processors:
 
        {
            "hero_image": {
+               "uid": 12,
+               "name": "hero.jpg",
+               "extension": "jpg",
                "publicUrl": "/fileadmin/_processed_/hero_c.webp",
                "width": 1200,
                "height": 600,

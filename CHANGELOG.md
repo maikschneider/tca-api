@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Link an existing FAL file through a JSON write.** `type=file` columns now accept `12`, `[12, 15]` or `[{"fileUid": 12, "title": "…"}]`, routed through the same second `processDataMap()` call uploads already use. Previously the only way to fill a file column was a multipart upload. Opt-in per column via a `link` scope (`folders` and/or a `check` callable), since uids are enumerable and TYPO3 has no per-frontend-user FAL permissions ([#187](https://github.com/maikschneider/tca-api/issues/187)).
+- File columns now serialize `uid`, `name` and `extension` of the underlying `sys_file` alongside `publicUrl`, `mimeType` and `fileSize`, so a client can identify a file without a custom processor ([#188](https://github.com/maikschneider/tca-api/issues/188)).
 
 ### Fixed
 
