@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Link an existing FAL file through a JSON write.** `type=file` columns now accept `12`, `[12, 15]` or `[{"fileUid": 12, "title": "…"}]`, routed through the same second `processDataMap()` call uploads already use. Previously the only way to fill a file column was a multipart upload. Opt-in per column via a `link` scope (`folders` and/or a `check` callable), since uids are enumerable and TYPO3 has no per-frontend-user FAL permissions ([#187](https://github.com/maikschneider/tca-api/issues/187)).
+
+### Fixed
+
+- **File writes no longer steal another record's file references.** `attachFileReferences()` put the reference *count* in the parent `type=file` column, but `checkValueForFile()` reads that column as a list of `sys_file_reference` uids — so attaching two files to a record re-parented references 1 and 2 from wherever they belonged. The column now receives the `NEW_ref` placeholders and DataHandler writes the count once they resolve. Affects every upload that attached more than one file, or one file to an installation whose `sys_file_reference` uid 1 was in use ([#187](https://github.com/maikschneider/tca-api/issues/187)).
+
 ## [1.0.0] - 2026-08-25
 
 First stable release.

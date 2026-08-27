@@ -78,6 +78,10 @@ All keys are optional.
        value replaces the column's value. See :ref:`column-callbacks`.
    * - ``validators``
      - Array of validation rules. See :ref:`validation`.
+   * - ``link``
+     - Allow JSON writes to reference an existing FAL file on this column, and
+       declare which files are in scope (``folders`` and/or ``check``). Absent
+       means links are rejected. See :ref:`linking-existing-files`.
    * - ``upload``
      - Enable file upload for this column via ``multipart/form-data`` requests.
        Must be an array with at least a ``folder`` key (FAL storage reference,

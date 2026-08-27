@@ -244,3 +244,108 @@ stored file references are serialized in read responses:
             'upload'    => ['folder' => '1:/images/', 'maxSize' => '10M'],
         ],
     ],
+
+..  _linking-existing-files:
+
+Linking an existing file
+========================
+
+Uploading is not the only way to fill a ``type=file`` column. A JSON write may
+reference a file that is already in FAL by its ``sys_file`` uid — no
+``multipart/form-data`` needed.
+
+Linking is **opt-in per column**. The client names the file by uid, and uids are
+enumerable, so a column without a ``link`` scope rejects every link: otherwise
+any authenticated caller could attach an arbitrary file from the installation to
+their own record and read its name and path back out of the response.
+
+..  code-block:: php
+
+    'downloads' => [
+        'groups' => ['list', 'show', 'create', 'update'],
+        'link'   => ['folders' => ['1:/downloads/', '2:/shared/']],
+    ],
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 80
+
+   * - Key
+     - Description
+   * - ``folders``
+     - List of FAL folder identifiers a linkable file must live in. Sub-folders
+       qualify, so ``1:/downloads/`` also covers ``1:/downloads/2026/``. Use
+       ``1:/`` for a whole storage.
+   * - ``check``
+     - ``[ClassName::class, 'method']`` called with the complete ``sys_file`` row
+       and the PSR-7 request; must return ``true``. Runs **after** ``folders``,
+       so it can narrow the declared scope but never widen it.
+
+       ..  code-block:: php
+
+           public function mayLink(array $file, ?ServerRequestInterface $request): bool
+           {
+               return $file['mime_type'] === 'application/pdf';
+           }
+
+At least one of the two is required — an empty scope would allow every file in
+the installation, so it is rejected when the definition is built.
+
+..  code-block:: php
+
+    'downloads' => [
+        'groups' => ['list', 'show', 'create', 'update'],
+        'link'   => [
+            'folders' => ['1:/downloads/'],
+            'check'   => [DownloadPolicy::class, 'mayLink'],
+        ],
+    ],
+
+..  note::
+
+    TYPO3 has no per-frontend-user FAL permissions — file mounts are a backend
+    concept — so ``folders`` is the coarse, declarative boundary and ``check`` is
+    where a per-user or per-record policy belongs.
+
+With a scope declared, all of these are accepted:
+
+..  code-block:: json
+
+    { "profile_photo": 12 }
+    { "downloads": [12, 15] }
+    { "downloads": [{ "fileUid": 12, "title": "Handbook", "description": "…" }] }
+
+The object form additionally sets fields on the reference itself. Writable
+there: ``title``, ``description``, ``alternative``, ``link`` and ``crop``.
+
+An empty list detaches every reference on that column:
+
+..  code-block:: json
+
+    { "profile_photo": [] }
+
+As with uploads, an update **replaces** the column's references rather than
+appending to them.
+
+Rejections are ``422``:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Code
+     - Meaning
+   * - ``FILE_NOT_FOUND``
+     - No ``sys_file`` with that uid.
+   * - ``TOO_MANY_FILES``
+     - More files than the column's TCA ``maxitems`` allows.
+   * - ``INVALID_FILE_INPUT``
+     - The value is neither a uid, a list of uids, nor objects carrying
+       ``fileUid``.
+   * - ``LINKING_DISABLED``
+     - The column declares no ``link`` scope.
+   * - ``FILE_NOT_LINKABLE``
+     - The file is outside the column's ``folders``, or ``check`` refused it.
+
+When a request uploads a file **and** links one on the same column, the upload
+wins and the link is ignored.

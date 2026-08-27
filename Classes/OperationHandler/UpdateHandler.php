@@ -8,6 +8,7 @@ use JsonException;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\DataWriteService;
+use MaikSchneider\TcaApi\DataAccess\FileReferenceInputResolver;
 use MaikSchneider\TcaApi\DataAccess\FileUploadService;
 use MaikSchneider\TcaApi\DataAccess\RelationInputResolver;
 use MaikSchneider\TcaApi\Event\AfterOperationEvent;
@@ -35,6 +36,7 @@ class UpdateHandler implements OperationHandlerInterface
         private readonly DataRepository $dataRepository,
         private readonly FieldValidator $fieldValidator,
         private readonly RelationInputResolver $relationResolver,
+        private readonly FileReferenceInputResolver $fileReferenceResolver,
         private readonly FileUploadService $fileUploadService,
         private readonly UploadValidator $uploadValidator,
         private readonly ResourceSerializer $serializer,
