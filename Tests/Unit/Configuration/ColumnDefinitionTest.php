@@ -342,4 +342,20 @@ final class ColumnDefinitionTest extends TestCase
             ],
         ]);
     }
+
+    #[Test]
+    public function invalidLinkThrows(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Column config "link"');
+        ColumnDefinition::fromArray(['link' => '1:/downloads/']);
+    }
+
+    #[Test]
+    public function linkIsBuiltFromTheRawArray(): void
+    {
+        $column = ColumnDefinition::fromArray(['link' => ['folders' => ['1:/downloads']]]);
+
+        self::assertSame(['1:/downloads/'], $column->link?->folders);
+    }
 }
