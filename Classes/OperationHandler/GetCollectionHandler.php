@@ -124,31 +124,32 @@ class GetCollectionHandler implements OperationHandlerInterface
     }
 
     /**
-     * A sort column the resource does not declare is a client error, not a no-op.
-     * Silently falling back to the default order returns a 200 whose row order
-     * looks intentional and is not, which is indistinguishable from bad data.
+     * Once a resource declares order.allowed, a column outside it is a client
+     * error, not a no-op: silently falling back to the default order returns a
+     * 200 whose row order looks intentional and is not. A resource that declares
+     * nothing states no restriction, so its order parameters stay unchecked.
      */
     private function rejectUnsortableColumns(array $requested, ApiDefinition $config): ?ResponseInterface
     {
+        if ($config->allowedOrder === []) {
+            return null;
+        }
+
         $unknown = array_diff(array_keys($requested), $config->allowedOrder);
 
         if ($unknown === []) {
             return null;
         }
 
-        $description = $config->allowedOrder === []
-            ? sprintf(
-                'Resource "%s" declares no sortable columns, so order[%s] cannot be applied.',
-                $config->resourceName,
-                implode('], order[', $unknown),
-            )
-            : sprintf(
+        return $this->hydraResponseBuilder->buildError(
+            400,
+            sprintf(
                 'Cannot sort by "%s". Sortable columns are: %s.',
                 implode('", "', $unknown),
                 implode(', ', $config->allowedOrder),
-            );
-
-        return $this->hydraResponseBuilder->buildError(400, $description, 'Bad Request');
+            ),
+            'Bad Request',
+        );
     }
 
     private function resolveOrder(array $requested, ApiDefinition $config): array

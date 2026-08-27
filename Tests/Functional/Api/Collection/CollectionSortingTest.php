@@ -61,13 +61,14 @@ final class CollectionSortingTest extends ApiFunctionalTestCase
         self::assertStringContainsString('title, uid', $body['hydra:description']);
     }
 
-    public function testResourceWithoutOrderConfigRejectsAnySortColumn(): void
+    public function testResourceWithoutOrderConfigAcceptsAnySortParameter(): void
     {
+        // No order.allowed means no declared restriction, so nothing to violate.
         $response = $this->executeApiRequest('/_api/colors', ['order' => ['title' => 'asc']]);
         $body = $this->decodeResponseBody($response);
 
-        self::assertSame(400, $response->getStatusCode());
-        self::assertStringContainsString('no sortable columns', $body['hydra:description']);
+        self::assertSame(200, $response->getStatusCode());
+        self::assertArrayHasKey('hydra:member', $body);
     }
 
     public function testRejectionNamesEverySortableColumnThatIsMissing(): void

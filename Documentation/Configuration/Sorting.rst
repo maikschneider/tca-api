@@ -40,10 +40,11 @@ Sorting is controlled via the ``order`` query parameter:
     GET /_api/articles?order[title]=asc
     GET /_api/articles?order[uid]=desc
 
-Only columns listed in ``allowed`` are accepted. Requesting any other column
-returns ``400 Bad Request`` naming the offending column and the sortable set, so
-a typo or a forgotten ``allowed`` entry surfaces instead of silently producing a
-differently ordered ``200``.
+Once ``allowed`` is declared, only the columns listed in it are accepted.
+Requesting any other column returns ``400 Bad Request`` naming the offending
+column and the sortable set, so a typo or a forgotten ``allowed`` entry surfaces
+instead of silently producing a differently ordered ``200``.
 
-A resource without an ``order`` section has no sortable columns at all, so every
-``order`` parameter on it is rejected. Declare ``allowed`` to opt in.
+A resource that declares no ``allowed`` states no restriction, so its ``order``
+parameters are not rejected — they fall back to ``default``, or to raw database
+order when there is no ``default`` either.
