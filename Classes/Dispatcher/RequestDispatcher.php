@@ -250,10 +250,10 @@ final class RequestDispatcher
     {
         $params = $request->getQueryParams();
         $defaultItemsPerPage = (int)$siteSettings->get('tca_api.defaultItemsPerPage', self::DEFAULT_ITEMS_PER_PAGE);
+        // Resolve the requested page size including the site-settings default; the hard
+        // maxItemsPerPage clamp is applied centrally in ResourceDataProvider so both the
+        // HTTP and Fluid data paths enforce it identically.
         $itemsPerPage = max(1, (int)($params['itemsPerPage'] ?? $config->itemsPerPage ?? $defaultItemsPerPage));
-        if ($config->maxItemsPerPage !== null) {
-            $itemsPerPage = min($itemsPerPage, $config->maxItemsPerPage);
-        }
         $filters = $this->resolveFilterParams($params, $config);
 
         return $request

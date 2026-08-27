@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\OperationHandler;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
-use MaikSchneider\TcaApi\DataAccess\DataRepository;
-use MaikSchneider\TcaApi\DataAccess\EmbedPreloader;
+use MaikSchneider\TcaApi\DataAccess\ItemQuery;
+use MaikSchneider\TcaApi\DataAccess\ResourceDataProvider;
 use MaikSchneider\TcaApi\Event\AfterOperationEvent;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
-use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -22,12 +21,10 @@ class GetItemHandler implements OperationHandlerInterface
     use LanguageAwareTrait;
 
     public function __construct(
-        private readonly DataRepository $dataRepository,
-        private readonly ResourceSerializer $serializer,
+        private readonly ResourceDataProvider $dataProvider,
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly ResponseFactoryInterface $responseFactory,
         private readonly EventDispatcherInterface $eventDispatcher,
-        private readonly EmbedPreloader $embedPreloader,
     ) {
     }
 
@@ -53,16 +50,19 @@ class GetItemHandler implements OperationHandlerInterface
     {
         $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
         $baseUrl   = $apiPrefix . '/' . $config->resourceName;
-        $language  = $this->languageFromRequest($request);
 
-        $row = $this->dataRepository->findById($config->table, $uid, $config, $language);
-        if ($row === null) {
+        $serialized = $this->dataProvider->getItem($config, $uid, new ItemQuery(
+            fields:    array_filter($fields, 'is_string'),
+            language:  $this->languageFromRequest($request),
+            operation: 'show',
+            request:   $request,
+            baseUrl:   $baseUrl,
+        ));
+
+        if ($serialized === null) {
             return $this->responseFactory->createResponse(404)
                 ->withHeader('Content-Type', 'application/ld+json');
         }
-
-        $preloaded  = $this->embedPreloader->preload([$row], $config, $language);
-        $serialized = $this->serializer->serialize($row, $config, $baseUrl, $fields, $preloaded, -1, [], 'show');
 
         $event = new AfterOperationEvent('show', $serialized);
         $this->eventDispatcher->dispatch($event);

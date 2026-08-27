@@ -5,12 +5,10 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\OperationHandler;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
-use MaikSchneider\TcaApi\DataAccess\DataRepository;
-use MaikSchneider\TcaApi\DataAccess\EmbedPreloader;
+use MaikSchneider\TcaApi\DataAccess\CollectionQuery;
+use MaikSchneider\TcaApi\DataAccess\ResourceDataProvider;
 use MaikSchneider\TcaApi\Event\AfterOperationEvent;
-use MaikSchneider\TcaApi\Filter\FilterContext;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
-use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -22,11 +20,9 @@ class GetCollectionHandler implements OperationHandlerInterface
     use LanguageAwareTrait;
 
     public function __construct(
-        private readonly DataRepository $dataRepository,
-        private readonly ResourceSerializer $serializer,
+        private readonly ResourceDataProvider $dataProvider,
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly EventDispatcherInterface $eventDispatcher,
-        private readonly EmbedPreloader $embedPreloader,
     ) {
     }
 
@@ -62,75 +58,33 @@ class GetCollectionHandler implements OperationHandlerInterface
     ): ResponseInterface {
         $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
         $baseUrl   = $apiPrefix . '/' . $config->resourceName;
-        $offset    = ($page - 1) * $itemsPerPage;
 
-        $safeFilters = $this->resolveFilters($filters, $config, $request);
-        $safeOrder   = $this->resolveOrder($order, $config);
+        $result = $this->dataProvider->getCollection($config, new CollectionQuery(
+            page:         $page,
+            itemsPerPage: $itemsPerPage,
+            filters:      $filters,
+            order:        $order,
+            fields:       array_filter($fields, 'is_string'),
+            language:     $this->languageFromRequest($request),
+            operation:    'list',
+            request:      $request,
+            baseUrl:      $baseUrl,
+        ));
 
-        $language  = $this->languageFromRequest($request);
-        $total     = $this->dataRepository->count($config->table, $safeFilters, $config, $language);
-        $rows      = $this->dataRepository->findCollection($config->table, $safeFilters, $itemsPerPage, $offset, $safeOrder, $config, $language);
-        $preloaded = $this->embedPreloader->preload($rows, $config, $language);
-        $members   = $this->serializer->serializeCollection($rows, $config, $baseUrl, $fields, $preloaded, 'list');
-
-        $event = new AfterOperationEvent('list', $members);
+        $event = new AfterOperationEvent('list', $result->members);
         $this->eventDispatcher->dispatch($event);
 
         $queryState = array_diff_key($request->getQueryParams(), ['page' => null]);
-        $queryState['itemsPerPage'] = $itemsPerPage;
+        $queryState['itemsPerPage'] = $result->itemsPerPage;
 
         return $this->hydraResponseBuilder->buildCollection(
             $event->getData(),
-            $total,
+            $result->total,
             $baseUrl,
-            $page,
-            $itemsPerPage,
+            $result->page,
+            $result->itemsPerPage,
             $queryState,
             $config,
         );
-    }
-
-    private function resolveFilters(array $requested, ApiDefinition $config, ServerRequestInterface $request): array
-    {
-        $safe = [];
-
-        foreach ($config->filters as $column => $filterDef) {
-            if ($filterDef->isPrivate) {
-                $value = $filterDef->default;
-            } elseif (isset($requested[$column])) {
-                $value = $requested[$column];
-            } elseif ($filterDef->default !== null) {
-                $value = $filterDef->default;
-            } else {
-                continue;
-            }
-
-            $safe[$column] = [$filterDef->filterClass, new FilterContext(
-                value:          $value,
-                table:          $config->table,
-                column:         $column,
-                options:        $filterDef->options,
-                request:        $request,
-                resourceConfig: $config,
-            )];
-        }
-
-        return $safe;
-    }
-
-    private function resolveOrder(array $requested, ApiDefinition $config): array
-    {
-        if (empty($requested)) {
-            return $config->defaultOrder;
-        }
-
-        $safe = [];
-        foreach ($requested as $column => $direction) {
-            if (\in_array($column, $config->allowedOrder, true)) {
-                $safe[$column] = \strtolower($direction) === 'desc' ? 'desc' : 'asc';
-            }
-        }
-
-        return $safe ?: $config->defaultOrder;
     }
 }
