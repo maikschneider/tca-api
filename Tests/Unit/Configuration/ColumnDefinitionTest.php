@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Unit\Configuration;
 
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
+use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Tests\Unit\Validation\Fixtures\RecordingValidator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -77,6 +78,22 @@ final class ColumnDefinitionTest extends TestCase
         self::assertSame([], $def->groups);
     }
 
+    #[Test]
+    #[DataProvider('validNestedWriteProvider')]
+    public function validNestedWriteConfigIsAccepted(mixed $nestedWrite): void
+    {
+        $definition = ColumnDefinition::fromArray(['nestedWrite' => $nestedWrite]);
+
+        self::assertSame($nestedWrite, $definition->nestedWrite);
+    }
+
+    public static function validNestedWriteProvider(): \Generator
+    {
+        yield 'access role' => [AccessRole::FE_USER];
+        yield 'frontend group tuple' => [[AccessRole::FE_GROUP, [1, 2]]];
+        yield 'callable tuple' => [['App\\AccessPolicy', 'canCreate']];
+    }
+
     // ── Invalid inputs ──────────────────────────────────────────────────
 
     #[Test]
@@ -116,6 +133,21 @@ final class ColumnDefinitionTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('required');
         ColumnDefinition::fromArray(['required' => 'yes']);
+    }
+
+    #[Test]
+    #[DataProvider('invalidNestedWriteProvider')]
+    public function invalidNestedWriteThrows(mixed $nestedWrite): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Column config "nestedWrite"');
+        ColumnDefinition::fromArray(['nestedWrite' => $nestedWrite]);
+    }
+
+    public static function invalidNestedWriteProvider(): \Generator
+    {
+        yield 'scalar' => ['FE_USER'];
+        yield 'empty tuple' => [[]];
     }
 
     #[Test]

@@ -147,6 +147,34 @@ violation naming the column and the table.
 Passing an existing UID or IRI never needs a registered child resource, so
 linking is unaffected.
 
+Nested writes without a child resource
+--------------------------------------
+
+A child table that should not be reachable as a resource of its own does not
+need one. Declare ``nestedWrite`` on the parent column instead — it states the
+role required to create through that relation, and the child's shape is derived
+from TCA:
+
+..  code-block:: php
+
+    use MaikSchneider\TcaApi\Enum\AccessRole;
+
+    'columns' => [
+        'note_id' => [
+            'groups'      => ['list', 'show', 'create'],
+            'nestedWrite' => AccessRole::FE_USER,
+        ],
+    ],
+
+``nestedWrite`` accepts the same shapes as a ``security`` entry: an
+``AccessRole``, an ``[AccessRole, groupIds]`` tuple, or a
+``[class-string, method-string]`` callable.
+
+When the child table *is* registered, ``nestedWrite`` still wins for the access
+check — who may write through a relation is a narrower question than what the
+child resource permits on its own endpoint — while columns, validation and
+ownership continue to come from the registered resource.
+
 ..  code-block:: json
 
     {
