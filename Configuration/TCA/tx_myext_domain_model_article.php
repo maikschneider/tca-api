@@ -139,6 +139,33 @@ return [
                 'type' => 'number',
             ],
         ],
+        'note_id' => [
+            // Points at a table no fixture resource covers.
+            'label' => 'Note (select, unregistered foreign table)',
+            'config' => [
+                'type' => 'select',
+                'renderType' => 'selectSingle',
+                'foreign_table' => 'tx_myext_domain_model_note',
+            ],
+        ],
+        'page_id' => [
+            // Points at a table no fixture resource covers, so nested creation on it
+            // cannot resolve a child config.
+            'label' => 'Page (select, unregistered foreign table)',
+            'config' => [
+                'type' => 'select',
+                'renderType' => 'selectSingle',
+                'foreign_table' => 'pages',
+            ],
+        ],
+        'related_pages' => [
+            'label' => 'Related Pages (group, unregistered foreign table)',
+            'config' => [
+                'type' => 'group',
+                'allowed' => 'pages',
+                'size' => 5,
+            ],
+        ],
         'related_colors' => [
             'label' => 'Related Colors (group, single table)',
             'config' => [

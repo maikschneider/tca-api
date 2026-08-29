@@ -10,6 +10,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **`PreloadingProcessorInterface`.** A processor can now implement `prepare(array $rows, ApiDefinition $config)` to fetch what it needs for a whole collection in one query, instead of paying per record. Embedded columns already had `EmbedPreloader` and `FileReferencePreloader`; processors had nothing ([#190](https://github.com/maikschneider/tca-api/issues/190)).
+- **`nestedWrite` column option.** Declares the access role required to create a related record through that column, and opts the column into nested creation when the child table has no resource of its own — no more registering a resource with `operations => []` purely to be found by `resolveChildConfig()` ([#191](https://github.com/maikschneider/tca-api/issues/191)).
+- **Link an existing FAL file through a JSON write.** `type=file` columns now accept `12`, `[12, 15]` or `[{"fileUid": 12, "title": "…"}]`, routed through the same second `processDataMap()` call uploads already use. Previously the only way to fill a file column was a multipart upload. Opt-in per column via a `link` scope (`folders` and/or a `check` callable), since uids are enumerable and TYPO3 has no per-frontend-user FAL permissions ([#187](https://github.com/maikschneider/tca-api/issues/187)).
+- File columns now serialize `uid`, `name` and `extension` of the underlying `sys_file` alongside `publicUrl`, `mimeType` and `fileSize`, so a client can identify a file without a custom processor ([#188](https://github.com/maikschneider/tca-api/issues/188)).
+
+### Fixed
+
+- **File writes no longer steal another record's file references.** `attachFileReferences()` put the reference *count* in the parent `type=file` column, but `checkValueForFile()` reads that column as a list of `sys_file_reference` uids — so attaching two files to a record re-parented references 1 and 2 from wherever they belonged. The column now receives the `NEW_ref` placeholders and DataHandler writes the count once they resolve. Affects every upload that attached more than one file, or one file to an installation whose `sys_file_reference` uid 1 was in use ([#187](https://github.com/maikschneider/tca-api/issues/187)).
+
+### Changed
+
+- **BREAKING:** A nested object on a relation column whose table is not registered as an API resource is now rejected with `422` / `UNRESOLVABLE_RELATION` instead of being dropped from the write ([#185](https://github.com/maikschneider/tca-api/issues/185)).
+- **BREAKING:** On a resource that declares `order.allowed`, an `order` parameter naming a column outside it now returns `400 Bad Request` instead of silently falling back to the default order. Resources without `order.allowed` are unaffected (#186).
 
 ## [1.0.0] - 2026-08-25
 

@@ -27,6 +27,9 @@ final readonly class OpenApiSchemasBuilder
             'FileObject' => [
                 'type' => 'object',
                 'properties' => [
+                    'uid'       => ['type' => 'integer'],
+                    'name'      => ['type' => 'string'],
+                    'extension' => ['type' => 'string'],
                     'publicUrl' => ['type' => 'string'],
                     'mimeType'  => ['type' => 'string'],
                     'fileSize'  => ['type' => 'integer'],

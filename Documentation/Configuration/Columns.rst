@@ -69,6 +69,11 @@ All keys are optional.
        when multiple resources are registered for the same table, or to
        explicitly control which resource's security and column config applies
        to nested writes. See :ref:`relations` for a full example.
+   * - ``nestedWrite``
+     - Access role required to create a related record **through this column**.
+       Also opts the column into nested creation when the child table has no
+       resource of its own. Same shapes as a ``security`` entry. See
+       :ref:`relations`.
    * - ``processor``
      - Column processor class. Does **not** trigger explicit mode. See
        :ref:`column-processors`.
@@ -78,6 +83,10 @@ All keys are optional.
        value replaces the column's value. See :ref:`column-callbacks`.
    * - ``validators``
      - Array of validation rules. See :ref:`validation`.
+   * - ``link``
+     - Allow JSON writes to reference an existing FAL file on this column, and
+       declare which files are in scope (``folders`` and/or ``check``). Absent
+       means links are rejected. See :ref:`linking-existing-files`.
    * - ``upload``
      - Enable file upload for this column via ``multipart/form-data`` requests.
        Must be an array with at least a ``folder`` key (FAL storage reference,
@@ -251,6 +260,10 @@ built-in processors:
    configurable processing options. By default the processor is used for every
    ``type=file`` TCA column that has no explicit ``processor`` key.
 
+   ``uid``, ``name`` and ``extension`` identify the underlying ``sys_file``, not
+   the file reference — they are what a client matches a file on across
+   responses. Both processors emit them.
+
    Options are controlled via the ``image`` sub-key on the column definition:
 
    ..  code-block:: php
@@ -277,6 +290,9 @@ built-in processors:
 
        {
            "hero_image": {
+               "uid": 12,
+               "name": "hero.jpg",
+               "extension": "jpg",
                "publicUrl": "/fileadmin/hero.jpg",
                "mimeType": "image/jpeg",
                "fileSize": 204800,
@@ -320,6 +336,9 @@ built-in processors:
 
        {
            "hero_image": {
+               "uid": 12,
+               "name": "hero.jpg",
+               "extension": "jpg",
                "publicUrl": "/fileadmin/_processed_/hero_c.webp",
                "width": 1200,
                "height": 600,

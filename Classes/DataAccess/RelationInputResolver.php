@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\DataAccess;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Security\AccessController;
+use MaikSchneider\TcaApi\Serializer\RelationSerializer;
 use MaikSchneider\TcaApi\Validation\FieldValidator;
 use Psr\Http\Message\ServerRequestInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
@@ -43,7 +45,10 @@ use TYPO3\CMS\Core\Utility\StringUtility;
  * placeholders to real UIDs and calls the respective processDBdata handler.
  *
  * Security gate: object creation is only allowed for foreign tables that have
- * an entry in ApiRegistry. Objects for unregistered tables are silently skipped.
+ * an entry in ApiRegistry, or for a parent column that declares nestedWrite —
+ * which also states the role required to create through that relation. A nested
+ * object that matches neither is rejected with an UNRESOLVABLE_RELATION
+ * violation rather than dropped from the write.
  *
  * Child security + validation gate: before creating any nested child record,
  * the child resource's security['create'] role is checked via AccessController,
@@ -113,13 +118,14 @@ final readonly class RelationInputResolver
 
                 $subConfig = $this->resolveChildConfig($foreignTable, $col, $parentDefinition);
                 if ($subConfig === null) {
+                    $violations[] = $this->unresolvableRelation($col, $foreignTable, null);
                     continue;
                 }
 
                 $childPlaceholders = [];
                 foreach ($newObjects as $index => $childData) {
                     // Child security check
-                    $childViolation = $this->checkChildSecurity($subConfig, $request, $col, $index);
+                    $childViolation = $this->checkChildSecurity($subConfig, $request, $col, $index, $parentDefinition->getColumn($col));
                     if ($childViolation !== null) {
                         $violations[] = $childViolation;
                         continue;
@@ -155,7 +161,7 @@ final readonly class RelationInputResolver
                     $subConfig = $this->resolveChildConfig($foreignTable, $col, $parentDefinition);
                     if ($subConfig !== null) {
                         // Child security check
-                        $childViolation = $this->checkChildSecurity($subConfig, $request, $col, null);
+                        $childViolation = $this->checkChildSecurity($subConfig, $request, $col, null, $parentDefinition->getColumn($col));
                         if ($childViolation !== null) {
                             $violations[] = $childViolation;
                             continue;
@@ -171,8 +177,9 @@ final readonly class RelationInputResolver
                         $ph                              = StringUtility::getUniqueId('NEW');
                         $extraDataMap[$foreignTable][$ph] = $this->prepareChildData($value, $pid, $feUserRow, $subConfig);
                         $scalarBody[$col]                = $ph;
+                    } else {
+                        $violations[] = $this->unresolvableRelation($col, $foreignTable, null);
                     }
-                    // Unregistered foreign table → skip entirely (no scalarBody entry)
                     continue;
                 }
                 // Non-relation assoc array → pass through unchanged
@@ -186,9 +193,11 @@ final readonly class RelationInputResolver
                 $subConfig    = $this->resolveChildConfig($effectiveFt, $col, $parentDefinition);
                 $resolvedUids = [];
                 foreach ($value as $index => $item) {
-                    if (is_array($item) && !array_is_list($item) && $subConfig !== null) {
+                    if (is_array($item) && !array_is_list($item) && $subConfig === null) {
+                        $violations[] = $this->unresolvableRelation($col, $effectiveFt, $index);
+                    } elseif (is_array($item) && !array_is_list($item)) {
                         // Child security check
-                        $childViolation = $this->checkChildSecurity($subConfig, $request, $col, $index);
+                        $childViolation = $this->checkChildSecurity($subConfig, $request, $col, $index, $parentDefinition->getColumn($col));
                         if ($childViolation !== null) {
                             $violations[] = $childViolation;
                             continue;
@@ -209,7 +218,6 @@ final readonly class RelationInputResolver
                     } elseif (MathUtility::canBeInterpretedAsInteger($item)) {
                         $resolvedUids[] = (int)$item;
                     }
-                    // Unregistered table → skip new-object items
                 }
                 // ColumnFilterTrait will implode(',', $array) on this
                 $scalarBody[$col] = $resolvedUids;
@@ -224,6 +232,26 @@ final readonly class RelationInputResolver
     }
 
     /**
+     * A nested object on a relation column whose table has no ApiRegistry entry
+     * cannot be created. Reporting it is the difference between a 422 naming the
+     * column and a 201 whose relation is quietly missing.
+     *
+     * @return array{propertyPath: string, message: string, code: string}
+     */
+    private function unresolvableRelation(string $col, string $foreignTable, int|string|null $index): array
+    {
+        return [
+            'propertyPath' => $index !== null ? $col . '.' . $index : $col,
+            'message'      => sprintf(
+                "Cannot create a nested '%s': table '%s' is not registered as an API resource.",
+                $col,
+                $foreignTable,
+            ),
+            'code'         => 'UNRESOLVABLE_RELATION',
+        ];
+    }
+
+    /**
      * Check whether the current request is allowed to create a child record.
      *
      * @param ApiDefinition $subConfig ApiRegistry entry for the child table
@@ -232,9 +260,14 @@ final readonly class RelationInputResolver
      * @param int|string|null $index Array index for array paths, null for hasOne
      * @return array{propertyPath: string, message: string, code: string}|null
      */
-    private function checkChildSecurity(ApiDefinition $subConfig, ServerRequestInterface $request, string $col, int|string|null $index): ?array
+    private function checkChildSecurity(ApiDefinition $subConfig, ServerRequestInterface $request, string $col, int|string|null $index, ?ColumnDefinition $columnDef): ?array
     {
-        $requiredRole = $subConfig->securityRole('create');
+        // The column's own nestedWrite wins: it states who may create *through this
+        // relation*, which is a narrower question than what the child resource
+        // allows on its own endpoint.
+        $requiredRole = $columnDef !== null && $columnDef->nestedWrite !== null
+            ? $columnDef->nestedWrite
+            : $subConfig->securityRole('create');
         if ($this->accessController->isAllowed($requiredRole, $request)) {
             return null;
         }
@@ -345,7 +378,20 @@ final readonly class RelationInputResolver
             }
             return $resolved;
         }
-        return $this->apiRegistry->getByTable($foreignTable);
+
+        $registered = $this->apiRegistry->getByTable($foreignTable);
+        if ($registered !== null) {
+            return $registered;
+        }
+
+        // A column may opt into nested creation on its own, without the child table
+        // being reachable as a resource of its own. Everything the write needs then
+        // comes from TCA, the same default-mode config the read side synthesizes.
+        if ($columnDef?->nestedWrite !== null) {
+            return RelationSerializer::buildDefaultConfig($foreignTable, $columnDef);
+        }
+
+        return null;
     }
 
     /**
