@@ -140,7 +140,12 @@ Writing nested objects
 
 When a create or update request contains a related record as an **object**
 (rather than a UID), TCA_API creates the child record in-line. The child
-table must have a registered resource in the API registry.
+table must have a registered resource in the API registry; a nested object for
+an unregistered table is rejected with ``422`` and an ``UNRESOLVABLE_RELATION``
+violation naming the column and the table.
+
+Passing an existing UID or IRI never needs a registered child resource, so
+linking is unaffected.
 
 ..  code-block:: json
 

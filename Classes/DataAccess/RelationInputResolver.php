@@ -43,7 +43,8 @@ use TYPO3\CMS\Core\Utility\StringUtility;
  * placeholders to real UIDs and calls the respective processDBdata handler.
  *
  * Security gate: object creation is only allowed for foreign tables that have
- * an entry in ApiRegistry. Objects for unregistered tables are silently skipped.
+ * an entry in ApiRegistry. A nested object for an unregistered table is rejected
+ * with an UNRESOLVABLE_RELATION violation rather than dropped from the write.
  *
  * Child security + validation gate: before creating any nested child record,
  * the child resource's security['create'] role is checked via AccessController,
@@ -113,6 +114,7 @@ final readonly class RelationInputResolver
 
                 $subConfig = $this->resolveChildConfig($foreignTable, $col, $parentDefinition);
                 if ($subConfig === null) {
+                    $violations[] = $this->unresolvableRelation($col, $foreignTable, null);
                     continue;
                 }
 
@@ -171,8 +173,9 @@ final readonly class RelationInputResolver
                         $ph                              = StringUtility::getUniqueId('NEW');
                         $extraDataMap[$foreignTable][$ph] = $this->prepareChildData($value, $pid, $feUserRow, $subConfig);
                         $scalarBody[$col]                = $ph;
+                    } else {
+                        $violations[] = $this->unresolvableRelation($col, $foreignTable, null);
                     }
-                    // Unregistered foreign table → skip entirely (no scalarBody entry)
                     continue;
                 }
                 // Non-relation assoc array → pass through unchanged
@@ -186,7 +189,9 @@ final readonly class RelationInputResolver
                 $subConfig    = $this->resolveChildConfig($effectiveFt, $col, $parentDefinition);
                 $resolvedUids = [];
                 foreach ($value as $index => $item) {
-                    if (is_array($item) && !array_is_list($item) && $subConfig !== null) {
+                    if (is_array($item) && !array_is_list($item) && $subConfig === null) {
+                        $violations[] = $this->unresolvableRelation($col, $effectiveFt, $index);
+                    } elseif (is_array($item) && !array_is_list($item)) {
                         // Child security check
                         $childViolation = $this->checkChildSecurity($subConfig, $request, $col, $index);
                         if ($childViolation !== null) {
@@ -209,7 +214,6 @@ final readonly class RelationInputResolver
                     } elseif (MathUtility::canBeInterpretedAsInteger($item)) {
                         $resolvedUids[] = (int)$item;
                     }
-                    // Unregistered table → skip new-object items
                 }
                 // ColumnFilterTrait will implode(',', $array) on this
                 $scalarBody[$col] = $resolvedUids;
@@ -221,6 +225,26 @@ final readonly class RelationInputResolver
         }
 
         return new ResolvedInput($scalarBody, $extraDataMap, $violations);
+    }
+
+    /**
+     * A nested object on a relation column whose table has no ApiRegistry entry
+     * cannot be created. Reporting it is the difference between a 422 naming the
+     * column and a 201 whose relation is quietly missing.
+     *
+     * @return array{propertyPath: string, message: string, code: string}
+     */
+    private function unresolvableRelation(string $col, string $foreignTable, int|string|null $index): array
+    {
+        return [
+            'propertyPath' => $index !== null ? $col . '.' . $index : $col,
+            'message'      => sprintf(
+                "Cannot create a nested '%s': table '%s' is not registered as an API resource.",
+                $col,
+                $foreignTable,
+            ),
+            'code'         => 'UNRESOLVABLE_RELATION',
+        ];
     }
 
     /**
