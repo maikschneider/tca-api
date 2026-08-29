@@ -32,6 +32,7 @@ final readonly class ColumnDefinition
         public readonly ?string $column        = null,
         public readonly mixed $callback      = null,
         public readonly ?UploadDefinition $upload = null,
+        public readonly ?LinkDefinition $link = null,
         public readonly ?ImageDefinition $image = null,
         public readonly ?RouteDefinition $route = null,
         public readonly mixed $nestedWrite = null,
@@ -294,6 +295,15 @@ final readonly class ColumnDefinition
             $upload = UploadDefinition::fromArray($raw['upload']);
         }
 
+        // ── link ──────────────────────────────────────────────────────────
+        $link = null;
+        if (\array_key_exists('link', $raw)) {
+            if (!\is_array($raw['link'])) {
+                throw new \InvalidArgumentException('Column config "link" must be an array.');
+            }
+            $link = LinkDefinition::fromArray($raw['link']);
+        }
+
         // ── image ─────────────────────────────────────────────────────────
         $image = null;
         if (\array_key_exists('image', $raw)) {
@@ -349,6 +359,7 @@ final readonly class ColumnDefinition
             column:       $column,
             callback:     $callback,
             upload:       $upload,
+            link:         $link,
             image:        $image,
             route:        $route,
             nestedWrite:  $nestedWrite,

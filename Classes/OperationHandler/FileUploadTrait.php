@@ -122,7 +122,12 @@ trait FileUploadTrait
      *
      * uid_foreign is set explicitly on each sys_file_reference entry so DataHandler
      * can write the correct parent link regardless of inline-relation remapping.
-     * The parent column receives the reference count so TYPO3 keeps it consistent.
+     *
+     * The parent column receives the NEW_ref placeholders, not the reference count.
+     * checkValueForFile() reads that column as a list of sys_file_reference uids, so
+     * a count of 2 means "reference uid 2" and re-parents whatever record that
+     * reference belonged to. DataHandler writes the count itself once the
+     * placeholders resolve.
      *
      * @param array<string, array<string, array>> $storedFiles column → [refKey → refData]
      * @param WriteContext                         $writeContext Same context as the parent write
@@ -137,7 +142,7 @@ trait FileUploadTrait
         $refDataMap         = [];
 
         foreach ($storedFiles as $column => $refs) {
-            $parentColumnValues[$column] = count($refs);
+            $parentColumnValues[$column] = implode(',', array_keys($refs));
             foreach ($refs as $refKey => $refData) {
                 $refData['uid_foreign'] = $uid;
                 $refDataMap[$refKey]    = $refData;
