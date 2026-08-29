@@ -58,6 +58,26 @@ final class WriteNestedWriteColumnTest extends ApiFunctionalTestCase
         self::assertSame('CHILD_FORBIDDEN', $body['violations'][0]['code']);
     }
 
+    public function testColumnRoleOverridesRegisteredChildResourceRole(): void
+    {
+        $this->registerNotes(AccessRole::BE_ADMIN);
+        $this->registerArticles(AccessRole::FE_USER);
+
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/nw-articles', 1, [
+            'title'   => 'Article creating a registered note',
+            'note_id' => ['title' => 'Registered child note'],
+        ]);
+
+        self::assertSame(201, $response->getStatusCode());
+
+        $created = $this->getConnectionPool()
+            ->getConnectionForTable('tx_myext_domain_model_note')
+            ->select(['uid'], 'tx_myext_domain_model_note', ['title' => 'Registered child note'])
+            ->fetchAssociative();
+
+        self::assertIsArray($created, 'the nested note was not created');
+    }
+
     public function testColumnWithoutNestedWriteStillRejectsTheUnregisteredTable(): void
     {
         $this->registerArticles(null);
@@ -92,6 +112,23 @@ final class WriteNestedWriteColumnTest extends ApiFunctionalTestCase
                 'note_id' => $noteColumn,
             ],
             'security' => ['create' => AccessRole::FE_USER],
+        ]);
+    }
+
+    private function registerNotes(AccessRole $createRole): void
+    {
+        $this->registerResource('nw-notes', [
+            'general' => [
+                'table'        => 'tx_myext_domain_model_note',
+                'resourceName' => 'nw-notes',
+                'resourceType' => 'Note',
+                'operations'   => ['create'],
+                'storagePid'   => 1,
+            ],
+            'columns' => [
+                'title' => ['groups' => ['create'], 'required' => true],
+            ],
+            'security' => ['create' => $createRole],
         ]);
     }
 }
