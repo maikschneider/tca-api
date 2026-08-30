@@ -5,13 +5,18 @@ declare(strict_types=1);
 use MaikSchneider\TcaApi\ConfigurationModuleProvider\TcaApiConfigurationProvider;
 use MaikSchneider\TcaApi\Controller\ApiDocumentationController;
 use MaikSchneider\TcaApi\DependencyInjection\PreloadingProcessorCompilerPass;
+use MaikSchneider\TcaApi\Serializer\Processing\PreloadingProcessorInterface;
+use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
 
 return static function (ContainerConfigurator $containerConfigurator, ContainerBuilder $containerBuilder): void {
     $services = $containerConfigurator->services();
-    $containerBuilder->addCompilerPass(new PreloadingProcessorCompilerPass());
+    $containerBuilder->registerForAutoconfiguration(PreloadingProcessorInterface::class)
+        ->addTag(PreloadingProcessorInterface::SERVICE_TAG);
+    // Run after autoconfiguration has materialized the interface rule as tags.
+    $containerBuilder->addCompilerPass(new PreloadingProcessorCompilerPass(), PassConfig::TYPE_BEFORE_REMOVING);
 
     // The "Integrations" backend module (Swagger UI) depends on the v14-only
     // ComponentFactory. Excluded from the Classes/* autowiring glob in
