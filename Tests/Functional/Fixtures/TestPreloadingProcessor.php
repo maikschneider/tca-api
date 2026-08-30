@@ -23,6 +23,8 @@ final class TestPreloadingProcessor implements ColumnProcessorInterface, Preload
     /** @var array<int, string> */
     private array $batch = [];
 
+    private bool $prepared = false;
+
     public static function reset(): void
     {
         self::$prepareCalls = 0;
@@ -33,6 +35,7 @@ final class TestPreloadingProcessor implements ColumnProcessorInterface, Preload
     {
         ++self::$prepareCalls;
         self::$preparedRowCounts[] = \count($rows);
+        $this->prepared = true;
 
         foreach ($rows as $row) {
             $this->batch[(int)$row['uid']] = 'batched-' . $row['uid'];
@@ -43,6 +46,10 @@ final class TestPreloadingProcessor implements ColumnProcessorInterface, Preload
     {
         $uid = (int)($context['rawRow']['uid'] ?? 0);
 
-        return $this->batch[$uid] ?? 'unbatched';
+        if ($this->prepared) {
+            return $this->batch[$uid] ?? 'missing-from-batch';
+        }
+
+        return 'unbatched';
     }
 }

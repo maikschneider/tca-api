@@ -45,7 +45,7 @@ final class ResourceSerializer
     /** @var array<string, array<string, ColumnDefinition>> Column maps cached per table+mode to avoid rebuilding on every row in a collection. */
     private array $columnMapCache = [];
 
-    /** @var array<string, array<class-string, ColumnProcessorInterface>> Processors prepared for the current collection, per table. */
+    /** @var array<int, array<class-string, array{processor: ColumnProcessorInterface, uids: array<int, true>}>> Processors prepared for the current collection, per API definition. */
     private array $preparedProcessors = [];
 
     public function __construct(
@@ -155,7 +155,7 @@ final class ResourceSerializer
                     continue;
                 }
 
-                $result[$column] = $this->applyColumnProcessor($value, $columnDef, $result, $row, $config->table, $column, $uid);
+                $result[$column] = $this->applyColumnProcessor($value, $columnDef, $result, $row, $config, $column, $uid);
                 continue;
             }
 
@@ -204,7 +204,7 @@ final class ResourceSerializer
                 $result[$virtualPropertyName] = $this->fileFieldSerializer->serialize($columnRef, $columnField, $virtualPropDef, $config->table, $uid, $preloadedFiles);
             } elseif ($virtualPropDef->processor !== null) {
                 $value = $columnRef !== null ? ($row[$columnRef] ?? null) : null;
-                $result[$virtualPropertyName] = $this->applyColumnProcessor($value, $virtualPropDef, $result, $row, $config->table, $virtualPropertyName, $uid);
+                $result[$virtualPropertyName] = $this->applyColumnProcessor($value, $virtualPropDef, $result, $row, $config, $virtualPropertyName, $uid);
             }
 
             // A callback, when present, always runs last
@@ -262,9 +262,13 @@ final class ResourceSerializer
             return;
         }
 
-        $definitions = $this->resolveColumnMap($config) + $config->virtualProperties;
-        $schema      = $this->getSchema($config->table);
-        $prepared    = [];
+        $definitions  = $this->resolveColumnMap($config) + $config->virtualProperties;
+        $schema       = $this->getSchema($config->table);
+        $prepared     = [];
+        $preparedUids = [];
+        foreach ($rows as $row) {
+            $preparedUids[(int)$row['uid']] = true;
+        }
 
         foreach ($definitions as $name => $definition) {
             $processorClass = $definition->processor;
@@ -302,10 +306,13 @@ final class ResourceSerializer
                 0,
             );
 
-            // Held so process() runs on the instance that was prepared. Keyed by
-            // table as well, so an embedded resource using the same processor
-            // class does not read a batch prepared for the parent's rows.
-            $this->preparedProcessors[$config->table][$processorClass] = $processor;
+            // Scope the instance to this exact API definition and the rows passed
+            // to prepare(). A same-table embedded record outside the page must use
+            // a cold processor rather than read an unrelated prepared batch.
+            $this->preparedProcessors[spl_object_id($config)][$processorClass] = [
+                'processor' => $processor,
+                'uids'      => $preparedUids,
+            ];
         }
     }
 
@@ -346,7 +353,7 @@ final class ResourceSerializer
         ColumnDefinition $columnDef,
         array $serializedRow,
         array $rawRow,
-        string $table,
+        ApiDefinition $apiConfig,
         string $column,
         int $uid,
     ): mixed {
@@ -356,13 +363,15 @@ final class ResourceSerializer
 
         /** @var class-string<ColumnProcessorInterface> $processorClass */
         $processorClass = $columnDef->processor;
-        $processor = $this->preparedProcessors[$table][$processorClass]
-            ?? GeneralUtility::makeInstance($processorClass);
+        $prepared = $this->preparedProcessors[spl_object_id($apiConfig)][$processorClass] ?? null;
+        $processor = $prepared !== null && isset($prepared['uids'][$uid])
+            ? $prepared['processor']
+            : GeneralUtility::makeInstance($processorClass);
 
         return $this->processorGuard->run(
             fn () => $processor->process($value, $columnDef, ['serializedRow' => $serializedRow, 'rawRow' => $rawRow]),
             $processorClass,
-            $table,
+            $apiConfig->table,
             $column,
             $uid,
         );

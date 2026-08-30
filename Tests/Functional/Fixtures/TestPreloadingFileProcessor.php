@@ -7,6 +7,7 @@ namespace MaikSchneider\TcaApi\Tests\Functional\Fixtures;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Serializer\FileProcessing\FileProcessorInterface;
+use MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface;
 use MaikSchneider\TcaApi\Serializer\Processing\PreloadingProcessorInterface;
 use TYPO3\CMS\Core\Resource\FileReference;
 
@@ -14,7 +15,7 @@ use TYPO3\CMS\Core\Resource\FileReference;
  * File processor for testing that the preload hook is not offered to columns the
  * file branch owns — those never reach a column processor.
  */
-final class TestPreloadingFileProcessor implements FileProcessorInterface, PreloadingProcessorInterface
+final class TestPreloadingFileProcessor implements FileProcessorInterface, ColumnProcessorInterface, PreloadingProcessorInterface
 {
     public static int $prepareCalls = 0;
 
@@ -28,8 +29,10 @@ final class TestPreloadingFileProcessor implements FileProcessorInterface, Prelo
         ++self::$prepareCalls;
     }
 
-    public function process(FileReference $fileReference, ColumnDefinition $columnConfig): array
+    public function process(mixed $value, ColumnDefinition $config, array $context = []): array
     {
-        return ['name' => $fileReference->getOriginalFile()->getName()];
+        return $value instanceof FileReference
+            ? ['name' => $value->getOriginalFile()->getName()]
+            : [];
     }
 }

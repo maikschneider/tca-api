@@ -114,6 +114,43 @@ final class PreloadingProcessorTest extends ApiFunctionalTestCase
         self::assertSame('unbatched', $body['batched']);
     }
 
+    public function testSameTableEmbeddedRowOutsidePageDoesNotUsePreparedBatch(): void
+    {
+        $table = 'tx_myext_domain_model_article';
+        $this->getConnectionPool()->getConnectionForTable($table)->update($table, ['parent_id' => 2], ['uid' => 1]);
+
+        $this->registerResource('preload-articles', [
+            'general' => [
+                'table'        => $table,
+                'resourceName' => 'preload-articles',
+                'resourceType' => 'Article',
+                'operations'   => ['list', 'show'],
+                'storagePid'   => 1,
+            ],
+            'columns' => [
+                'title'     => ['groups' => ['list', 'show']],
+                'parent_id' => ['groups' => ['list', 'show'], 'embed' => true],
+            ],
+            'virtualProperties' => [
+                'batched' => [
+                    'groups'    => ['list', 'show'],
+                    'processor' => TestPreloadingProcessor::class,
+                ],
+            ],
+            'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
+        ]);
+
+        $body = $this->decodeResponseBody($this->executeApiRequest(
+            '/_api/preload-articles',
+            ['itemsPerPage' => 1],
+        ));
+        $article = $body['hydra:member'][0];
+
+        self::assertSame('batched-1', $article['batched']);
+        self::assertSame(2, $article['parent_id']['uid']);
+        self::assertSame('unbatched', $article['parent_id']['batched']);
+    }
+
     public function testSparseFieldsetSkipsThePreload(): void
     {
         $this->executeApiRequest('/_api/preload-articles', ['fields' => ['title']]);
