@@ -2,3 +2,4 @@
 ,"uid","pid","storage","identifier","identifier_hash","folder_hash","mime_type","name","sha1","size","creation_date","modification_date","type","missing","extension"
 ,1,0,1,"/user_upload/profile.jpg","97622b8b1282b3a22657fe7b4562f9e526297928","19669f1e02c2f16705ec7587044c66443be70725","image/jpeg","profile.jpg","abc123sha11234567890abc123sha1123",102400,1704067200,1704067200,2,0,"jpg"
 ,2,0,1,"/user_upload/document.pdf","abc124hash1234567890abc124hash123","def457hash1234567890def457hash123","application/pdf","document.pdf","abd123sha11234567890abd123sha1123",51200,1704067200,1704067200,5,0,"pdf"
+,3,0,1,"/protected/secret.pdf","aaa333hash1234567890aaa333hash123","bbb333hash1234567890bbb333hash123","application/pdf","secret.pdf","acd123sha11234567890acd123sha1123",4096,1704067200,1704067200,5,0,"pdf"

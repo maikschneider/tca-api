@@ -43,6 +43,11 @@ class GetCollectionHandler implements OperationHandlerInterface
         $order        = (array)$request->getAttribute('tca_api.order', []);
         $fields       = (array)$request->getAttribute('tca_api.fields', []);
 
+        $rejected = $this->rejectUnsortableColumns($order, $config);
+        if ($rejected !== null) {
+            return $rejected;
+        }
+
         return $this->doHandle($request, $config, $page, $itemsPerPage, $filters, $order, $fields);
     }
 
@@ -116,6 +121,35 @@ class GetCollectionHandler implements OperationHandlerInterface
         }
 
         return $safe;
+    }
+
+    /**
+     * Once a resource declares order.allowed, a column outside it is a client
+     * error, not a no-op: silently falling back to the default order returns a
+     * 200 whose row order looks intentional and is not. A resource that declares
+     * nothing states no restriction, so its order parameters stay unchecked.
+     */
+    private function rejectUnsortableColumns(array $requested, ApiDefinition $config): ?ResponseInterface
+    {
+        if ($config->allowedOrder === []) {
+            return null;
+        }
+
+        $unknown = array_diff(array_keys($requested), $config->allowedOrder);
+
+        if ($unknown === []) {
+            return null;
+        }
+
+        return $this->hydraResponseBuilder->buildError(
+            400,
+            sprintf(
+                'Cannot sort by "%s". Sortable columns are: %s.',
+                implode('", "', $unknown),
+                implode(', ', $config->allowedOrder),
+            ),
+            'Bad Request',
+        );
     }
 
     private function resolveOrder(array $requested, ApiDefinition $config): array

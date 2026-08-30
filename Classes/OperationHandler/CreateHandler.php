@@ -7,6 +7,7 @@ namespace MaikSchneider\TcaApi\OperationHandler;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\DataWriteService;
+use MaikSchneider\TcaApi\DataAccess\FileReferenceInputResolver;
 use MaikSchneider\TcaApi\DataAccess\FileUploadService;
 use MaikSchneider\TcaApi\DataAccess\RelationInputResolver;
 use MaikSchneider\TcaApi\Event\AfterOperationEvent;
@@ -37,6 +38,7 @@ class CreateHandler implements OperationHandlerInterface
         private readonly FieldValidator $fieldValidator,
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly RelationInputResolver $relationResolver,
+        private readonly FileReferenceInputResolver $fileReferenceResolver,
         private readonly WriteContextFactory $writeContextFactory,
         private readonly FileUploadService $fileUploadService,
         private readonly UploadValidator $uploadValidator,

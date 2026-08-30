@@ -6,12 +6,18 @@ use MaikSchneider\TcaApi\ConfigurationModuleProvider\TcaApiConfigurationProvider
 use MaikSchneider\TcaApi\Controller\ApiDocumentationController;
 use MaikSchneider\TcaApi\Serializer\FileProcessing\FileProcessorInterface;
 use MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface;
+use MaikSchneider\TcaApi\Serializer\Processing\PreloadingProcessorInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
 
 return static function (ContainerConfigurator $containerConfigurator, ContainerBuilder $containerBuilder): void {
     $services = $containerConfigurator->services();
+    // Preloading processors cache collection-specific state on the instance.
+    // Autoconfiguration gives every implementation a fresh instance per lookup
+    // without walking (and thereby autoloading) every container definition.
+    $containerBuilder->registerForAutoconfiguration(PreloadingProcessorInterface::class)
+        ->setShared(false);
 
     // Processors are named by class-string in a resource config and built with
     // GeneralUtility::makeInstance(), which injects constructor dependencies only
