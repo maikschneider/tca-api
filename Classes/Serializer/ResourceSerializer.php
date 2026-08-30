@@ -144,9 +144,9 @@ final class ResourceSerializer
                 // Auto-apply TypoLinkProcessor for type=link columns without explicit processor
                 $isLinkField = ($GLOBALS['TCA'][$config->table]['columns'][$column]['config']['type'] ?? '') === 'link';
                 if (!$isProcessorDefined && $isLinkField) {
-                    $processor = GeneralUtility::makeInstance(TypoLinkProcessor::class);
                     $result[$column] = $this->processorGuard->run(
-                        fn () => $processor->process($value, $columnDef, ['serializedRow' => $result, 'rawRow' => $row]),
+                        fn () => GeneralUtility::makeInstance(TypoLinkProcessor::class)
+                            ->process($value, $columnDef, ['serializedRow' => $result, 'rawRow' => $row]),
                         TypoLinkProcessor::class,
                         $config->table,
                         $column,
