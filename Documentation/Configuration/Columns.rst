@@ -420,10 +420,15 @@ to fetch everything for the page in one go:
     use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
     use MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface;
     use MaikSchneider\TcaApi\Serializer\Processing\PreloadingProcessorInterface;
+    use Vendor\MyExtension\Repository\LabelRepository;
 
     final class LabelProcessor implements ColumnProcessorInterface, PreloadingProcessorInterface
     {
         private array $labels = [];
+
+        public function __construct(private readonly LabelRepository $repository)
+        {
+        }
 
         public function prepare(array $rows, ApiDefinition $config): void
         {
@@ -440,6 +445,10 @@ to fetch everything for the page in one go:
 for processors that will actually run — a column hidden by ``groups`` or dropped
 by a sparse fieldset costs no preload. It does **not** run for a single-record
 request, so :php:`process()` must still work without it.
+
+Preloading processors registered as dependency-injection services are made
+non-shared automatically. This keeps the cached batch local to one collection
+and prevents a later single-record request from observing stale processor state.
 
 ..  _processor-error-containment:
 
