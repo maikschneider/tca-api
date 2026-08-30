@@ -20,8 +20,6 @@ use MaikSchneider\TcaApi\Configuration\ApiDefinition;
  */
 interface PreloadingProcessorInterface
 {
-    public const SERVICE_TAG = 'tca_api.preloading_processor';
-
     /**
      * @param array<int, array<string, mixed>> $rows Raw DB rows about to be serialized
      */
