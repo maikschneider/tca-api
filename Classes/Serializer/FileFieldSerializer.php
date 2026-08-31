@@ -47,18 +47,25 @@ final class FileFieldSerializer
         $fileRefs       = $preloadedReferences?->find($column, $uid)
             ?? $this->fileRepository->findByRelation($table, $column, $uid);
 
-        // Constructed inside the guard so a processor that cannot be built — most
-        // often an un-injectable constructor — is reported with its class, table,
-        // column and uid instead of an ArgumentCountError from nowhere.
+        $isSingle = ($field->getConfiguration()['maxitems'] ?? 0) === 1;
+
+        // Built once per column, not per reference: a processor that cannot be
+        // constructed is a config error, and one log line for the column beats one
+        // per file in a multi-file field across a whole collection.
+        $processor = $this->processorGuard->instantiate($processorClass, $table, $column, $uid);
+        if (!$processor instanceof FileProcessorInterface) {
+            return $isSingle ? null : [];
+        }
+
         $process = fn ($ref) => $this->processorGuard->run(
-            fn () => GeneralUtility::makeInstance($processorClass)->process($ref, $columnDef),
+            static fn () => $processor->process($ref, $columnDef),
             $processorClass,
             $table,
             $column,
             $uid,
         );
 
-        if (($field->getConfiguration()['maxitems'] ?? 0) === 1) {
+        if ($isSingle) {
             return isset($fileRefs[0]) ? $process($fileRefs[0]) : null;
         }
 
