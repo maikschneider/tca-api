@@ -402,7 +402,19 @@ built-in processors:
     scheme+host URL instead.
 
 Custom processors must implement
-:php:`MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface`.
+:php:`MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface`
+(or :php:`FileProcessorInterface` for file columns).
+
+Constructor dependency injection works out of the box. Processors are named by
+class-string and built with :php:`GeneralUtility::makeInstance()`, which injects
+only for services the container exposes — and extensions default to
+``public: false``. TCA_API therefore marks every service implementing either
+processor interface public through container autoconfiguration, so a processor may take
+constructor arguments without any change to your ``Services.yaml``.
+
+Should a processor still fail to build, the failure is contained like any other
+processor error below: the column serializes as ``null`` and the log entry names
+the processor class, table, column and uid.
 
 ..  _preloading-processors:
 

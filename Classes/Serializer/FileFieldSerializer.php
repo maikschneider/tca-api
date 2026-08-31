@@ -43,19 +43,29 @@ final class FileFieldSerializer
         int $uid,
         ?PreloadedFileReferences $preloadedReferences = null,
     ): mixed {
-        $processor = $this->resolveProcessor($columnDef, $field);
-        $fileRefs  = $preloadedReferences?->find($column, $uid)
+        $processorClass = $this->resolveProcessorClass($columnDef, $field);
+        $fileRefs       = $preloadedReferences?->find($column, $uid)
             ?? $this->fileRepository->findByRelation($table, $column, $uid);
 
+        $isSingle = ($field->getConfiguration()['maxitems'] ?? 0) === 1;
+
+        // Built once per column, not per reference: a processor that cannot be
+        // constructed is a config error, and one log line for the column beats one
+        // per file in a multi-file field across a whole collection.
+        $processor = $this->processorGuard->instantiate($processorClass, $table, $column, $uid);
+        if (!$processor instanceof FileProcessorInterface) {
+            return $isSingle ? null : [];
+        }
+
         $process = fn ($ref) => $this->processorGuard->run(
-            fn () => $processor->process($ref, $columnDef),
-            $processor::class,
+            static fn () => $processor->process($ref, $columnDef),
+            $processorClass,
             $table,
             $column,
             $uid,
         );
 
-        if (($field->getConfiguration()['maxitems'] ?? 0) === 1) {
+        if ($isSingle) {
             return isset($fileRefs[0]) ? $process($fileRefs[0]) : null;
         }
 
@@ -64,17 +74,14 @@ final class FileFieldSerializer
         return array_values(array_filter(array_map($process, $fileRefs), static fn ($v) => $v !== null));
     }
 
-    private function resolveProcessor(ColumnDefinition $columnDef, FileFieldType $field): FileProcessorInterface
+    /** @return class-string<FileProcessorInterface> */
+    private function resolveProcessorClass(ColumnDefinition $columnDef, FileFieldType $field): string
     {
-        if ($columnDef->processor !== null) {
-            /** @var class-string<FileProcessorInterface> $processorClass */
-            $processorClass = $columnDef->processor;
-            return GeneralUtility::makeInstance($processorClass);
-        }
-
         /** @var class-string<FileProcessorInterface> $processorClass */
-        $processorClass = $this->detectProcessorClass($field->getAllowedFileExtensions());
-        return GeneralUtility::makeInstance($processorClass);
+        $processorClass = $columnDef->processor
+            ?? $this->detectProcessorClass($field->getAllowedFileExtensions());
+
+        return $processorClass;
     }
 
     private function detectProcessorClass(array $allowedExtensions): string

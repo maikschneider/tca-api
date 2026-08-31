@@ -7,6 +7,7 @@ namespace MaikSchneider\TcaApi\Serializer\Processing;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Core\Site\Entity\Site;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Error-containment boundary around column and file processors.
@@ -61,6 +62,46 @@ final class ProcessorGuard
             }
 
             $this->logger->error('TCA API column processing failed', [
+                'table'     => $table,
+                'uid'       => $uid,
+                'column'    => $column,
+                'processor' => $processorClass,
+                'exception' => $throwable::class,
+                'message'   => $throwable->getMessage(),
+                'file'      => $throwable->getFile(),
+                'line'      => $throwable->getLine(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Instantiate a processor, degrading to null if it cannot be built.
+     *
+     * A construction failure is a configuration mistake — a class-string typo, an
+     * un-injectable constructor — not one bad value, so it is logged at critical
+     * level under its own message. That keeps a broken config distinguishable in
+     * the log from the per-field data failures run() reports.
+     *
+     * @param class-string $processorClass
+     *
+     * @throws \Throwable when tca_api.debugMode is enabled for the current site
+     */
+    public function instantiate(
+        string $processorClass,
+        string $table,
+        string $column,
+        int|string $uid,
+    ): ?object {
+        try {
+            return GeneralUtility::makeInstance($processorClass);
+        } catch (\Throwable $throwable) {
+            if ($this->isDebugMode()) {
+                throw $throwable;
+            }
+
+            $this->logger->critical('TCA API processor could not be instantiated', [
                 'table'     => $table,
                 'uid'       => $uid,
                 'column'    => $column,

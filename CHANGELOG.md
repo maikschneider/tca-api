@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Column and file processors with constructor dependencies no longer die with an `ArgumentCountError`. Container autoconfiguration marks every `ColumnProcessorInterface` / `FileProcessorInterface` implementation public, so `GeneralUtility::makeInstance()` resolves them from the container regardless of the extension's `public: false` default. Processor construction also moved inside `ProcessorGuard`, so a processor that cannot be built is reported with its class, table, column and uid ([#189](https://github.com/maikschneider/tca-api/issues/189)).
 - **File writes no longer steal another record's file references.** `attachFileReferences()` put the reference *count* in the parent `type=file` column, but `checkValueForFile()` reads that column as a list of `sys_file_reference` uids — so attaching two files to a record re-parented references 1 and 2 from wherever they belonged. The column now receives the `NEW_ref` placeholders and DataHandler writes the count once they resolve. Affects every upload that attached more than one file, or one file to an installation whose `sys_file_reference` uid 1 was in use ([#187](https://github.com/maikschneider/tca-api/issues/187)).
 
 ### Changed

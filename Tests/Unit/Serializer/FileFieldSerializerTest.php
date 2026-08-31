@@ -4,19 +4,24 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Unit\Serializer;
 
+use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
+use MaikSchneider\TcaApi\DataAccess\PreloadedFileReferences;
 use MaikSchneider\TcaApi\Serializer\FileFieldSerializer;
 use MaikSchneider\TcaApi\Serializer\FileProcessing\FileProcessor;
+use MaikSchneider\TcaApi\Serializer\FileProcessing\FileProcessorInterface;
 use MaikSchneider\TcaApi\Serializer\FileProcessing\ImageProcessor;
 use MaikSchneider\TcaApi\Serializer\Processing\ProcessorGuard;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use TYPO3\CMS\Core\Resource\FileReference;
 use TYPO3\CMS\Core\Resource\FileRepository;
+use TYPO3\CMS\Core\Schema\Field\FileFieldType;
 
 /**
- * Unit tests for FileFieldSerializer::detectProcessorClass().
+ * Unit tests for FileFieldSerializer.
  *
- * The method is private; accessed via ReflectionMethod.
+ * detectProcessorClass() is private; accessed via ReflectionMethod.
  * GFX/imagefile_ext is set directly on $GLOBALS before each test.
  */
 final class FileFieldSerializerTest extends TestCase
@@ -34,6 +39,8 @@ final class FileFieldSerializerTest extends TestCase
         );
 
         $this->detect = new \ReflectionMethod(FileFieldSerializer::class, 'detectProcessorClass');
+
+        CountingFileProcessor::$built = 0;
     }
 
     protected function tearDown(): void
@@ -131,5 +138,120 @@ final class FileFieldSerializerTest extends TestCase
 
         // With empty imagefile_ext, no extension can be a subset → FileProcessor
         self::assertSame(FileProcessor::class, $this->detect(['jpg']));
+    }
+
+    // ── processor lifecycle in serialize() ────────────────────────────────────
+
+    #[Test]
+    public function buildsTheProcessorOncePerColumnRegardlessOfReferenceCount(): void
+    {
+        $result = $this->serialize(
+            new ColumnDefinition(groups: ['list'], processor: CountingFileProcessor::class),
+            ['maxitems' => 5],
+            [$this->fileReference(), $this->fileReference(), $this->fileReference()],
+        );
+
+        self::assertCount(3, $result);
+        self::assertSame(1, CountingFileProcessor::$built);
+    }
+
+    #[Test]
+    public function returnsAScalarValueForASingleFileColumn(): void
+    {
+        $result = $this->serialize(
+            new ColumnDefinition(groups: ['list'], processor: CountingFileProcessor::class),
+            ['maxitems' => 1],
+            [$this->fileReference(), $this->fileReference()],
+        );
+
+        self::assertSame(['processed' => true], $result);
+        self::assertSame(1, CountingFileProcessor::$built);
+    }
+
+    #[Test]
+    public function returnsAnEmptyListWhenTheProcessorCannotBeBuilt(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        // One line for the column, not one per reference.
+        $logger->expects(self::once())->method('critical');
+
+        $result = $this->serialize(
+            new ColumnDefinition(groups: ['list'], processor: UnbuildableFileProcessor::class),
+            ['maxitems' => 5],
+            [$this->fileReference(), $this->fileReference()],
+            $logger,
+        );
+
+        self::assertSame([], $result);
+    }
+
+    #[Test]
+    public function returnsNullWhenTheProcessorOfASingleFileColumnCannotBeBuilt(): void
+    {
+        $result = $this->serialize(
+            new ColumnDefinition(groups: ['list'], processor: UnbuildableFileProcessor::class),
+            ['maxitems' => 1],
+            [$this->fileReference()],
+        );
+
+        self::assertNull($result);
+    }
+
+    /**
+     * @param array<string, mixed> $configuration
+     * @param list<FileReference>  $fileRefs
+     */
+    private function serialize(
+        ColumnDefinition $columnDef,
+        array $configuration,
+        array $fileRefs,
+        ?LoggerInterface $logger = null,
+    ): mixed {
+        $serializer = new FileFieldSerializer(
+            $this->createMock(FileRepository::class),
+            new ProcessorGuard($logger ?? $this->createMock(LoggerInterface::class)),
+        );
+
+        return $serializer->serialize(
+            'image',
+            new FileFieldType('image', $configuration, []),
+            $columnDef,
+            'tx_test',
+            1,
+            new PreloadedFileReferences([1 => true], ['image' => [1 => $fileRefs]]),
+        );
+    }
+
+    private function fileReference(): FileReference
+    {
+        return (new \ReflectionClass(FileReference::class))->newInstanceWithoutConstructor();
+    }
+}
+
+final class CountingFileProcessor implements FileProcessorInterface
+{
+    public static int $built = 0;
+
+    public function __construct()
+    {
+        ++self::$built;
+    }
+
+    public function process(FileReference $fileReference, ColumnDefinition $columnConfig): array
+    {
+        return ['processed' => true];
+    }
+}
+
+/** A processor whose constructor the container cannot satisfy. */
+final class UnbuildableFileProcessor implements FileProcessorInterface
+{
+    public function __construct(private readonly string $required)
+    {
+    }
+
+    public function process(FileReference $fileReference, ColumnDefinition $columnConfig): array
+    {
+        return ['required' => $this->required];
     }
 }

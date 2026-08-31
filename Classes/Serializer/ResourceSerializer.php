@@ -144,14 +144,16 @@ final class ResourceSerializer
                 // Auto-apply TypoLinkProcessor for type=link columns without explicit processor
                 $isLinkField = ($GLOBALS['TCA'][$config->table]['columns'][$column]['config']['type'] ?? '') === 'link';
                 if (!$isProcessorDefined && $isLinkField) {
-                    $processor = GeneralUtility::makeInstance(TypoLinkProcessor::class);
-                    $result[$column] = $this->processorGuard->run(
-                        fn () => $processor->process($value, $columnDef, ['serializedRow' => $result, 'rawRow' => $row]),
-                        TypoLinkProcessor::class,
-                        $config->table,
-                        $column,
-                        $uid,
-                    );
+                    $processor = $this->processorGuard->instantiate(TypoLinkProcessor::class, $config->table, $column, $uid);
+                    $result[$column] = $processor instanceof TypoLinkProcessor
+                        ? $this->processorGuard->run(
+                            static fn () => $processor->process($value, $columnDef, ['serializedRow' => $result, 'rawRow' => $row]),
+                            TypoLinkProcessor::class,
+                            $config->table,
+                            $column,
+                            $uid,
+                        )
+                        : null;
                     continue;
                 }
 
@@ -296,15 +298,26 @@ final class ResourceSerializer
             }
 
             $prepared[$processorClass] = true;
-            $processor                 = GeneralUtility::makeInstance($processorClass);
+            $instance = $this->processorGuard->instantiate($processorClass, $config->table, (string)$name, 0);
+            if (!$instance instanceof PreloadingProcessorInterface) {
+                continue;
+            }
 
-            $this->processorGuard->run(
-                fn () => $processor->prepare($rows, $config),
+            $processor = $this->processorGuard->run(
+                static function () use ($instance, $rows, $config): ColumnProcessorInterface {
+                    /** @var ColumnProcessorInterface&PreloadingProcessorInterface $instance */
+                    $instance->prepare($rows, $config);
+
+                    return $instance;
+                },
                 $processorClass,
                 $config->table,
                 (string)$name,
                 0,
             );
+            if (!$processor instanceof ColumnProcessorInterface) {
+                continue;
+            }
 
             // Scope the instance to this exact API definition and the rows passed
             // to prepare(). A same-table embedded record outside the page must use
@@ -364,12 +377,16 @@ final class ResourceSerializer
         /** @var class-string<ColumnProcessorInterface> $processorClass */
         $processorClass = $columnDef->processor;
         $prepared = $this->preparedProcessors[spl_object_id($apiConfig)][$processorClass] ?? null;
+
         $processor = $prepared !== null && isset($prepared['uids'][$uid])
             ? $prepared['processor']
-            : GeneralUtility::makeInstance($processorClass);
+            : $this->processorGuard->instantiate($processorClass, $apiConfig->table, $column, $uid);
+        if (!$processor instanceof ColumnProcessorInterface) {
+            return null;
+        }
 
         return $this->processorGuard->run(
-            fn () => $processor->process($value, $columnDef, ['serializedRow' => $serializedRow, 'rawRow' => $rawRow]),
+            static fn () => $processor->process($value, $columnDef, ['serializedRow' => $serializedRow, 'rawRow' => $rawRow]),
             $processorClass,
             $apiConfig->table,
             $column,
