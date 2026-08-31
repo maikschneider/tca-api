@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-08-31
+
 ### Added
 
 - **`PreloadingProcessorInterface`.** A processor can now implement `prepare(array $rows, ApiDefinition $config)` to fetch what it needs for a whole collection in one query, instead of paying per record. Embedded columns already had `EmbedPreloader` and `FileReferencePreloader`; processors had nothing ([#190](https://github.com/maikschneider/tca-api/issues/190)).
@@ -22,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **BREAKING:** A nested object on a relation column whose table is not registered as an API resource is now rejected with `422` / `UNRESOLVABLE_RELATION` instead of being dropped from the write ([#185](https://github.com/maikschneider/tca-api/issues/185)).
-- **BREAKING:** On a resource that declares `order.allowed`, an `order` parameter naming a column outside it now returns `400 Bad Request` instead of silently falling back to the default order. Resources without `order.allowed` are unaffected (#186).
+- **BREAKING:** On a resource that declares `order.allowed`, an `order` parameter naming a column outside it now returns `400 Bad Request` instead of silently falling back to the default order. Resources without `order.allowed` are unaffected ([#186](https://github.com/maikschneider/tca-api/issues/186)).
 
 ## [1.0.0] - 2026-08-25
 
