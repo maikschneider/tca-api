@@ -64,19 +64,25 @@ final class ResourceSerializerPreloadingTest extends TestCase
             operation: 'list',
         );
 
+        // 'prepared' would mean the instance whose prepare() threw was cached and
+        // reused for the row — the exact leak this guards against.
         self::assertSame('unprepared', $result[0]['processed']);
     }
 }
 
 final class FailingPreloadingProcessor implements ColumnProcessorInterface, PreloadingProcessorInterface
 {
+    private bool $prepared = false;
+
     public function prepare(array $rows, ApiDefinition $config): void
     {
+        $this->prepared = true;
+
         throw new \RuntimeException('Preloading failed');
     }
 
     public function process(mixed $value, ColumnDefinition $config, array $context): mixed
     {
-        return 'unprepared';
+        return $this->prepared ? 'prepared' : 'unprepared';
     }
 }
