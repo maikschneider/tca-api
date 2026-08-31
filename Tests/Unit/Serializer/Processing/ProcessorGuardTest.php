@@ -152,6 +152,84 @@ final class ProcessorGuardTest extends TestCase
         );
     }
 
+    #[Test]
+    public function degradesWhenTheRequestCarriesNoSite(): void
+    {
+        $GLOBALS['TYPO3_REQUEST'] = new ServerRequest('https://example.com/');
+
+        $guard = new ProcessorGuard($this->createMock(LoggerInterface::class));
+
+        self::assertNull(
+            $guard->run(
+                static fn () => throw new \RuntimeException('boom'),
+                TypoLinkProcessor::class,
+                'tt_content',
+                'header',
+                7,
+            ),
+        );
+    }
+
+    #[Test]
+    public function buildsTheProcessor(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::never())->method('critical');
+
+        $guard = new ProcessorGuard($logger);
+
+        self::assertInstanceOf(
+            BuildableProcessor::class,
+            $guard->instantiate(BuildableProcessor::class, 'tt_content', 'header', 7),
+        );
+    }
+
+    #[Test]
+    public function degradesToNullWhenTheProcessorCannotBeBuilt(): void
+    {
+        $guard = new ProcessorGuard($this->createMock(LoggerInterface::class));
+
+        self::assertNull(
+            $guard->instantiate(UnbuildableProcessor::class, 'tt_content', 'header', 7),
+        );
+    }
+
+    #[Test]
+    public function logsABuildFailureAsCriticalUnderItsOwnMessage(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::never())->method('error');
+        $logger->expects(self::once())
+            ->method('critical')
+            ->with(
+                'TCA API processor could not be instantiated',
+                self::callback(static function (array $context): bool {
+                    self::assertSame('tt_content', $context['table']);
+                    self::assertSame(7, $context['uid']);
+                    self::assertSame('header', $context['column']);
+                    self::assertSame(UnbuildableProcessor::class, $context['processor']);
+                    self::assertSame(\ArgumentCountError::class, $context['exception']);
+
+                    return true;
+                }),
+            );
+
+        (new ProcessorGuard($logger))->instantiate(UnbuildableProcessor::class, 'tt_content', 'header', 7);
+    }
+
+    #[Test]
+    public function rethrowsABuildFailureWhenDebugModeIsEnabled(): void
+    {
+        $GLOBALS['TYPO3_REQUEST'] = (new ServerRequest('https://example.com/'))
+            ->withAttribute('site', $this->siteWithDebugMode(true));
+
+        $guard = new ProcessorGuard($this->createMock(LoggerInterface::class));
+
+        $this->expectException(\ArgumentCountError::class);
+
+        $guard->instantiate(UnbuildableProcessor::class, 'tt_content', 'header', 7);
+    }
+
     private function siteWithDebugMode(bool $enabled): Site
     {
         return new Site('test', 1, [
@@ -159,5 +237,25 @@ final class ProcessorGuardTest extends TestCase
             'languages' => [],
             'settings'  => ['tca_api' => ['debugMode' => $enabled]],
         ]);
+    }
+}
+
+final class BuildableProcessor
+{
+}
+
+/**
+ * Stands in for the common misconfiguration: a processor whose constructor the
+ * container cannot satisfy, so building it throws instead of returning.
+ */
+final class UnbuildableProcessor
+{
+    public function __construct(private readonly string $required)
+    {
+    }
+
+    public function required(): string
+    {
+        return $this->required;
     }
 }
