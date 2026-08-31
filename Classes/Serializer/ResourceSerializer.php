@@ -296,13 +296,17 @@ final class ResourceSerializer
             }
 
             $prepared[$processorClass] = true;
-            $processor = $this->processorGuard->run(
-                static function () use ($processorClass, $rows, $config): ColumnProcessorInterface {
-                    /** @var ColumnProcessorInterface&PreloadingProcessorInterface $processor */
-                    $processor = GeneralUtility::makeInstance($processorClass);
-                    $processor->prepare($rows, $config);
+            $instance = $this->processorGuard->instantiate($processorClass, $config->table, (string)$name, 0);
+            if (!$instance instanceof PreloadingProcessorInterface) {
+                continue;
+            }
 
-                    return $processor;
+            $processor = $this->processorGuard->run(
+                static function () use ($instance, $rows, $config): ColumnProcessorInterface {
+                    /** @var ColumnProcessorInterface&PreloadingProcessorInterface $instance */
+                    $instance->prepare($rows, $config);
+
+                    return $instance;
                 },
                 $processorClass,
                 $config->table,
@@ -372,15 +376,15 @@ final class ResourceSerializer
         $processorClass = $columnDef->processor;
         $prepared = $this->preparedProcessors[spl_object_id($apiConfig)][$processorClass] ?? null;
 
-        // Constructed inside the guard so a processor that cannot be built — most
-        // often an un-injectable constructor — is reported with its class, table,
-        // column and uid instead of an ArgumentCountError from nowhere.
+        $processor = $prepared !== null && isset($prepared['uids'][$uid])
+            ? $prepared['processor']
+            : $this->processorGuard->instantiate($processorClass, $apiConfig->table, $column, $uid);
+        if (!$processor instanceof ColumnProcessorInterface) {
+            return null;
+        }
+
         return $this->processorGuard->run(
-            fn () => (
-                $prepared !== null && isset($prepared['uids'][$uid])
-                ? $prepared['processor']
-                : GeneralUtility::makeInstance($processorClass)
-            )->process($value, $columnDef, ['serializedRow' => $serializedRow, 'rawRow' => $rawRow]),
+            static fn () => $processor->process($value, $columnDef, ['serializedRow' => $serializedRow, 'rawRow' => $rawRow]),
             $processorClass,
             $apiConfig->table,
             $column,
