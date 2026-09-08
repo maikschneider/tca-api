@@ -1,0 +1,243 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MaikSchneider\TcaApi\Tests\Functional\Api\Collection;
+
+use MaikSchneider\TcaApi\Filter\ExactFilter;
+use MaikSchneider\TcaApi\Filter\MmFilter;
+use MaikSchneider\TcaApi\Filter\PartialFilter;
+use MaikSchneider\TcaApi\Filter\SearchFilter;
+use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
+
+/**
+ * Functional tests for multi-value filter values (IN / NOT IN) and the `negate` option.
+ *
+ * Fixture baseline:
+ *   Article 1 "First Article"  color_id=1 (Red)  categories=[1 (PHP), 2 (TYPO3)]
+ *   Article 2 "Second Article" color_id=2 (Blue) categories=[3 (API)]
+ *   Article 3 "Third Article"  color_id=0        categories=[]
+ *   Article 4 "Hidden Article" hidden=1
+ */
+final class FilterMultiValueTest extends ApiFunctionalTestCase
+{
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/colors.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/sys_categories.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/sys_category_record_mm.csv');
+    }
+
+    // ── ExactFilter ──────────────────────────────────────────────────────
+
+    public function testExactFilterWithListMatchesAnyValue(): void
+    {
+        $this->registerArticles('multi-exact', ['color_id' => ExactFilter::class]);
+
+        $body = $this->decodeResponseBody(
+            $this->executeApiRequest('/_api/multi-exact', ['filters' => ['color_id' => ['1', '2']]]),
+        );
+
+        self::assertSame(2, $body['hydra:totalItems']);
+        self::assertSame(['First Article', 'Second Article'], $this->titles($body));
+    }
+
+    public function testExactFilterWithSingleEntryListBehavesLikeAScalar(): void
+    {
+        $this->registerArticles('single-exact', ['color_id' => ExactFilter::class]);
+
+        $body = $this->decodeResponseBody(
+            $this->executeApiRequest('/_api/single-exact', ['filters' => ['color_id' => ['2']]]),
+        );
+
+        self::assertSame(['Second Article'], $this->titles($body));
+    }
+
+    public function testExactFilterWithEmptyListAppliesNoConstraint(): void
+    {
+        $this->registerArticles('empty-exact', ['color_id' => ExactFilter::class]);
+
+        $body = $this->decodeResponseBody(
+            $this->executeApiRequest('/_api/empty-exact', ['filters' => ['color_id' => []]]),
+        );
+
+        self::assertSame(3, $body['hydra:totalItems']);
+    }
+
+    public function testNegatedExactFilterExcludesTheValue(): void
+    {
+        $this->registerArticles('neq-exact', ['color_id' => [ExactFilter::class, ['negate' => true]]]);
+
+        $body = $this->decodeResponseBody(
+            $this->executeApiRequest('/_api/neq-exact', ['filters' => ['color_id' => '1']]),
+        );
+
+        self::assertSame(['Second Article', 'Third Article'], $this->titles($body));
+    }
+
+    public function testNegatedExactFilterWithListExcludesEveryValue(): void
+    {
+        $this->registerArticles('notin-exact', ['color_id' => [ExactFilter::class, ['negate' => true]]]);
+
+        $body = $this->decodeResponseBody(
+            $this->executeApiRequest('/_api/notin-exact', ['filters' => ['color_id' => ['1', '2']]]),
+        );
+
+        self::assertSame(['Third Article'], $this->titles($body));
+    }
+
+    public function testSeparatorOptionSplitsAScalarValueIntoAList(): void
+    {
+        $this->registerArticles('csv-exact', ['color_id' => [ExactFilter::class, ['separator' => ',']]]);
+
+        $body = $this->decodeResponseBody(
+            $this->executeApiRequest('/_api/csv-exact', ['filters' => ['color_id' => '1,2']]),
+        );
+
+        self::assertSame(['First Article', 'Second Article'], $this->titles($body));
+    }
+
+    public function testMoreValuesThanAllowedIsRejectedWith400(): void
+    {
+        $this->registerArticles('capped-exact', ['color_id' => [ExactFilter::class, ['maxValues' => 2]]]);
+
+        $response = $this->executeApiRequest('/_api/capped-exact', ['filters' => ['color_id' => ['1', '2', '3']]]);
+        $body     = $this->decodeResponseBody($response);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertStringContainsString('accepts at most 2 values', $body['hydra:description']);
+    }
+
+    // ── LIKE filters ─────────────────────────────────────────────────────
+
+    public function testPartialFilterWithListMatchesAnyValue(): void
+    {
+        $this->registerArticles('multi-partial', ['title' => PartialFilter::class]);
+
+        $body = $this->decodeResponseBody(
+            $this->executeApiRequest('/_api/multi-partial', ['filters' => ['title' => ['First', 'Third']]]),
+        );
+
+        self::assertSame(['First Article', 'Third Article'], $this->titles($body));
+    }
+
+    public function testNegatedPartialFilterWithListExcludesEveryValue(): void
+    {
+        $this->registerArticles('not-partial', ['title' => [PartialFilter::class, ['negate' => true]]]);
+
+        $body = $this->decodeResponseBody(
+            $this->executeApiRequest('/_api/not-partial', ['filters' => ['title' => ['First', 'Third']]]),
+        );
+
+        self::assertSame(['Second Article'], $this->titles($body));
+    }
+
+    public function testSearchFilterWithListMatchesAnyTerm(): void
+    {
+        $this->registerArticles('multi-search', ['q' => [SearchFilter::class, ['columns' => ['title']]]]);
+
+        $body = $this->decodeResponseBody(
+            $this->executeApiRequest('/_api/multi-search', ['filters' => ['q' => ['First', 'Second']]]),
+        );
+
+        self::assertSame(['First Article', 'Second Article'], $this->titles($body));
+    }
+
+    // ── MmFilter ─────────────────────────────────────────────────────────
+
+    public function testMmFilterWithListMatchesAnyCategory(): void
+    {
+        $this->registerArticles('multi-mm', ['categories' => MmFilter::class]);
+
+        $body = $this->decodeResponseBody(
+            $this->executeApiRequest('/_api/multi-mm', ['filters' => ['categories' => ['1', '3']]]),
+        );
+
+        self::assertSame(['First Article', 'Second Article'], $this->titles($body));
+    }
+
+    public function testMmFilterMatchAllRequiresEveryCategory(): void
+    {
+        $this->registerArticles('all-mm', ['categories' => [MmFilter::class, ['match' => 'all']]]);
+
+        $matchesBoth = $this->decodeResponseBody(
+            $this->executeApiRequest('/_api/all-mm', ['filters' => ['categories' => ['1', '2']]]),
+        );
+        self::assertSame(['First Article'], $this->titles($matchesBoth));
+
+        $matchesNeither = $this->decodeResponseBody(
+            $this->executeApiRequest('/_api/all-mm', ['filters' => ['categories' => ['1', '3']]]),
+        );
+        self::assertSame(0, $matchesNeither['hydra:totalItems']);
+    }
+
+    public function testNegatedMmFilterExcludesRecordsWithThoseCategories(): void
+    {
+        $this->registerArticles('not-mm', ['categories' => [MmFilter::class, ['negate' => true]]]);
+
+        $body = $this->decodeResponseBody(
+            $this->executeApiRequest('/_api/not-mm', ['filters' => ['categories' => ['1', '3']]]),
+        );
+
+        self::assertSame(['Third Article'], $this->titles($body));
+    }
+
+    // ── relation paths ───────────────────────────────────────────────────
+
+    public function testRelationPathFilterWithListMatchesAnyValue(): void
+    {
+        $this->registerArticles('multi-path', ['categories.title' => ExactFilter::class]);
+
+        $body = $this->decodeResponseBody(
+            $this->executeApiRequest('/_api/multi-path', ['filters' => ['categories.title' => ['PHP', 'API']]]),
+        );
+
+        self::assertSame(['First Article', 'Second Article'], $this->titles($body));
+    }
+
+    public function testNegatedRelationPathFilterExcludesMatchingHolders(): void
+    {
+        $this->registerArticles('not-path', ['categories.title' => [ExactFilter::class, ['negate' => true]]]);
+
+        $body = $this->decodeResponseBody(
+            $this->executeApiRequest('/_api/not-path', ['filters' => ['categories.title' => ['PHP', 'API']]]),
+        );
+
+        // Article 1 keeps a second category (TYPO3) — negation must still exclude it.
+        self::assertSame(['Third Article'], $this->titles($body));
+    }
+
+    /**
+     * @param array<string, mixed> $filters
+     */
+    private function registerArticles(string $name, array $filters): void
+    {
+        $this->registerResource($name, [
+            'general' => [
+                'table'        => 'tx_myext_domain_model_article',
+                'resourceName' => $name,
+                'resourceType' => 'Article',
+                'operations'   => ['list'],
+            ],
+            'columns' => [
+                'title'    => ['groups' => ['list', 'show']],
+                'color_id' => ['groups' => ['list', 'show']],
+            ],
+            'filters' => $filters,
+            'order'   => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
+        ]);
+    }
+
+    /**
+     * @param array<string, mixed> $body
+     *
+     * @return list<string>
+     */
+    private function titles(array $body): array
+    {
+        return array_map(static fn (array $member): string => $member['title'], $body['hydra:member']);
+    }
+}

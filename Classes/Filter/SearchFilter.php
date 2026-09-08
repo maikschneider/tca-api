@@ -7,7 +7,8 @@ namespace MaikSchneider\TcaApi\Filter;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 
 /**
- * OR-searches a value (LIKE) across a list of `columns`. Each column may be either:
+ * OR-searches a value (LIKE) across a list of `columns`. A list of values searches for
+ * any of them (`?filters[q][]=typo3&filters[q][]=news`). Each column may be either:
  *
  *  - a column on the resource's own table (`title`), matched directly on alias `t`; or
  *  - a relation path (`categories.title`, `color_id.name`), matched on the related record
@@ -16,7 +17,7 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
  * Dotted columns are resolved and validated at boot (preResolve); an invalid relation path
  * is surfaced as an InvalidApiDefinitionException by the loader, same as {@see RelationPathFilter}.
  */
-final class SearchFilter implements FilterInterface, FilterPreResolvableInterface
+final class SearchFilter implements FilterInterface, FilterPreResolvableInterface, MultiValueFilterInterface
 {
     public function __construct(
         private readonly RelationSubqueryBuilder $subqueryBuilder,
@@ -63,10 +64,19 @@ final class SearchFilter implements FilterInterface, FilterPreResolvableInterfac
             throw new \InvalidArgumentException($error);
         }
 
-        $value   = (string)$context->value;
-        $match   = $context->option('match', 'partial');
-        $escaped = $qb->escapeLikeWildcards($value);
-        $pattern = $match === 'word_start' ? $escaped . '%' : '%' . $escaped . '%';
+        $values = ValueSet::fromContext($context);
+        if ($values->isEmpty()) {
+            return;
+        }
+
+        $match    = $context->option('match', 'partial');
+        $patterns = array_map(
+            static function (mixed $value) use ($qb, $match): string {
+                $escaped = $qb->escapeLikeWildcards((string)$value);
+                return $match === 'word_start' ? $escaped . '%' : '%' . $escaped . '%';
+            },
+            $values->values,
+        );
 
         /** @var array<string, array{hops: list<RelationHop>, leafTable: string, leafColumn: string}> $paths */
         $paths   = $context->option('__searchPaths', []);
@@ -79,7 +89,9 @@ final class SearchFilter implements FilterInterface, FilterPreResolvableInterfac
 
         foreach ($columns as $col) {
             if (!str_contains($col, '.')) {
-                $orParts[] = $qb->expr()->like($col, $qb->createNamedParameter($pattern));
+                foreach ($patterns as $pattern) {
+                    $orParts[] = $qb->expr()->like($col, $qb->createNamedParameter($pattern));
+                }
                 continue;
             }
 
@@ -108,13 +120,15 @@ final class SearchFilter implements FilterInterface, FilterPreResolvableInterfac
                 $group['hops'],
                 $group['leafTable'],
                 $prefix,
-                function (QueryBuilder $leafQb, string $leafAlias) use ($leafColumns, $pattern): void {
+                function (QueryBuilder $leafQb, string $leafAlias) use ($leafColumns, $patterns): void {
                     $likes = [];
                     foreach ($leafColumns as $leafColumn) {
-                        $likes[] = $leafQb->expr()->like(
-                            $leafAlias . '.' . $leafColumn,
-                            $leafQb->createNamedParameter($pattern),
-                        );
+                        foreach ($patterns as $pattern) {
+                            $likes[] = $leafQb->expr()->like(
+                                $leafAlias . '.' . $leafColumn,
+                                $leafQb->createNamedParameter($pattern),
+                            );
+                        }
                     }
                     $leafQb->andWhere($leafQb->expr()->or(...$likes));
                 },
@@ -123,7 +137,8 @@ final class SearchFilter implements FilterInterface, FilterPreResolvableInterfac
         }
 
         // $columns is guaranteed non-empty above and every entry yields an OR part.
-        $qb->andWhere($qb->expr()->or(...$orParts));
+        $matches = (string)$qb->expr()->or(...$orParts);
+        $qb->andWhere($values->negate ? 'NOT (' . $matches . ')' : $matches);
     }
 
     /**

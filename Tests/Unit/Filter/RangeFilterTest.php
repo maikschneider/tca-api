@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Unit\Filter;
 
 use Doctrine\DBAL\ParameterType;
+use MaikSchneider\TcaApi\Filter\ColumnTypeResolver;
 use MaikSchneider\TcaApi\Filter\FilterContext;
 use MaikSchneider\TcaApi\Filter\RangeFilter;
 use PHPUnit\Framework\Attributes\Test;
@@ -64,7 +65,7 @@ final class RangeFilterTest extends TestCase
 
     private function newFilter(): RangeFilter
     {
-        return new RangeFilter($this->schemaFactory);
+        return new RangeFilter(new ColumnTypeResolver($this->schemaFactory));
     }
 
     /**

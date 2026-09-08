@@ -241,6 +241,21 @@ final class OpenApiSpecTest extends ApiFunctionalTestCase
         self::assertNotContains('filters', $paramNames, 'filters deepObject must not be present');
     }
 
+    public function testMultiValueFiltersAdvertiseTheRepeatableForm(): void
+    {
+        $body = $this->decodeResponseBody($this->executeApiRequest('/_api/openapi.json'));
+        $listParams = $body['paths']['/_api/articles']['get']['parameters'];
+
+        $descriptions = array_column($listParams, 'description', 'name');
+
+        self::assertStringContainsString('Repeat as filters[color_id][]', $descriptions['color_id']);
+        self::assertStringContainsString('Repeat as filters[categories][]', $descriptions['categories']);
+        self::assertStringContainsString(
+            'Repeat as filters[categories.title][]',
+            $descriptions['filters[categories.title]'],
+        );
+    }
+
     public function testColorListOperationHasNoFilterParams(): void
     {
         $response = $this->executeApiRequest('/_api/openapi.json');

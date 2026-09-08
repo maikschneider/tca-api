@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Filter;
 
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 
@@ -25,7 +26,7 @@ use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
  * preResolve() is the optimisation (resolve once, cache); deriveMmConfigFromTca()
  * is the safety net ensuring apply() is always self-contained.
  */
-final class MmFilter implements FilterInterface, FilterPreResolvableInterface
+final class MmFilter implements FilterInterface, FilterPreResolvableInterface, MultiValueFilterInterface
 {
     public function __construct(
         private readonly TcaSchemaFactory $schemaFactory,
@@ -38,12 +39,17 @@ final class MmFilter implements FilterInterface, FilterPreResolvableInterface
             $context = $this->deriveMmConfigFromTca($context);
         }
 
+        $values = ValueSet::fromContext($context);
+        if ($values->isEmpty()) {
+            return;
+        }
+
         $mmTable      = $context->option('mm_table');
         $mmLocalKey   = $context->option('mm_local_key');
         $mmForeignKey = $context->option('mm_foreign_key');
-        $value        = (string)$context->value;
+        $matchAll     = $context->option('match') === 'all';
 
-        $parts = [sprintf('%s = %s', $qb->quoteIdentifier($mmLocalKey), $qb->createNamedParameter($value))];
+        $parts = [$this->relatedUidConstraint($qb, $mmLocalKey, $values)];
         foreach ($context->option('mm_constraints', []) as $col => $val) {
             $parts[] = sprintf('%s = %s', $qb->quoteIdentifier($col), $qb->createNamedParameter($val));
         }
@@ -54,7 +60,41 @@ final class MmFilter implements FilterInterface, FilterPreResolvableInterface
             $qb->quoteIdentifier($mmTable),
             implode(' AND ', $parts),
         );
-        $qb->andWhere($qb->expr()->in('uid', '(' . $subSql . ')'));
+
+        // match=all: keep only records related to every requested value, counting
+        // distinct hits per record rather than intersecting one subquery per value.
+        if ($matchAll && $values->isMulti()) {
+            $subSql .= sprintf(
+                ' GROUP BY %s HAVING COUNT(DISTINCT %s) = %s',
+                $qb->quoteIdentifier($mmForeignKey),
+                $qb->quoteIdentifier($mmLocalKey),
+                $qb->createNamedParameter(\count($values->values), Connection::PARAM_INT),
+            );
+        }
+
+        $qb->andWhere($values->negate
+            ? $qb->expr()->notIn('uid', '(' . $subSql . ')')
+            : $qb->expr()->in('uid', '(' . $subSql . ')'));
+    }
+
+    private function relatedUidConstraint(QueryBuilder $qb, string $mmLocalKey, ValueSet $values): string
+    {
+        if (!$values->isMulti()) {
+            return sprintf(
+                '%s = %s',
+                $qb->quoteIdentifier($mmLocalKey),
+                $qb->createNamedParameter((string)$values->first()),
+            );
+        }
+
+        return sprintf(
+            '%s IN (%s)',
+            $qb->quoteIdentifier($mmLocalKey),
+            $qb->createNamedParameter(
+                array_map(static fn (mixed $value): string => (string)$value, $values->values),
+                Connection::PARAM_STR_ARRAY,
+            ),
+        );
     }
 
     /**

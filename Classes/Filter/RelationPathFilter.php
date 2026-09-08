@@ -21,7 +21,7 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
  * path filters inherit the full comparison vocabulary (exact, range, like, …). The hop
  * traversal and parameter handling live in {@see RelationSubqueryBuilder}.
  */
-final class RelationPathFilter implements FilterInterface, FilterPreResolvableInterface
+final class RelationPathFilter implements FilterInterface, FilterPreResolvableInterface, MultiValueFilterInterface
 {
     /** @var array<class-string, FilterInterface>|null */
     private ?array $leafMap = null;
@@ -99,7 +99,12 @@ final class RelationPathFilter implements FilterInterface, FilterPreResolvableIn
             },
         );
 
-        $qb->andWhere($qb->expr()->in('t.uid', '(' . $currentSet . ')'));
+        // Negation belongs on the outside: "no related record matches" — negating the
+        // leaf comparison instead would match records that merely have one other
+        // related record differing from the value.
+        $qb->andWhere($context->option('negate', false)
+            ? $qb->expr()->notIn('t.uid', '(' . $currentSet . ')')
+            : $qb->expr()->in('t.uid', '(' . $currentSet . ')'));
     }
 
     private function leafFilter(FilterContext $context): FilterInterface
@@ -142,6 +147,7 @@ final class RelationPathFilter implements FilterInterface, FilterPreResolvableIn
             $options['__leafColumn'],
             $options['__leafFilter'],
             $options['__pathError'],
+            $options['negate'],
         );
 
         return $options;
