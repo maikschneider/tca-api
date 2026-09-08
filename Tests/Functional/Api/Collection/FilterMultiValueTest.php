@@ -238,6 +238,6 @@ final class FilterMultiValueTest extends ApiFunctionalTestCase
      */
     private function titles(array $body): array
     {
-        return array_map(static fn (array $member): string => $member['title'], $body['hydra:member']);
+        return array_values(array_map(static fn (array $member): string => $member['title'], $body['hydra:member']));
     }
 }
