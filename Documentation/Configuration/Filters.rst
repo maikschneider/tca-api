@@ -54,8 +54,10 @@ Built-in filter classes
 Multiple values per filter (IN / NOT IN)
 ========================================
 
-Every comparison filter accepts either a single value or a **list** — the same
-filter declaration serves both. No configuration is needed on the resource side:
+Every filter that compares a value accepts either a single value or a **list** —
+the same filter declaration serves both. ``RangeFilter`` is the exception: its
+value is an operator map (``gte``, ``lte``, …), not a value to widen. No
+configuration is needed on the resource side:
 
 ..  code-block:: text
 
