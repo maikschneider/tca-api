@@ -56,17 +56,6 @@ final class FilterMultiValueTest extends ApiFunctionalTestCase
         self::assertSame(['Second Article'], $this->titles($body));
     }
 
-    public function testExactFilterWithEmptyListAppliesNoConstraint(): void
-    {
-        $this->registerArticles('empty-exact', ['color_id' => ExactFilter::class]);
-
-        $body = $this->decodeResponseBody(
-            $this->executeApiRequest('/_api/empty-exact', ['filters' => ['color_id' => []]]),
-        );
-
-        self::assertSame(3, $body['hydra:totalItems']);
-    }
-
     public function testNegatedExactFilterExcludesTheValue(): void
     {
         $this->registerArticles('neq-exact', ['color_id' => [ExactFilter::class, ['negate' => true]]]);

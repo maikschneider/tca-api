@@ -7,6 +7,8 @@ namespace MaikSchneider\TcaApi\Tests\Unit\Filter;
 use Doctrine\DBAL\ParameterType;
 use MaikSchneider\TcaApi\Filter\ColumnTypeResolver;
 use MaikSchneider\TcaApi\Filter\FilterContext;
+use MaikSchneider\TcaApi\Filter\FilterDefinition;
+use MaikSchneider\TcaApi\Filter\FilterValueException;
 use MaikSchneider\TcaApi\Filter\RangeFilter;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -86,6 +88,33 @@ final class RangeFilterTest extends TestCase
         $this->schemaFactory = $this->createMock(TcaSchemaFactory::class);
         $this->schemaFactory->method('has')->willReturnCallback(static fn (string $t): bool => $t === $table);
         $this->schemaFactory->method('get')->willReturnCallback(static fn (string $t): TcaSchema => $schema);
+    }
+
+    // ── value shape guards ───────────────────────────────────────────────
+
+    #[Test]
+    public function aListUnderAnOperatorIsRejected(): void
+    {
+        $this->expectException(FilterValueException::class);
+        $this->expectExceptionMessage('Filter "year" expects a single value for operator "gte".');
+
+        $this->newFilter()->apply($this->qb, new FilterContext(value: ['gte' => ['2020', '2021']], table: '', column: 'year'));
+    }
+
+    // ── preResolve() ─────────────────────────────────────────────────────
+
+    #[Test]
+    public function preResolveBakesTheTcaDerivedTypeIntoTheDefinition(): void
+    {
+        $this->withTcaColumn('tx_test', 'year', ['type' => 'number']);
+
+        $definition = $this->newFilter()->preResolve(new FilterDefinition(
+            filterClass: RangeFilter::class,
+            table:       'tx_test',
+            column:      'year',
+        ));
+
+        self::assertSame('int', $definition->option('type'));
     }
 
     // ── value autodetection (no TCA, no explicit type) ───────────────────
