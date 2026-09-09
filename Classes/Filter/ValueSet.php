@@ -67,6 +67,9 @@ final readonly class ValueSet
         $raw = $context->value;
 
         if (\is_array($raw)) {
+            if (!array_is_list($raw)) {
+                throw new FilterValueException(sprintf('Filter "%s" expects a scalar or a list of values.', $context->column));
+            }
             $values = [];
             foreach ($raw as $entry) {
                 if ($entry === null) {

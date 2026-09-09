@@ -121,6 +121,25 @@ final class ValueSetTest extends TestCase
         ValueSet::fromContext($this->context([['5']]));
     }
 
+    /** @param array<array-key, string> $value */
+    #[Test]
+    #[DataProvider('nonListValues')]
+    public function nonListArraysAreRejected(array $value): void
+    {
+        $this->expectException(FilterValueException::class);
+        $this->expectExceptionMessage('Filter "color_id" expects a scalar or a list of values.');
+
+        ValueSet::fromContext($this->context($value));
+    }
+
+    /** @return iterable<string, array{array<array-key, string>}> */
+    public static function nonListValues(): iterable
+    {
+        yield 'operator map' => [['gte' => '5']];
+        yield 'sparse numeric keys' => [[0 => '5', 2 => '9']];
+        yield 'mixed keys' => [[0 => '5', 'gte' => '9']];
+    }
+
     #[Test]
     public function separatorOptionSplitsStringValues(): void
     {

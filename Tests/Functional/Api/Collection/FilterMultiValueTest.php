@@ -155,6 +155,18 @@ final class FilterMultiValueTest extends ApiFunctionalTestCase
         self::assertStringContainsString('accepts at most 2 values', $body['hydra:description']);
     }
 
+    public function testOperatorMapIsRejectedForExactFilter(): void
+    {
+        $this->registerArticles('invalid-map', ['color_id' => ExactFilter::class]);
+
+        $response = $this->executeApiRequest('/_api/invalid-map', ['filters' => ['color_id' => ['gte' => '1']]]);
+        self::assertSame(400, $response->getStatusCode());
+        self::assertSame(
+            'Filter "color_id" expects a scalar or a list of values.',
+            $this->decodeResponseBody($response)['hydra:description'],
+        );
+    }
+
     // ── LIKE filters ─────────────────────────────────────────────────────
 
     public function testPartialFilterWithListMatchesAnyValue(): void
