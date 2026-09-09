@@ -266,6 +266,24 @@ final class FilterMultiValueTest extends ApiFunctionalTestCase
 
     // ── relation paths ───────────────────────────────────────────────────
 
+    #[DataProvider('invalidRelationValues')]
+    public function testRelationValidationNamesThePublicFilter(mixed $value, string $message): void
+    {
+        $this->registerArticles('invalid-path', ['categories.title' => [ExactFilter::class, ['maxValues' => 2]]]);
+
+        $response = $this->executeApiRequest('/_api/invalid-path', ['filters' => ['categories.title' => $value]]);
+        self::assertSame(400, $response->getStatusCode());
+        self::assertSame($message, $this->decodeResponseBody($response)['hydra:description']);
+    }
+
+    /** @return iterable<string, array{mixed, string}> */
+    public static function invalidRelationValues(): iterable
+    {
+        yield 'too many values' => [['PHP', 'API', 'TYPO3'], 'Filter "categories.title" accepts at most 2 values, 3 given.'];
+        yield 'nested values' => [[['PHP']], 'Filter "categories.title" does not accept nested values.'];
+        yield 'operator map' => [['gte' => 'PHP'], 'Filter "categories.title" expects a scalar or a list of values.'];
+    }
+
     #[DataProvider('inactiveRangeValues')]
     public function testInactiveRelationRangeAppliesNoConstraint(mixed $value, bool $negate): void
     {

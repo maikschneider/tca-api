@@ -89,7 +89,7 @@ final class RelationPathFilter implements FilterInterface, FilterPreResolvableIn
 
         // An empty comparison must not become a relation-existence constraint.
         // Operator maps (e.g. RangeFilter) are interpreted only by their leaf.
-        if ($leafFilter instanceof MultiValueFilterInterface && ValueSet::fromContext($leafContext)->isEmpty()) {
+        if ($leafFilter instanceof MultiValueFilterInterface && ValueSet::fromContext($context)->isEmpty()) {
             return;
         }
         if ($leafFilter instanceof RangeFilter && !$leafFilter->hasConstraint($leafContext)) {
