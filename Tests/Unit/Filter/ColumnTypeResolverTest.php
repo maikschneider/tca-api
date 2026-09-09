@@ -69,6 +69,7 @@ final class ColumnTypeResolverTest extends TestCase
     {
         $schemaFactory = $this->createMock(TcaSchemaFactory::class);
         $schemaFactory->method('has')->willReturn(false);
+        $schemaFactory->expects(self::never())->method('get');
 
         self::assertNull((new ColumnTypeResolver($schemaFactory))->detect('tx_missing', 'year'));
     }
@@ -108,7 +109,7 @@ final class ColumnTypeResolverTest extends TestCase
 
         $schemaFactory = $this->createMock(TcaSchemaFactory::class);
         $schemaFactory->method('has')->willReturnCallback(static fn (string $t): bool => $t === $table);
-        $schemaFactory->method('get')->willReturnCallback(static fn (string $t): TcaSchema => $schema);
+        $schemaFactory->method('get')->with($table)->willReturn($schema);
 
         return $schemaFactory;
     }
