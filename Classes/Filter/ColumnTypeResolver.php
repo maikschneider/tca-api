@@ -106,9 +106,8 @@ final class ColumnTypeResolver
 
     /**
      * Binds a list of values as an array parameter for an `IN` / `NOT IN` comparison.
-     * Values are cast per resolved type; the array type follows the cast of the first
-     * value so a mixed list never binds integers as strings and vice versa.
-     *
+     * Values are cast per resolved type; the array type is `PARAM_INT_ARRAY` only when
+     * every value resolves to `ParameterType::INTEGER`, otherwise `PARAM_STR_ARRAY`.
      * @param list<scalar> $values
      */
     public function namedArrayParameter(QueryBuilder $qb, array $values, ?string $type): string
