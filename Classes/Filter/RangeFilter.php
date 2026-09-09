@@ -8,6 +8,8 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 
 final class RangeFilter implements FilterInterface, FilterPreResolvableInterface
 {
+    private const OPERATORS = ['gte', 'lte', 'gt', 'lt'];
+
     public function __construct(
         private readonly ColumnTypeResolver $typeResolver,
     ) {
@@ -47,5 +49,11 @@ final class RangeFilter implements FilterInterface, FilterPreResolvableInterface
     public function preResolve(FilterDefinition $definition): FilterDefinition
     {
         return $this->typeResolver->preResolveType($definition);
+    }
+
+    public function hasConstraint(FilterContext $context): bool
+    {
+        return \is_array($context->value)
+            && array_intersect(self::OPERATORS, array_keys($context->value)) !== [];
     }
 }

@@ -92,6 +92,9 @@ final class RelationPathFilter implements FilterInterface, FilterPreResolvableIn
         if ($leafFilter instanceof MultiValueFilterInterface && ValueSet::fromContext($leafContext)->isEmpty()) {
             return;
         }
+        if ($leafFilter instanceof RangeFilter && !$leafFilter->hasConstraint($leafContext)) {
+            return;
+        }
 
         /** @var list<RelationHop> $hops */
 

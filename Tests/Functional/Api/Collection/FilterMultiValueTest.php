@@ -7,6 +7,7 @@ namespace MaikSchneider\TcaApi\Tests\Functional\Api\Collection;
 use MaikSchneider\TcaApi\Filter\ExactFilter;
 use MaikSchneider\TcaApi\Filter\MmFilter;
 use MaikSchneider\TcaApi\Filter\PartialFilter;
+use MaikSchneider\TcaApi\Filter\RangeFilter;
 use MaikSchneider\TcaApi\Filter\SearchFilter;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -252,6 +253,39 @@ final class FilterMultiValueTest extends ApiFunctionalTestCase
     }
 
     // ── relation paths ───────────────────────────────────────────────────
+
+    #[DataProvider('inactiveRangeValues')]
+    public function testInactiveRelationRangeAppliesNoConstraint(mixed $value, bool $negate): void
+    {
+        $this->registerArticles('inactive-range', ['categories.uid' => [RangeFilter::class, ['negate' => $negate]]]);
+
+        $response = $this->executeApiRequest('/_api/inactive-range', ['filters' => ['categories.uid' => $value]]);
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(
+            ['First Article', 'Second Article', 'Third Article'],
+            $this->titles($this->decodeResponseBody($response)),
+        );
+    }
+
+    /** @return iterable<string, array{mixed, bool}> */
+    public static function inactiveRangeValues(): iterable
+    {
+        foreach ([false, true] as $negate) {
+            $suffix = $negate ? ' negated' : ' positive';
+            yield 'scalar' . $suffix => ['1', $negate];
+            yield 'empty map' . $suffix => [[], $negate];
+            yield 'unknown operator' . $suffix => [['unknown' => '1'], $negate];
+        }
+    }
+
+    public function testRelationRangeStillAppliesRecognizedOperators(): void
+    {
+        $this->registerArticles('active-range', ['categories.uid' => RangeFilter::class]);
+
+        $response = $this->executeApiRequest('/_api/active-range', ['filters' => ['categories.uid' => ['gte' => '3']]]);
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(['Second Article'], $this->titles($this->decodeResponseBody($response)));
+    }
 
     public function testRelationPathFilterWithListMatchesAnyValue(): void
     {
