@@ -77,6 +77,22 @@ final class RelationPathFilter implements FilterInterface, FilterPreResolvableIn
             [$hops, $leafTable, $leafColumn] = $this->subqueryBuilder->resolvePath($context->table, $context->column);
         }
 
+        $leafFilter = $this->leafFilter($context);
+        $leafContext = new FilterContext(
+            value:          $context->value,
+            table:          $leafTable,
+            column:         $leafColumn,
+            options:        $this->leafOptions($context),
+            request:        $context->request,
+            resourceConfig: $context->resourceConfig,
+        );
+
+        // An empty comparison must not become a relation-existence constraint.
+        // Operator maps (e.g. RangeFilter) are interpreted only by their leaf.
+        if ($leafFilter instanceof MultiValueFilterInterface && ValueSet::fromContext($leafContext)->isEmpty()) {
+            return;
+        }
+
         /** @var list<RelationHop> $hops */
 
         // The declared leaf filter builds the WHERE on the deepest table; the builder folds
@@ -87,15 +103,8 @@ final class RelationPathFilter implements FilterInterface, FilterPreResolvableIn
             $hops,
             $leafTable,
             $prefix,
-            function (QueryBuilder $leafQb, string $leafAlias) use ($context, $leafTable, $leafColumn): void {
-                $this->leafFilter($context)->apply($leafQb, new FilterContext(
-                    value:          $context->value,
-                    table:          $leafTable,
-                    column:         $leafColumn,
-                    options:        $this->leafOptions($context),
-                    request:        $context->request,
-                    resourceConfig: $context->resourceConfig,
-                ));
+            function (QueryBuilder $leafQb, string $leafAlias) use ($leafFilter, $leafContext): void {
+                $leafFilter->apply($leafQb, $leafContext);
             },
         );
 
