@@ -96,7 +96,8 @@ final readonly class ValueSet
             $values = [];
         }
 
-        $values = array_values(array_unique($values, SORT_REGULAR));
+        // Compare textual values without numeric coercion: "007" and "7" are distinct filters.
+        $values = array_values(array_unique($values, SORT_STRING));
 
         $max = (int)$context->option('maxValues', self::DEFAULT_MAX_VALUES);
         if ($max > 0 && \count($values) > $max) {
