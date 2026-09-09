@@ -21,7 +21,7 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
  * path filters inherit the full comparison vocabulary (exact, range, like, …). The hop
  * traversal and parameter handling live in {@see RelationSubqueryBuilder}.
  */
-final class RelationPathFilter implements FilterInterface, FilterPreResolvableInterface, MultiValueFilterInterface
+final class RelationPathFilter implements FilterInterface, FilterPreResolvableInterface
 {
     /** @var array<class-string, FilterInterface>|null */
     private ?array $leafMap = null;
