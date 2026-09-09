@@ -219,7 +219,7 @@ final readonly class OpenApiOperationBuilder
             $paramName = str_contains($field, '.') ? 'filters[' . $field . ']' : $field;
             $description = 'Filter by ' . $field . ' (' . $shortName . ')';
             if ($this->acceptsMultipleValues($filterConfig)) {
-                $description .= '. Repeat as filters[' . $field . '][] to match any of several values.';
+                $description .= '. Supply multiple values as ' . $paramName . '[].';
             }
             $params[] = [
                 'name' => $paramName,

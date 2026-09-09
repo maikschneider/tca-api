@@ -248,10 +248,10 @@ final class OpenApiSpecTest extends ApiFunctionalTestCase
 
         $descriptions = array_column($listParams, 'description', 'name');
 
-        self::assertStringContainsString('Repeat as filters[color_id][]', $descriptions['color_id']);
-        self::assertStringContainsString('Repeat as filters[categories][]', $descriptions['categories']);
+        self::assertStringContainsString('Supply multiple values as color_id[].', $descriptions['color_id']);
+        self::assertStringContainsString('Supply multiple values as categories[].', $descriptions['categories']);
         self::assertStringContainsString(
-            'Repeat as filters[categories.title][]',
+            'Supply multiple values as filters[categories.title][].',
             $descriptions['filters[categories.title]'],
         );
     }
