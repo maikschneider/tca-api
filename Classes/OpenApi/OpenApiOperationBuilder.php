@@ -218,16 +218,24 @@ final readonly class OpenApiOperationBuilder
             // so keep advertising them top-level.
             $paramName = str_contains($field, '.') ? 'filters[' . $field . ']' : $field;
             $description = 'Filter by ' . $field . ' (' . $shortName . ')';
-            if ($this->acceptsMultipleValues($filterConfig)) {
-                $description .= '. Supply multiple values as ' . $paramName . '[].';
+            $multiple = $this->acceptsMultipleValues($filterConfig);
+            if ($multiple) {
+                $paramName .= '[]';
+                $description .= '. Supply one or more values as ' . $paramName . '.';
             }
-            $params[] = [
+            $parameter = [
                 'name' => $paramName,
                 'in' => 'query',
                 'required' => false,
                 'description' => $description,
                 'schema' => ['type' => 'string'],
             ];
+            if ($multiple) {
+                $parameter['style'] = 'form';
+                $parameter['explode'] = true;
+                $parameter['schema'] = ['type' => 'array', 'items' => ['type' => 'string']];
+            }
+            $params[] = $parameter;
         }
 
         if ($config->allowedOrder !== []) {

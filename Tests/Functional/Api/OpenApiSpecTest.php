@@ -226,14 +226,16 @@ final class OpenApiSpecTest extends ApiFunctionalTestCase
         $paramNames = array_column($listParams, 'name');
 
         // Individual top-level filter params
-        self::assertContains('color_id', $paramNames, 'color_id must be advertised as a top-level query param');
-        self::assertContains('title', $paramNames, 'title must be advertised as a top-level query param');
+        self::assertContains('color_id[]', $paramNames, 'color_id must be advertised as a top-level array query param');
+        self::assertContains('title[]', $paramNames, 'title must be advertised as a top-level array query param');
 
         // Each individual param must be in: query
         foreach ($listParams as $param) {
-            if (\in_array($param['name'], ['color_id', 'title'], true)) {
+            if (\in_array($param['name'], ['color_id[]', 'title[]'], true)) {
                 self::assertSame('query', $param['in']);
-                self::assertSame('string', $param['schema']['type']);
+                self::assertSame(['type' => 'array', 'items' => ['type' => 'string']], $param['schema']);
+                self::assertSame('form', $param['style']);
+                self::assertTrue($param['explode']);
             }
         }
 
@@ -246,14 +248,15 @@ final class OpenApiSpecTest extends ApiFunctionalTestCase
         $body = $this->decodeResponseBody($this->executeApiRequest('/_api/openapi.json'));
         $listParams = $body['paths']['/_api/articles']['get']['parameters'];
 
-        $descriptions = array_column($listParams, 'description', 'name');
+        $parameters = array_column($listParams, null, 'name');
 
-        self::assertStringContainsString('Supply multiple values as color_id[].', $descriptions['color_id']);
-        self::assertStringContainsString('Supply multiple values as categories[].', $descriptions['categories']);
-        self::assertStringContainsString(
-            'Supply multiple values as filters[categories.title][].',
-            $descriptions['filters[categories.title]'],
-        );
+        foreach (['color_id[]', 'categories[]', 'filters[categories.title][]'] as $name) {
+            self::assertArrayHasKey($name, $parameters);
+            self::assertSame(['type' => 'array', 'items' => ['type' => 'string']], $parameters[$name]['schema']);
+            self::assertSame('form', $parameters[$name]['style']);
+            self::assertTrue($parameters[$name]['explode']);
+            self::assertStringContainsString('Supply one or more values as ' . $name . '.', $parameters[$name]['description']);
+        }
     }
 
     public function testColorListOperationHasNoFilterParams(): void
