@@ -47,7 +47,13 @@ Built-in filter classes
        ``any``), ``negate``, ``separator``, ``maxValues``
 
 ``negate``, ``separator`` and ``maxValues`` are described under
-:ref:`filters-multiple-values`; ``type`` under `Range filter`_.
+:ref:`filters-multiple-values`. The supported ``type`` options and TCA type
+mapping are described under `Range filter`_. Both ``ExactFilter`` and
+``RangeFilter`` prefer an explicit ``type`` option, then a TCA-derived type.
+Their fallback differs: when neither supplies a type, ``ExactFilter`` binds
+values as strings (preserving leading zeros such as ``007``), while
+``RangeFilter`` autodetects the type from the supplied value. This distinction
+also applies when these filters are used as relation-path leaves.
 
 ..  _filters-multiple-values:
 
