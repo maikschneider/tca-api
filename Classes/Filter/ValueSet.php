@@ -77,6 +77,12 @@ final readonly class ValueSet
                         sprintf('Filter "%s" does not accept nested values.', $context->column),
                     );
                 }
+                if (\is_string($entry)) {
+                    $entry = trim($entry);
+                    if ($entry === '') {
+                        continue;
+                    }
+                }
                 $values[] = $entry;
             }
         } elseif (\is_string($raw) && \is_string($context->option('separator')) && $context->option('separator') !== '') {

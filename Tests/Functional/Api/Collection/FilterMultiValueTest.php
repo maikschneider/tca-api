@@ -9,6 +9,7 @@ use MaikSchneider\TcaApi\Filter\MmFilter;
 use MaikSchneider\TcaApi\Filter\PartialFilter;
 use MaikSchneider\TcaApi\Filter\SearchFilter;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Functional tests for multi-value filter values (IN / NOT IN) and the `negate` option.
@@ -32,6 +33,59 @@ final class FilterMultiValueTest extends ApiFunctionalTestCase
     }
 
     // ── ExactFilter ──────────────────────────────────────────────────────
+
+    /** @param array<string, mixed> $options */
+    #[DataProvider('clearedFilterValues')]
+    public function testClearedFilterAppliesNoConstraint(string $column, bool $negate, mixed $value, array $options): void
+    {
+        $this->registerArticles('cleared-filter', [
+            $column => [ExactFilter::class, array_merge($options, ['negate' => $negate])],
+        ]);
+
+        $response = $this->executeApiRequest('/_api/cleared-filter', ['filters' => [$column => $value]]);
+        self::assertSame(200, $response->getStatusCode());
+        $body = $this->decodeResponseBody($response);
+
+        // Include records both with and without categories, but never hidden records.
+        self::assertSame(3, $body['hydra:totalItems']);
+        self::assertSame(['First Article', 'Second Article', 'Third Article'], $this->titles($body));
+    }
+
+    /** @return iterable<string, array{string, bool, mixed, array<string, mixed>}> */
+    public static function clearedFilterValues(): iterable
+    {
+        foreach (['color_id', 'categories.title'] as $column) {
+            foreach ([false, true] as $negate) {
+                $label = $column . ($negate ? ' negated' : ' positive');
+                // PHP parses filters[column][]= as [''], not [].
+                yield $label . ' blank array' => [$column, $negate, [''], []];
+                yield $label . ' whitespace array' => [$column, $negate, ['  '], []];
+                yield $label . ' empty separator value' => [$column, $negate, '', ['separator' => ',']];
+            }
+        }
+    }
+
+    public function testBlankEntriesDoNotAddZeroToExactFilter(): void
+    {
+        $this->registerArticles('mixed-blank-exact', ['color_id' => ExactFilter::class]);
+
+        $body = $this->decodeResponseBody(
+            $this->executeApiRequest('/_api/mixed-blank-exact', ['filters' => ['color_id' => ['', '1', '  ']]]),
+        );
+
+        self::assertSame(['First Article'], $this->titles($body));
+    }
+
+    public function testZeroIsStillAnExactFilterValue(): void
+    {
+        $this->registerArticles('zero-exact', ['color_id' => ExactFilter::class]);
+
+        $body = $this->decodeResponseBody(
+            $this->executeApiRequest('/_api/zero-exact', ['filters' => ['color_id' => ['', '0']]]),
+        );
+
+        self::assertSame(['Third Article'], $this->titles($body));
+    }
 
     public function testExactFilterWithListMatchesAnyValue(): void
     {

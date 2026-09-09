@@ -7,6 +7,7 @@ namespace MaikSchneider\TcaApi\Tests\Unit\Filter;
 use MaikSchneider\TcaApi\Filter\FilterContext;
 use MaikSchneider\TcaApi\Filter\FilterValueException;
 use MaikSchneider\TcaApi\Filter\ValueSet;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -62,6 +63,39 @@ final class ValueSetTest extends TestCase
     public function emptyListIsEmpty(): void
     {
         self::assertTrue(ValueSet::fromContext($this->context([]))->isEmpty());
+    }
+
+    /**
+     * @param list<scalar|null> $value
+     * @param list<scalar> $expected
+     */
+    #[Test]
+    #[DataProvider('blankArrayValues')]
+    public function blankArrayEntriesAreDropped(array $value, array $expected): void
+    {
+        $set = ValueSet::fromContext($this->context($value));
+
+        self::assertSame($expected, $set->values);
+        self::assertSame($expected === [], $set->isEmpty());
+    }
+
+    /** @return iterable<string, array{list<scalar|null>, list<scalar>}> */
+    public static function blankArrayValues(): iterable
+    {
+        yield 'empty string' => [[''], []];
+        yield 'whitespace only' => [[" \t\n"], []];
+        yield 'mixed blanks and value' => [['', '5', '  ', null], ['5']];
+        yield 'string zero survives' => [['', '0', '  '], ['0']];
+        yield 'integer zero survives' => [['', 0], [0]];
+    }
+
+    #[Test]
+    public function numericLookingStringsRemainDistinct(): void
+    {
+        $set = ValueSet::fromContext($this->context(['007', '7', '007']));
+
+        self::assertSame(['007', '7'], $set->values);
+        self::assertTrue($set->isMulti());
     }
 
     #[Test]
