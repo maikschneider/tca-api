@@ -44,12 +44,16 @@ final class MmFilter implements FilterInterface, FilterPreResolvableInterface, M
             return;
         }
 
+        // MM keys are integer UIDs: textual variants such as "1" and "01"
+        // must contribute only once to both the predicate and the required count.
+        $uids = array_values(array_unique(array_map(static fn (mixed $value): int => (int)$value, $values->values)));
+
         $mmTable      = $context->option('mm_table');
         $mmLocalKey   = $context->option('mm_local_key');
         $mmForeignKey = $context->option('mm_foreign_key');
         $matchAll     = $context->option('match') === 'all';
 
-        $parts = [$this->relatedUidConstraint($qb, $mmLocalKey, $values)];
+        $parts = [$this->relatedUidConstraint($qb, $mmLocalKey, $uids)];
         foreach ($context->option('mm_constraints', []) as $col => $val) {
             $parts[] = sprintf('%s = %s', $qb->quoteIdentifier($col), $qb->createNamedParameter($val));
         }
@@ -63,12 +67,12 @@ final class MmFilter implements FilterInterface, FilterPreResolvableInterface, M
 
         // match=all: keep only records related to every requested value, counting
         // distinct hits per record rather than intersecting one subquery per value.
-        if ($matchAll && $values->isMulti()) {
+        if ($matchAll && \count($uids) > 1) {
             $subSql .= sprintf(
                 ' GROUP BY %s HAVING COUNT(DISTINCT %s) = %s',
                 $qb->quoteIdentifier($mmForeignKey),
                 $qb->quoteIdentifier($mmLocalKey),
-                $qb->createNamedParameter(\count($values->values), Connection::PARAM_INT),
+                $qb->createNamedParameter(\count($uids), Connection::PARAM_INT),
             );
         }
 
@@ -77,13 +81,14 @@ final class MmFilter implements FilterInterface, FilterPreResolvableInterface, M
             : $qb->expr()->in('uid', '(' . $subSql . ')'));
     }
 
-    private function relatedUidConstraint(QueryBuilder $qb, string $mmLocalKey, ValueSet $values): string
+    /** @param list<int> $uids */
+    private function relatedUidConstraint(QueryBuilder $qb, string $mmLocalKey, array $uids): string
     {
-        if (!$values->isMulti()) {
+        if (\count($uids) === 1) {
             return sprintf(
                 '%s = %s',
                 $qb->quoteIdentifier($mmLocalKey),
-                $qb->createNamedParameter((string)$values->first()),
+                $qb->createNamedParameter($uids[0], Connection::PARAM_INT),
             );
         }
 
@@ -91,8 +96,8 @@ final class MmFilter implements FilterInterface, FilterPreResolvableInterface, M
             '%s IN (%s)',
             $qb->quoteIdentifier($mmLocalKey),
             $qb->createNamedParameter(
-                array_map(static fn (mixed $value): string => (string)$value, $values->values),
-                Connection::PARAM_STR_ARRAY,
+                $uids,
+                Connection::PARAM_INT_ARRAY,
             ),
         );
     }

@@ -228,6 +228,29 @@ final class FilterMultiValueTest extends ApiFunctionalTestCase
         self::assertSame(['Third Article'], $this->titles($body));
     }
 
+    /** @param list<string> $uids */
+    #[DataProvider('equivalentMmUids')]
+    public function testMmMatchAllCountsDistinctUids(array $uids, bool $negate): void
+    {
+        $this->registerArticles('distinct-mm', ['categories' => [MmFilter::class, ['match' => 'all', 'negate' => $negate]]]);
+
+        $response = $this->executeApiRequest('/_api/distinct-mm', ['filters' => ['categories' => $uids]]);
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(
+            $negate ? ['Second Article', 'Third Article'] : ['First Article'],
+            $this->titles($this->decodeResponseBody($response)),
+        );
+    }
+
+    /** @return iterable<string, array{list<string>, bool}> */
+    public static function equivalentMmUids(): iterable
+    {
+        yield 'one uid' => [['1', '01'], false];
+        yield 'two uids' => [['1', '01', '2', '02'], false];
+        yield 'one uid negated' => [['1', '01'], true];
+        yield 'two uids negated' => [['1', '01', '2', '02'], true];
+    }
+
     // ── relation paths ───────────────────────────────────────────────────
 
     public function testRelationPathFilterWithListMatchesAnyValue(): void
