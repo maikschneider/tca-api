@@ -64,6 +64,20 @@ final class SearchFilterTest extends TestCase
     }
 
     #[Test]
+    public function emptyValueIsNoOp(): void
+    {
+        $this->qb->expects(self::never())->method('andWhere');
+
+        $filter = new SearchFilter($this->subqueryBuilder);
+        $filter->apply($this->qb, new FilterContext(
+            value:   [],
+            table:   '',
+            column:  'q',
+            options: ['columns' => ['title']],
+        ));
+    }
+
+    #[Test]
     public function columnsOptionNotSetIsNoOp(): void
     {
         $this->qb->expects(self::never())->method('andWhere');

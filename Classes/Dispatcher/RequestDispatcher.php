@@ -9,6 +9,7 @@ use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Event\BeforeOperationEvent;
+use MaikSchneider\TcaApi\Filter\FilterValueException;
 use MaikSchneider\TcaApi\OpenApi\HydraApiDocumentationBuilder;
 use MaikSchneider\TcaApi\OpenApi\HydraEntrypointBuilder;
 use MaikSchneider\TcaApi\OpenApi\OpenApiBuilder;
@@ -166,6 +167,9 @@ final class RequestDispatcher
                     break;
                 }
             }
+        } catch (FilterValueException $e) {
+            $this->cacheTagCollector->reset();
+            return $this->hydraResponseBuilder->buildError(400, $e->getMessage(), 'Bad Request');
         } catch (\RuntimeException $e) {
             $this->cacheTagCollector->reset();
             $description = (bool)$siteSettings->get('tca_api.debugMode', false)

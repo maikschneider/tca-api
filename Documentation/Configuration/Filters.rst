@@ -21,14 +21,14 @@ Built-in filter classes
      - Description
      - Options
    * - ``ExactFilter``
-     - ``WHERE column = value``
-     - —
+     - ``WHERE column = value`` (``IN (…)`` for a list)
+     - ``negate``, ``separator``, ``maxValues``, ``type``
    * - ``PartialFilter``
      - ``WHERE column LIKE %value%``
-     - —
+     - ``negate``, ``separator``, ``maxValues``
    * - ``WordStartFilter``
      - ``WHERE column LIKE value%``
-     - —
+     - ``negate``, ``separator``, ``maxValues``
    * - ``RangeFilter``
      - Comparison operators on a column (numeric, string or date)
      - Value must be ``['gte'=>…, 'lte'=>…, 'gt'=>…, 'lt'=>…]``. The bound
@@ -39,11 +39,144 @@ Built-in filter classes
    * - ``SearchFilter``
      - ``OR`` across multiple columns (LIKE)
      - ``columns`` (required), ``match`` (``partial`` | ``word_start``, default
-       ``partial``)
+       ``partial``), ``negate``, ``separator``, ``maxValues``
    * - ``MmFilter``
      - Subquery via MM intermediate table
      - ``mm_table``, ``mm_local_key``, ``mm_foreign_key``, ``mm_constraints``
-       (derived from TCA when omitted)
+       (derived from TCA when omitted), ``match`` (``any`` | ``all``, default
+       ``any``), ``negate``, ``separator``, ``maxValues``
+
+``negate``, ``separator`` and ``maxValues`` are described under
+:ref:`filters-multiple-values`. The supported ``type`` options and TCA type
+mapping are described under `Range filter`_. Both ``ExactFilter`` and
+``RangeFilter`` prefer an explicit ``type`` option, then a TCA-derived type.
+Their fallback differs: when neither supplies a type, ``ExactFilter`` binds
+values as strings (preserving leading zeros such as ``007``), while
+``RangeFilter`` autodetects the type from the supplied value. This distinction
+also applies when these filters are used as relation-path leaves.
+
+..  _filters-multiple-values:
+
+Multiple values per filter (IN / NOT IN)
+========================================
+
+Every filter that compares a value accepts either a single value or a **list** —
+the same filter declaration serves both. ``RangeFilter`` is the exception: its
+value is an operator map (``gte``, ``lte``, …), not a value to widen. No
+configuration is needed on the resource side:
+
+..  code-block:: text
+
+    ?filters[color_id]=1                          → WHERE color_id = 1
+    ?filters[color_id][]=1&filters[color_id][]=2  → WHERE color_id IN (1, 2)
+
+This is what a facetted frontend filter (a multi-select of categories, say)
+sends, and it works on relation-path keys too — so a multi-select over a related
+record's column needs no custom filter class:
+
+..  code-block:: php
+
+    'filters' => [
+        'color_id'         => ExactFilter::class,  // ?filters[color_id][]=1&filters[color_id][]=2
+        'categories'       => MmFilter::class,     // ?filters[categories][]=5&filters[categories][]=9
+        'categories.title' => ExactFilter::class,  // ?filters[categories.title][]=News&…[]=Press
+    ],
+
+Each filter widens in the way that matches its own comparison:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 75
+
+   * - Filter
+     - List behaviour
+   * - ``ExactFilter``
+     - ``column IN (v1, v2)``
+   * - ``PartialFilter`` / ``WordStartFilter``
+     - ``column LIKE p1 OR column LIKE p2``
+   * - ``SearchFilter``
+     - every term is searched across every configured column, OR-ed together
+   * - ``MmFilter``
+     - related to **any** of the values — or to **all** of them with
+       ``['match' => 'all']``
+   * - relation path (dotted key)
+     - the declared leaf filter compares the list on the related table
+   * - ``RangeFilter``
+     - not applicable — its value is an operator map (``gte``, ``lte``, …)
+
+An empty list (``?filters[color_id][]=``) applies no constraint at all, so a
+frontend that clears its facet does not have to drop the parameter. This also
+switches off a non-private ``default`` for that request — public defaults are a
+starting value, not a restriction (use ``private`` for those, see
+`Default values and private filters`_).
+
+For ``ExactFilter`` without a ``separator``, ``?filters[title]=`` compares
+against the empty string; ``?filters[title][]=`` clears the filter. With a
+``separator``, an empty scalar also clears the filter.
+
+``MmFilter`` compares record identifiers, so each of its values must be a
+non-negative integer. A value that is not — ``foo``, ``1.9`` — returns
+``400 Bad Request`` instead of being cast to a UID.
+
+Negating a filter
+-----------------
+
+The ``negate`` option flips a filter to its negative form. It is a **server-side
+decision** read from the resource config — a client cannot invert a filter it was
+given:
+
+..  code-block:: php
+
+    'filters' => [
+        // ?filters[color_id]=1     → WHERE color_id != 1
+        // ?filters[color_id][]=1&filters[color_id][]=2 → WHERE color_id NOT IN (1, 2)
+        'not_color' => [ExactFilter::class, ['negate' => true]],
+
+        // records that carry none of the requested categories
+        'without_categories' => [MmFilter::class, ['negate' => true]],
+    ],
+
+For LIKE filters the negation of "matches any of the values" is "matches none of
+them", so a list produces ``NOT LIKE p1 AND NOT LIKE p2``. On a relation path the
+negation applies to the record as a whole (``t.uid NOT IN (subquery)``): an
+article whose *other* category still matches is excluded, which is what
+"articles without category News" means.
+
+Direct negated comparisons (``!=``, ``NOT IN``, ``NOT LIKE``) exclude ``NULL``
+values under SQL's null semantics. A nullable column therefore need not produce
+the complement of the positive filter. Relation-path negation instead tests
+whether any related record matches, as described above.
+
+Comma-separated values
+----------------------
+
+Some clients cannot produce bracket arrays. Set ``separator`` to accept a list
+in a single scalar parameter instead:
+
+..  code-block:: php
+
+    'filters' => [
+        'color_id' => [ExactFilter::class, ['separator' => ',']],  // ?filters[color_id]=1,2
+    ],
+
+Values are trimmed and empty entries dropped. Without the option a comma is an
+ordinary character in the value.
+
+Bounding the list length
+------------------------
+
+A list is capped at **100 values** to keep a crafted request from building an
+unbounded ``IN`` list. Exceeding the cap returns ``400 Bad Request`` naming the
+filter and the limit, rather than truncating silently. Override it per filter
+with ``maxValues`` (``0`` disables the cap):
+
+..  code-block:: php
+
+    'filters' => [
+        'color_id' => [ExactFilter::class, ['maxValues' => 10]],
+    ],
+
+Duplicate values are collapsed before the cap is checked.
 
 Configuration examples
 ======================
@@ -108,6 +241,10 @@ config from TCA automatically (requires a valid ``MM`` key on the field):
     'filters' => [
         // Shorthand: derive MM config from TCA automatically
         'categories' => MmFilter::class,
+
+        // Require a record to carry *every* requested category
+        // (?filters[topics][]=5&filters[topics][]=9), not just one of them
+        'topics' => [MmFilter::class, ['match' => 'all']],
 
         // Options form: supply MM table config explicitly
         'tags' => [
@@ -420,6 +557,11 @@ defaults and enforcement:
     ],
 
 A private filter without a ``default`` has no effect.
+
+A non-private ``default`` is a starting value, not an access restriction: the
+client can send any other value for that filter, and an empty list
+(``?filters[color_id][]=``) switches the filter off entirely for that request.
+Anything the client must not be able to change belongs behind ``private``.
 
 Boot-time pre-resolution (FilterPreResolvableInterface)
 =======================================================
