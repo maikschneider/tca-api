@@ -142,6 +142,11 @@ negation applies to the record as a whole (``t.uid NOT IN (subquery)``): an
 article whose *other* category still matches is excluded, which is what
 "articles without category News" means.
 
+Direct negated comparisons (``!=``, ``NOT IN``, ``NOT LIKE``) exclude ``NULL``
+values under SQL's null semantics. A nullable column therefore need not produce
+the complement of the positive filter. Relation-path negation instead tests
+whether any related record matches, as described above.
+
 Comma-separated values
 ----------------------
 
