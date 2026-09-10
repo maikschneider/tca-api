@@ -10,14 +10,9 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 
 /**
- * Resolves the DBAL parameter type a filter should bind a value with, and creates
- * the bound parameter. Shared by every comparison filter so that `?filters[uid]=5`
- * and `?filters[uid][gte]=5` bind identically.
- *
- * Resolution order:
- *   1. Explicit `type` option in the filter config (escape hatch)
- *   2. Type inferred from the TCA column configuration
- *   3. null  → fall back to autodetection from the request value
+ * Resolves explicit or TCA-derived types and binds scalar or array parameters.
+ * Without a resolved type, RangeFilter autodetects from the value;
+ * ExactFilter uses string binding to preserve leading zeros.
  */
 final class ColumnTypeResolver
 {

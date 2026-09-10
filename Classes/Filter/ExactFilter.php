@@ -25,8 +25,7 @@ final class ExactFilter implements FilterInterface, FilterPreResolvableInterface
             return;
         }
 
-        // No TCA-derived type means "compare as string", the behaviour before typed
-        // binding existed — autodetection would silently turn "007" into 7.
+        // Preserve leading zeros when no explicit or TCA-derived type is available.
         $type = $this->typeResolver->resolveType($context) ?? 'string';
 
         if ($values->isMulti()) {
