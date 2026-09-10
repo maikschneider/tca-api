@@ -213,6 +213,25 @@ final class FilterMultiValueTest extends ApiFunctionalTestCase
         self::assertSame(0, $body['hydra:totalItems']);
     }
 
+    public function testEmptyListClearsAPublicDefaultButNotAPrivateOne(): void
+    {
+        $this->registerArticles('public-default', ['color_id' => [ExactFilter::class, ['default' => '1']]]);
+        $this->registerArticles('private-default', ['color_id' => [ExactFilter::class, ['default' => '1', 'private' => true]]]);
+
+        $applied = $this->decodeResponseBody($this->executeApiRequest('/_api/public-default'));
+        self::assertSame(['First Article'], $this->titles($applied));
+
+        $cleared = $this->decodeResponseBody(
+            $this->executeApiRequest('/_api/public-default', ['filters' => ['color_id' => ['']]]),
+        );
+        self::assertSame(['First Article', 'Second Article', 'Third Article'], $this->titles($cleared));
+
+        $enforced = $this->decodeResponseBody(
+            $this->executeApiRequest('/_api/private-default', ['filters' => ['color_id' => ['']]]),
+        );
+        self::assertSame(['First Article'], $this->titles($enforced));
+    }
+
     // ── MmFilter ─────────────────────────────────────────────────────────
 
     public function testMmFilterWithListMatchesAnyCategory(): void

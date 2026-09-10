@@ -105,7 +105,10 @@ Each filter widens in the way that matches its own comparison:
      - not applicable — its value is an operator map (``gte``, ``lte``, …)
 
 An empty list (``?filters[color_id][]=``) applies no constraint at all, so a
-frontend that clears its facet does not have to drop the parameter.
+frontend that clears its facet does not have to drop the parameter. This also
+switches off a non-private ``default`` for that request — public defaults are a
+starting value, not a restriction (use ``private`` for those, see
+`Default values and private filters`_).
 
 For ``ExactFilter`` without a ``separator``, ``?filters[title]=`` compares
 against the empty string; ``?filters[title][]=`` clears the filter. With a
@@ -549,6 +552,11 @@ defaults and enforcement:
     ],
 
 A private filter without a ``default`` has no effect.
+
+A non-private ``default`` is a starting value, not an access restriction: the
+client can send any other value for that filter, and an empty list
+(``?filters[color_id][]=``) switches the filter off entirely for that request.
+Anything the client must not be able to change belongs behind ``private``.
 
 Boot-time pre-resolution (FilterPreResolvableInterface)
 =======================================================
