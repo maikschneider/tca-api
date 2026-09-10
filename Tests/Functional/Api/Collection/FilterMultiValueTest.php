@@ -264,6 +264,30 @@ final class FilterMultiValueTest extends ApiFunctionalTestCase
         yield 'two uids negated' => [['1', '01', '2', '02'], true];
     }
 
+    #[DataProvider('invalidMmUids')]
+    public function testMmFilterRejectsValuesThatAreNotUids(mixed $value): void
+    {
+        $this->registerArticles('invalid-mm', ['categories' => MmFilter::class]);
+
+        $response = $this->executeApiRequest('/_api/invalid-mm', ['filters' => ['categories' => $value]]);
+        self::assertSame(400, $response->getStatusCode());
+        self::assertSame(
+            'Filter "categories" expects numeric record identifiers.',
+            $this->decodeResponseBody($response)['hydra:description'],
+        );
+    }
+
+    /** @return iterable<string, array{mixed}> */
+    public static function invalidMmUids(): iterable
+    {
+        yield 'non-numeric scalar' => ['foo'];
+        yield 'decimal' => ['1.9'];
+        yield 'negative' => ['-1'];
+        yield 'out of integer range' => ['99999999999999999999'];
+        yield 'decimal in a list' => [['1', '1.9']];
+        yield 'non-numeric in a list' => [['1', 'foo']];
+    }
+
     // ── relation paths ───────────────────────────────────────────────────
 
     #[DataProvider('invalidRelationValues')]

@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Multiple values per filter.** `ExactFilter`, `PartialFilter`, `WordStartFilter`, `SearchFilter`, `MmFilter` and relation-path filters now accept a list (`?filters[color_id][]=1&filters[color_id][]=2`) and widen their comparison accordingly — `IN (…)` for `ExactFilter`, an `OR` of `LIKE`s for the LIKE filters, a subquery over all values for `MmFilter` — instead of casting the array to the string `"Array"`. A single value keeps producing exactly the SQL each filter produced before. `RangeFilter` is unaffected: its value is an operator map, not a value to widen. Three options are available on every one of them: `negate` (compare with the negated operator: `!=` / `NOT IN` / `NOT LIKE`), `separator` (split a scalar value into a list, e.g. `?filters[color_id]=1,2`), and `maxValues` (upper bound on the list length, default 100; exceeding it returns `400`). `MmFilter` additionally accepts `match => 'all'`, which requires a record to be related to every requested value instead of any ([#201](https://github.com/maikschneider/tca-api/issues/201)).
 - `ExactFilter` binds its parameters with the type derived from the column's TCA configuration, the way `RangeFilter` already did. Columns whose TCA type does not resolve to a number keep binding as strings, so zero-padded values are unaffected ([#201](https://github.com/maikschneider/tca-api/issues/201)).
 
+### Fixed
+
+- **`MmFilter` rejects values that are not record identifiers.** A value such as `foo` or `1.9` was cast to an integer UID (`0` and `1` respectively), so a request could silently match the wrong records — and under `match => 'all'` the cast also corrupted the required-hit count. Such a value now returns `400 Bad Request`; zero-padded UIDs (`01`) keep resolving to the same UID as `1` ([#201](https://github.com/maikschneider/tca-api/issues/201)).
+
 ## [2.0.0] - 2026-08-31
 
 ### Added

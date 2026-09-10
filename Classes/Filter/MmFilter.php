@@ -44,9 +44,7 @@ final class MmFilter implements FilterInterface, FilterPreResolvableInterface, M
             return;
         }
 
-        // MM keys are integer UIDs: textual variants such as "1" and "01"
-        // must contribute only once to both the predicate and the required count.
-        $uids = array_values(array_unique(array_map(static fn (mixed $value): int => (int)$value, $values->values)));
+        $uids = $this->toUids($values->values, $context->column);
 
         $mmTable      = $context->option('mm_table');
         $mmLocalKey   = $context->option('mm_local_key');
@@ -79,6 +77,31 @@ final class MmFilter implements FilterInterface, FilterPreResolvableInterface, M
         $qb->andWhere($values->negate
             ? $qb->expr()->notIn('uid', '(' . $subSql . ')')
             : $qb->expr()->in('uid', '(' . $subSql . ')'));
+    }
+
+    /**
+     * Validate UIDs before casting and count equivalent forms ("1", "01") once.
+     *
+     * @param list<scalar> $values
+     *
+     * @return list<int>
+     */
+    private function toUids(array $values, string $column): array
+    {
+        $uids = [];
+        foreach ($values as $value) {
+            $candidate = \is_bool($value) ? '' : (string)$value;
+            $canonical = ltrim($candidate, '0') ?: '0';
+            // The round-trip check rejects integer overflow.
+            if (!ctype_digit($candidate) || $canonical !== (string)(int)$candidate) {
+                throw new FilterValueException(
+                    sprintf('Filter "%s" expects numeric record identifiers.', $column),
+                );
+            }
+            $uids[] = (int)$candidate;
+        }
+
+        return array_values(array_unique($uids));
     }
 
     /** @param list<int> $uids */
