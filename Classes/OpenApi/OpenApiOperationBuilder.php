@@ -6,6 +6,9 @@ namespace MaikSchneider\TcaApi\OpenApi;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Enum\AccessRole;
+use MaikSchneider\TcaApi\Filter\FilterDefinition;
+use MaikSchneider\TcaApi\Filter\MultiValueFilterInterface;
+use MaikSchneider\TcaApi\Filter\RelationPathFilter;
 
 final readonly class OpenApiOperationBuilder
 {
@@ -214,13 +217,25 @@ final readonly class OpenApiOperationBuilder
             // dots in top-level parameter names to underscores. Plain keys accept both,
             // so keep advertising them top-level.
             $paramName = str_contains($field, '.') ? 'filters[' . $field . ']' : $field;
-            $params[] = [
+            $description = 'Filter by ' . $field . ' (' . $shortName . ')';
+            $multiple = $this->acceptsMultipleValues($filterConfig);
+            if ($multiple) {
+                $paramName .= '[]';
+                $description .= '. Supply one or more values as ' . $paramName . '.';
+            }
+            $parameter = [
                 'name' => $paramName,
                 'in' => 'query',
                 'required' => false,
-                'description' => 'Filter by ' . $field . ' (' . $shortName . ')',
+                'description' => $description,
                 'schema' => ['type' => 'string'],
             ];
+            if ($multiple) {
+                $parameter['style'] = 'form';
+                $parameter['explode'] = true;
+                $parameter['schema'] = ['type' => 'array', 'items' => ['type' => 'string']];
+            }
+            $params[] = $parameter;
         }
 
         if ($config->allowedOrder !== []) {
@@ -246,6 +261,21 @@ final readonly class OpenApiOperationBuilder
         ];
 
         return $params;
+    }
+
+    /**
+     * A relation-path filter forwards the value to its leaf, so the leaf decides
+     * whether a list is accepted.
+     */
+    private function acceptsMultipleValues(FilterDefinition $filterConfig): bool
+    {
+        if ($filterConfig->filterClass === RelationPathFilter::class) {
+            $leaf = $filterConfig->option('__leafFilter');
+
+            return \is_string($leaf) && is_a($leaf, MultiValueFilterInterface::class, true);
+        }
+
+        return is_a($filterConfig->filterClass, MultiValueFilterInterface::class, true);
     }
 
     private function hasUploadColumns(ApiDefinition $config, string $operation = ''): bool

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Filter;
 
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 
@@ -25,7 +26,7 @@ use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
  * preResolve() is the optimisation (resolve once, cache); deriveMmConfigFromTca()
  * is the safety net ensuring apply() is always self-contained.
  */
-final class MmFilter implements FilterInterface, FilterPreResolvableInterface
+final class MmFilter implements FilterInterface, FilterPreResolvableInterface, MultiValueFilterInterface
 {
     public function __construct(
         private readonly TcaSchemaFactory $schemaFactory,
@@ -38,12 +39,19 @@ final class MmFilter implements FilterInterface, FilterPreResolvableInterface
             $context = $this->deriveMmConfigFromTca($context);
         }
 
+        $values = ValueSet::fromContext($context);
+        if ($values->isEmpty()) {
+            return;
+        }
+
+        $uids = $this->toUids($values->values, $context->column);
+
         $mmTable      = $context->option('mm_table');
         $mmLocalKey   = $context->option('mm_local_key');
         $mmForeignKey = $context->option('mm_foreign_key');
-        $value        = (string)$context->value;
+        $matchAll     = $context->option('match') === 'all';
 
-        $parts = [sprintf('%s = %s', $qb->quoteIdentifier($mmLocalKey), $qb->createNamedParameter($value))];
+        $parts = [$this->relatedUidConstraint($qb, $mmLocalKey, $uids)];
         foreach ($context->option('mm_constraints', []) as $col => $val) {
             $parts[] = sprintf('%s = %s', $qb->quoteIdentifier($col), $qb->createNamedParameter($val));
         }
@@ -54,7 +62,67 @@ final class MmFilter implements FilterInterface, FilterPreResolvableInterface
             $qb->quoteIdentifier($mmTable),
             implode(' AND ', $parts),
         );
-        $qb->andWhere($qb->expr()->in('uid', '(' . $subSql . ')'));
+
+        // match=all: keep only records related to every requested value, counting
+        // distinct hits per record rather than intersecting one subquery per value.
+        if ($matchAll && \count($uids) > 1) {
+            $subSql .= sprintf(
+                ' GROUP BY %s HAVING COUNT(DISTINCT %s) = %s',
+                $qb->quoteIdentifier($mmForeignKey),
+                $qb->quoteIdentifier($mmLocalKey),
+                $qb->createNamedParameter(\count($uids), Connection::PARAM_INT),
+            );
+        }
+
+        $qb->andWhere($values->negate
+            ? $qb->expr()->notIn('uid', '(' . $subSql . ')')
+            : $qb->expr()->in('uid', '(' . $subSql . ')'));
+    }
+
+    /**
+     * Validate UIDs before casting and count equivalent forms ("1", "01") once.
+     *
+     * @param list<scalar> $values
+     *
+     * @return list<int>
+     */
+    private function toUids(array $values, string $column): array
+    {
+        $uids = [];
+        foreach ($values as $value) {
+            $candidate = \is_bool($value) ? '' : (string)$value;
+            $canonical = ltrim($candidate, '0') ?: '0';
+            // The round-trip check rejects integer overflow.
+            if (!ctype_digit($candidate) || $canonical !== (string)(int)$candidate) {
+                throw new FilterValueException(
+                    sprintf('Filter "%s" expects numeric record identifiers.', $column),
+                );
+            }
+            $uids[] = (int)$candidate;
+        }
+
+        return array_values(array_unique($uids));
+    }
+
+    /** @param list<int> $uids */
+    private function relatedUidConstraint(QueryBuilder $qb, string $mmLocalKey, array $uids): string
+    {
+        if (\count($uids) === 1) {
+            return sprintf(
+                '%s = %s',
+                $qb->quoteIdentifier($mmLocalKey),
+                $qb->createNamedParameter($uids[0], Connection::PARAM_INT),
+            );
+        }
+
+        return sprintf(
+            '%s IN (%s)',
+            $qb->quoteIdentifier($mmLocalKey),
+            $qb->createNamedParameter(
+                $uids,
+                Connection::PARAM_INT_ARRAY,
+            ),
+        );
     }
 
     /**

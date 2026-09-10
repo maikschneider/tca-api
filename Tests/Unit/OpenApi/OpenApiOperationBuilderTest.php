@@ -9,6 +9,8 @@ use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Enum\WriteMode;
 use MaikSchneider\TcaApi\Filter\ExactFilter;
 use MaikSchneider\TcaApi\Filter\FilterDefinition;
+use MaikSchneider\TcaApi\Filter\RangeFilter;
+use MaikSchneider\TcaApi\Filter\RelationPathFilter;
 use MaikSchneider\TcaApi\OpenApi\OpenApiOperationBuilder;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -19,7 +21,7 @@ final class OpenApiOperationBuilderTest extends TestCase
     public function listOperationAdvertisesDottedFilterKeysInBracketForm(): void
     {
         $config = $this->makeConfigWithFilters([
-            'categories.title' => new FilterDefinition(ExactFilter::class, 'tx_test', 'categories.title'),
+            'categories.title' => new FilterDefinition(RelationPathFilter::class, 'tx_test', 'categories.title', options: ['__leafFilter' => ExactFilter::class]),
             'color_id'         => new FilterDefinition(ExactFilter::class, 'tx_test', 'color_id'),
         ]);
 
@@ -28,10 +30,29 @@ final class OpenApiOperationBuilderTest extends TestCase
 
         // A relation-path (dotted) key only matches via ?filters[…]; a plain top-level
         // parameter name such as "categories.title" would never bind (PHP mangles the dot).
-        self::assertContains('filters[categories.title]', $names);
+        self::assertContains('filters[categories.title][]', $names);
         self::assertNotContains('categories.title', $names);
         // Plain keys stay top-level.
-        self::assertContains('color_id', $names);
+        self::assertContains('color_id[]', $names);
+    }
+
+    #[Test]
+    public function filtersWithoutListSupportKeepTheirExistingSchemas(): void
+    {
+        $config = $this->makeConfigWithFilters([
+            'year' => new FilterDefinition(RangeFilter::class, 'tx_test', 'year'),
+            'categories.uid' => new FilterDefinition(RelationPathFilter::class, 'tx_test', 'categories.uid', options: ['__leafFilter' => RangeFilter::class]),
+        ]);
+
+        $operation = (new OpenApiOperationBuilder())->buildListOperation('test', 'Test', $config);
+        $parameters = array_column($operation['parameters'], null, 'name');
+        foreach (['year', 'filters[categories.uid]'] as $name) {
+            self::assertArrayHasKey($name, $parameters);
+            self::assertSame(['type' => 'string'], $parameters[$name]['schema']);
+            self::assertArrayNotHasKey('style', $parameters[$name]);
+            self::assertArrayNotHasKey('explode', $parameters[$name]);
+            self::assertArrayNotHasKey($name . '[]', $parameters);
+        }
     }
 
     #[Test]
