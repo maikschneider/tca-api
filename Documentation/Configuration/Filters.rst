@@ -107,6 +107,10 @@ Each filter widens in the way that matches its own comparison:
 An empty list (``?filters[color_id][]=``) applies no constraint at all, so a
 frontend that clears its facet does not have to drop the parameter.
 
+For ``ExactFilter`` without a ``separator``, ``?filters[title]=`` compares
+against the empty string; ``?filters[title][]=`` clears the filter. With a
+``separator``, an empty scalar also clears the filter.
+
 ``MmFilter`` compares record identifiers, so each of its values must be a
 non-negative integer. A value that is not — ``foo``, ``1.9`` — returns
 ``400 Bad Request`` instead of being cast to a UID.

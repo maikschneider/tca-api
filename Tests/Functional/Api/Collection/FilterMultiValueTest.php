@@ -202,6 +202,17 @@ final class FilterMultiValueTest extends ApiFunctionalTestCase
         self::assertSame(['First Article', 'Second Article'], $this->titles($body));
     }
 
+    public function testEmptyScalarComparesAgainstTheEmptyString(): void
+    {
+        $this->registerArticles('empty-scalar', ['title' => ExactFilter::class]);
+
+        $body = $this->decodeResponseBody(
+            $this->executeApiRequest('/_api/empty-scalar', ['filters' => ['title' => '']]),
+        );
+
+        self::assertSame(0, $body['hydra:totalItems']);
+    }
+
     // ── MmFilter ─────────────────────────────────────────────────────────
 
     public function testMmFilterWithListMatchesAnyCategory(): void
