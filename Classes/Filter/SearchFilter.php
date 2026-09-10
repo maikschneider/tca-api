@@ -114,7 +114,8 @@ final class SearchFilter implements FilterInterface, FilterPreResolvableInterfac
 
         foreach ($groups as $groupKey => $group) {
             $leafColumns = $group['leafColumns'];
-            $prefix      = 'search_' . substr(md5($groupKey), 0, 8) . '_';
+            // Keep bindings separate for filters sharing a relation path.
+            $prefix      = 'search_' . substr(md5($context->column . '.' . $groupKey), 0, 8) . '_';
             $currentSet  = $this->subqueryBuilder->buildUidSubquery(
                 $qb,
                 $group['hops'],

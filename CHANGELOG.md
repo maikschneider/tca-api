@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **`MmFilter` rejects values that are not record identifiers.** A value such as `foo` or `1.9` was cast to an integer UID (`0` and `1` respectively), so a request could silently match the wrong records — and under `match => 'all'` the cast also corrupted the required-hit count. Such a value now returns `400 Bad Request`; zero-padded UIDs (`01`) keep resolving to the same UID as `1` ([#201](https://github.com/maikschneider/tca-api/issues/201)).
+- **Two `SearchFilter`s over the same relation path no longer overwrite each other's values.** The subquery parameter prefix was derived from the relation path alone, so both filters lifted identically named leaf parameters onto the outer query and the second value won for both. The prefix now includes the filter key ([#201](https://github.com/maikschneider/tca-api/issues/201)).
 
 ## [2.0.0] - 2026-08-31
 

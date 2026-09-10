@@ -288,6 +288,22 @@ final class FilterMultiValueTest extends ApiFunctionalTestCase
         yield 'non-numeric in a list' => [['1', 'foo']];
     }
 
+    // ── search on relations ──────────────────────────────────────────────
+
+    public function testTwoSearchFiltersOverOneRelationPathStayIndependent(): void
+    {
+        $this->registerArticles('two-search', [
+            'q1' => [SearchFilter::class, ['columns' => ['categories.title']]],
+            'q2' => [SearchFilter::class, ['columns' => ['categories.title']]],
+        ]);
+
+        $body = $this->decodeResponseBody(
+            $this->executeApiRequest('/_api/two-search', ['filters' => ['q1' => 'PHP', 'q2' => 'API']]),
+        );
+
+        self::assertSame(0, $body['hydra:totalItems']);
+    }
+
     // ── relation paths ───────────────────────────────────────────────────
 
     #[DataProvider('invalidRelationValues')]
