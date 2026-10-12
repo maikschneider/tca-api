@@ -50,8 +50,8 @@ final class EmbedPreloader
     }
 
     /**
-     * @param list<string> $fields    Partial-response column list, as passed to the serializer
-     * @param string       $operation Operation the serializer will run for, as passed to it
+     * @param array  $fields    Partial-response column list, as passed to the serializer
+     * @param string $operation Operation the serializer will run for, as passed to it
      */
     public function preload(array $rows, ApiDefinition $config, ?SiteLanguage $language = null, array $fields = [], string $operation = ''): array
     {
@@ -243,6 +243,7 @@ final class EmbedPreloader
      * Queries the MM table for uid_local IN (...) filtered by MM_oppositeUsage table+field pairs
      * and stores the results as multiTableRelations.
      *
+     * @param  list<int>                       $parentUids
      * @return array<string, array<int, true>> related UIDs by table
      */
     private function preloadReverseMm(array &$preloaded, string $table, string $column, array $fieldConfig, array $parentUids): array
