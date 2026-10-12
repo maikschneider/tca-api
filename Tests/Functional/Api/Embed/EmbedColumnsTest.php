@@ -197,4 +197,35 @@ final class EmbedColumnsTest extends ApiFunctionalTestCase
         self::assertSame(['@type', '@id', 'uid', 'name'], array_keys($properties['color_id']['oneOf'][0]['properties']));
         self::assertSame(['type' => 'null'], $properties['color_id']['oneOf'][1]);
     }
+
+    public function testEmbedColumnsWithoutDepthLeftAreReferencesInOpenApi(): void
+    {
+        $this->registerArticles([
+            'categories' => ['resourceName' => 'unregistered', 'embed' => ['depth' => 0, 'columns' => ['title']]],
+        ]);
+        $this->registerResource('ec-articles-nested', [
+            'general' => [
+                'table'        => 'tx_myext_domain_model_article',
+                'resourceName' => 'ec-articles-nested',
+                'resourceType' => 'EcArticleNested',
+                'operations'   => ['list', 'show'],
+            ],
+            'columns' => [
+                'categories' => ['resourceName' => 'ec-categories', 'embed' => ['columns' => ['title', 'parent']]],
+            ],
+        ]);
+        $this->registerCategories(['parent' => ['embed' => ['columns' => ['title']]]]);
+
+        $spec    = $this->decodeResponseBody($this->executeApiRequest('/_api/openapi.json'));
+        $schemas = $spec['components']['schemas'];
+
+        self::assertSame(['type' => 'array', 'items' => ['type' => 'integer']], $schemas['EcArticleRead']['properties']['categories']);
+        self::assertSame(
+            ['type' => 'array', 'items' => ['type' => 'string', 'format' => 'iri-reference']],
+            $schemas['EcArticleNestedRead']['properties']['categories']['items']['properties']['parent'],
+        );
+
+        $body = $this->decodeResponseBody($this->executeApiRequest('/_api/ec-articles/2'));
+        self::assertSame([20], $body['categories']);
+    }
 }

@@ -83,10 +83,12 @@ is 1.
         'color_id' => ['embed' => ['depth' => 2]],
     ],
 
-..  important::
+..  note::
 
-    The related resource must be registered in the ``ApiRegistry`` for embedding
-    to work.
+    A related table without a registered resource embeds too: its records
+    expose every TCA column and carry no ``@id``, since there is no endpoint
+    for one to point at. Register a resource for the table to choose its
+    columns, or limit them where the relation is used with ``embed.columns``.
 
 Limiting the columns of an embedded record
 ==========================================

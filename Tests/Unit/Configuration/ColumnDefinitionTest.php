@@ -194,6 +194,8 @@ final class ColumnDefinitionTest extends TestCase
         yield 'columns as map' => [['columns' => ['title' => true]]];
         yield 'non-string column' => [['columns' => ['title', 3]]];
         yield 'empty column name' => [['columns' => ['']]];
+        yield 'null columns' => [['depth' => 1, 'columns' => null]];
+        yield 'null depth' => [['depth' => null, 'columns' => ['title']]];
     }
 
     #[Test]

@@ -373,13 +373,13 @@ final readonly class ColumnDefinition
 
     private static function isValidEmbedArray(mixed $embed): bool
     {
-        if (!\is_array($embed) || (!isset($embed['depth']) && !isset($embed['columns']))) {
+        if (!\is_array($embed) || (!\array_key_exists('depth', $embed) && !\array_key_exists('columns', $embed))) {
             return false;
         }
-        if (isset($embed['depth']) && !\is_int($embed['depth'])) {
+        if (\array_key_exists('depth', $embed) && !\is_int($embed['depth'])) {
             return false;
         }
-        if (!isset($embed['columns'])) {
+        if (!\array_key_exists('columns', $embed)) {
             return true;
         }
 
