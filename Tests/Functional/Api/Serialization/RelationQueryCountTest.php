@@ -19,17 +19,17 @@ use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
  * two responses over *disjoint* record sets of different size, so any
  * per-record query shows up as a difference.
  *
- * Fixture data (relations_bulk.csv), for i = 0…11:
+ * Fixture data (*_relations_bulk.csv), for i = 0…11:
  *
- *   article 700+i  color_id → color 700+i
- *                  categories (MM) → category 700+i
- *                  related_colors (UID list) → color 740+i
- *                  related_items (multi-table) → color 740+i
- *                  related_colors_mm_grp (group MM) → color 740+i
- *                  related_items_inline (foreign_field) ← color 720+i
- *   color 720+i    category_id → category 720+i
+ *   article 3000+i  color_id → color 3000+i
+ *                   categories (MM) → category 3000+i
+ *                   related_colors (UID list) → color 3040+i
+ *                   related_items (multi-table) → color 3040+i
+ *                   related_colors_mm_grp (group MM) → color 3040+i
+ *                   related_items_inline (foreign_field) ← color 3020+i
+ *   color 3020+i    category_id → category 3020+i
  *
- *   article 700    parent_id → article 712, which is categorised as category 700
+ *   article 3000    parent_id → article 3012, which is categorised as category 3000
  */
 final class RelationQueryCountTest extends ApiFunctionalTestCase
 {
@@ -65,9 +65,14 @@ final class RelationQueryCountTest extends ApiFunctionalTestCase
         $this->get(TcaSchemaFactory::class)->load($GLOBALS['TCA'], true);
 
         $this->importCSVDataSet(__DIR__ . '/../../Fixtures/pages.csv');
-        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/relations_bulk.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/articles_relations_bulk.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/colors_relations_bulk.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/sys_categories_relations_bulk.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/sys_category_record_mm_relations_bulk.csv');
+        $this->importCSVDataSet(__DIR__ . '/../../Fixtures/tx_myext_article_colors_mm_relations_bulk.csv');
     }
 
+    /** @return iterable<string, array{string, array<string, mixed>}> */
     public static function articleColumnProvider(): iterable
     {
         foreach (['categories', 'related_colors', 'related_items', 'related_colors_mm_grp', 'related_items_inline', 'color_id'] as $column) {
@@ -112,9 +117,9 @@ final class RelationQueryCountTest extends ApiFunctionalTestCase
             $this->executeApiRequest('/_api/qc-categories', ['itemsPerPage' => 3]),
         )['hydra:member'];
 
-        self::assertSame(['/_api/articles/700', '/_api/articles/712'], $members[0]['items']);
-        self::assertSame(['/_api/articles/701'], $members[1]['items']);
-        self::assertSame(['/_api/articles/702'], $members[2]['items']);
+        self::assertSame(['/_api/articles/3000', '/_api/articles/3012'], $members[0]['items']);
+        self::assertSame(['/_api/articles/3001'], $members[1]['items']);
+        self::assertSame(['/_api/articles/3002'], $members[2]['items']);
     }
 
     /**
@@ -129,10 +134,10 @@ final class RelationQueryCountTest extends ApiFunctionalTestCase
             'parent_id'  => ['groups' => ['list', 'show'], 'embed' => true],
         ]);
 
-        $body = $this->decodeResponseBody($this->executeApiRequest('/_api/qc-articles/700'));
+        $body = $this->decodeResponseBody($this->executeApiRequest('/_api/qc-articles/3000'));
 
-        self::assertSame(712, $body['parent_id']['uid']);
-        self::assertSame(['/_api/qc-categories/700'], $body['parent_id']['categories']);
+        self::assertSame(3012, $body['parent_id']['uid']);
+        self::assertSame(['/_api/qc-categories/3000'], $body['parent_id']['categories']);
     }
 
     private function registerCategoryResource(): void
