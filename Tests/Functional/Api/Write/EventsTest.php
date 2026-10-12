@@ -8,8 +8,8 @@ use MaikSchneider\TcaApi\Event\AfterOperationEvent;
 use MaikSchneider\TcaApi\Event\AfterWriteEvent;
 use MaikSchneider\TcaApi\Event\BeforeOperationEvent;
 use MaikSchneider\TcaApi\Event\BeforeWriteEvent;
-use MaikSchneider\TcaApi\Testing\EventCollector;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
+use MaikSchneider\TcaApiTestEvents\EventCollector;
 
 /**
  * Functional tests for PSR-14 event dispatching.
@@ -26,6 +26,11 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
  */
 final class EventsTest extends ApiFunctionalTestCase
 {
+    protected array $testExtensionsToLoad = [
+        'tca_api',
+        __DIR__ . '/../../Fixtures/Extensions/test_events',
+    ];
+
     protected function setUp(): void
     {
         parent::setUp();
