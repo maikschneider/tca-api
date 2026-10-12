@@ -1,0 +1,108 @@
+"tx_myext_domain_model_article"
+,"uid","pid","title","color_id","parent_id","hidden","deleted","tstamp","crdate","categories","related_colors","related_items","related_colors_mm_grp"
+,700,1,"Bulk Relation Article 0",700,712,0,0,1704067200,1704067200,1,"740","tx_myext_domain_model_color_740",1
+,701,1,"Bulk Relation Article 1",701,0,0,0,1704067200,1704067200,1,"741","tx_myext_domain_model_color_741",1
+,702,1,"Bulk Relation Article 2",702,0,0,0,1704067200,1704067200,1,"742","tx_myext_domain_model_color_742",1
+,703,1,"Bulk Relation Article 3",703,0,0,0,1704067200,1704067200,1,"743","tx_myext_domain_model_color_743",1
+,704,1,"Bulk Relation Article 4",704,0,0,0,1704067200,1704067200,1,"744","tx_myext_domain_model_color_744",1
+,705,1,"Bulk Relation Article 5",705,0,0,0,1704067200,1704067200,1,"745","tx_myext_domain_model_color_745",1
+,706,1,"Bulk Relation Article 6",706,0,0,0,1704067200,1704067200,1,"746","tx_myext_domain_model_color_746",1
+,707,1,"Bulk Relation Article 7",707,0,0,0,1704067200,1704067200,1,"747","tx_myext_domain_model_color_747",1
+,708,1,"Bulk Relation Article 8",708,0,0,0,1704067200,1704067200,1,"748","tx_myext_domain_model_color_748",1
+,709,1,"Bulk Relation Article 9",709,0,0,0,1704067200,1704067200,1,"749","tx_myext_domain_model_color_749",1
+,710,1,"Bulk Relation Article 10",710,0,0,0,1704067200,1704067200,1,"750","tx_myext_domain_model_color_750",1
+,711,1,"Bulk Relation Article 11",711,0,0,0,1704067200,1704067200,1,"751","tx_myext_domain_model_color_751",1
+,712,1,"Bulk Relation Parent",0,0,0,0,1704067200,1704067200,1,"","",0
+"tx_myext_domain_model_color"
+,"uid","pid","name","hidden","deleted","foreign_article_id","category_id"
+,700,1,"Bulk Color 0",0,0,0,720
+,701,1,"Bulk Color 1",0,0,0,721
+,702,1,"Bulk Color 2",0,0,0,722
+,703,1,"Bulk Color 3",0,0,0,723
+,704,1,"Bulk Color 4",0,0,0,724
+,705,1,"Bulk Color 5",0,0,0,725
+,706,1,"Bulk Color 6",0,0,0,726
+,707,1,"Bulk Color 7",0,0,0,727
+,708,1,"Bulk Color 8",0,0,0,728
+,709,1,"Bulk Color 9",0,0,0,729
+,710,1,"Bulk Color 10",0,0,0,730
+,711,1,"Bulk Color 11",0,0,0,731
+,720,1,"Bulk Inline Color 0",0,0,700,720
+,721,1,"Bulk Inline Color 1",0,0,701,721
+,722,1,"Bulk Inline Color 2",0,0,702,722
+,723,1,"Bulk Inline Color 3",0,0,703,723
+,724,1,"Bulk Inline Color 4",0,0,704,724
+,725,1,"Bulk Inline Color 5",0,0,705,725
+,726,1,"Bulk Inline Color 6",0,0,706,726
+,727,1,"Bulk Inline Color 7",0,0,707,727
+,728,1,"Bulk Inline Color 8",0,0,708,728
+,729,1,"Bulk Inline Color 9",0,0,709,729
+,730,1,"Bulk Inline Color 10",0,0,710,730
+,731,1,"Bulk Inline Color 11",0,0,711,731
+,740,1,"Bulk Group Color 0",0,0,0,0
+,741,1,"Bulk Group Color 1",0,0,0,0
+,742,1,"Bulk Group Color 2",0,0,0,0
+,743,1,"Bulk Group Color 3",0,0,0,0
+,744,1,"Bulk Group Color 4",0,0,0,0
+,745,1,"Bulk Group Color 5",0,0,0,0
+,746,1,"Bulk Group Color 6",0,0,0,0
+,747,1,"Bulk Group Color 7",0,0,0,0
+,748,1,"Bulk Group Color 8",0,0,0,0
+,749,1,"Bulk Group Color 9",0,0,0,0
+,750,1,"Bulk Group Color 10",0,0,0,0
+,751,1,"Bulk Group Color 11",0,0,0,0
+"sys_category"
+,"uid","pid","title","hidden","deleted","parent"
+,700,0,"Bulk Category 0",0,0,0
+,701,0,"Bulk Category 1",0,0,0
+,702,0,"Bulk Category 2",0,0,0
+,703,0,"Bulk Category 3",0,0,0
+,704,0,"Bulk Category 4",0,0,0
+,705,0,"Bulk Category 5",0,0,0
+,706,0,"Bulk Category 6",0,0,0
+,707,0,"Bulk Category 7",0,0,0
+,708,0,"Bulk Category 8",0,0,0
+,709,0,"Bulk Category 9",0,0,0
+,710,0,"Bulk Category 10",0,0,0
+,711,0,"Bulk Category 11",0,0,0
+,720,0,"Bulk Color Category 0",0,0,0
+,721,0,"Bulk Color Category 1",0,0,0
+,722,0,"Bulk Color Category 2",0,0,0
+,723,0,"Bulk Color Category 3",0,0,0
+,724,0,"Bulk Color Category 4",0,0,0
+,725,0,"Bulk Color Category 5",0,0,0
+,726,0,"Bulk Color Category 6",0,0,0
+,727,0,"Bulk Color Category 7",0,0,0
+,728,0,"Bulk Color Category 8",0,0,0
+,729,0,"Bulk Color Category 9",0,0,0
+,730,0,"Bulk Color Category 10",0,0,0
+,731,0,"Bulk Color Category 11",0,0,0
+"sys_category_record_mm"
+,"uid_local","uid_foreign","tablenames","fieldname","sorting","sorting_foreign"
+,700,700,"tx_myext_domain_model_article","categories",1,1
+,701,701,"tx_myext_domain_model_article","categories",1,1
+,702,702,"tx_myext_domain_model_article","categories",1,1
+,703,703,"tx_myext_domain_model_article","categories",1,1
+,704,704,"tx_myext_domain_model_article","categories",1,1
+,705,705,"tx_myext_domain_model_article","categories",1,1
+,706,706,"tx_myext_domain_model_article","categories",1,1
+,707,707,"tx_myext_domain_model_article","categories",1,1
+,708,708,"tx_myext_domain_model_article","categories",1,1
+,709,709,"tx_myext_domain_model_article","categories",1,1
+,710,710,"tx_myext_domain_model_article","categories",1,1
+,711,711,"tx_myext_domain_model_article","categories",1,1
+,700,712,"tx_myext_domain_model_article","categories",1,1
+"tx_myext_article_colors_mm"
+,"uid_local","uid_foreign","sorting"
+,700,740,1
+,701,741,1
+,702,742,1
+,703,743,1
+,704,744,1
+,705,745,1
+,706,746,1
+,707,747,1
+,708,748,1
+,709,749,1
+,710,750,1
+,711,751,1

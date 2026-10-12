@@ -61,7 +61,7 @@ class GetItemHandler implements OperationHandlerInterface
                 ->withHeader('Content-Type', 'application/ld+json');
         }
 
-        $preloaded  = $this->embedPreloader->preload([$row], $config, $language);
+        $preloaded  = $this->embedPreloader->preload([$row], $config, $language, $fields, 'show');
         $serialized = $this->serializer->serialize($row, $config, $baseUrl, $fields, $preloaded, -1, [], 'show');
 
         $event = new AfterOperationEvent('show', $serialized);

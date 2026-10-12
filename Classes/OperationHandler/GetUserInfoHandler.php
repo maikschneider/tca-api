@@ -69,7 +69,7 @@ class GetUserInfoHandler implements OperationHandlerInterface
                 ->withHeader('Content-Type', 'application/ld+json');
         }
 
-        $preloaded  = $this->embedPreloader->preload([$row], $config, $language);
+        $preloaded  = $this->embedPreloader->preload([$row], $config, $language, $fields);
         $serialized = $this->serializer->serialize($row, $config, $baseUrl, $fields, $preloaded);
 
         $event = new AfterOperationEvent('userinfo', $serialized);

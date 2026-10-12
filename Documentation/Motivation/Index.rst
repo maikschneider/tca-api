@@ -143,6 +143,9 @@ with bulk preloading** and a **zero-boilerplate configuration model**.
    -  hasMany foreignField:
       ``SELECT * FROM children WHERE parent_id IN (...)``
 
+   Relations rendered as IRIs are preloaded the same way, and so are the
+   relations of embedded records, one level at a time.
+
 3. **Fixed query count.** The number of queries is ``1 + R`` (one collection
    query + one per relation type), not ``1 + N×R``. Adding more rows to a page
    does not increase the query count.
