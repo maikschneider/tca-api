@@ -91,7 +91,8 @@ responses stay in sync no matter how a record changes:
 
 *   **TYPO3 backend edits** — a DataHandler hook (``clearCachePostProc``) flushes
     all cached responses tagged with the affected table name whenever a record is
-    created, updated, or deleted through the backend.
+    created, updated, or deleted through the backend. Clear-cache commands with
+    explicit tags (``TCEMAIN.clearCacheCmd = cacheTag:…``) flush those tags too.
 *   **API write operations** (``POST``, ``PUT``, ``PATCH``, ``DELETE``) — each
     write dispatches an ``AfterWriteEvent`` and ``WriteCacheInvalidationListener``
     flushes the affected tags: ``create`` flushes the table tag (``{table}``);

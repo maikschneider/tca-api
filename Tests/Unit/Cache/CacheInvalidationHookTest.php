@@ -64,4 +64,40 @@ final class CacheInvalidationHookTest extends TestCase
             ],
         ]);
     }
+
+    #[Test]
+    public function clearCachePostProcFlushesTagsFromAListOfTags(): void
+    {
+        $cache = $this->createMock(FrontendInterface::class);
+        $cache->expects(self::once())
+            ->method('flushByTags')
+            ->with(['pageId_1', 'tx_foo_42']);
+
+        $hook = new CacheInvalidationHook($cache);
+        $hook->clearCachePostProc(['cacheCmd' => '1', 'tags' => ['pageId_1', 'tx_foo_42']]);
+    }
+
+    #[Test]
+    public function clearCachePostProcSkipsListEntriesThatAreNotTags(): void
+    {
+        $cache = $this->createMock(FrontendInterface::class);
+        $cache->expects(self::once())
+            ->method('flushByTags')
+            ->with(['valid_tag']);
+
+        $hook = new CacheInvalidationHook($cache);
+        $hook->clearCachePostProc(['tags' => ['', 42, null, 'valid_tag']]);
+    }
+
+    #[Test]
+    public function clearCachePostProcFlushesNumericMapKeysAsStrings(): void
+    {
+        $cache = $this->createMock(FrontendInterface::class);
+        $cache->expects(self::once())
+            ->method('flushByTags')
+            ->with(['tx_foo', '42']);
+
+        $hook = new CacheInvalidationHook($cache);
+        $hook->clearCachePostProc(['tags' => ['tx_foo' => true, '42' => true]]);
+    }
 }
