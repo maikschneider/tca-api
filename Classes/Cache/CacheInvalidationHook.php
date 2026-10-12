@@ -31,7 +31,10 @@ final class CacheInvalidationHook
             return;
         }
 
-        $candidates = array_is_list($tags)
+        // A map of tag => true is list-shaped too when its tags are "0", "1", …
+        $isTagList = array_is_list($tags) && array_filter($tags, \is_bool(...)) !== $tags;
+
+        $candidates = $isTagList
             ? array_filter($tags, \is_string(...))
             : array_map(\strval(...), array_keys($tags));
 

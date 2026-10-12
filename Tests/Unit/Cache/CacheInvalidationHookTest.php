@@ -100,4 +100,16 @@ final class CacheInvalidationHookTest extends TestCase
         $hook = new CacheInvalidationHook($cache);
         $hook->clearCachePostProc(['tags' => ['tx_foo' => true, '42' => true]]);
     }
+
+    #[Test]
+    public function clearCachePostProcFlushesKeysOfAZeroBasedTagMap(): void
+    {
+        $cache = $this->createMock(FrontendInterface::class);
+        $cache->expects(self::once())
+            ->method('flushByTags')
+            ->with(['0']);
+
+        $hook = new CacheInvalidationHook($cache);
+        $hook->clearCachePostProc(['tags' => [0 => true]]);
+    }
 }
