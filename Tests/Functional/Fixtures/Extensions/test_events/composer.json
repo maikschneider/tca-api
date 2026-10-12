@@ -1,0 +1,19 @@
+{
+	"name": "maikschneider/tca-api-test-events",
+	"description": "Functional test fixture: collects dispatched tca_api events",
+	"type": "typo3-cms-extension",
+	"license": "GPL-2.0-or-later",
+	"require": {
+		"maikschneider/tca-api": "*"
+	},
+	"autoload": {
+		"psr-4": {
+			"MaikSchneider\\TcaApiTestEvents\\": "Classes/"
+		}
+	},
+	"extra": {
+		"typo3/cms": {
+			"extension-key": "test_events"
+		}
+	}
+}

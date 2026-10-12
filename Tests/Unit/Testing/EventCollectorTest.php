@@ -6,7 +6,7 @@ namespace MaikSchneider\TcaApi\Tests\Unit\Testing;
 
 use MaikSchneider\TcaApi\Event\AfterWriteEvent;
 use MaikSchneider\TcaApi\Event\BeforeWriteEvent;
-use MaikSchneider\TcaApi\Testing\EventCollector;
+use MaikSchneider\TcaApiTestEvents\EventCollector;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 

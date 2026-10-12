@@ -56,20 +56,3 @@ services:
   MaikSchneider\TcaApi\Dispatcher\RequestDispatcher:
     arguments:
       $cache: '@cache.tca_api'
-
-  # ── Testing ────────────────────────────────────────────────────────
-  MaikSchneider\TcaApi\Testing\EventCollector:
-    public: true
-    tags:
-      - name: event.listener
-        event: MaikSchneider\TcaApi\Event\BeforeWriteEvent
-        method: onBeforeWrite
-      - name: event.listener
-        event: MaikSchneider\TcaApi\Event\AfterWriteEvent
-        method: onAfterWrite
-      - name: event.listener
-        event: MaikSchneider\TcaApi\Event\BeforeOperationEvent
-        method: onBeforeOperation
-      - name: event.listener
-        event: MaikSchneider\TcaApi\Event\AfterOperationEvent
-        method: onAfterOperation

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MaikSchneider\TcaApi\Testing;
+namespace MaikSchneider\TcaApiTestEvents;
 
 use MaikSchneider\TcaApi\Event\AfterOperationEvent;
 use MaikSchneider\TcaApi\Event\AfterWriteEvent;
@@ -12,8 +12,8 @@ use MaikSchneider\TcaApi\Event\BeforeWriteEvent;
 /**
  * Test helper: collects dispatched API events for assertion in functional tests.
  *
- * Registered as a PSR-14 listener for all four API event types via Services.yaml.
- * Uses a static bag so tests can assert collected events without DI container access.
+ * Registered as a PSR-14 listener for all four API event types by this fixture
+ * extension, so only functional tests that load it collect events. Uses a static bag so tests can assert collected events without DI container access.
  *
  * Always call EventCollector::reset() in test setUp() to isolate test state.
  */
