@@ -149,7 +149,7 @@ final class RelationSerializer
         $resourceName = $columnDef->resourceName ?? ($relatedConfig->resourceName ?? $foreignTable);
         $resourceType = $columnDef->resourceType ?? ($relatedConfig->resourceType ?? $foreignTable);
 
-        if ($effectiveDepth <= 0 || $relatedConfig === null) {
+        if ($effectiveDepth <= 0) {
             return array_map(fn (array $r) => $apiPrefix . '/' . $resourceName . '/' . (int)$r['uid'], $relatedRows);
         }
 
