@@ -1,0 +1,15 @@
+"sys_category_record_mm"
+,"uid_local","uid_foreign","tablenames","fieldname","sorting","sorting_foreign"
+,3000,3000,"tx_myext_domain_model_article","categories",1,1
+,3001,3001,"tx_myext_domain_model_article","categories",1,1
+,3002,3002,"tx_myext_domain_model_article","categories",1,1
+,3003,3003,"tx_myext_domain_model_article","categories",1,1
+,3004,3004,"tx_myext_domain_model_article","categories",1,1
+,3005,3005,"tx_myext_domain_model_article","categories",1,1
+,3006,3006,"tx_myext_domain_model_article","categories",1,1
+,3007,3007,"tx_myext_domain_model_article","categories",1,1
+,3008,3008,"tx_myext_domain_model_article","categories",1,1
+,3009,3009,"tx_myext_domain_model_article","categories",1,1
+,3010,3010,"tx_myext_domain_model_article","categories",1,1
+,3011,3011,"tx_myext_domain_model_article","categories",1,1
+,3000,3012,"tx_myext_domain_model_article","categories",1,1

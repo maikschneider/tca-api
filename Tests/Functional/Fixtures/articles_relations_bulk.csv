@@ -1,0 +1,15 @@
+"tx_myext_domain_model_article"
+,"uid","pid","title","color_id","parent_id","hidden","deleted","tstamp","crdate","categories","related_colors","related_items","related_colors_mm_grp"
+,3000,1,"Bulk Relation Article 0",3000,3012,0,0,1704067200,1704067200,1,"3040","tx_myext_domain_model_color_3040",1
+,3001,1,"Bulk Relation Article 1",3001,0,0,0,1704067200,1704067200,1,"3041","tx_myext_domain_model_color_3041",1
+,3002,1,"Bulk Relation Article 2",3002,0,0,0,1704067200,1704067200,1,"3042","tx_myext_domain_model_color_3042",1
+,3003,1,"Bulk Relation Article 3",3003,0,0,0,1704067200,1704067200,1,"3043","tx_myext_domain_model_color_3043",1
+,3004,1,"Bulk Relation Article 4",3004,0,0,0,1704067200,1704067200,1,"3044","tx_myext_domain_model_color_3044",1
+,3005,1,"Bulk Relation Article 5",3005,0,0,0,1704067200,1704067200,1,"3045","tx_myext_domain_model_color_3045",1
+,3006,1,"Bulk Relation Article 6",3006,0,0,0,1704067200,1704067200,1,"3046","tx_myext_domain_model_color_3046",1
+,3007,1,"Bulk Relation Article 7",3007,0,0,0,1704067200,1704067200,1,"3047","tx_myext_domain_model_color_3047",1
+,3008,1,"Bulk Relation Article 8",3008,0,0,0,1704067200,1704067200,1,"3048","tx_myext_domain_model_color_3048",1
+,3009,1,"Bulk Relation Article 9",3009,0,0,0,1704067200,1704067200,1,"3049","tx_myext_domain_model_color_3049",1
+,3010,1,"Bulk Relation Article 10",3010,0,0,0,1704067200,1704067200,1,"3050","tx_myext_domain_model_color_3050",1
+,3011,1,"Bulk Relation Article 11",3011,0,0,0,1704067200,1704067200,1,"3051","tx_myext_domain_model_color_3051",1
+,3012,1,"Bulk Relation Parent",0,0,0,0,1704067200,1704067200,1,"","",0

@@ -58,4 +58,31 @@ final class PreloadedFileReferencesTest extends TestCase
 
         self::assertNull($preloaded->find('image', 1));
     }
+
+    #[Test]
+    public function mergeCoversTheRecordsOfBoth(): void
+    {
+        $first  = $this->createMock(FileReference::class);
+        $second = $this->createMock(FileReference::class);
+
+        $merged = (new PreloadedFileReferences([1 => true], ['image' => [1 => [$first]]]))
+            ->merge(new PreloadedFileReferences([2 => true, 3 => true], ['image' => [2 => [$second]]]));
+
+        self::assertSame([$first], $merged->find('image', 1));
+        self::assertSame([$second], $merged->find('image', 2));
+        self::assertSame([], $merged->find('image', 3));
+        self::assertNull($merged->find('image', 4));
+    }
+
+    #[Test]
+    public function mergeKeepsCoveragePerColumn(): void
+    {
+        $merged = (new PreloadedFileReferences([1 => true], ['image' => [1 => []]]))
+            ->merge(new PreloadedFileReferences([2 => true], ['downloads' => [2 => []]]));
+
+        self::assertSame([], $merged->find('image', 1));
+        self::assertNull($merged->find('image', 2));
+        self::assertSame([], $merged->find('downloads', 2));
+        self::assertNull($merged->find('downloads', 1));
+    }
 }

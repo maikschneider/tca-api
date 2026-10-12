@@ -149,7 +149,7 @@ final class RelationSerializer
         $resourceName = $columnDef->resourceName ?? ($relatedConfig->resourceName ?? $foreignTable);
         $resourceType = $columnDef->resourceType ?? ($relatedConfig->resourceType ?? $foreignTable);
 
-        if ($effectiveDepth <= 0 || $relatedConfig === null) {
+        if ($effectiveDepth <= 0) {
             return array_map(fn (array $r) => $apiPrefix . '/' . $resourceName . '/' . (int)$r['uid'], $relatedRows);
         }
 
@@ -181,9 +181,9 @@ final class RelationSerializer
         array $preloaded,
         string $parentTable,
     ): array {
-        if (isset($preloaded['relations'][$column])) {
+        if (isset($preloaded['relations'][$parentTable][$column][$parentUid])) {
             return UidListParser::mapToRows(
-                $preloaded['relations'][$column][$parentUid] ?? [],
+                $preloaded['relations'][$parentTable][$column][$parentUid],
                 $preloaded['rows'][$foreignTable] ?? [],
             );
         }
@@ -242,22 +242,10 @@ final class RelationSerializer
 
     // ── Shared helpers ───────────────────────────────────────────────────────
 
-    /**
-     * Resolve the API config for a related table.
-     * For self-referential relations returns the current config to preserve embed definitions.
-     * When $columnDef->resourceName is set, selects that specific ApiRegistry entry by name.
-     */
+    /** Resolve the API config for a related table — see ApiRegistry::getRelated(). */
     public function resolveRelatedConfig(string $foreignTable, ApiDefinition $config, ?ColumnDefinition $columnDef = null): ?ApiDefinition
     {
-        if ($foreignTable === $config->table) {
-            return $config;
-        }
-
-        if ($columnDef?->resourceName !== null) {
-            return $this->apiRegistry->get($columnDef->resourceName);
-        }
-
-        return $this->apiRegistry->getByTable($foreignTable);
+        return $this->apiRegistry->getRelated($foreignTable, $config, $columnDef?->resourceName);
     }
 
     public static function buildStub(string $resourceName, string $resourceType, int $uid, string $apiPrefix = self::DEFAULT_API_PREFIX): array

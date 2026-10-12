@@ -1,0 +1,38 @@
+"tx_myext_domain_model_color"
+,"uid","pid","name","hidden","deleted","foreign_article_id","category_id"
+,3000,1,"Bulk Color 0",0,0,0,3020
+,3001,1,"Bulk Color 1",0,0,0,3021
+,3002,1,"Bulk Color 2",0,0,0,3022
+,3003,1,"Bulk Color 3",0,0,0,3023
+,3004,1,"Bulk Color 4",0,0,0,3024
+,3005,1,"Bulk Color 5",0,0,0,3025
+,3006,1,"Bulk Color 6",0,0,0,3026
+,3007,1,"Bulk Color 7",0,0,0,3027
+,3008,1,"Bulk Color 8",0,0,0,3028
+,3009,1,"Bulk Color 9",0,0,0,3029
+,3010,1,"Bulk Color 10",0,0,0,3030
+,3011,1,"Bulk Color 11",0,0,0,3031
+,3020,1,"Bulk Inline Color 0",0,0,3000,3020
+,3021,1,"Bulk Inline Color 1",0,0,3001,3021
+,3022,1,"Bulk Inline Color 2",0,0,3002,3022
+,3023,1,"Bulk Inline Color 3",0,0,3003,3023
+,3024,1,"Bulk Inline Color 4",0,0,3004,3024
+,3025,1,"Bulk Inline Color 5",0,0,3005,3025
+,3026,1,"Bulk Inline Color 6",0,0,3006,3026
+,3027,1,"Bulk Inline Color 7",0,0,3007,3027
+,3028,1,"Bulk Inline Color 8",0,0,3008,3028
+,3029,1,"Bulk Inline Color 9",0,0,3009,3029
+,3030,1,"Bulk Inline Color 10",0,0,3010,3030
+,3031,1,"Bulk Inline Color 11",0,0,3011,3031
+,3040,1,"Bulk Group Color 0",0,0,0,0
+,3041,1,"Bulk Group Color 1",0,0,0,0
+,3042,1,"Bulk Group Color 2",0,0,0,0
+,3043,1,"Bulk Group Color 3",0,0,0,0
+,3044,1,"Bulk Group Color 4",0,0,0,0
+,3045,1,"Bulk Group Color 5",0,0,0,0
+,3046,1,"Bulk Group Color 6",0,0,0,0
+,3047,1,"Bulk Group Color 7",0,0,0,0
+,3048,1,"Bulk Group Color 8",0,0,0,0
+,3049,1,"Bulk Group Color 9",0,0,0,0
+,3050,1,"Bulk Group Color 10",0,0,0,0
+,3051,1,"Bulk Group Color 11",0,0,0,0

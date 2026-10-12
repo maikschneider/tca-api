@@ -86,8 +86,8 @@ final readonly class GroupFieldSerializer
     ): array {
         $uid = (int)$row['uid'];
 
-        if (isset($preloaded['multiTableRelations'][$column][$uid])) {
-            $items = $preloaded['multiTableRelations'][$column][$uid];
+        if (isset($preloaded['multiTableRelations'][$config->table][$column][$uid])) {
+            $items = $preloaded['multiTableRelations'][$config->table][$column][$uid];
         } else {
             $oppositeUsage = $this->groupAllowedResolver->resolveOppositeUsage($fieldConfig);
             if ($oppositeUsage === []) {
@@ -121,9 +121,9 @@ final readonly class GroupFieldSerializer
         $mmTable  = $fieldConfig['MM'] ?? null;
         $language = $preloaded['__language'] ?? null;
 
-        if (isset($preloaded['relations'][$column])) {
+        if (isset($preloaded['relations'][$config->table][$column][$uid])) {
             $relatedRows = UidListParser::mapToRows(
-                $preloaded['relations'][$column][$uid] ?? [],
+                $preloaded['relations'][$config->table][$column][$uid],
                 $preloaded['rows'][$foreignTable] ?? [],
             );
         } elseif ($mmTable !== null) {
@@ -167,8 +167,8 @@ final readonly class GroupFieldSerializer
     ): array {
         $uid = (int)$row['uid'];
 
-        $items ??= isset($preloaded['multiTableRelations'][$column][$uid])
-            ? $preloaded['multiTableRelations'][$column][$uid]
+        $items ??= isset($preloaded['multiTableRelations'][$config->table][$column][$uid])
+            ? $preloaded['multiTableRelations'][$config->table][$column][$uid]
             : $this->parseMultiTableGroupValues(trim((string)($row[$column] ?? '')));
 
         if ($items === []) {

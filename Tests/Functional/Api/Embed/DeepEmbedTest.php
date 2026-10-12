@@ -9,15 +9,14 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 /**
  * Tests for embed serialization at depth >= 2 across a 4-level chain.
  *
- * EmbedPreloader only preloads one level deep (based on the top-level config's columns).
- * At depth 2+ the serializer falls back to DataRepository::findById() per row.
- * These tests verify that the fallback path resolves all levels correctly.
+ * EmbedPreloader follows the embed depth level by level, so every record in the
+ * chain below is preloaded before serialization starts.
  *
  * Fixture chain (articles_deep_embed.csv + colors.csv):
- *   uid=70 → parent=71, color=1 (Red)    — preloaded by EmbedPreloader
- *   uid=71 → parent=72, color=2 (Blue)   — NOT preloaded; fetched via findById() at depth 2
- *   uid=72 → parent=73, color=1 (Red)    — NOT preloaded; fetched via findById() at depth 3
- *   uid=73 → parent=0,  color=2 (Blue)   — NOT preloaded; fetched via findById() at depth 4
+ *   uid=70 → parent=71, color=1 (Red)
+ *   uid=71 → parent=72, color=2 (Blue)
+ *   uid=72 → parent=73, color=1 (Red)
+ *   uid=73 → parent=0,  color=2 (Blue)
  *
  * Two different tables are involved: tx_myext_domain_model_article (self-referential
  * parent_id chain) and tx_myext_domain_model_color (embedded at every level).

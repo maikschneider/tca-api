@@ -61,7 +61,7 @@ final class ResourceSerializer
     /**
      * Serialize a single raw DB row.
      *
-     * @param array  $preloaded      ['rows' => [foreignTable => [uid => row]], 'relations' => [column => [parentUid => [uid, ...]]], 'files' => [table => PreloadedFileReferences]]
+     * @param array  $preloaded      ['rows' => [foreignTable => [uid => row]], 'relations' => [table => [column => [parentUid => [uid, ...]]]], 'files' => [table => PreloadedFileReferences]]
      * @param int    $remainingDepth -1 = top level (use per-column embed config); ≥0 = recursive budget from parent embed
      * @param array  $visited        ['table:uid' => true] cycle-prevention guard
      * @param string $operation      Current operation context: 'list', 'show', 'create', 'update', or '' for default

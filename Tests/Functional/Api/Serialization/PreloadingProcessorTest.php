@@ -110,7 +110,7 @@ final class PreloadingProcessorTest extends ApiFunctionalTestCase
         // back to an unprepared processor.
         $body = $this->decodeResponseBody($this->executeApiRequest('/_api/preload-articles/1'));
 
-        self::assertSame(1, TestPreloadingProcessor::$prepareCalls);
+        self::assertSame(1, $this->prepareCalls());
         self::assertSame('unbatched', $body['batched']);
     }
 
@@ -157,5 +157,11 @@ final class PreloadingProcessorTest extends ApiFunctionalTestCase
 
         // The virtual property never runs, so it must not cost a preload either.
         self::assertSame(0, TestPreloadingProcessor::$prepareCalls);
+    }
+
+    /** Read through a call so the assertion is not narrowed by the one before the request. */
+    private function prepareCalls(): int
+    {
+        return TestPreloadingProcessor::$prepareCalls;
     }
 }

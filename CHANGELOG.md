@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Relation columns no longer cost a query per record when rendered as IRIs.** `EmbedPreloader` skipped every column without `embed`, so each to-many relation shown as a list of IRIs — MM, `foreign_field` (inline), UID-list and MM groups, and reverse-side MM columns such as `sys_category.items` — was resolved with one query per record. These columns are now preloaded for the whole page, whether embedded or not. A to-one column rendered as an IRI still needs no query at all ([#204](https://github.com/maikschneider/tca-api/issues/204)).
+- **Embedded records are preloaded too.** Only the requested records were preloaded, so the relations and file columns of every embedded record were resolved one record at a time — a single embedded `categories` column brought the N+1 back through `sys_category.items`. The preloader now follows the embed depth level by level, and each level costs a fixed number of queries ([#204](https://github.com/maikschneider/tca-api/issues/204)).
+- **An embedded record no longer loses its relations to the page preload.** Preloaded relations were looked up by column name alone, so an embedded record of the same table outside the requested page — e.g. a `parent_id` article — rendered an embedded to-many column as empty, and a column of another table with the same name could read the wrong mapping. Preloaded relations are now keyed by table and record, and anything not preloaded falls back to a direct lookup ([#204](https://github.com/maikschneider/tca-api/issues/204)).
+
 ## [2.1.0] - 2026-09-10
 
 ### Added
