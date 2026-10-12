@@ -251,11 +251,11 @@ final readonly class GroupFieldSerializer
      */
     private function reference(?ApiDefinition $relatedConfig, string $table, int $uid, string $apiPrefix): string|array
     {
-        $iri = RelationSerializer::reference($relatedConfig, $relatedConfig?->resourceName ?? $table, $uid, $apiPrefix);
+        $iri = RelationSerializer::reference($relatedConfig, $relatedConfig->resourceName ?? $table, $uid, $apiPrefix);
 
         return \is_string($iri)
             ? $iri
-            : ['@type' => $relatedConfig?->resourceType ?? RelationSerializer::defaultResourceType($table), 'uid' => $uid];
+            : ['@type' => $relatedConfig->resourceType ?? RelationSerializer::defaultResourceType($table), 'uid' => $uid];
     }
 
     /**
