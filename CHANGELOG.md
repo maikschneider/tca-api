@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`embed.columns` limits the columns of an embedded record.** `'embed' => ['columns' => ['title']]` inlines only the listed columns of the related record, like a `fields[]` sparse fieldset applied to the embedded record, and composes with `depth`. The relation is shaped where it is used, so the related table no longer needs a resource file of its own just to keep the embed small. The OpenAPI schema describes the embedded object with the listed columns ([#213](https://github.com/maikschneider/tca-api/issues/213)).
+
+### Changed
+
+- **Embedded default-mode records leave out unbounded reverse relations.** A reverse-side MM column with `allowed = '*'` and `MM_oppositeUsage`, such as `sys_category.items`, lists every record of every table carrying the category, so embedding categories on an article collection returned megabytes that grew with the whole data set. An embedded record in default mode — including one from a table without a resource — now omits such a column. The record's own endpoint still renders it, and an embedded record keeps it when the related resource declares the column or `embed.columns` names it ([#213](https://github.com/maikschneider/tca-api/issues/213)).
+
 ## [2.2.0] - 2026-10-12
 
 ### Changed

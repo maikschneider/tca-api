@@ -63,6 +63,30 @@ final class ColumnDefinitionTest extends TestCase
     }
 
     #[Test]
+    public function embedColumnsWithoutDepthEmbedOneLevel(): void
+    {
+        $def = ColumnDefinition::fromArray(['embed' => ['columns' => ['title', 'parent']]]);
+        self::assertSame(1, $def->embedDepth());
+        self::assertSame(['title', 'parent'], $def->embedColumns());
+    }
+
+    #[Test]
+    public function embedColumnsComposeWithDepth(): void
+    {
+        $def = ColumnDefinition::fromArray(['embed' => ['depth' => 2, 'columns' => ['title']]]);
+        self::assertSame(2, $def->embedDepth());
+        self::assertSame(['title'], $def->embedColumns());
+    }
+
+    #[Test]
+    public function embedWithoutColumnsKeepsEveryColumn(): void
+    {
+        self::assertSame([], ColumnDefinition::fromArray(['embed' => true])->embedColumns());
+        self::assertSame([], ColumnDefinition::fromArray(['embed' => ['depth' => 2]])->embedColumns());
+        self::assertSame([], ColumnDefinition::fromArray([])->embedColumns());
+    }
+
+    #[Test]
     public function embedAsFalseIsAccepted(): void
     {
         $def = ColumnDefinition::fromArray(['embed' => false]);
@@ -164,6 +188,12 @@ final class ColumnDefinitionTest extends TestCase
         yield 'string' => ['deep'];
         yield 'integer' => [2];
         yield 'array without depth' => [['foo' => 'bar']];
+        yield 'non-integer depth' => [['depth' => '2']];
+        yield 'empty columns' => [['columns' => []]];
+        yield 'columns as string' => [['columns' => 'title']];
+        yield 'columns as map' => [['columns' => ['title' => true]]];
+        yield 'non-string column' => [['columns' => ['title', 3]]];
+        yield 'empty column name' => [['columns' => ['']]];
     }
 
     #[Test]

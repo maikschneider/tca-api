@@ -80,7 +80,7 @@ final readonly class ColumnDefinition
 
     /**
      * Resolves the embed depth from the embed config value.
-     * null/false → 0; true → 1; ['depth' => N] → N.
+     * null/false → 0; true → 1; ['depth' => N] → N; an array without 'depth' → 1.
      */
     public function embedDepth(): int
     {
@@ -95,6 +95,17 @@ final readonly class ColumnDefinition
         }
 
         return 0;
+    }
+
+    /**
+     * Columns an embedded record is limited to, in the shape of a sparse fieldset:
+     * an empty list means every column the related resource exposes.
+     *
+     * @return list<string>
+     */
+    public function embedColumns(): array
+    {
+        return \is_array($this->embed) ? ($this->embed['columns'] ?? []) : [];
     }
 
     /** Known operation names that may appear in the 'groups' array. */
@@ -164,16 +175,10 @@ final readonly class ColumnDefinition
 
         // ── embed ────────────────────────────────────────────────────────
         $embed = $raw['embed'] ?? null;
-        if ($embed !== null) {
-            $validScalar = \is_bool($embed);
-            $validArray  = \is_array($embed)
-                && \array_key_exists('depth', $embed)
-                && \is_int($embed['depth']);
-            if (!$validScalar && !$validArray) {
-                throw new \InvalidArgumentException(
-                    'Column config "embed" must be true, false, or ["depth" => <int>].',
-                );
-            }
+        if ($embed !== null && !\is_bool($embed) && !self::isValidEmbedArray($embed)) {
+            throw new \InvalidArgumentException(
+                'Column config "embed" must be true, false, or an array with "depth" => <int> and/or "columns" => <non-empty list of column names>.',
+            );
         }
 
         // ── processor ────────────────────────────────────────────────────
@@ -364,6 +369,31 @@ final readonly class ColumnDefinition
             route:        $route,
             nestedWrite:  $nestedWrite,
         );
+    }
+
+    private static function isValidEmbedArray(mixed $embed): bool
+    {
+        if (!\is_array($embed) || (!isset($embed['depth']) && !isset($embed['columns']))) {
+            return false;
+        }
+        if (isset($embed['depth']) && !\is_int($embed['depth'])) {
+            return false;
+        }
+        if (!isset($embed['columns'])) {
+            return true;
+        }
+
+        $columns = $embed['columns'];
+        if (!\is_array($columns) || $columns === [] || !array_is_list($columns)) {
+            return false;
+        }
+        foreach ($columns as $column) {
+            if (!\is_string($column) || $column === '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** Same shapes ApiDefinition accepts under "security". */

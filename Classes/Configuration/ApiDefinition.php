@@ -9,6 +9,7 @@ use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Enum\WriteMode;
 use MaikSchneider\TcaApi\Filter\FilterDefinition;
 use MaikSchneider\TcaApi\Filter\FilterPreResolvableInterface;
+use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use TYPO3\CMS\Core\Utility\MathUtility;
 
 /**
@@ -99,6 +100,17 @@ final readonly class ApiDefinition
     public function isUserInfo(): bool
     {
         return $this->type === 'userinfo';
+    }
+
+    /**
+     * Whether a column is left out of this resource's records when they are embedded:
+     * in default mode an unbounded reverse relation is, unless the column is declared.
+     */
+    public function omitsWhenEmbedded(string $column): bool
+    {
+        return !$this->isExplicitMode
+            && !isset($this->columns[$column])
+            && TcaColumnDiscovery::isUnboundedReverseRelation($this->table, $column);
     }
 
     public function getColumn(string $name): ?ColumnDefinition

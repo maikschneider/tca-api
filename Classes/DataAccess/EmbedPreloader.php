@@ -101,7 +101,7 @@ final class EmbedPreloader
         // Records embedded through each column: [column definition, remaining depth, [table => [uid => true]], polymorphic]
         $embeds = [];
 
-        foreach ($this->outputColumns($config, $fields, $operation) as $column => $columnDef) {
+        foreach ($this->outputColumns($config, $fields, $operation, $depth >= 0) as $column => $columnDef) {
             if (!$schema->hasField($column)) {
                 continue;
             }
@@ -214,7 +214,7 @@ final class EmbedPreloader
 
                 $childRows = array_values(array_intersect_key($preloaded['rows'][$childTable] ?? [], $uidSet));
 
-                $this->preloadRows($preloaded, $childRows, $childConfig, $childDepth, [], $operation);
+                $this->preloadRows($preloaded, $childRows, $childConfig, $childDepth, $columnDef->embedColumns(), $operation);
             }
         }
     }
@@ -224,13 +224,16 @@ final class EmbedPreloader
      *
      * @return array<string, ColumnDefinition>
      */
-    private function outputColumns(ApiDefinition $config, array $fields, string $operation): array
+    private function outputColumns(ApiDefinition $config, array $fields, string $operation, bool $embedded): array
     {
         if ($config->isExplicitMode) {
             $columns = array_filter($config->columns, static fn (ColumnDefinition $def) => $def->isReadable($operation));
         } else {
             $columns = [];
             foreach (TcaColumnDiscovery::getExposableColumnNames($config->table) as $column) {
+                if ($embedded && $fields === [] && $config->omitsWhenEmbedded($column)) {
+                    continue;
+                }
                 $columns[$column] = $config->columns[$column] ?? new ColumnDefinition(groups: null);
             }
         }

@@ -88,6 +88,45 @@ is 1.
     The related resource must be registered in the ``ApiRegistry`` for embedding
     to work.
 
+Limiting the columns of an embedded record
+==========================================
+
+``'embed' => ['columns' => [...]]`` inlines only the listed columns of the
+related record, next to ``@type``, ``@id`` and ``uid``. It works like the
+``fields[]`` sparse fieldset, applied to the embedded record, and composes with
+``depth``:
+
+..  code-block:: php
+
+    'columns' => [
+        'categories' => ['embed' => ['columns' => ['title']]],
+        'color_id'   => ['embed' => ['depth' => 2, 'columns' => ['name', 'parent']]],
+    ],
+
+The relation is shaped where it is used, so the related table needs no resource
+file of its own. The list can only narrow what the related resource exposes: a
+column hidden by its ``groups`` stays hidden. The OpenAPI schema describes the
+embedded object with the listed columns only.
+
+Unbounded reverse relations
+===========================
+
+The reverse side of a polymorphic MM relation — a ``type=group`` column with
+``allowed = '*'`` and ``MM_oppositeUsage``, such as ``sys_category.items`` —
+lists every record of every table that points at the record. Its size grows
+with the whole data set, not with the page.
+
+An embedded record in default mode therefore leaves such a column out. It stays
+in the record's own endpoint, and an embedded record includes it when the
+related resource declares the column or ``embed.columns`` names it:
+
+..  code-block:: php
+
+    // Configuration/TcaApi/Categories.php — default mode, items stays on embeds
+    'columns' => [
+        'items' => [],
+    ],
+
 Multi-table group fields
 ========================
 

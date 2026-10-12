@@ -35,6 +35,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * Embed config (per column):
  *   'embed' => true              — embed full related record at depth 1
  *   'embed' => ['depth' => N]   — embed N levels deep
+ *   'embed' => ['columns' => […]] — embed only these columns of the related record
  *   (no 'embed' key)            — return shallow stub {@id, @type, uid}  [default]
  */
 final class ResourceSerializer
@@ -101,6 +102,9 @@ final class ResourceSerializer
                 continue;
             }
             if ($fields !== [] && !\in_array($column, $fields, true)) {
+                continue;
+            }
+            if ($remainingDepth >= 0 && $fields === [] && $config->omitsWhenEmbedded($column)) {
                 continue;
             }
             if (!$schema->hasField($column)) {
