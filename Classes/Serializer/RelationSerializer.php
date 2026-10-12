@@ -69,7 +69,7 @@ final class RelationSerializer
         $resourceType = $columnDef->resourceType ?? ($relatedConfig->resourceType ?? $foreignTable);
 
         if ($effectiveDepth <= 0 || isset($visited[$foreignTable . ':' . $fkValue]) || $relatedConfig === null) {
-            return $apiPrefix . '/' . $resourceName . '/' . $fkValue;
+            return self::reference($relatedConfig, $resourceName, $fkValue, $apiPrefix);
         }
 
         $relatedRow = $preloaded['rows'][$foreignTable][$fkValue]
@@ -150,7 +150,7 @@ final class RelationSerializer
         $resourceType = $columnDef->resourceType ?? ($relatedConfig->resourceType ?? $foreignTable);
 
         if ($effectiveDepth <= 0) {
-            return array_map(fn (array $r) => $apiPrefix . '/' . $resourceName . '/' . (int)$r['uid'], $relatedRows);
+            return array_map(fn (array $r) => self::reference($relatedConfig, $resourceName, (int)$r['uid'], $apiPrefix), $relatedRows);
         }
 
         $relatedBaseUrl = $apiPrefix . '/' . $relatedConfig->resourceName;
@@ -161,7 +161,7 @@ final class RelationSerializer
             $itemUid = (int)$relatedRow['uid'];
 
             if (isset($newVisited[$foreignTable . ':' . $itemUid])) {
-                $result[] = $apiPrefix . '/' . $resourceName . '/' . $itemUid;
+                $result[] = self::reference($relatedConfig, $resourceName, $itemUid, $apiPrefix);
                 continue;
             }
 
@@ -248,14 +248,32 @@ final class RelationSerializer
         return $this->apiRegistry->getRelated($foreignTable, $config, $columnDef?->resourceName);
     }
 
+    /**
+     * A related record rendered without embedding: its IRI when the related resource
+     * has an item endpoint, otherwise its uid — an IRI there would not dereference.
+     */
+    public static function reference(?ApiDefinition $relatedConfig, string $resourceName, int $uid, string $apiPrefix): string|int
+    {
+        return $relatedConfig?->isAddressable() === true
+            ? $apiPrefix . '/' . $resourceName . '/' . $uid
+            : $uid;
+    }
+
     public static function buildStub(string $resourceName, string $resourceType, int $uid, string $apiPrefix = self::DEFAULT_API_PREFIX): array
     {
         return ['@id' => $apiPrefix . '/' . $resourceName . '/' . $uid, '@type' => $resourceType, 'uid' => $uid];
     }
 
+    /** JSON-LD type of records from a table with no API registration, e.g. tx_news_domain_model_tag → TxNewsDomainModelTag. */
+    public static function defaultResourceType(string $table): string
+    {
+        return GeneralUtility::underscoredToUpperCamelCase($table);
+    }
+
     /**
      * Synthesize a minimal default-mode config for a table with no API registration.
      * 'columns' => [] with no 'groups' key → isExplicitMode = false → all TCA columns exposed.
+     * Without operations it has no endpoint, so its records serialize without an @id.
      */
     public static function buildDefaultConfig(string $foreignTable, ?ColumnDefinition $columnDef = null): ApiDefinition
     {
@@ -263,7 +281,7 @@ final class RelationSerializer
             'general' => [
                 'table'        => $foreignTable,
                 'resourceName' => $columnDef->resourceName ?? $foreignTable,
-                'resourceType' => $columnDef->resourceType ?? $foreignTable,
+                'resourceType' => $columnDef->resourceType ?? self::defaultResourceType($foreignTable),
                 'operations'   => [],
             ],
             'columns' => [],

@@ -90,11 +90,11 @@ final class ResourceSerializer
             ? rtrim(substr($baseUrl, 0, \strlen($baseUrl) - \strlen($config->resourceName)), '/')
             : rtrim($baseUrl, '/');
 
-        $result = [
-            '@type' => $config->resourceType,
-            '@id'   => $baseUrl . '/' . $uid,
-            'uid'   => $uid,
-        ];
+        // An embedded record without an item endpoint stays a blank node: an @id
+        // pointing at it would not dereference.
+        $result = $remainingDepth >= 0 && !$config->isAddressable()
+            ? ['@type' => $config->resourceType, 'uid' => $uid]
+            : ['@type' => $config->resourceType, '@id' => $baseUrl . '/' . $uid, 'uid' => $uid];
 
         foreach ($columnMap as $column => $columnDef) {
             if ($config->isExplicitMode && !$columnDef->isReadable($operation)) {

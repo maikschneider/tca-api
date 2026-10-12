@@ -90,6 +90,12 @@ final readonly class ApiDefinition
         return \in_array($operation, $this->operations, true);
     }
 
+    /** Whether an item IRI of this resource dereferences, i.e. it has a show endpoint. */
+    public function isAddressable(): bool
+    {
+        return $this->hasOperation('show');
+    }
+
     public function isUserInfo(): bool
     {
         return $this->type === 'userinfo';

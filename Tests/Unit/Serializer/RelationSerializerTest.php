@@ -72,13 +72,14 @@ final class RelationSerializerTest extends TestCase
     // ── buildDefaultConfig ───────────────────────────────────────────────────
 
     #[Test]
-    public function buildDefaultConfigWithoutColumnDefUsesTableAsResourceNameAndType(): void
+    public function buildDefaultConfigWithoutColumnDefDerivesResourceNameAndTypeFromTable(): void
     {
         $config = RelationSerializer::buildDefaultConfig('tx_news_domain_model_news');
 
         self::assertSame('tx_news_domain_model_news', $config->table);
         self::assertSame('tx_news_domain_model_news', $config->resourceName);
-        self::assertSame('tx_news_domain_model_news', $config->resourceType);
+        self::assertSame('TxNewsDomainModelNews', $config->resourceType);
+        self::assertFalse($config->isAddressable());
     }
 
     #[Test]
@@ -118,6 +119,26 @@ final class RelationSerializerTest extends TestCase
         $config = RelationSerializer::buildDefaultConfig('tx_test');
 
         self::assertSame([], $config->operations);
+    }
+
+    // ── reference ────────────────────────────────────────────────────────────
+
+    #[Test]
+    public function referenceIsIriForResourceWithShow(): void
+    {
+        $config = ApiDefinition::fromArray([
+            'general' => ['table' => 'tx_articles', 'resourceName' => 'articles', 'resourceType' => 'Article', 'operations' => ['show']],
+        ]);
+
+        self::assertSame('/_api/articles/7', RelationSerializer::reference($config, 'articles', 7, '/_api'));
+    }
+
+    #[Test]
+    public function referenceIsUidWithoutItemEndpoint(): void
+    {
+        self::assertSame(7, RelationSerializer::reference(null, 'tx_articles', 7, '/_api'));
+        self::assertSame(7, RelationSerializer::reference($this->makeConfig('tx_articles', 'articles'), 'articles', 7, '/_api'));
+        self::assertSame(7, RelationSerializer::reference(RelationSerializer::buildDefaultConfig('tx_articles'), 'tx_articles', 7, '/_api'));
     }
 
     // ── resolveRelatedConfig ─────────────────────────────────────────────────

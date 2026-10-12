@@ -7,6 +7,7 @@ namespace MaikSchneider\TcaApi\Tests\Unit\OpenApi;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\OpenApi\OpenApiSchemasBuilder;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -84,7 +85,7 @@ final class OpenApiSchemasBuilderTest extends TestCase
         ];
 
         $config = $this->makeConfig(['author_id' => ['groups' => ['list', 'show']]]);
-        $schemas = $this->builder->build([$config]);
+        $schemas = $this->builder->build([$config, $this->makeTarget('fe_users', 'users', ['list', 'show'])]);
         $readProps = $schemas['TestRead']['properties'];
 
         self::assertArrayHasKey('author_id', $readProps);
@@ -97,6 +98,39 @@ final class OpenApiSchemasBuilderTest extends TestCase
         self::assertContains('null', $types);
         $formats = array_column($schema['oneOf'], 'format');
         self::assertContains('iri-reference', $formats);
+    }
+
+    /** @return iterable<string, array{list<ApiDefinition>}> */
+    public static function nonAddressableTargetProvider(): iterable
+    {
+        yield 'unregistered table' => [[]];
+        yield 'resource without show' => [[self::makeTarget('fe_users', 'users', ['list'])]];
+    }
+
+    #[Test]
+    #[DataProvider('nonAddressableTargetProvider')]
+    public function hasOneWithoutEmbedToNonAddressableTargetProducesNullableInteger(array $targets): void
+    {
+        $GLOBALS['TCA']['test_table'] = [
+            'ctrl' => [],
+            'columns' => [
+                'author_id' => [
+                    'config' => [
+                        'type' => 'select',
+                        'renderType' => 'selectSingle',
+                        'foreign_table' => 'fe_users',
+                    ],
+                ],
+            ],
+        ];
+
+        $config = $this->makeConfig(['author_id' => ['groups' => ['list', 'show']]]);
+        $schemas = $this->builder->build([$config, ...$targets]);
+
+        self::assertSame(
+            ['oneOf' => [['type' => 'integer'], ['type' => 'null']]],
+            $schemas['TestRead']['properties']['author_id'],
+        );
     }
 
     #[Test]
@@ -169,7 +203,7 @@ final class OpenApiSchemasBuilderTest extends TestCase
         ];
 
         $config = $this->makeConfig(['categories' => ['groups' => ['list', 'show']]]);
-        $schemas = $this->builder->build([$config]);
+        $schemas = $this->builder->build([$config, $this->makeTarget('sys_category', 'categories', ['list', 'show'])]);
         $readProps = $schemas['TestRead']['properties'];
 
         self::assertArrayHasKey('categories', $readProps);
@@ -196,13 +230,55 @@ final class OpenApiSchemasBuilderTest extends TestCase
         ];
 
         $config = $this->makeConfig(['children' => ['groups' => ['list', 'show']]]);
-        $schemas = $this->builder->build([$config]);
+        $schemas = $this->builder->build([$config, $this->makeTarget('child_table', 'children', ['list', 'show'])]);
         $readProps = $schemas['TestRead']['properties'];
 
         self::assertArrayHasKey('children', $readProps);
         self::assertSame('array', $readProps['children']['type']);
         self::assertSame('string', $readProps['children']['items']['type']);
         self::assertSame('iri-reference', $readProps['children']['items']['format']);
+    }
+
+    #[Test]
+    public function inlineFieldToUnregisteredTableProducesArrayOfIntegers(): void
+    {
+        $GLOBALS['TCA']['test_table'] = [
+            'ctrl' => [],
+            'columns' => [
+                'children' => [
+                    'config' => [
+                        'type' => 'inline',
+                        'foreign_table' => 'child_table',
+                        'foreign_field' => 'parent_id',
+                    ],
+                ],
+            ],
+        ];
+
+        $config = $this->makeConfig(['children' => ['groups' => ['list', 'show']]]);
+        $schemas = $this->builder->build([$config]);
+
+        self::assertSame(
+            ['type' => 'array', 'items' => ['type' => 'integer']],
+            $schemas['TestRead']['properties']['children'],
+        );
+    }
+
+    #[Test]
+    public function polymorphicGroupProducesIriOrTypedNodeItems(): void
+    {
+        $GLOBALS['TCA']['test_table'] = [
+            'ctrl' => [],
+            'columns' => [
+                'related' => ['config' => ['type' => 'group', 'allowed' => 'pages,tt_content']],
+            ],
+        ];
+
+        $config = $this->makeConfig(['related' => ['groups' => ['list', 'show']]]);
+        $items = $this->builder->build([$config])['TestRead']['properties']['related']['items'];
+
+        self::assertSame('iri-reference', $items['oneOf'][0]['format']);
+        self::assertSame(['@type', 'uid'], $items['oneOf'][1]['required']);
     }
 
     #[Test]
@@ -462,6 +538,20 @@ final class OpenApiSchemasBuilderTest extends TestCase
     }
 
     // ── Helper ─────────────────────────────────────────────────────────────────
+
+    /** @param list<string> $operations */
+    private static function makeTarget(string $table, string $resourceName, array $operations): ApiDefinition
+    {
+        return ApiDefinition::fromArray([
+            'general' => [
+                'table'        => $table,
+                'resourceName' => $resourceName,
+                'resourceType' => ucfirst($resourceName),
+                'operations'   => $operations,
+            ],
+            'columns' => ['uid' => ['groups' => ['show']]],
+        ]);
+    }
 
     private function makeConfig(array $columns): ApiDefinition
     {

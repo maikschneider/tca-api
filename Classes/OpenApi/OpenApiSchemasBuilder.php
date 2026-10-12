@@ -8,6 +8,7 @@ use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Loader\TcaValidatorDeriver;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final readonly class OpenApiSchemasBuilder
 {
@@ -75,7 +76,7 @@ final readonly class OpenApiSchemasBuilder
         ];
 
         foreach ($resources as $config) {
-            $schemas[$config->resourceType . 'Read'] = $this->buildReadSchema($config);
+            $schemas[$config->resourceType . 'Read'] = $this->buildReadSchema($config, $resources);
             if ($this->hasWriteOperations($config)) {
                 $schemas[$config->resourceType . 'Write'] = $this->buildWriteSchema($config);
             }
@@ -88,7 +89,8 @@ final readonly class OpenApiSchemasBuilder
         return $schemas;
     }
 
-    private function buildReadSchema(ApiDefinition $config): array
+    /** @param ApiDefinition[] $resources */
+    private function buildReadSchema(ApiDefinition $config, array $resources): array
     {
         $properties = [
             '@type' => ['type' => 'string', 'example' => $config->resourceType],
@@ -100,7 +102,7 @@ final readonly class OpenApiSchemasBuilder
             foreach (TcaColumnDiscovery::getExposableColumnNames($config->table) as $column) {
                 $columnDef = $config->columns[$column] ?? new ColumnDefinition(groups: null);
                 $tcaConfig = $GLOBALS['TCA'][$config->table]['columns'][$column]['config'] ?? null;
-                $properties[$column] = $this->buildReadPropertySchema($columnDef, $tcaConfig);
+                $properties[$column] = $this->buildReadPropertySchema($columnDef, $tcaConfig, $config, $resources);
             }
         } else {
             foreach ($config->columns as $column => $columnDef) {
@@ -111,7 +113,7 @@ final readonly class OpenApiSchemasBuilder
                     continue;
                 }
                 $tcaConfig = $GLOBALS['TCA'][$config->table]['columns'][$column]['config'] ?? null;
-                $properties[$column] = $this->buildReadPropertySchema($columnDef, $tcaConfig);
+                $properties[$column] = $this->buildReadPropertySchema($columnDef, $tcaConfig, $config, $resources);
             }
         }
 
@@ -125,7 +127,8 @@ final readonly class OpenApiSchemasBuilder
         return ['type' => 'object', 'properties' => $properties];
     }
 
-    private function buildReadPropertySchema(ColumnDefinition $columnDef, ?array $tcaConfig): array
+    /** @param ApiDefinition[] $resources */
+    private function buildReadPropertySchema(ColumnDefinition $columnDef, ?array $tcaConfig, ApiDefinition $config, array $resources): array
     {
         if ($tcaConfig !== null) {
             $tcaType = $tcaConfig['type'] ?? '';
@@ -137,10 +140,10 @@ final readonly class OpenApiSchemasBuilder
                 return ['type' => 'object'];
             }
             if ($this->isHasManyField($tcaType, $tcaConfig)) {
-                return $this->buildHasManySchema($columnDef);
+                return $this->buildHasManySchema($columnDef, $this->referenceSchema($tcaConfig, $columnDef, $config, $resources));
             }
             if ($this->isHasOneField($tcaType, $tcaConfig)) {
-                return $this->buildHasOneSchema($columnDef);
+                return $this->buildHasOneSchema($columnDef, $this->referenceSchema($tcaConfig, $columnDef, $config, $resources));
             }
         }
 
@@ -163,20 +166,79 @@ final readonly class OpenApiSchemasBuilder
         };
     }
 
-    private function buildHasOneSchema(ColumnDefinition $columnDef): array
+    private function buildHasOneSchema(ColumnDefinition $columnDef, array $referenceSchema): array
     {
         if ($columnDef->embed && $columnDef->resourceType !== null) {
             return ['oneOf' => [['$ref' => '#/components/schemas/' . $columnDef->resourceType . 'Read'], ['type' => 'null']]];
         }
-        return ['oneOf' => [['type' => 'string', 'format' => 'iri-reference'], ['type' => 'null']]];
+        return ['oneOf' => [$referenceSchema, ['type' => 'null']]];
     }
 
-    private function buildHasManySchema(ColumnDefinition $columnDef): array
+    private function buildHasManySchema(ColumnDefinition $columnDef, array $referenceSchema): array
     {
         if ($columnDef->embed && $columnDef->resourceType !== null) {
             return ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/' . $columnDef->resourceType . 'Read']];
         }
-        return ['type' => 'array', 'items' => ['type' => 'string', 'format' => 'iri-reference']];
+        return ['type' => 'array', 'items' => $referenceSchema];
+    }
+
+    /**
+     * Schema of a related record rendered without embedding, mirroring
+     * RelationSerializer::reference(): an IRI when the related resource has an
+     * item endpoint, its uid otherwise. Polymorphic groups can hold either, with
+     * the uid wrapped in a node naming its type.
+     *
+     * @param ApiDefinition[] $resources
+     */
+    private function referenceSchema(array $tcaConfig, ColumnDefinition $columnDef, ApiDefinition $config, array $resources): array
+    {
+        $iri = ['type' => 'string', 'format' => 'iri-reference'];
+
+        $table = $this->relatedTable($tcaConfig);
+        if ($table === null) {
+            return ['oneOf' => [$iri, [
+                'type'       => 'object',
+                'properties' => ['@type' => ['type' => 'string'], 'uid' => ['type' => 'integer']],
+                'required'   => ['@type', 'uid'],
+            ]]];
+        }
+
+        return $this->relatedConfig($table, $columnDef, $config, $resources)?->isAddressable() === true
+            ? $iri
+            : ['type' => 'integer'];
+    }
+
+    /** The single table a relation column points to, or null for a polymorphic group. */
+    private function relatedTable(array $tcaConfig): ?string
+    {
+        $tcaType = $tcaConfig['type'] ?? '';
+
+        if ($tcaType === 'group') {
+            $allowed = GeneralUtility::trimExplode(',', (string)($tcaConfig['allowed'] ?? ''), true);
+            return \count($allowed) === 1 && $allowed[0] !== '*' ? $allowed[0] : null;
+        }
+
+        return $tcaConfig['foreign_table'] ?? ($tcaType === 'category' ? 'sys_category' : null);
+    }
+
+    /**
+     * Same resolution as ApiRegistry::getRelated(), over the resources this spec documents.
+     *
+     * @param ApiDefinition[] $resources
+     */
+    private function relatedConfig(string $table, ColumnDefinition $columnDef, ApiDefinition $config, array $resources): ?ApiDefinition
+    {
+        if ($table === $config->table) {
+            return $config;
+        }
+
+        foreach ($resources as $resource) {
+            if ($columnDef->resourceName !== null ? $resource->resourceName === $columnDef->resourceName : $resource->table === $table) {
+                return $resource;
+            }
+        }
+
+        return null;
     }
 
     /**

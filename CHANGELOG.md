@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Relations to records without an item endpoint no longer render a dangling IRI.** A relation to a table without a registered resource, or to a resource without the `show` operation, used to render `/_api/{table}/{uid}` — a URL that answers `404`. Such a relation now renders the related record's `uid` (a list of uids for to-many columns, and `{"@type": …, "uid": …}` items in a group column that may reference several tables), and an embedded record of that kind carries no `@id`, as a JSON-LD blank node. The synthesized config for an unregistered table derives `@type` from the table name (`tx_news_domain_model_tag` → `TxNewsDomainModelTag`) instead of using it verbatim. The OpenAPI schema describes these properties as integers accordingly. Clients that parsed the uid out of such an IRI can read it directly now ([#207](https://github.com/maikschneider/tca-api/issues/207)).
+
 ### Fixed
 
 - **Relation columns no longer cost a query per record when rendered as IRIs.** `EmbedPreloader` skipped every column without `embed`, so each to-many relation shown as a list of IRIs — MM, `foreign_field` (inline), UID-list and MM groups, and reverse-side MM columns such as `sys_category.items` — was resolved with one query per record. These columns are now preloaded for the whole page, whether embedded or not. A to-one column rendered as an IRI still needs no query at all ([#204](https://github.com/maikschneider/tca-api/issues/204)).
