@@ -176,11 +176,10 @@ final readonly class GroupFieldSerializer
         }
 
         if ($effectiveDepth <= 0) {
-            return array_map(function (array $item) use ($config, $apiPrefix, $relationSerializer): string {
-                $relatedConfig = $relationSerializer->resolveRelatedConfig($item['table'], $config);
-                $resourceName  = $relatedConfig->resourceName ?? $item['table'];
-                return $apiPrefix . '/' . $resourceName . '/' . $item['uid'];
-            }, $items);
+            return array_map(
+                fn (array $item): string|array => $this->reference($relationSerializer->resolveRelatedConfig($item['table'], $config), $item['table'], $item['uid'], $apiPrefix),
+                $items,
+            );
         }
 
         $newVisited = $visited + [$config->table . ':' . $uid => true];
@@ -219,7 +218,7 @@ final readonly class GroupFieldSerializer
             $resourceName = $relatedConfig->resourceName;
 
             if (isset($newVisited[$table . ':' . $itemUid])) {
-                $result[] = $apiPrefix . '/' . $resourceName . '/' . $itemUid;
+                $result[] = $this->reference($relatedConfig, $table, $itemUid, $apiPrefix);
                 continue;
             }
 
@@ -241,6 +240,22 @@ final readonly class GroupFieldSerializer
         }
 
         return $result;
+    }
+
+    /**
+     * A polymorphic group item rendered without embedding: its IRI when the related
+     * resource has an item endpoint, otherwise a node naming its type — a bare uid
+     * would not say which table it belongs to.
+     *
+     * @return string|array{'@type': string, uid: int}
+     */
+    private function reference(?ApiDefinition $relatedConfig, string $table, int $uid, string $apiPrefix): string|array
+    {
+        $iri = RelationSerializer::reference($relatedConfig, $relatedConfig?->resourceName ?? $table, $uid, $apiPrefix);
+
+        return \is_string($iri)
+            ? $iri
+            : ['@type' => $relatedConfig?->resourceType ?? RelationSerializer::defaultResourceType($table), 'uid' => $uid];
     }
 
     /**

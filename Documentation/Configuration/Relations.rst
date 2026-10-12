@@ -21,6 +21,12 @@ This format is compatible with API Platform Admin and other Hydra clients that
 resolve IRIs on demand. To inline the full related record instead, see
 `Embedding related records`_ below.
 
+An IRI is only rendered when it dereferences, i.e. when the related table has a
+registered resource with the ``show`` operation. A relation to any other table
+renders the related record's ``uid`` instead (``"color_id": 1``). In a group
+column that may reference several tables, where a bare uid would not say which
+table it belongs to, such an item renders as ``{"@type": "…", "uid": 1}``.
+
 Embedding related records
 =========================
 
@@ -129,7 +135,13 @@ own ``@type`` and fields:
 
 Each referenced table is resolved to its registered API resource. When no
 resource is registered for a table, a default-mode config is synthesized
-automatically (all TCA columns exposed).
+automatically (all TCA columns exposed). Its ``@type`` is derived from the
+table name (``tx_news_domain_model_tag`` → ``TxNewsDomainModelTag``) unless the
+column sets ``resourceType``.
+
+An embedded record that has no item endpoint — from an unregistered table, or
+from a resource without the ``show`` operation — carries no ``@id``. It is a
+JSON-LD blank node: an ``@id`` would point at a URL that answers ``404``.
 
 Bulk preloading is fully supported: collection requests issue one ``SELECT``
 per referenced table regardless of how many parent rows exist, avoiding N+1

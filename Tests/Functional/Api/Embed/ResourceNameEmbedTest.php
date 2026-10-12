@@ -175,9 +175,10 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
         self::assertSame('Red', $body['color_id']['name']);
     }
 
-    public function testNoApiDefinitionWithoutEmbedReturnsIri(): void
+    public function testNoApiDefinitionWithoutEmbedReturnsUid(): void
     {
-        // 'resourceName' points to a non-existent key but embed is absent → depth=0 → IRI string returned.
+        // 'resourceName' points to a non-existent key and embed is absent → depth=0. There is no
+        // endpoint to point an IRI at, so the uid is returned.
         $this->registerArticleResource([
             'color_id' => ['groups' => ['list', 'show'], 'resourceName' => 'rn-colors-nonexistent'],
         ]);
@@ -186,13 +187,13 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
 
         $body = $this->decodeResponseBody($response);
         self::assertArrayHasKey('color_id', $body);
-        self::assertIsString($body['color_id']);
-        self::assertStringContainsString('/rn-colors-nonexistent/1', $body['color_id']);
+        self::assertSame(1, $body['color_id']);
     }
 
-    public function testNoApiDefinitionDefaultConfigUsesTableNameForJsonLd(): void
+    public function testNoApiDefinitionDefaultConfigDerivesTypeFromTableName(): void
     {
-        // buildDefaultConfig() uses $foreignTable as resourceType when no resourceType override given.
+        // buildDefaultConfig() derives resourceType from the table name when no resourceType override is given,
+        // and the embedded record has no @id because the synthesized config has no endpoint.
         $this->registerArticleResource([
             'color_id' => ['groups' => ['list', 'show'], 'embed' => true, 'resourceName' => 'rn-colors-nonexistent'],
         ]);
@@ -200,7 +201,8 @@ final class ResourceNameEmbedTest extends ApiFunctionalTestCase
         $response = $this->executeApiRequest('/_api/rn-articles/50');
 
         $body = $this->decodeResponseBody($response);
-        self::assertSame(self::COLOR_TABLE, $body['color_id']['@type']);
+        self::assertSame('TxMyextDomainModelColor', $body['color_id']['@type']);
+        self::assertArrayNotHasKey('@id', $body['color_id']);
     }
 
     public function testNoApiDefinitionNullFkReturnsNull(): void

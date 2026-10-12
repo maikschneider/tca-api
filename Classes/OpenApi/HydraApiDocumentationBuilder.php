@@ -246,7 +246,9 @@ final class HydraApiDocumentationBuilder
                     '@type' => 'rdf:Property',
                     'rdfs:label' => $name,
                     'domain' => '#' . $config->resourceType,
-                    'range' => 'xsd:' . $this->columnTypeToXsdType($column->type ?? ''),
+                    'range' => isset($GLOBALS['TCA'][$config->table]['columns'][$name]['config']['foreign_table'])
+                        ? 'xsd:integer'
+                        : 'xsd:' . $this->columnTypeToXsdType($column->type ?? ''),
                 ];
             }
 
@@ -272,7 +274,7 @@ final class HydraApiDocumentationBuilder
                 return null;
             }
             $resource = $this->apiRegistry->get($columnDef->resourceName);
-            return $resource?->resourceType;
+            return $resource?->isAddressable() === true ? $resource->resourceType : null;
         }
 
         $foreignTable = $GLOBALS['TCA'][$table]['columns'][$column]['config']['foreign_table'] ?? null;
@@ -299,7 +301,10 @@ final class HydraApiDocumentationBuilder
     {
         $map = [];
         foreach ($resources as $definition) {
-            $map[$definition->table] = $definition->resourceType;
+            // Without a show endpoint the relation renders uids, not links.
+            if ($definition->isAddressable()) {
+                $map[$definition->table] = $definition->resourceType;
+            }
         }
         return $map;
     }
