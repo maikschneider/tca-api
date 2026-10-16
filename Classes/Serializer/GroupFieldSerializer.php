@@ -231,7 +231,7 @@ final readonly class GroupFieldSerializer
                 $relatedRow,
                 $relatedConfig,
                 $apiPrefix . '/' . $resourceName,
-                [],
+                $columnDef->embedColumns(),
                 $preloaded,
                 $effectiveDepth - 1,
                 $newVisited,

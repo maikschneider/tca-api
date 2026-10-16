@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`embed.columns` limits the columns of an embedded record.** `'embed' => ['columns' => ['title']]` inlines only the listed columns of the related record, like a `fields[]` sparse fieldset applied to the embedded record, and composes with `depth`. The relation is shaped where it is used, so the related table no longer needs a resource file of its own just to keep the embed small. The OpenAPI schema describes the embedded object with the listed columns ([#213](https://github.com/maikschneider/tca-api/issues/213)).
+
 ### Fixed
 
 - **Hydra docs no longer describe file columns as integers.** The 2.2.0 change that documents relations without an item endpoint as uids keyed off `foreign_table`, which TYPO3 also sets on `type=file` columns (`sys_file_reference`), so every file column got `"range": "xsd:integer"` although it still serializes as file objects. API Platform Admin guessed a number field from that and crashed rendering the file objects. File columns are described as `xsd:string` again ([#215](https://github.com/maikschneider/tca-api/issues/215)).
