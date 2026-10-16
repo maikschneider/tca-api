@@ -58,6 +58,20 @@ final class HydraApiDocumentationTest extends ApiFunctionalTestCase
         self::assertContains('#Article', $ids);
     }
 
+    public function testFileColumnsAreNotDescribedAsIntegers(): void
+    {
+        $response = $this->executeApiRequest('/_api/docs.jsonld');
+        $body = $this->decodeResponseBody($response);
+        $classes = array_column($body['hydra:supportedClass'], null, '@id');
+        $ranges = [];
+        foreach ($classes['#Article']['hydra:supportedProperty'] as $property) {
+            $ranges[$property['hydra:title']] = $property['hydra:property']['range'] ?? null;
+        }
+
+        self::assertSame('xsd:string', $ranges['profile_photo']);
+        self::assertSame('xsd:string', $ranges['downloads']);
+    }
+
     public function testPostToDocsReturns405(): void
     {
         $response = $this->executeApiWriteRequest('POST', '/_api/docs.jsonld');

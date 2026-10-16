@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Embedded default-mode records leave out unbounded reverse relations.** A reverse-side MM column with `allowed = '*'` and `MM_oppositeUsage`, such as `sys_category.items`, lists every record of every table carrying the category, so embedding categories on an article collection returned megabytes that grew with the whole data set. An embedded record in default mode — including one from a table without a resource — now omits such a column. The record's own endpoint still renders it, and an embedded record keeps it when the related resource declares the column or `embed.columns` names it ([#213](https://github.com/maikschneider/tca-api/issues/213)).
 
+### Fixed
+
+- **Hydra docs no longer describe file columns as integers.** The 2.2.0 change that documents relations without an item endpoint as uids keyed off `foreign_table`, which TYPO3 also sets on `type=file` columns (`sys_file_reference`), so every file column got `"range": "xsd:integer"` although it still serializes as file objects. API Platform Admin guessed a number field from that and crashed rendering the file objects. File columns are described as `xsd:string` again ([#215](https://github.com/maikschneider/tca-api/issues/215)).
+
 ## [2.2.0] - 2026-10-12
 
 ### Changed
