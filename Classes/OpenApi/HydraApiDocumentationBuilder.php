@@ -246,7 +246,7 @@ final class HydraApiDocumentationBuilder
                     '@type' => 'rdf:Property',
                     'rdfs:label' => $name,
                     'domain' => '#' . $config->resourceType,
-                    'range' => isset($GLOBALS['TCA'][$config->table]['columns'][$name]['config']['foreign_table'])
+                    'range' => $this->rendersAsUid($config->table, $name)
                         ? 'xsd:integer'
                         : 'xsd:' . $this->columnTypeToXsdType($column->type ?? ''),
                 ];
@@ -307,6 +307,17 @@ final class HydraApiDocumentationBuilder
             }
         }
         return $map;
+    }
+
+    /**
+     * TYPO3 sets foreign_table on type=file columns too, but those serialize
+     * as file objects, never as uids.
+     */
+    private function rendersAsUid(string $table, string $column): bool
+    {
+        $tcaConfig = $GLOBALS['TCA'][$table]['columns'][$column]['config'] ?? [];
+
+        return isset($tcaConfig['foreign_table']) && ($tcaConfig['type'] ?? '') !== 'file';
     }
 
     private function columnTypeToXsdType(string $type): string
