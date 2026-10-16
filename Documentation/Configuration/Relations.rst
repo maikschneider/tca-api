@@ -110,24 +110,14 @@ file of its own. The list can only narrow what the related resource exposes: a
 column hidden by its ``groups`` stays hidden. The OpenAPI schema describes the
 embedded object with the listed columns only.
 
-Unbounded reverse relations
-===========================
+..  warning::
 
-The reverse side of a polymorphic MM relation — a ``type=group`` column with
-``allowed = '*'`` and ``MM_oppositeUsage``, such as ``sys_category.items`` —
-lists every record of every table that points at the record. Its size grows
-with the whole data set, not with the page.
-
-An embedded record in default mode therefore leaves such a column out. It stays
-in the record's own endpoint, and an embedded record includes it when the
-related resource declares the column or ``embed.columns`` names it:
-
-..  code-block:: php
-
-    // Configuration/TcaApi/Categories.php — default mode, items stays on embeds
-    'columns' => [
-        'items' => [],
-    ],
+    An embedded record in default mode exposes every TCA column, including the
+    reverse side of a polymorphic MM relation such as ``sys_category.items``.
+    That column lists every record of every table that points at the category,
+    so embedding categories without ``embed.columns`` returns a response that
+    grows with the whole data set, not with the page. Name the columns you
+    need, or register a resource for the related table that leaves it out.
 
 Multi-table group fields
 ========================

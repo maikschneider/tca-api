@@ -8,8 +8,7 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 
 /**
- * Embedded records limited by "embed.columns", and the unbounded reverse relation
- * sys_category.items left out of embedded default-mode records.
+ * Embedded records limited by "embed.columns".
  *
  * Fixture data (articles.csv + colors.csv + sys_categories_reverse.csv +
  *               sys_category_record_mm_reverse.csv):
@@ -95,43 +94,28 @@ final class EmbedColumnsTest extends ApiFunctionalTestCase
         return $byUid;
     }
 
-    // ── Unbounded reverse relation ────────────────────────────────────────────
+    // ── Without embed.columns ─────────────────────────────────────────────────
 
-    public function testEmbeddedUnregisteredCategoryLeavesOutItems(): void
+    public function testEmbeddedUnregisteredCategoryExposesEveryColumn(): void
     {
         $this->registerArticles(['categories' => ['resourceName' => 'unregistered', 'embed' => true]]);
 
-        $categories = $this->fetchArticles()[1]['categories'];
+        $category = $this->fetchArticles()[2]['categories'][0];
 
-        self::assertCount(2, $categories);
-        self::assertSame('ReverseMM Category B', $categories[0]['title']);
-        self::assertArrayHasKey('parent', $categories[0]);
-        self::assertArrayNotHasKey('items', $categories[0]);
-        self::assertArrayNotHasKey('items', $categories[1]);
+        self::assertSame('ReverseMM Category A', $category['title']);
+        self::assertArrayHasKey('parent', $category);
+        self::assertCount(3, $category['items']);
     }
 
-    public function testEmbeddedDefaultModeCategoryLeavesOutItemsButItsOwnEndpointKeepsThem(): void
+    public function testEmbeddedDefaultModeCategoryExposesEveryColumn(): void
     {
         $this->registerArticles(['categories' => ['resourceName' => 'ec-categories', 'embed' => true]]);
         $this->registerCategories();
 
-        $embedded = $this->fetchArticles()[2]['categories'][0];
-        self::assertSame('/_api/ec-categories/20', $embedded['@id']);
-        self::assertArrayNotHasKey('items', $embedded);
+        $category = $this->fetchArticles()[2]['categories'][0];
 
-        $body = $this->decodeResponseBody($this->executeApiRequest('/_api/ec-categories/20'));
-        self::assertCount(3, $body['items']);
-    }
-
-    public function testDeclaredReverseRelationStaysOnEmbeddedDefaultModeRecord(): void
-    {
-        $this->registerArticles(['categories' => ['resourceName' => 'ec-categories', 'embed' => true]]);
-        $this->registerCategories(['items' => []]);
-
-        $embedded = $this->fetchArticles()[2]['categories'][0];
-
-        self::assertSame(20, $embedded['uid']);
-        self::assertCount(3, $embedded['items']);
+        self::assertSame('/_api/ec-categories/20', $category['@id']);
+        self::assertCount(3, $category['items']);
     }
 
     // ── embed.columns ─────────────────────────────────────────────────────────

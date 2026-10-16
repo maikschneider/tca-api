@@ -66,18 +66,4 @@ final class TcaColumnDiscovery
 
         return self::$columnNameCache[$table] = $result;
     }
-
-    /**
-     * True for the reverse side of a polymorphic MM relation (allowed='*' with
-     * MM_oppositeUsage, e.g. sys_category.items). It lists every record of every
-     * table pointing at the record, so it grows with the data set, not the record.
-     */
-    public static function isUnboundedReverseRelation(string $table, string $column): bool
-    {
-        $config = $GLOBALS['TCA'][$table]['columns'][$column]['config'] ?? [];
-
-        return ($config['type'] ?? '') === 'group'
-            && trim((string)($config['allowed'] ?? '')) === '*'
-            && isset($config['MM'], $config['MM_oppositeUsage']);
-    }
 }

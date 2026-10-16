@@ -104,9 +104,6 @@ final class ResourceSerializer
             if ($fields !== [] && !\in_array($column, $fields, true)) {
                 continue;
             }
-            if ($remainingDepth >= 0 && $fields === [] && $config->omitsWhenEmbedded($column)) {
-                continue;
-            }
             if (!$schema->hasField($column)) {
                 continue;
             }
