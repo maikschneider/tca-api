@@ -9,6 +9,7 @@ use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Enum\WriteMode;
 use MaikSchneider\TcaApi\Filter\FilterDefinition;
 use MaikSchneider\TcaApi\Filter\FilterPreResolvableInterface;
+use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use TYPO3\CMS\Core\Utility\MathUtility;
 
 /**
@@ -32,6 +33,8 @@ final readonly class ApiDefinition
      * @param int[]|null                      $readStoragePids resolved read-side pid constraint;
      *                                                          null = no constraint (read all pages),
      *                                                          non-empty list = WHERE pid IN (...)
+     * @param array<string, ColumnDefinition>|null $resolvedColumnMap precomputed result of columnMap();
+     *                                                                null = compute on demand
      */
     public function __construct(
         public readonly string $table,
@@ -58,6 +61,7 @@ final readonly class ApiDefinition
         public readonly ?array $readStoragePids = null,
         public readonly ?string $group = null,
         public readonly ?string $groupDescription = null,
+        private readonly ?array $resolvedColumnMap = null,
     ) {
     }
 
@@ -99,6 +103,19 @@ final readonly class ApiDefinition
     public function isUserInfo(): bool
     {
         return $this->type === 'userinfo';
+    }
+
+    /**
+     * The columns this resource exposes, keyed by column name.
+     *
+     * Explicit mode: the declared columns as-is (callers still check isReadable()/isWritable()).
+     * Default mode: every exposable TCA column, using the declared column config where set.
+     *
+     * @return array<string, ColumnDefinition>
+     */
+    public function columnMap(): array
+    {
+        return $this->resolvedColumnMap ?? self::buildColumnMap($this->table, $this->columns, $this->isExplicitMode);
     }
 
     public function getColumn(string $name): ?ColumnDefinition
@@ -488,7 +505,26 @@ final readonly class ApiDefinition
             readStoragePids:        self::resolveReadStoragePids($general['readStoragePids'] ?? null, $storagePid),
             group:                  $group,
             groupDescription:       $groupDescription,
+            resolvedColumnMap:      self::buildColumnMap($general['table'], $columns, $isExplicitMode),
         );
+    }
+
+    /**
+     * @param array<string, ColumnDefinition> $columns
+     * @return array<string, ColumnDefinition>
+     */
+    private static function buildColumnMap(string $table, array $columns, bool $isExplicitMode): array
+    {
+        if ($isExplicitMode) {
+            return $columns;
+        }
+
+        $columnMap = [];
+        foreach (TcaColumnDiscovery::getExposableColumnNames($table) as $column) {
+            $columnMap[$column] = $columns[$column] ?? new ColumnDefinition(groups: null);
+        }
+
+        return $columnMap;
     }
 
     /**

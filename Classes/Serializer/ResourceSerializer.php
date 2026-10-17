@@ -11,7 +11,6 @@ use MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface;
 use MaikSchneider\TcaApi\Serializer\Processing\PreloadingProcessorInterface;
 use MaikSchneider\TcaApi\Serializer\Processing\ProcessorGuard;
 use MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor;
-use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use TYPO3\CMS\Core\Schema\Field\FileFieldType;
 use TYPO3\CMS\Core\Schema\Field\FlexFormFieldType;
 use TYPO3\CMS\Core\Schema\Field\JsonFieldType;
@@ -41,9 +40,6 @@ final class ResourceSerializer
 {
     /** @var array<string, TcaSchema> Schemas cached per table to avoid repeated factory calls during collection serialization. */
     private array $schemaCache = [];
-
-    /** @var array<string, array<string, ColumnDefinition>> Column maps cached per table+mode to avoid rebuilding on every row in a collection. */
-    private array $columnMapCache = [];
 
     /** @var array<int, array<class-string, array{processor: ColumnProcessorInterface, uids: array<int, true>}>> Processors prepared for the current collection, per API definition. */
     private array $preparedProcessors = [];
@@ -78,7 +74,7 @@ final class ResourceSerializer
     ): array {
         $uid           = (int)$row['uid'];
         $schema        = $this->getSchema($config->table);
-        $columnMap     = $this->resolveColumnMap($config);
+        $columnMap     = $config->columnMap();
         $preloadedFiles = $preloaded['files'][$config->table] ?? null;
 
         // The base '{table}' tag is added by RequestDispatcher at cache activation
@@ -264,7 +260,7 @@ final class ResourceSerializer
             return;
         }
 
-        $definitions  = $this->resolveColumnMap($config) + $config->virtualProperties;
+        $definitions  = $config->columnMap() + $config->virtualProperties;
         $schema       = $this->getSchema($config->table);
         $prepared     = [];
         $preparedUids = [];
@@ -330,36 +326,6 @@ final class ResourceSerializer
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-
-    /**
-     * Build the column map for iteration in serialize().
-     *
-     * Explicit mode: returns $config->columns as-is.
-     * Default mode: returns all exposable TCA columns, using $config->columns overrides where set.
-     *
-     * Result is cached per table+mode to avoid rebuilding on every row during collection serialization.
-     *
-     * @return array<string, ColumnDefinition>
-     */
-    private function resolveColumnMap(ApiDefinition $config): array
-    {
-        $cacheKey = $config->table . $config->resourceName . ($config->isExplicitMode ? ':explicit' : ':default');
-
-        if (isset($this->columnMapCache[$cacheKey])) {
-            return $this->columnMapCache[$cacheKey];
-        }
-
-        if ($config->isExplicitMode) {
-            return $this->columnMapCache[$cacheKey] = $config->columns;
-        }
-
-        $columnMap = [];
-        foreach (TcaColumnDiscovery::getExposableColumnNames($config->table) as $colName) {
-            $columnMap[$colName] = $config->columns[$colName] ?? new ColumnDefinition(groups: null);
-        }
-
-        return $this->columnMapCache[$cacheKey] = $columnMap;
-    }
 
     private function applyColumnProcessor(
         mixed $value,
