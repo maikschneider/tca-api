@@ -7,7 +7,6 @@ namespace MaikSchneider\TcaApi\OpenApi;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Loader\TcaValidatorDeriver;
-use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final readonly class OpenApiSchemasBuilder
@@ -99,8 +98,7 @@ final readonly class OpenApiSchemasBuilder
         ];
 
         if (!$config->isExplicitMode) {
-            foreach (TcaColumnDiscovery::getExposableColumnNames($config->table) as $column) {
-                $columnDef = $config->columns[$column] ?? new ColumnDefinition(groups: null);
+            foreach ($config->columnMap() as $column => $columnDef) {
                 $tcaConfig = $GLOBALS['TCA'][$config->table]['columns'][$column]['config'] ?? null;
                 $properties[$column] = $this->buildReadPropertySchema($columnDef, $tcaConfig, $config, $resources);
             }
@@ -289,7 +287,7 @@ final readonly class OpenApiSchemasBuilder
         $required = [];
 
         if (!$config->isExplicitMode) {
-            foreach (TcaColumnDiscovery::getExposableColumnNames($config->table) as $column) {
+            foreach (array_keys($config->columnMap()) as $column) {
                 $columnDef = $this->resolveDefaultModeColumn($config, $column);
 
                 $propSchema = $this->buildPropertySchema($columnDef);
@@ -456,7 +454,7 @@ final readonly class OpenApiSchemasBuilder
         $required = [];
 
         if (!$config->isExplicitMode) {
-            foreach (TcaColumnDiscovery::getExposableColumnNames($config->table) as $column) {
+            foreach (array_keys($config->columnMap()) as $column) {
                 $columnDef = $this->resolveDefaultModeColumn($config, $column);
                 $properties[$column] = $this->buildMultipartPropertySchema($columnDef, $config->table, $column);
                 if ($columnDef->required) {

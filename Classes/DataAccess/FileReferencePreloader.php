@@ -6,7 +6,6 @@ namespace MaikSchneider\TcaApi\DataAccess;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
-use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Core\Context\Context;
@@ -106,8 +105,8 @@ final class FileReferencePreloader
     private function resolveFileColumns(ApiDefinition $config, TcaSchema $schema): array
     {
         $candidates = $config->isExplicitMode
-            ? array_keys(array_filter($config->columns, static fn (ColumnDefinition $def) => $def->isReadable()))
-            : TcaColumnDiscovery::getExposableColumnNames($config->table);
+            ? array_keys(array_filter($config->columnMap(), static fn (ColumnDefinition $def) => $def->isReadable()))
+            : array_keys($config->columnMap());
 
         foreach ($config->virtualProperties as $virtualProperty) {
             if ($virtualProperty->column !== null && (!$config->isExplicitMode || $virtualProperty->isReadable())) {
