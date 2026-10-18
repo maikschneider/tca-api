@@ -25,6 +25,9 @@ use TYPO3\CMS\Core\Utility\MathUtility;
  */
 final readonly class ApiDefinition
 {
+    public const TSCONFIG_IGNORE = 'ignore';
+    public const TSCONFIG_STORAGE_PID = 'storagePid';
+
     /**
      * @param string[]                        $operations
      * @param array<string, ColumnDefinition> $columns
@@ -39,6 +42,9 @@ final readonly class ApiDefinition
      *                                                          a string is a site setting key holding a pid
      * @param string|null                     $storagePidSetting site setting key holding the write pid, when
      *                                                          storagePid is a {$…} placeholder (storagePid is null then)
+     * @param string                          $tsconfig       'storagePid' applies the TCEFORM TSconfig of the storage page
+     *                                                          to writes ({@see \MaikSchneider\TcaApi\Tca\TceformRestrictions}),
+     *                                                          'ignore' does not
      * @param string|null                     $recordTypeField the TCA ctrl.type column; set only when recordTypes is set
      * @param list<string>|null               $recordTypes     record types the resource is scoped to;
      *                                                          null = all records regardless of type
@@ -78,6 +84,7 @@ final readonly class ApiDefinition
         public readonly bool $typeSchemas = false,
         private readonly ?array $resolvedTypeColumnMaps = null,
         public readonly ?string $storagePidSetting = null,
+        public readonly string $tsconfig = self::TSCONFIG_IGNORE,
     ) {
     }
 
@@ -581,6 +588,7 @@ final readonly class ApiDefinition
             typeSchemas:            $typeSchemas,
             resolvedTypeColumnMaps: $typeColumnMaps,
             storagePidSetting:      $storagePidSetting,
+            tsconfig:               self::resolveTsconfig($general['tsconfig'] ?? null, $storagePid !== null || $storagePidSetting !== null, $label),
         );
     }
 
@@ -876,6 +884,31 @@ final readonly class ApiDefinition
         }
 
         return [null, $setting];
+    }
+
+    /**
+     * general.tsconfig: 'ignore' (default) or 'storagePid', which needs a storage page to read the TSconfig of.
+     */
+    private static function resolveTsconfig(mixed $raw, bool $hasStoragePid, string $label): string
+    {
+        $tsconfig = $raw ?? self::TSCONFIG_IGNORE;
+        if (!\in_array($tsconfig, [self::TSCONFIG_IGNORE, self::TSCONFIG_STORAGE_PID], true)) {
+            throw new \InvalidArgumentException(sprintf(
+                'TcaApi config for "%s": general.tsconfig must be "%s" or "%s".',
+                $label,
+                self::TSCONFIG_IGNORE,
+                self::TSCONFIG_STORAGE_PID,
+            ));
+        }
+        if ($tsconfig === self::TSCONFIG_STORAGE_PID && !$hasStoragePid) {
+            throw new \InvalidArgumentException(sprintf(
+                'TcaApi config for "%s": general.tsconfig = "%s" requires general.storagePid.',
+                $label,
+                self::TSCONFIG_STORAGE_PID,
+            ));
+        }
+
+        return $tsconfig;
     }
 
     /** '{$myext.storagePid}' → 'myext.storagePid'; null for anything else */

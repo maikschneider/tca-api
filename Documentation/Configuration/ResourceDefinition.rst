@@ -68,6 +68,10 @@ The ``general`` key defines the basic resource properties:
        may be ``{$site.setting}`` placeholders. When omitted, reads fall back
        to ``storagePid``. This is the complete read set: list the write page
        explicitly if it should also be readable.
+   * - ``tsconfig``
+     - ``'ignore'`` (default) or ``'storagePid'``: applies the ``TCEFORM``
+       Page TSconfig of the storage page to writes — see
+       :ref:`tceform-tsconfig`. ``'storagePid'`` requires ``storagePid``.
    * - ``recordTypes``
      - Scopes the resource to record types of the table's TCA ``ctrl.type``
        field (``CType``, ``doktype``, …). Accepts an array
@@ -183,6 +187,44 @@ constraint.
 Response caching includes the site and its resolved read pages. Changing a
 storage-page setting cannot reuse a response from the previous scope, and
 an invalid setting fails even when a response was previously cached.
+
+..  _tceform-tsconfig:
+
+TCEFORM TSconfig for writes
+---------------------------
+
+``TCEFORM`` Page TSconfig shapes the backend form. DataHandler does not
+enforce it, so a disabled field can still hold data from earlier edits,
+defaults or imports. Reads therefore ignore TSconfig: they expose the data,
+not the form. Writes ignore it too unless the resource opts in:
+
+..  code-block:: php
+
+    'general' => [
+        'table'      => 'tt_content',
+        'storagePid' => 42,
+        'tsconfig'   => 'storagePid',   // default: 'ignore'
+    ],
+
+The TSconfig of the storage page applies, which is where ``create`` puts
+records. Supported properties, on the field or under ``types.<type>`` for one
+record type:
+
+*   ``disabled = 1`` — the field is ignored on write, like a column outside the
+    record type. It stays readable.
+*   ``removeItems``, ``keepItems``, ``addItems`` — a value a select field may
+    not be set to is rejected with ``422`` (``INVALID_VALUE``). On the type
+    field (``CType``, ``doktype``, …) the code is ``INVALID_RECORD_TYPE``, so
+    ``CType.removeItems = header`` forbids creating ``header`` elements. The
+    empty value stays allowed.
+
+The OpenAPI ``Read`` schema marks disabled fields ``readOnly``, the ``Write``
+schemas leave them out and drop removed record types from the type field's
+``enum``. The Hydra documentation marks them not writeable.
+
+TSconfig is read per request, so changes apply without flushing the API
+definitions, and a ``{$site.setting}`` storage pid reads the TSconfig of each
+site's storage page.
 
 ..  _record-types:
 

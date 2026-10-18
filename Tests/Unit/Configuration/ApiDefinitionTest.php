@@ -173,6 +173,45 @@ final class ApiDefinitionTest extends TestCase
     }
 
     #[Test]
+    public function tsconfigDefaultsToIgnore(): void
+    {
+        self::assertSame(ApiDefinition::TSCONFIG_IGNORE, ApiDefinition::fromArray(self::minimalConfig())->tsconfig);
+    }
+
+    #[Test]
+    public function tsconfigStoragePidRequiresAStoragePid(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('general.tsconfig = "storagePid" requires general.storagePid');
+
+        $cfg = self::minimalConfig();
+        $cfg['general']['tsconfig'] = 'storagePid';
+        ApiDefinition::fromArray($cfg);
+    }
+
+    #[Test]
+    public function tsconfigStoragePidAcceptsAPlaceholderStoragePid(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['storagePid'] = '{$tenant.storagePid}';
+        $cfg['general']['tsconfig']   = 'storagePid';
+
+        self::assertSame(ApiDefinition::TSCONFIG_STORAGE_PID, ApiDefinition::fromArray($cfg)->tsconfig);
+    }
+
+    #[Test]
+    public function tsconfigWithAnUnknownValueThrows(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('general.tsconfig must be "ignore" or "storagePid"');
+
+        $cfg = self::minimalConfig();
+        $cfg['general']['storagePid'] = 42;
+        $cfg['general']['tsconfig']   = 'rootPage';
+        ApiDefinition::fromArray($cfg);
+    }
+
+    #[Test]
     public function readStoragePidsDeduplicates(): void
     {
         $cfg = self::minimalConfig();

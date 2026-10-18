@@ -9,6 +9,7 @@ use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Loader\TcaValidatorDeriver;
 use MaikSchneider\TcaApi\Serializer\RelationSerializer;
 use MaikSchneider\TcaApi\Tca\RecordTypeFields;
+use MaikSchneider\TcaApi\Tca\TceformRestrictions;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final readonly class OpenApiSchemasBuilder
@@ -120,6 +121,13 @@ final readonly class OpenApiSchemasBuilder
                 }
                 $tcaConfig = $GLOBALS['TCA'][$config->table]['columns'][$column]['config'] ?? null;
                 $properties[$column] = $this->buildReadPropertySchema($columnDef, $tcaConfig, $config, $resources, $remainingDepth);
+            }
+        }
+
+        $tceform = TceformRestrictions::forDocumentation($config);
+        foreach ($properties as $column => $property) {
+            if ($tceform?->isDisabled($column, $recordType) === true && isset($GLOBALS['TCA'][$config->table]['columns'][$column])) {
+                $properties[$column]['readOnly'] = true;
             }
         }
 
@@ -244,10 +252,16 @@ final readonly class OpenApiSchemasBuilder
             return $schema;
         }
 
+        $recordTypes = $config->recordTypes ?? [];
+        if ($isWrite) {
+            $denied = TceformRestrictions::forDocumentation($config)?->deniedValues($field) ?? [];
+            $recordTypes = array_values(array_diff($recordTypes, $denied));
+        }
+
         $property = $properties[$field] ?? ['type' => 'string'];
         $property['enum'] = ($property['type'] ?? null) === 'integer'
-            ? array_map('intval', $config->recordTypes)
-            : $config->recordTypes;
+            ? array_map('intval', $recordTypes)
+            : $recordTypes;
         $properties[$field] = $property;
         $schema['properties'] = $properties;
 
@@ -464,6 +478,8 @@ final readonly class OpenApiSchemasBuilder
             }
         }
 
+        [$properties, $required] = $this->withoutTceformDisabled($properties, $required, $config);
+
         $schema = ['type' => 'object', 'properties' => $properties === [] ? new \stdClass() : $properties];
         if ($required !== []) {
             $schema['required'] = $required;
@@ -627,12 +643,38 @@ final readonly class OpenApiSchemasBuilder
             }
         }
 
+        [$properties, $required] = $this->withoutTceformDisabled($properties, $required, $config);
+
         $schema = ['type' => 'object', 'properties' => $properties === [] ? new \stdClass() : $properties];
         if ($required !== []) {
             $schema['required'] = $required;
         }
 
         return $schema;
+    }
+
+    /**
+     * Removes the columns the storage page's TCEFORM TSconfig disables from a write
+     * schema; writes ignore them.
+     *
+     * @param array<string, mixed> $properties
+     * @param list<string>         $required
+     * @return array{0: array<string, mixed>, 1: list<string>}
+     */
+    private function withoutTceformDisabled(array $properties, array $required, ApiDefinition $config): array
+    {
+        $tceform = TceformRestrictions::forDocumentation($config);
+        if ($tceform === null) {
+            return [$properties, $required];
+        }
+
+        foreach (array_keys($properties) as $column) {
+            if ($column !== $config->recordTypeField && isset($GLOBALS['TCA'][$config->table]['columns'][$column]) && $tceform->isDisabled($column, $config->fixedRecordType())) {
+                unset($properties[$column]);
+            }
+        }
+
+        return [$properties, array_values(array_intersect($required, array_keys($properties)))];
     }
 
     private static function isPasswordColumn(string $table, string $column): bool

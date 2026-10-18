@@ -10,6 +10,7 @@ use MaikSchneider\TcaApi\DataAccess\FileReferenceInputResolver;
 use MaikSchneider\TcaApi\DataAccess\RelationInputResolver;
 use MaikSchneider\TcaApi\DataAccess\ResolvedInput;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
+use MaikSchneider\TcaApi\Tca\TceformRestrictions;
 use MaikSchneider\TcaApi\Validation\FieldValidator;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -90,7 +91,16 @@ trait WriteOperationTrait
         $body          = $this->withoutOtherTypeColumns($body, $config, $targetType);
         $uploadedFiles = $this->withoutOtherTypeColumns($uploadedFiles, $config, $targetType);
 
-        $violations = [...$recordTypeViolations, ...$this->fieldValidator->validate($body, $config, $partial, $targetType)];
+        $tceform       = TceformRestrictions::forConfig($config);
+        $tceformType   = $tceform !== null ? ($targetType ?? $this->tceformRecordType($body, $config, $request)) : null;
+        $body          = $this->withoutTceformDisabledColumns($body, $config, $tceform, $tceformType);
+        $uploadedFiles = $this->withoutTceformDisabledColumns($uploadedFiles, $config, $tceform, $tceformType);
+
+        $violations = [
+            ...$recordTypeViolations,
+            ...$this->tceformViolations($body, $config, $tceform, $tceformType),
+            ...$this->fieldValidator->validate($body, $config, $partial, $targetType),
+        ];
         if ($violations !== []) {
             return $this->hydraResponseBuilder->buildValidationError($violations);
         }
@@ -162,6 +172,87 @@ trait WriteOperationTrait
         }
 
         return $input;
+    }
+
+    /**
+     * The record type the TCEFORM types.<type> properties apply to on a resource
+     * without type schemas: the type being written, else the existing record's.
+     */
+    private function tceformRecordType(array $body, ApiDefinition $config, ServerRequestInterface $request): ?string
+    {
+        $typeField = $GLOBALS['TCA'][$config->table]['ctrl']['type'] ?? null;
+        if (!\is_string($typeField) || $typeField === '' || str_contains($typeField, ':')) {
+            return null;
+        }
+        if (\is_scalar($body[$typeField] ?? null)) {
+            return (string)$body[$typeField];
+        }
+
+        $existingRecord = $request->getAttribute('tca_api.existing_record');
+
+        return \is_array($existingRecord) && \is_scalar($existingRecord[$typeField] ?? null) ? (string)$existingRecord[$typeField] : null;
+    }
+
+    /**
+     * Drops TCA columns that the storage page's TCEFORM TSconfig disables, so they
+     * are ignored on write like columns outside the record type.
+     *
+     * @template T of array
+     * @param T $input
+     * @return T
+     */
+    private function withoutTceformDisabledColumns(array $input, ApiDefinition $config, ?TceformRestrictions $tceform, ?string $recordType): array
+    {
+        if ($tceform === null) {
+            return $input;
+        }
+
+        $tcaColumns = $GLOBALS['TCA'][$config->table]['columns'] ?? [];
+        foreach (array_keys($input) as $key) {
+            if (isset($tcaColumns[$key]) && $key !== $config->recordTypeField && $tceform->isDisabled((string)$key, $recordType)) {
+                unset($input[$key]);
+            }
+        }
+
+        return $input;
+    }
+
+    /**
+     * Rejects select values that the storage page's TCEFORM TSconfig removes
+     * (removeItems, keepItems), including record types on the type field.
+     *
+     * @return list<array{propertyPath: string, message: string, code: string}>
+     */
+    private function tceformViolations(array $body, ApiDefinition $config, ?TceformRestrictions $tceform, ?string $recordType): array
+    {
+        if ($tceform === null) {
+            return [];
+        }
+
+        $typeField = $config->recordTypeField ?? ($GLOBALS['TCA'][$config->table]['ctrl']['type'] ?? null);
+        $violations = [];
+        foreach ($body as $column => $value) {
+            $column = (string)$column;
+            if (!isset($GLOBALS['TCA'][$config->table]['columns'][$column]) || !(\is_scalar($value) || \is_array($value))) {
+                continue;
+            }
+            $denied = $tceform->deniedValues($column, $recordType);
+            if ($denied === []) {
+                continue;
+            }
+            $values = \is_array($value) ? $value : explode(',', (string)$value);
+            foreach ($values as $item) {
+                if (\is_scalar($item) && \in_array(trim((string)$item), $denied, true)) {
+                    $violations[] = [
+                        'propertyPath' => $column,
+                        'message'      => sprintf("Value '%s' is not allowed for field '%s' on this storage page.", trim((string)$item), $column),
+                        'code'         => $column === $typeField ? 'INVALID_RECORD_TYPE' : 'INVALID_VALUE',
+                    ];
+                }
+            }
+        }
+
+        return $violations;
     }
 
     /**

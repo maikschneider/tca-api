@@ -1,0 +1,10 @@
+"pages"
+,"uid","pid","title","slug","doktype","is_siteroot","perms_everybody","TSconfig"
+,810,1,"TSconfig storage","/tsconfig-storage",254,0,1,"TCEFORM.tt_content {
+  layout.disabled = 1
+  CType.removeItems = header
+  header_layout.types.textmedia.disabled = 1
+  frame_class.removeItems = ruler-before
+  space_before_class.keepItems = extra-small
+  space_before_class.addItems.custom = Custom
+}"

@@ -8,6 +8,7 @@ use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Dispatcher\RequestContext;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
+use MaikSchneider\TcaApi\Tca\TceformRestrictions;
 
 final class HydraApiDocumentationBuilder
 {
@@ -205,6 +206,7 @@ final class HydraApiDocumentationBuilder
         ];
 
         $columnMap = $config->columnMap();
+        $tceform   = TceformRestrictions::forDocumentation($config);
 
         $tcaLabelColumn = $GLOBALS['TCA'][$config->table]['ctrl']['label'] ?? null;
 
@@ -249,7 +251,7 @@ final class HydraApiDocumentationBuilder
                 'hydra:title' => $name,
                 'hydra:required' => $column->required,
                 'hydra:readable' => !$config->isExplicitMode || $column->isReadable(),
-                'hydra:writeable' => !$config->isExplicitMode || $column->isWritable(),
+                'hydra:writeable' => (!$config->isExplicitMode || $column->isWritable()) && $tceform?->isDisabled($name, $config->fixedRecordType()) !== true,
             ];
         }
 
