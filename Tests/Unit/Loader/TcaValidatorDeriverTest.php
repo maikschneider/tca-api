@@ -448,4 +448,73 @@ final class TcaValidatorDeriverTest extends TestCase
     {
         self::assertFalse(TcaValidatorDeriver::isTcaColumnRequired('tx_test', 'missing'));
     }
+
+    // ── deriveRecordTypeColumns ───────────────────────────────────────────────
+
+    private function buildRecordTypeTca(): void
+    {
+        $this->buildGlobalTca('tx_test', 'title', ['config' => ['type' => 'input', 'max' => 255]]);
+        $this->buildGlobalTca('tx_test', 'teaser', ['config' => ['type' => 'text']]);
+        $GLOBALS['TCA']['tx_test']['types'] = [
+            'news'  => ['showitem' => 'title, teaser', 'columnsOverrides' => ['title' => ['config' => ['required' => true, 'max' => 20]]]],
+            'event' => ['showitem' => 'title, teaser'],
+        ];
+    }
+
+    #[Test]
+    public function deriveRecordTypeColumnsDerivesDeclaredColumnsForTypesThatOverrideThem(): void
+    {
+        $this->buildRecordTypeTca();
+
+        $raw = ['general' => ['table' => 'tx_test'], 'columns' => ['title' => [], 'teaser' => []]];
+
+        self::assertSame(
+            ['news' => ['title' => ['validators' => [['type' => 'maxLength', 'max' => 20]], 'required' => true]]],
+            $this->deriver->deriveRecordTypeColumns('tx_test', $raw),
+        );
+    }
+
+    #[Test]
+    public function deriveRecordTypeColumnsKeepsExplicitSettings(): void
+    {
+        $this->buildRecordTypeTca();
+
+        $explicit = ['required' => false, 'validators' => [['type' => 'maxLength', 'max' => 30]]];
+        $raw      = ['general' => ['table' => 'tx_test'], 'columns' => ['title' => $explicit]];
+
+        self::assertSame(['news' => ['title' => $explicit]], $this->deriver->deriveRecordTypeColumns('tx_test', $raw));
+    }
+
+    #[Test]
+    public function deriveRecordTypeColumnsHonoursTcaValidationFalse(): void
+    {
+        $this->buildRecordTypeTca();
+
+        $raw = ['general' => ['table' => 'tx_test'], 'columns' => ['title' => ['tcaValidation' => false]]];
+
+        self::assertSame(['news' => ['title' => ['tcaValidation' => false]]], $this->deriver->deriveRecordTypeColumns('tx_test', $raw));
+    }
+
+    #[Test]
+    public function deriveRecordTypeColumnsSkipsColumnsThatAreNoArrayOrNotInTca(): void
+    {
+        $this->buildRecordTypeTca();
+        $GLOBALS['TCA']['tx_test']['types']['news']['columnsOverrides']['missing'] = ['config' => ['required' => true]];
+
+        $raw = ['general' => ['table' => 'tx_test'], 'columns' => ['title' => 'invalid', 'missing' => []]];
+
+        self::assertSame([], $this->deriver->deriveRecordTypeColumns('tx_test', $raw));
+    }
+
+    #[Test]
+    public function deriveRecordTypeColumnsReturnsEmptyWithoutTableOrTypes(): void
+    {
+        $this->buildRecordTypeTca();
+        $raw = ['general' => ['table' => 'tx_test'], 'columns' => ['title' => []]];
+
+        self::assertSame([], $this->deriver->deriveRecordTypeColumns('', $raw));
+
+        $GLOBALS['TCA']['tx_test']['types'] = 'invalid';
+        self::assertSame([], $this->deriver->deriveRecordTypeColumns('tx_test', $raw));
+    }
 }

@@ -18,6 +18,7 @@ final class RecordTypeFieldsTest extends TestCase
                 'title'  => ['label' => 'Title', 'config' => ['type' => 'input', 'max' => 255]],
                 'teaser' => ['config' => ['type' => 'text']],
                 'hidden' => ['config' => ['type' => 'check']],
+                'broken' => 'invalid',
             ],
             'palettes' => [
                 'visibility' => ['showitem' => 'hidden, --linebreak--, missing_column'],
@@ -28,6 +29,7 @@ final class RecordTypeFieldsTest extends TestCase
                     'columnsOverrides' => ['title' => ['config' => ['required' => true, 'max' => 20]]],
                 ],
                 'empty' => [],
+                'invalid' => ['showitem' => ['title']],
             ],
         ];
     }
@@ -52,6 +54,12 @@ final class RecordTypeFieldsTest extends TestCase
     }
 
     #[Test]
+    public function fieldNamesOfATypeWithAnInvalidShowitemAreEmpty(): void
+    {
+        self::assertSame([], RecordTypeFields::fieldNames('tx_test', 'invalid'));
+    }
+
+    #[Test]
     public function columnDefinitionAppliesTheTypesColumnsOverrides(): void
     {
         self::assertSame(
@@ -68,5 +76,11 @@ final class RecordTypeFieldsTest extends TestCase
             RecordTypeFields::columnDefinition('tx_test', 'title'),
         );
         self::assertSame([], RecordTypeFields::columnDefinition('tx_test', 'missing_column', 'news'));
+    }
+
+    #[Test]
+    public function columnDefinitionOfAnInvalidColumnIsEmpty(): void
+    {
+        self::assertSame([], RecordTypeFields::columnDefinition('tx_test', 'broken', 'news'));
     }
 }
