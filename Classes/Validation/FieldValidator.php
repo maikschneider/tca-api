@@ -6,7 +6,6 @@ namespace MaikSchneider\TcaApi\Validation;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Loader\TcaValidatorDeriver;
-use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
 
 final class FieldValidator
@@ -59,7 +58,7 @@ final class FieldValidator
             // Pass 2: exposable TCA columns not in $config->columns — derive
             // validators and the required flag on demand. Symmetric with
             // ColumnFilterTrait, which iterates the same set on writes.
-            foreach (TcaColumnDiscovery::getExposableColumnNames($config->table) as $column) {
+            foreach (array_keys($config->columnMap()) as $column) {
                 if (isset($seen[$column])) {
                     continue;
                 }

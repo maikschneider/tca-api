@@ -10,6 +10,7 @@ use MaikSchneider\TcaApi\Enum\WriteMode;
 use MaikSchneider\TcaApi\Filter\ExactFilter;
 use MaikSchneider\TcaApi\Filter\FilterDefinition;
 use MaikSchneider\TcaApi\Filter\SearchFilter;
+use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -738,5 +739,65 @@ final class ApiDefinitionTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('general.group must be a string or an array');
         ApiDefinition::fromArray($cfg);
+    }
+
+    // ── columnMap ───────────────────────────────────────────────────────
+
+    private static function setUpColumnMapTca(): void
+    {
+        $GLOBALS['TCA']['tx_test'] = [
+            'ctrl' => ['delete' => 'deleted', 'enablecolumns' => ['disabled' => 'hidden']],
+            'columns' => [
+                'title' => ['config' => ['type' => 'input']],
+                'teaser' => ['config' => ['type' => 'text']],
+                'hidden' => ['config' => ['type' => 'check']],
+            ],
+        ];
+        (new \ReflectionProperty(TcaColumnDiscovery::class, 'columnNameCache'))->setValue(null, []);
+    }
+
+    protected function tearDown(): void
+    {
+        unset($GLOBALS['TCA']['tx_test']);
+        (new \ReflectionProperty(TcaColumnDiscovery::class, 'columnNameCache'))->setValue(null, []);
+        parent::tearDown();
+    }
+
+    #[Test]
+    public function columnMapInDefaultModeListsExposableTcaColumnsWithDeclaredConfig(): void
+    {
+        self::setUpColumnMapTca();
+        $cfg = self::minimalConfig();
+        $cfg['columns'] = ['title' => ['required' => true]];
+
+        $columnMap = ApiDefinition::fromArray($cfg)->columnMap();
+
+        self::assertSame(['title', 'teaser'], array_keys($columnMap));
+        self::assertTrue($columnMap['title']->required);
+        self::assertFalse($columnMap['teaser']->required);
+    }
+
+    #[Test]
+    public function columnMapInExplicitModeReturnsDeclaredColumns(): void
+    {
+        self::setUpColumnMapTca();
+        $cfg = self::minimalConfig();
+        $cfg['columns'] = ['title' => ['groups' => ['list']], 'hidden' => ['groups' => ['show']]];
+
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertSame($def->columns, $def->columnMap());
+    }
+
+    #[Test]
+    public function columnMapIsResolvedWhenTheDefinitionIsBuilt(): void
+    {
+        self::setUpColumnMapTca();
+        $def = unserialize(serialize(ApiDefinition::fromArray(self::minimalConfig())));
+
+        $GLOBALS['TCA']['tx_test']['columns']['subtitle'] = ['config' => ['type' => 'input']];
+        (new \ReflectionProperty(TcaColumnDiscovery::class, 'columnNameCache'))->setValue(null, []);
+
+        self::assertSame(['title', 'teaser'], array_keys($def->columnMap()));
     }
 }
