@@ -215,8 +215,12 @@ final class EmbedColumnsTest extends ApiFunctionalTestCase
 
     public function testNestedRelationInheritsDepthWithoutItsOwnEmbedColumns(): void
     {
-        $GLOBALS['TCA']['sys_category']['columns']['parent']['config']['renderType'] = 'selectSingle';
-        $GLOBALS['TCA']['sys_category']['columns']['parent']['config']['maxitems'] = 1;
+        $GLOBALS['TCA']['sys_category']['columns']['parent']['config'] = [
+            'type' => 'select',
+            'renderType' => 'selectSingle',
+            'foreign_table' => 'sys_category',
+            'maxitems' => 1,
+        ];
         $this->get(TcaSchemaFactory::class)->load($GLOBALS['TCA'], true);
         $this->getConnectionPool()->getConnectionForTable('sys_category')->update('sys_category', ['parent' => 21], ['uid' => 20]);
         $this->registerArticles([
@@ -241,8 +245,12 @@ final class EmbedColumnsTest extends ApiFunctionalTestCase
 
     public function testCyclicEmbedAllowsTheReferenceReturnedByTheSerializer(): void
     {
-        $GLOBALS['TCA']['sys_category']['columns']['parent']['config']['renderType'] = 'selectSingle';
-        $GLOBALS['TCA']['sys_category']['columns']['parent']['config']['maxitems'] = 1;
+        $GLOBALS['TCA']['sys_category']['columns']['parent']['config'] = [
+            'type' => 'select',
+            'renderType' => 'selectSingle',
+            'foreign_table' => 'sys_category',
+            'maxitems' => 1,
+        ];
         $this->get(TcaSchemaFactory::class)->load($GLOBALS['TCA'], true);
         $connection = $this->getConnectionPool()->getConnectionForTable('sys_category');
         $connection->update('sys_category', ['parent' => 21], ['uid' => 20]);
