@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Record types: `general.recordTypes` scopes a resource to types of the table's `ctrl.type` field.** A `tt_content` resource with `'recordTypes' => ['textmedia', 'header']` serves only those content elements, and the scope applies to `show`, `update` and `delete` as well — a filter on `CType` only narrowed the collection, so `/_api/content/123` still served, patched or deleted a record of any type. A single-type resource sets the type on `create` itself, a multi-type resource requires it, and neither accepts a type outside the list (`422`, `INVALID_RECORD_TYPE`). The OpenAPI schema describes the type field as an `enum`. Accepts a list, a comma-separated string or `'*'` for every TCA type ([#218](https://github.com/maikschneider/tca-api/issues/218)).
+
 ### Fixed
 
 - **Hydra docs no longer describe file columns as integers.** The 2.2.0 change that documents relations without an item endpoint as uids keyed off `foreign_table`, which TYPO3 also sets on `type=file` columns (`sys_file_reference`), so every file column got `"range": "xsd:integer"` although it still serializes as file objects. API Platform Admin guessed a number field from that and crashed rendering the file objects. File columns are described as `xsd:string` again ([#215](https://github.com/maikschneider/tca-api/issues/215)).

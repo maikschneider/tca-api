@@ -1,0 +1,5 @@
+"tt_content"
+,"uid","pid","CType","header","colPos","sorting","hidden","deleted"
+,1,1,"textmedia","Textmedia element",0,256,0,0
+,2,1,"header","Header element",0,512,0,0
+,3,1,"text","Text element",0,768,0,0

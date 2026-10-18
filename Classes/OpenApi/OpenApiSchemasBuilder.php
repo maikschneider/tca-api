@@ -75,13 +75,13 @@ final readonly class OpenApiSchemasBuilder
         ];
 
         foreach ($resources as $config) {
-            $schemas[$config->resourceType . 'Read'] = $this->buildReadSchema($config, $resources);
+            $schemas[$config->resourceType . 'Read'] = $this->withRecordTypeEnum($this->buildReadSchema($config, $resources), $config, false);
             if ($this->hasWriteOperations($config)) {
-                $schemas[$config->resourceType . 'Write'] = $this->buildWriteSchema($config);
+                $schemas[$config->resourceType . 'Write'] = $this->withRecordTypeEnum($this->buildWriteSchema($config), $config, true);
             }
             $schemas[$config->resourceType . 'Collection'] = $this->buildCollectionSchema($config->resourceType);
             if ($this->hasUploadColumns($config)) {
-                $schemas[$config->resourceType . 'WriteMultipart'] = $this->buildMultipartWriteSchema($config);
+                $schemas[$config->resourceType . 'WriteMultipart'] = $this->withRecordTypeEnum($this->buildMultipartWriteSchema($config), $config, true);
             }
         }
 
@@ -146,6 +146,39 @@ final readonly class OpenApiSchemasBuilder
         }
 
         return $this->buildPropertySchema($columnDef);
+    }
+
+    /**
+     * Restricts the type field of a record-type scoped resource to its allowed types.
+     *
+     * Write schemas always carry the field, because create accepts and checks it
+     * even when the column is not writable otherwise. It is required only when
+     * several types are allowed; a single-type resource sets it server-side.
+     */
+    private function withRecordTypeEnum(array $schema, ApiDefinition $config, bool $isWrite): array
+    {
+        if (!$config->isRecordTypeScoped()) {
+            return $schema;
+        }
+
+        $field      = $config->recordTypeField;
+        $properties = \is_array($schema['properties']) ? $schema['properties'] : [];
+        if (!isset($properties[$field]) && !$isWrite) {
+            return $schema;
+        }
+
+        $property = $properties[$field] ?? ['type' => 'string'];
+        $property['enum'] = ($property['type'] ?? null) === 'integer'
+            ? array_map('intval', $config->recordTypes)
+            : $config->recordTypes;
+        $properties[$field] = $property;
+        $schema['properties'] = $properties;
+
+        if ($isWrite && $config->fixedRecordType() === null && !\in_array($field, $schema['required'] ?? [], true)) {
+            $schema['required'][] = $field;
+        }
+
+        return $schema;
     }
 
     private function buildPropertySchema(ColumnDefinition $columnDef): array

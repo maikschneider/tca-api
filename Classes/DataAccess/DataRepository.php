@@ -11,6 +11,7 @@ use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Site\Entity\SiteLanguage;
+use TYPO3\CMS\Core\Utility\MathUtility;
 
 final class DataRepository
 {
@@ -106,6 +107,7 @@ final class DataRepository
             );
 
         $this->applyPidConstraint($qb, $config);
+        $this->applyRecordTypeConstraint($qb, $config);
         $this->applyLanguageConstraint($qb, $config, $language);
 
         $row = $qb->executeQuery()->fetchAssociative();
@@ -123,6 +125,7 @@ final class DataRepository
             ->from($table, 't');
 
         $this->applyPidConstraint($qb, $config, 't');
+        $this->applyRecordTypeConstraint($qb, $config, 't');
         $this->applyLanguageConstraint($qb, $config, $language, 't');
 
         foreach ($constraints as [$filterClass, $context]) {
@@ -157,6 +160,7 @@ final class DataRepository
         $qb->from($table, 't');
 
         $this->applyPidConstraint($qb, $config, 't');
+        $this->applyRecordTypeConstraint($qb, $config, 't');
         $this->applyLanguageConstraint($qb, $config, $language, 't');
 
         foreach ($constraints as [$filterClass, $context]) {
@@ -392,6 +396,23 @@ final class DataRepository
 
         $col = $alias !== '' ? $alias . '.pid' : 'pid';
         $qb->andWhere($qb->expr()->in($col, $qb->createNamedParameter($pids, Connection::PARAM_INT_ARRAY)));
+    }
+
+    private function applyRecordTypeConstraint(QueryBuilder $qb, ApiDefinition $config, string $alias = ''): void
+    {
+        if (!$config->isRecordTypeScoped()) {
+            return;
+        }
+
+        // Integer type columns (pages.doktype) get an integer parameter: comparing
+        // an int column with a string list is not portable across DBMS.
+        $types = $config->recordTypes;
+        $parameter = array_filter($types, MathUtility::canBeInterpretedAsInteger(...)) === $types
+            ? $qb->createNamedParameter(array_map('intval', $types), Connection::PARAM_INT_ARRAY)
+            : $qb->createNamedParameter($types, Connection::PARAM_STR_ARRAY);
+
+        $col = $alias !== '' ? $alias . '.' . $config->recordTypeField : $config->recordTypeField;
+        $qb->andWhere($qb->expr()->in($col, $parameter));
     }
 
     private function applyLanguageConstraint(QueryBuilder $qb, ApiDefinition $config, ?SiteLanguage $language, string $alias = ''): void

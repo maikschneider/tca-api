@@ -79,8 +79,10 @@ trait WriteOperationTrait
         ApiDefinition $config,
         ServerRequestInterface $request,
         bool $partial = false,
+        bool $creating = false,
     ): array|ResponseInterface {
-        $violations = $this->fieldValidator->validate($body, $config, $partial);
+        [$recordTypeViolations, $recordType] = $this->resolveRecordType($body, $config, $creating);
+        $violations = [...$recordTypeViolations, ...$this->fieldValidator->validate($body, $config, $partial)];
         if ($violations !== []) {
             return $this->hydraResponseBuilder->buildValidationError($violations);
         }
@@ -99,6 +101,9 @@ trait WriteOperationTrait
         }
 
         $data        = $this->filterWritableColumns($resolved->scalarBody, $config);
+        if ($creating && $recordType !== null) {
+            $data[$config->recordTypeField] = $recordType;
+        }
         $storedFiles = $uploadedFiles !== [] ? $this->storeUploadedFiles($uploadedFiles, $config) : [];
 
         // An uploaded file and a linked one on the same column would fight over the
@@ -106,5 +111,46 @@ trait WriteOperationTrait
         $storedFiles += $linkedFiles->references;
 
         return ['data' => $data, 'resolved' => $resolved, 'storedFiles' => $storedFiles];
+    }
+
+    /**
+     * Checks the record type in the body against general.recordTypes.
+     *
+     * Returns the violations and the type a created record gets: the submitted
+     * value, or the only allowed type when the client sent none. Updates keep
+     * the usual column writability, so their type value is only validated here.
+     *
+     * @return array{0: list<array{propertyPath: string, message: string, code: string}>, 1: ?string}
+     */
+    private function resolveRecordType(array $body, ApiDefinition $config, bool $creating): array
+    {
+        if (!$config->isRecordTypeScoped()) {
+            return [[], null];
+        }
+
+        $field = $config->recordTypeField;
+        $value = $body[$field] ?? null;
+
+        if ($value === null || $value === '') {
+            if (!$creating || $config->fixedRecordType() !== null) {
+                return [[], $config->fixedRecordType()];
+            }
+
+            return [[[
+                'propertyPath' => $field,
+                'message'      => sprintf("Field '%s' is required. Allowed: %s", $field, implode(', ', $config->recordTypes)),
+                'code'         => 'REQUIRED',
+            ]], null];
+        }
+
+        if (!\is_scalar($value) || !\in_array((string)$value, $config->recordTypes, true)) {
+            return [[[
+                'propertyPath' => $field,
+                'message'      => sprintf("Field '%s' must be one of: %s", $field, implode(', ', $config->recordTypes)),
+                'code'         => 'INVALID_RECORD_TYPE',
+            ]], null];
+        }
+
+        return [[], (string)$value];
     }
 }

@@ -57,7 +57,7 @@ class CreateHandler implements OperationHandlerInterface
             return $parsed;
         }
 
-        $result = $this->validateAndResolve($parsed['body'], $parsed['uploadedFiles'], $config, $request);
+        $result = $this->validateAndResolve($parsed['body'], $parsed['uploadedFiles'], $config, $request, creating: true);
         if ($result instanceof ResponseInterface) {
             return $result;
         }
