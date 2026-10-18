@@ -403,6 +403,11 @@ final readonly class OpenApiSchemasBuilder
 
     private function isHasOneField(string $tcaType, array $tcaConfig): bool
     {
+        if ($tcaType === 'group') {
+            return $this->relatedTable($tcaConfig) !== null
+                && \in_array($tcaConfig['relationship'] ?? null, ['manyToOne', 'oneToOne'], true)
+                && !isset($tcaConfig['MM']);
+        }
         if ($tcaType !== 'select' || !isset($tcaConfig['foreign_table'])) {
             return false;
         }
@@ -413,8 +418,11 @@ final readonly class OpenApiSchemasBuilder
 
     private function isHasManyField(string $tcaType, array $tcaConfig): bool
     {
-        if (\in_array($tcaType, ['inline', 'category', 'group'], true)) {
+        if (\in_array($tcaType, ['inline', 'category'], true)) {
             return true;
+        }
+        if ($tcaType === 'group') {
+            return !$this->isHasOneField($tcaType, $tcaConfig);
         }
         // select with foreign_table that is not hasOne (e.g. selectMultipleSideBySide)
         return $tcaType === 'select'
