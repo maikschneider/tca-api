@@ -24,6 +24,9 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
         'typo3conf/ext/tca_api/Tests/Functional/Fixtures/Sites' => 'typo3conf/sites',
     ];
 
+    /** Scheme and host the request helpers send to; switch it to address another site. */
+    protected string $apiHost = 'http://localhost';
+
     protected array $pathsToProvideInTestInstance = [
         'typo3conf/ext/tca_api/Tests/Functional/Fixtures/fileadmin/user_upload' => 'fileadmin/user_upload',
     ];
@@ -51,7 +54,7 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
      */
     protected function executeApiRequest(string $path, array $queryParams = []): ResponseInterface
     {
-        $uri = 'http://localhost' . $path;
+        $uri = $this->apiHost . $path;
         if ($queryParams !== []) {
             $uri .= '?' . http_build_query($queryParams);
         }
@@ -66,7 +69,7 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
      */
     protected function executeApiRequestWithHeaders(string $path, array $headers = [], array $queryParams = []): ResponseInterface
     {
-        $uri = 'http://localhost' . $path;
+        $uri = $this->apiHost . $path;
         if ($queryParams !== []) {
             $uri .= '?' . http_build_query($queryParams);
         }
@@ -84,7 +87,7 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
      */
     protected function executeApiRequestAs(string $path, int $feUserId, array $queryParams = []): ResponseInterface
     {
-        $uri = 'http://localhost' . $path;
+        $uri = $this->apiHost . $path;
         if ($queryParams !== []) {
             $uri .= '?' . http_build_query($queryParams);
         }
@@ -100,7 +103,7 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
      */
     protected function executeApiWriteRequestAs(string $method, string $path, int $feUserId, array $data = []): ResponseInterface
     {
-        $uri = 'http://localhost' . $path;
+        $uri = $this->apiHost . $path;
 
         $body = new Stream('php://temp', 'rw');
         if ($data !== []) {
@@ -122,7 +125,7 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
      */
     protected function executeApiWriteRequestAsBackendUser(string $method, string $path, int $beUserId, array $data = []): ResponseInterface
     {
-        $uri = 'http://localhost' . $path;
+        $uri = $this->apiHost . $path;
 
         $body = new Stream('php://temp', 'rw');
         if ($data !== []) {
@@ -144,7 +147,7 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
      */
     protected function executeApiRequestAsBackendUser(string $path, int $beUserId, array $queryParams = []): ResponseInterface
     {
-        $uri = 'http://localhost' . $path;
+        $uri = $this->apiHost . $path;
         if ($queryParams !== []) {
             $uri .= '?' . http_build_query($queryParams);
         }
@@ -160,7 +163,7 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
      */
     protected function executeApiWriteRawRequestAs(string $method, string $path, int $feUserId, string $rawBody): ResponseInterface
     {
-        $uri = 'http://localhost' . $path;
+        $uri = $this->apiHost . $path;
 
         $body = new Stream('php://temp', 'rw');
         $body->write($rawBody);
@@ -188,7 +191,7 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
         array $fields = [],
         array $files = [],
     ): ResponseInterface {
-        $uri      = 'http://localhost' . $path;
+        $uri      = $this->apiHost . $path;
         $boundary = 'testboundary' . uniqid();
 
         $request = (new InternalRequest($uri))
@@ -222,7 +225,7 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
         array $fields = [],
         array $files = [],
     ): ResponseInterface {
-        $uri      = 'http://localhost' . $path;
+        $uri      = $this->apiHost . $path;
         $boundary = '----testboundary' . uniqid();
         $crlf     = "\r\n";
 
@@ -282,7 +285,7 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
      */
     protected function executeApiWriteRequest(string $method, string $path, array $data = []): ResponseInterface
     {
-        $uri = 'http://localhost' . $path;
+        $uri = $this->apiHost . $path;
 
         $body = new Stream('php://temp', 'rw');
         if ($data !== []) {

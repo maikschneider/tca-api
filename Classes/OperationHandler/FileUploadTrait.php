@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\OperationHandler;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\Configuration\StoragePidResolver;
 use MaikSchneider\TcaApi\DataAccess\DataWriteService;
 use MaikSchneider\TcaApi\DataAccess\FileUploadService;
 use MaikSchneider\TcaApi\Security\WriteContext;
@@ -109,7 +110,7 @@ trait FileUploadTrait
                     'fieldname'   => $column,
                     'table_local' => 'sys_file',
                     'hidden'      => 0,
-                    'pid'         => $config->storagePid ?? 0,
+                    'pid'         => StoragePidResolver::writePid($config),
                 ];
             }
         }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\OperationHandler;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\Configuration\StoragePidResolver;
 use MaikSchneider\TcaApi\DataAccess\FileReferenceInputResolver;
 use MaikSchneider\TcaApi\DataAccess\RelationInputResolver;
 use MaikSchneider\TcaApi\DataAccess\ResolvedInput;
@@ -102,7 +103,7 @@ trait WriteOperationTrait
             return $this->hydraResponseBuilder->buildValidationError($linkedFiles->violations);
         }
 
-        $resolved = $this->relationResolver->resolve($linkedFiles->body, $config, $config->storagePid ?? 0, $request);
+        $resolved = $this->relationResolver->resolve($linkedFiles->body, $config, StoragePidResolver::writePid($config), $request);
         if ($resolved->violations !== []) {
             return $this->hydraResponseBuilder->buildValidationError($resolved->violations);
         }

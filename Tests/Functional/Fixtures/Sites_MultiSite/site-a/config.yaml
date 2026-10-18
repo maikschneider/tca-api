@@ -1,0 +1,24 @@
+base: 'http://site-a.localhost/'
+dependencies:
+  - maikschneider/tca-api
+languages:
+  -
+    title: English
+    enabled: true
+    locale: en_US
+    hreflang: ''
+    base: /
+    websiteTitle: ''
+    navigationTitle: English
+    fallbackType: strict
+    fallbacks: ''
+    flag: en-us-gb
+    languageId: 0
+rootPageId: 1
+websiteTitle: ''
+settings:
+  tca_api:
+    apiPrefix: '/a-api/'
+  tenant:
+    storagePid: 801
+    emptyPid: ''
