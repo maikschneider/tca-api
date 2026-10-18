@@ -53,7 +53,16 @@ final class RecordTypeSplitter
                 continue;
             }
 
-            foreach (self::generate($config, $label, $options) as $generatedName => $generatedConfig) {
+            $generated = self::generate($config, $label, $options);
+
+            // Ahead of its generated resources, so ApiRegistry::getByTable() resolves
+            // relations to the base, which serves records of every included type.
+            if (($options['keepBase'] ?? true) === true) {
+                unset($config['types']);
+                $expanded[$resourceName] = $config;
+            }
+
+            foreach ($generated as $generatedName => $generatedConfig) {
                 if (isset($generatedBy[$generatedName]) || isset($rawConfigs[$generatedName])) {
                     throw new InvalidApiDefinitionException(sprintf(
                         'TcaApi config for "%s": the generated resource name "%s" is already used by %s.',
@@ -64,11 +73,6 @@ final class RecordTypeSplitter
                 }
                 $generatedBy[$generatedName] = $label;
                 $expanded[$generatedName] = $generatedConfig;
-            }
-
-            if (($options['keepBase'] ?? true) === true) {
-                unset($config['types']);
-                $expanded[$resourceName] = $config;
             }
         }
 

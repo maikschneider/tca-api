@@ -259,7 +259,10 @@ This registers ``content-textmedia`` (``ContentTextmedia``) and
 *   ``namePattern`` sets the generated ``resourceName``; the ``resourceType`` is
     its PascalCase form. A name may contain letters, digits, ``-`` and ``_``
     only, because it is the URL segment.
-*   ``keepBase => false`` drops the multi-type base resource.
+*   ``keepBase => false`` drops the multi-type base resource. Relations to the
+    table that set no ``resourceName`` then link to the first generated
+    resource, which serves only its own type. Keep the base, or set the
+    relation column's ``resourceName``, when other resources link to the table.
 *   ``types`` holds per-type overrides, merged over the base config of that
     type's resource only. Nested arrays merge key by key, lists such as
     ``operations`` or the groups of an access role are replaced as a whole.

@@ -57,7 +57,7 @@ final class RecordTypeSplitterTest extends TestCase
     {
         $expanded = RecordTypeSplitter::expand(['items' => self::config(['include' => ['news', 'event_date'], 'split' => true, 'schema' => 'table'])]);
 
-        self::assertSame(['items-news', 'items-event_date', 'items'], array_keys($expanded));
+        self::assertSame(['items', 'items-news', 'items-event_date'], array_keys($expanded));
         self::assertSame(
             ['table' => 'tx_test', 'resourceName' => 'items-event_date', 'recordTypes' => ['include' => ['event_date'], 'schema' => 'table'], 'resourceType' => 'ItemsEventDate', 'group' => ['name' => 'ItemsEventDate', 'description' => 'Event']],
             $expanded['items-event_date']['general'],
@@ -73,7 +73,7 @@ final class RecordTypeSplitterTest extends TestCase
             'types'    => ['news' => ['security' => ['list' => 'frontend_user'], 'general' => ['resourceName' => 'articles', 'resourceType' => 'Article']]],
         ])]);
 
-        self::assertSame(['articles', 'items-event_date', 'items'], array_keys($expanded));
+        self::assertSame(['items', 'articles', 'items-event_date'], array_keys($expanded));
         self::assertSame('frontend_user', $expanded['articles']['security']['list']);
         self::assertSame('Article', $expanded['articles']['general']['resourceType']);
         self::assertSame('public', $expanded['items-event_date']['security']['list']);

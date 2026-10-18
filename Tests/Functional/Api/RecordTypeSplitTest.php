@@ -84,6 +84,12 @@ final class RecordTypeSplitTest extends ApiFunctionalTestCase
     }
 
     #[Test]
+    public function relationsToTheTableResolveToTheKeptBase(): void
+    {
+        self::assertSame('split-content', $this->getApiRegistry()->getByTable('tt_content')?->resourceName);
+    }
+
+    #[Test]
     public function keepBaseFalseRemovesTheBaseResource(): void
     {
         self::assertNull($this->getApiRegistry()->get('split-only'));
