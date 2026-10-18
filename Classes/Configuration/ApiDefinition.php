@@ -10,6 +10,7 @@ use MaikSchneider\TcaApi\Enum\WriteMode;
 use MaikSchneider\TcaApi\Exception\InvalidApiDefinitionException;
 use MaikSchneider\TcaApi\Filter\FilterDefinition;
 use MaikSchneider\TcaApi\Filter\FilterPreResolvableInterface;
+use MaikSchneider\TcaApi\Loader\TcaValidatorDeriver;
 use MaikSchneider\TcaApi\Tca\RecordTypeFields;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use TYPO3\CMS\Core\Utility\MathUtility;
@@ -164,7 +165,7 @@ final readonly class ApiDefinition
     /** @return array<string, array<string, ColumnDefinition>> */
     private function typeColumnMaps(): array
     {
-        return $this->resolvedTypeColumnMaps ?? self::buildTypeColumnMaps($this->table, $this->columns, $this->recordTypes ?? []);
+        return $this->resolvedTypeColumnMaps ?? self::buildTypeColumnMaps($this->table, (string)$this->recordTypeField, $this->recordTypes ?? [], $this->columns);
     }
 
     public function getColumn(string $name): ?ColumnDefinition
@@ -200,9 +201,12 @@ final readonly class ApiDefinition
      *                                                               pre-resolution runs during DTO construction.
      *                                                               Omit (or pass []) when no DI context is available
      *                                                               (e.g. unit tests) — apply() fallbacks handle it.
+     * @param array<string, array<string, array<string, mixed>>> $recordTypeColumns raw configs of declared columns
+     *                                                               by record type, replacing "columns" within that
+     *                                                               type's column map ({@see TcaValidatorDeriver::deriveRecordTypeColumns()})
      * @throws \InvalidArgumentException when required fields are missing or values are invalid.
      */
-    public static function fromArray(array $raw, array $filterMap = []): self
+    public static function fromArray(array $raw, array $filterMap = [], array $recordTypeColumns = []): self
     {
         // ── general section (required) ──────────────────────────────────
         $general = $raw['general'] ?? [];
@@ -531,7 +535,16 @@ final readonly class ApiDefinition
 
         [$recordTypeField, $recordTypes, $recordTypeSchema] = self::resolveRecordTypes($general['recordTypes'] ?? null, $general['table']);
         $typeSchemas    = $recordTypes !== null && !$isExplicitMode && $recordTypeSchema === 'type';
-        $typeColumnMaps = $typeSchemas ? self::buildTypeColumnMaps($general['table'], $columns, $recordTypes) : null;
+        $typeColumnMaps = $typeSchemas ? self::buildTypeColumnMaps(
+            $general['table'],
+            (string)$recordTypeField,
+            $recordTypes,
+            $columns,
+            array_map(
+                static fn (array $typeColumns): array => array_map(ColumnDefinition::fromArray(...), $typeColumns),
+                $recordTypeColumns,
+            ),
+        ) : null;
 
         return new self(
             table:                  $general['table'],
@@ -670,24 +683,32 @@ final readonly class ApiDefinition
     }
 
     /**
-     * Default-mode column map per record type: the type's form fields that are
-     * exposable (palettes also carry system fields such as hidden or starttime),
-     * using the declared column config where set.
+     * Default-mode column map per record type: the type field, then the type's
+     * form fields that are exposable (palettes also carry system fields such as
+     * hidden or starttime), using the declared column config where set. The type
+     * field is part of every map, as a record carries its type even when its form
+     * does not show it.
      *
-     * @param array<string, ColumnDefinition> $columns
-     * @param list<string>                    $recordTypes
+     * @param list<string>                                     $recordTypes
+     * @param array<string, ColumnDefinition>                  $columns
+     * @param array<string, array<string, ColumnDefinition>>   $typeColumns declared column configs by record type
      * @return array<string, array<string, ColumnDefinition>>
      */
-    private static function buildTypeColumnMaps(string $table, array $columns, array $recordTypes): array
+    private static function buildTypeColumnMaps(string $table, string $recordTypeField, array $recordTypes, array $columns, array $typeColumns = []): array
     {
         $exposable = array_flip(TcaColumnDiscovery::getExposableColumnNames($table));
 
         $maps = [];
         foreach ($recordTypes as $recordType) {
+            $fieldNames = RecordTypeFields::fieldNames($table, $recordType);
+            if (!\in_array($recordTypeField, $fieldNames, true)) {
+                array_unshift($fieldNames, $recordTypeField);
+            }
+
             $maps[$recordType] = [];
-            foreach (RecordTypeFields::fieldNames($table, $recordType) as $column) {
+            foreach ($fieldNames as $column) {
                 if (isset($exposable[$column])) {
-                    $maps[$recordType][$column] = $columns[$column] ?? new ColumnDefinition(groups: null);
+                    $maps[$recordType][$column] = $typeColumns[$recordType][$column] ?? $columns[$column] ?? new ColumnDefinition(groups: null);
                 }
             }
         }

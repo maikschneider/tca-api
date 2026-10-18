@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Enum\AccessRole;
+use MaikSchneider\TcaApi\Loader\TcaValidatorDeriver;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Http\Message\ResponseInterface;
@@ -22,6 +24,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   uid=600 → textmedia
  *   uid=601 → header      (bodytext is set in the DB but not part of the form)
  *   uid=602 → tca_api_teaser
+ *
+ * The fixture table tx_testrecordtypes_item has the types article and note; the
+ * note form leaves out the type field. uid=700 is an article.
  */
 final class RecordTypeSchemasTest extends ApiFunctionalTestCase
 {
@@ -36,6 +41,9 @@ final class RecordTypeSchemasTest extends ApiFunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/pages.csv');
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/tt_content_record_type_schemas.csv');
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/fe_users.csv');
+        // Not a CSV fixture: ddev init-typo3 imports those into a database without this test-only table.
+        GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('tx_testrecordtypes_item')
+            ->insert('tx_testrecordtypes_item', ['uid' => 700, 'pid' => 1, 'item_type' => 'article', 'title' => 'Article item']);
 
         $this->registerResource('typed-content', self::config('typed-content', 'TypedContent', ['textmedia', 'header', 'tca_api_teaser']));
         $this->registerResource('teasers', self::config('teasers', 'Teaser', 'tca_api_teaser'));
@@ -43,6 +51,28 @@ final class RecordTypeSchemasTest extends ApiFunctionalTestCase
             'include' => ['textmedia', 'header'],
             'schema'  => 'table',
         ]));
+        $this->registerResource('items', array_replace_recursive(self::config('items', 'Item', ['article', 'note']), [
+            'general' => ['table' => 'tx_testrecordtypes_item'],
+        ]));
+        $this->registerResource('colliding-content', self::config('colliding-content', 'CollidingContent', ['tca_api_foo_bar', 'tca_api_foo-bar']));
+        $this->registerDerivedResource('declared-teasers', self::config('declared-teasers', 'DeclaredTeaser', 'tca_api_teaser') + [
+            'columns' => ['header' => [], 'bodytext' => []],
+        ]);
+    }
+
+    /**
+     * Registers a resource the way ApiDefinitionLoader does, with TCA validators
+     * derived into its declared columns.
+     */
+    private function registerDerivedResource(string $name, array $rawConfig): void
+    {
+        $table = $rawConfig['general']['table'];
+        $deriver = new TcaValidatorDeriver();
+        $this->getApiRegistry()->register($name, ApiDefinition::fromArray(
+            $deriver->deriveForConfig($table, $rawConfig),
+            [],
+            $deriver->deriveRecordTypeColumns($table, $rawConfig),
+        ));
     }
 
     private static function config(string $resourceName, string $resourceType, array|string $recordTypes): array
@@ -173,6 +203,45 @@ final class RecordTypeSchemasTest extends ApiFunctionalTestCase
         self::assertSame('Now a teaser', $this->decodeResponseBody($response)['bodytext']);
     }
 
+    #[Test]
+    public function aColumnsOverridesRequirementAppliesToADeclaredColumn(): void
+    {
+        $missing   = $this->executeApiWriteRequestAs('POST', '/_api/declared-teasers', 1, ['header' => 'New']);
+        $oversized = $this->executeApiWriteRequestAs('POST', '/_api/declared-teasers', 1, ['header' => 'New', 'bodytext' => str_repeat('a', 21)]);
+
+        self::assertSame(422, $missing->getStatusCode());
+        $this->assertViolation($missing, 'bodytext', 'REQUIRED');
+        self::assertSame(422, $oversized->getStatusCode());
+        $this->assertViolation($oversized, 'bodytext', 'MAX_LENGTH');
+    }
+
+    #[Test]
+    public function aDeclaredColumnKeepsItsExplicitValidation(): void
+    {
+        $this->registerDerivedResource('lenient-teasers', self::config('lenient-teasers', 'LenientTeaser', 'tca_api_teaser') + [
+            'columns' => ['bodytext' => ['required' => false, 'validators' => [['type' => 'maxLength', 'max' => 30]]]],
+        ]);
+
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/lenient-teasers', 1, ['header' => 'New', 'bodytext' => str_repeat('a', 25)]);
+        $missing  = $this->executeApiWriteRequestAs('POST', '/_api/lenient-teasers', 1, ['header' => 'New']);
+
+        self::assertSame(201, $response->getStatusCode());
+        self::assertSame(201, $missing->getStatusCode());
+    }
+
+    #[Test]
+    public function switchingToATypeWithoutTheTypeFieldInItsFormChangesTheType(): void
+    {
+        $response = $this->executeApiWriteRequestAs('PATCH', '/_api/items/700', 1, ['item_type' => 'note', 'title' => 'Now a note']);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(['item_type' => 'note', 'title' => 'Now a note'], array_intersect_key(
+            $this->decodeResponseBody($response),
+            ['item_type' => true, 'title' => true],
+        ));
+        self::assertSame('note', $this->decodeResponseBody($this->executeApiRequest('/_api/items/700'))['item_type']);
+    }
+
     // ── OpenAPI ───────────────────────────────────────────────────────────────
 
     #[Test]
@@ -206,6 +275,22 @@ final class RecordTypeSchemasTest extends ApiFunctionalTestCase
         self::assertArrayNotHasKey('assets', $schemas['TeaserWrite']['properties']);
         self::assertContains('bodytext', $schemas['TeaserWrite']['required']);
         self::assertSame(20, $schemas['TeaserWrite']['properties']['bodytext']['maxLength']);
+    }
+
+    #[Test]
+    public function openApiNamesTypesWithTheSameSuffixApart(): void
+    {
+        $schemas = $this->decodeResponseBody($this->executeApiRequest('/_api/openapi.json'))['components']['schemas'];
+
+        $mapping = $schemas['CollidingContentRead']['discriminator']['mapping'];
+        self::assertCount(2, array_unique($mapping));
+        self::assertSame(['tca_api_foo_bar'], $this->schemaAt($schemas, $mapping['tca_api_foo_bar'])['properties']['CType']['enum']);
+        self::assertSame(['tca_api_foo-bar'], $this->schemaAt($schemas, $mapping['tca_api_foo-bar'])['properties']['CType']['enum']);
+    }
+
+    private function schemaAt(array $schemas, string $ref): array
+    {
+        return $schemas[substr($ref, \strlen('#/components/schemas/'))];
     }
 
     private function fetchContentRow(int $uid): array

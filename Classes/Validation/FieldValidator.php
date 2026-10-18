@@ -41,10 +41,8 @@ final class FieldValidator
             // Pass 1: declared columns (validators + required already gap-filled at boot).
             $columnMap = $config->columnMap($recordType);
             $seen = [];
-            foreach ($config->columns as $column => $columnDef) {
-                if ($config->typeSchemas && !isset($columnMap[$column])) {
-                    continue;
-                }
+            $declaredColumns = $config->typeSchemas ? array_intersect_key($columnMap, $config->columns) : $config->columns;
+            foreach ($declaredColumns as $column => $columnDef) {
                 $seen[$column] = true;
                 $provided = \array_key_exists($column, $body);
                 if ($partial && !$provided) {

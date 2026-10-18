@@ -53,8 +53,12 @@ final readonly class ApiDefinitionLoader
             $rawConfigs = $this->collectDefinitions();
             $definitions = [];
             foreach ($rawConfigs as $resourceName => $config) {
-                $config = $this->tcaValidatorDeriver->deriveForConfig($config['general']['table'] ?? '', $config);
-                $definitions[$resourceName] = ApiDefinition::fromArray($config, $filterMap);
+                $table = $config['general']['table'] ?? '';
+                $definitions[$resourceName] = ApiDefinition::fromArray(
+                    $this->tcaValidatorDeriver->deriveForConfig($table, $config),
+                    $filterMap,
+                    $this->tcaValidatorDeriver->deriveRecordTypeColumns($table, $config),
+                );
             }
             $this->cache->set(
                 $cacheIdentifier,

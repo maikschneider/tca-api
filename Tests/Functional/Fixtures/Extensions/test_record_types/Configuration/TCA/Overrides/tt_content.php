@@ -23,3 +23,13 @@ $GLOBALS['TCA']['tt_content']['types']['tca_api_teaser'] = [
         ],
     ],
 ];
+
+foreach (['tca_api_foo_bar' => 'Foo bar', 'tca_api_foo-bar' => 'Foo-bar'] as $cType => $label) {
+    ExtensionManagementUtility::addTcaSelectItem('tt_content', 'CType', [
+        'label' => $label,
+        'value' => $cType,
+    ]);
+    $GLOBALS['TCA']['tt_content']['types'][$cType] = [
+        'showitem' => 'header',
+    ];
+}

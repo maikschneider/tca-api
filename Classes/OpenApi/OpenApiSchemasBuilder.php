@@ -149,6 +149,7 @@ final readonly class OpenApiSchemasBuilder
 
         $schemas = [];
         $mapping = [];
+        $suffixes = [];
         foreach ($recordTypes as $recordType) {
             $schema = $this->buildReadSchema($config, $resources, -1, $recordType);
             $property = $schema['properties'][$field] ?? ['type' => 'string'];
@@ -158,7 +159,7 @@ final readonly class OpenApiSchemasBuilder
 
             $name = \count($recordTypes) === 1
                 ? $config->resourceType . 'Read'
-                : $config->resourceType . self::recordTypeSchemaSuffix($recordType) . 'Read';
+                : $config->resourceType . self::uniqueRecordTypeSchemaSuffix($recordType, $suffixes) . 'Read';
             $schemas[$name] = $schema;
             $mapping[$recordType] = '#/components/schemas/' . $name;
         }
@@ -173,12 +174,25 @@ final readonly class OpenApiSchemasBuilder
         return $schemas;
     }
 
-    /** 'textmedia' → 'Textmedia', 'menu_pages' → 'MenuPages', '254' → '254' */
-    private static function recordTypeSchemaSuffix(string $recordType): string
+    /**
+     * 'textmedia' → 'Textmedia', 'menu_pages' → 'MenuPages', '254' → '254'. Types
+     * that differ only in separators get a counter: 'foo_bar' → 'FooBar',
+     * 'foo-bar' → 'FooBar2'.
+     *
+     * @param array<string, true> $used suffixes taken so far, updated in place
+     */
+    private static function uniqueRecordTypeSchemaSuffix(string $recordType, array &$used): string
     {
         $parts = preg_split('/[^A-Za-z0-9]+/', $recordType, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $base = implode('', array_map('ucfirst', $parts));
 
-        return implode('', array_map('ucfirst', $parts));
+        $suffix = $base;
+        for ($counter = 2; isset($used[$suffix]); $counter++) {
+            $suffix = $base . $counter;
+        }
+        $used[$suffix] = true;
+
+        return $suffix;
     }
 
     /** @param ApiDefinition[] $resources */
@@ -471,6 +485,9 @@ final readonly class OpenApiSchemasBuilder
     {
         $declared = $config->columns[$column] ?? null;
         if ($declared !== null) {
+            if ($recordType !== null) {
+                return $config->columnMap($recordType)[$column] ?? $declared;
+            }
             return $declared;
         }
 

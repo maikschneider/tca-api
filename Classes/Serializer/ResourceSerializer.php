@@ -102,11 +102,12 @@ final class ResourceSerializer
             if ($fields !== [] && !\in_array($column, $fields, true)) {
                 continue;
             }
-            if (!$fieldSchema->hasField($column)) {
+            $columnSchema = $fieldSchema->hasField($column) ? $fieldSchema : $schema;
+            if (!$columnSchema->hasField($column)) {
                 continue;
             }
 
-            $field = $fieldSchema->getField($column);
+            $field = $columnSchema->getField($column);
 
             // Password columns must never appear in API responses, even when explicitly configured.
             if (($GLOBALS['TCA'][$config->table]['columns'][$column]['config']['type'] ?? '') === 'password') {

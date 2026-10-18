@@ -190,7 +190,8 @@ columns of **its type's form** — the fields in the type's ``showitem``, with
 palettes unpacked, in the same order. A ``header`` content element has no
 ``bodytext`` or ``assets``, a ``textmedia`` element does. System fields that
 palettes carry (``hidden``, ``starttime``, ``sys_language_uid``, …) stay hidden
-as everywhere else.
+as everywhere else. The type field is always included, even for a type whose
+form does not show it.
 
 The type's ``columnsOverrides`` apply as well. A ``required`` or ``max`` set
 for one type is validated only for records of that type, and FlexForm and
@@ -207,7 +208,9 @@ field processing use the type's configuration.
     bodies are partial and cannot be matched against a single type.
 
 Declared ``columns`` keep their configuration but count only for the types
-whose form contains them. Explicit mode is unaffected: declared columns are
+whose form contains them. Their TCA-derived validation follows the type's
+``columnsOverrides`` too, while an explicit ``required`` or validator of the
+same kind still takes precedence. Explicit mode is unaffected: declared columns are
 the columns.
 
 To scope a resource without changing its columns, use the options form with
