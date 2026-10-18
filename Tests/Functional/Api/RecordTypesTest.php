@@ -17,9 +17,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * general.recordTypes scopes a resource to record types of the table's ctrl.type field.
  *
  * Fixture records (tt_content_record_types.csv), all on pid 1:
- *   uid=1 → textmedia
- *   uid=2 → header
- *   uid=3 → text       (outside both resources)
+ *   uid=500 → textmedia
+ *   uid=501 → header
+ *   uid=502 → text       (outside both resources)
  */
 final class RecordTypesTest extends ApiFunctionalTestCase
 {
@@ -79,14 +79,14 @@ final class RecordTypesTest extends ApiFunctionalTestCase
     {
         $body = $this->decodeResponseBody($this->executeApiRequest('/_api/content'));
 
-        self::assertSame([1, 2], array_column($body['hydra:member'], 'uid'));
+        self::assertSame([500, 501], array_column($body['hydra:member'], 'uid'));
         self::assertSame(2, $body['hydra:totalItems']);
     }
 
     #[Test]
     public function showOfAnAllowedTypeReturns200(): void
     {
-        $response = $this->executeApiRequest('/_api/content/2');
+        $response = $this->executeApiRequest('/_api/content/501');
 
         self::assertSame(200, $response->getStatusCode());
         self::assertSame('header', $this->decodeResponseBody($response)['CType']);
@@ -95,8 +95,8 @@ final class RecordTypesTest extends ApiFunctionalTestCase
     #[Test]
     public function showOfAnotherTypeReturns404(): void
     {
-        self::assertSame(404, $this->executeApiRequest('/_api/content/3')->getStatusCode());
-        self::assertSame(404, $this->executeApiRequest('/_api/content-header/1')->getStatusCode());
+        self::assertSame(404, $this->executeApiRequest('/_api/content/502')->getStatusCode());
+        self::assertSame(404, $this->executeApiRequest('/_api/content-header/500')->getStatusCode());
     }
 
     #[Test]
@@ -105,9 +105,9 @@ final class RecordTypesTest extends ApiFunctionalTestCase
         $body = $this->decodeResponseBody($this->executeApiRequest('/_api/standard-pages'));
 
         $uids = array_column($body['hydra:member'], 'uid');
-        self::assertContains(2, $uids);
-        self::assertNotContains(3, $uids);
-        self::assertSame(404, $this->executeApiRequest('/_api/standard-pages/3')->getStatusCode());
+        self::assertContains(500, $uids);
+        self::assertNotContains(501, $uids);
+        self::assertSame(404, $this->executeApiRequest('/_api/standard-pages/501')->getStatusCode());
     }
 
     // ── Writes ────────────────────────────────────────────────────────────────
@@ -115,19 +115,19 @@ final class RecordTypesTest extends ApiFunctionalTestCase
     #[Test]
     public function updateOfAnotherTypeReturns404(): void
     {
-        $response = $this->executeApiWriteRequestAs('PATCH', '/_api/content/3', 1, ['header' => 'Changed']);
+        $response = $this->executeApiWriteRequestAs('PATCH', '/_api/content/502', 1, ['header' => 'Changed']);
 
         self::assertSame(404, $response->getStatusCode());
-        self::assertSame('Text element', $this->fetchContentRow(3)['header']);
+        self::assertSame('Text element', $this->fetchContentRow(502)['header']);
     }
 
     #[Test]
     public function deleteOfAnotherTypeReturns404(): void
     {
-        $response = $this->executeApiWriteRequestAs('DELETE', '/_api/content-header/1', 1);
+        $response = $this->executeApiWriteRequestAs('DELETE', '/_api/content-header/500', 1);
 
         self::assertSame(404, $response->getStatusCode());
-        self::assertSame(0, (int)$this->fetchContentRow(1)['deleted']);
+        self::assertSame(0, (int)$this->fetchContentRow(500)['deleted']);
     }
 
     #[Test]
@@ -180,20 +180,20 @@ final class RecordTypesTest extends ApiFunctionalTestCase
     #[Test]
     public function updateCannotMoveARecordOutOfTheAllowedTypes(): void
     {
-        $response = $this->executeApiWriteRequestAs('PATCH', '/_api/content/1', 1, ['CType' => 'text']);
+        $response = $this->executeApiWriteRequestAs('PATCH', '/_api/content/500', 1, ['CType' => 'text']);
 
         self::assertSame(422, $response->getStatusCode());
         $this->assertViolation($response, 'CType', 'INVALID_RECORD_TYPE');
-        self::assertSame('textmedia', $this->fetchContentRow(1)['CType']);
+        self::assertSame('textmedia', $this->fetchContentRow(500)['CType']);
     }
 
     #[Test]
     public function updateCanSwitchBetweenAllowedTypes(): void
     {
-        $response = $this->executeApiWriteRequestAs('PATCH', '/_api/content/1', 1, ['CType' => 'header']);
+        $response = $this->executeApiWriteRequestAs('PATCH', '/_api/content/500', 1, ['CType' => 'header']);
 
         self::assertSame(200, $response->getStatusCode());
-        self::assertSame('header', $this->fetchContentRow(1)['CType']);
+        self::assertSame('header', $this->fetchContentRow(500)['CType']);
     }
 
     // ── OpenAPI ───────────────────────────────────────────────────────────────
