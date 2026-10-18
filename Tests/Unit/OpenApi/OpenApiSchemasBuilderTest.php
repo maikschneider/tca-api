@@ -134,7 +134,7 @@ final class OpenApiSchemasBuilderTest extends TestCase
     }
 
     #[Test]
-    public function hasOneWithEmbedAndResourceTypeProducesResourceRef(): void
+    public function hasOneWithEmbedAndResourceTypeProducesEmbeddedObject(): void
     {
         $GLOBALS['TCA']['test_table'] = [
             'ctrl' => [],
@@ -162,8 +162,10 @@ final class OpenApiSchemasBuilderTest extends TestCase
         self::assertArrayHasKey('author_id', $readProps);
         $schema = $readProps['author_id'];
         self::assertArrayHasKey('oneOf', $schema);
-        $refs = array_column($schema['oneOf'], '$ref');
-        self::assertContains('#/components/schemas/AuthorRead', $refs);
+        self::assertSame('object', $schema['oneOf'][0]['oneOf'][0]['type']);
+        self::assertSame('Author', $schema['oneOf'][0]['oneOf'][0]['properties']['@type']['example']);
+        self::assertSame(['type' => 'integer'], $schema['oneOf'][0]['oneOf'][1]);
+        self::assertSame(['type' => 'null'], $schema['oneOf'][1]);
     }
 
     #[Test]
@@ -282,7 +284,7 @@ final class OpenApiSchemasBuilderTest extends TestCase
     }
 
     #[Test]
-    public function hasManyWithEmbedAndResourceTypeProducesResourceRefArray(): void
+    public function hasManyWithEmbedAndResourceTypeProducesEmbeddedObjectArray(): void
     {
         $GLOBALS['TCA']['test_table'] = [
             'ctrl' => [],
@@ -308,7 +310,9 @@ final class OpenApiSchemasBuilderTest extends TestCase
         $readProps = $schemas['TestRead']['properties'];
 
         self::assertSame('array', $readProps['tags']['type']);
-        self::assertSame('#/components/schemas/TagRead', $readProps['tags']['items']['$ref']);
+        self::assertSame('object', $readProps['tags']['items']['oneOf'][0]['type']);
+        self::assertSame('Tag', $readProps['tags']['items']['oneOf'][0]['properties']['@type']['example']);
+        self::assertSame(['type' => 'integer'], $readProps['tags']['items']['oneOf'][1]);
     }
 
     // ── File field schema ──────────────────────────────────────────────────────

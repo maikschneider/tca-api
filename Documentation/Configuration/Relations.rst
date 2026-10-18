@@ -83,10 +83,41 @@ is 1.
         'color_id' => ['embed' => ['depth' => 2]],
     ],
 
-..  important::
+..  note::
 
-    The related resource must be registered in the ``ApiRegistry`` for embedding
-    to work.
+    A related table without a registered resource embeds too: its records
+    expose every TCA column and carry no ``@id``, since there is no endpoint
+    for one to point at. Register a resource for the table to choose its
+    columns, or limit them where the relation is used with ``embed.columns``.
+
+Limiting the columns of an embedded record
+==========================================
+
+``'embed' => ['columns' => [...]]`` inlines only the listed columns of the
+related record, next to ``@type``, ``@id`` and ``uid``. It works like the
+``fields[]`` sparse fieldset, applied to the embedded record, and composes with
+``depth``:
+
+..  code-block:: php
+
+    'columns' => [
+        'categories' => ['embed' => ['columns' => ['title']]],
+        'color_id'   => ['embed' => ['depth' => 2, 'columns' => ['name', 'parent']]],
+    ],
+
+The relation is shaped where it is used, so the related table needs no resource
+file of its own. The list can only narrow what the related resource exposes: a
+column hidden by its ``groups`` stays hidden. The OpenAPI schema describes the
+embedded object with the listed columns only.
+
+..  warning::
+
+    An embedded record in default mode exposes every TCA column, including the
+    reverse side of a polymorphic MM relation such as ``sys_category.items``.
+    That column lists every record of every table that points at the category,
+    so embedding categories without ``embed.columns`` returns a response that
+    grows with the whole data set, not with the page. Name the columns you
+    need, or register a resource for the related table that leaves it out.
 
 Multi-table group fields
 ========================

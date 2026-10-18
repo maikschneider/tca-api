@@ -213,7 +213,7 @@ final class EmbedPreloader
 
                 $childRows = array_values(array_intersect_key($preloaded['rows'][$childTable] ?? [], $uidSet));
 
-                $this->preloadRows($preloaded, $childRows, $childConfig, $childDepth, [], $operation);
+                $this->preloadRows($preloaded, $childRows, $childConfig, $childDepth, $columnDef->embedColumns(), $operation);
             }
         }
     }

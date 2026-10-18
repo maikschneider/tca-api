@@ -83,7 +83,7 @@ final class RelationSerializer
             $relatedRow,
             $relatedConfig,
             $apiPrefix . '/' . $relatedConfig->resourceName,
-            [],
+            $columnDef->embedColumns(),
             $preloaded,
             $effectiveDepth - 1,
             $visited + [$config->table . ':' . (int)$row['uid'] => true],
@@ -165,7 +165,7 @@ final class RelationSerializer
                 continue;
             }
 
-            $result[] = $serializer->serialize($relatedRow, $relatedConfig, $relatedBaseUrl, [], $preloaded, $effectiveDepth - 1, $newVisited, $operation);
+            $result[] = $serializer->serialize($relatedRow, $relatedConfig, $relatedBaseUrl, $columnDef->embedColumns(), $preloaded, $effectiveDepth - 1, $newVisited, $operation);
         }
 
         return $result;
