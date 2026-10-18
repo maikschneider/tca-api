@@ -8,6 +8,7 @@ use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Loader\TcaValidatorDeriver;
 use MaikSchneider\TcaApi\Serializer\RelationSerializer;
+use MaikSchneider\TcaApi\Tca\RecordTypeFields;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final readonly class OpenApiSchemasBuilder
@@ -76,7 +77,9 @@ final readonly class OpenApiSchemasBuilder
         ];
 
         foreach ($resources as $config) {
-            $schemas[$config->resourceType . 'Read'] = $this->withRecordTypeEnum($this->buildReadSchema($config, $resources), $config, false);
+            $schemas += $config->typeSchemas
+                ? $this->buildTypeReadSchemas($config, $resources)
+                : [$config->resourceType . 'Read' => $this->withRecordTypeEnum($this->buildReadSchema($config, $resources), $config, false)];
             if ($this->hasWriteOperations($config)) {
                 $schemas[$config->resourceType . 'Write'] = $this->withRecordTypeEnum($this->buildWriteSchema($config), $config, true);
             }
@@ -92,8 +95,9 @@ final readonly class OpenApiSchemasBuilder
     /**
      * @param ApiDefinition[] $resources
      * @param int             $remainingDepth -1 for a resource's own schema, else the embed depth left, as in ResourceSerializer::serialize()
+     * @param string|null     $recordType     on a resource with type schemas, the record type to describe; null = all types
      */
-    private function buildReadSchema(ApiDefinition $config, array $resources, int $remainingDepth = -1): array
+    private function buildReadSchema(ApiDefinition $config, array $resources, int $remainingDepth = -1, ?string $recordType = null): array
     {
         $properties = [
             '@type' => ['type' => 'string', 'example' => $config->resourceType],
@@ -102,8 +106,8 @@ final readonly class OpenApiSchemasBuilder
         ];
 
         if (!$config->isExplicitMode) {
-            foreach ($config->columnMap() as $column => $columnDef) {
-                $tcaConfig = $GLOBALS['TCA'][$config->table]['columns'][$column]['config'] ?? null;
+            foreach ($config->columnMap($recordType) as $column => $columnDef) {
+                $tcaConfig = RecordTypeFields::columnDefinition($config->table, $column, $recordType)['config'] ?? null;
                 $properties[$column] = $this->buildReadPropertySchema($columnDef, $tcaConfig, $config, $resources, $remainingDepth);
             }
         } else {
@@ -127,6 +131,54 @@ final readonly class OpenApiSchemasBuilder
         }
 
         return ['type' => 'object', 'properties' => $properties];
+    }
+
+    /**
+     * Read schemas of a resource with type schemas: one per record type, with the
+     * type field fixed to that type. A single-type resource's type schema is its
+     * Read schema; a multi-type resource's Read schema is a oneOf over the type
+     * schemas with a discriminator on the type field.
+     *
+     * @param ApiDefinition[] $resources
+     * @return array<string, array<string, mixed>>
+     */
+    private function buildTypeReadSchemas(ApiDefinition $config, array $resources): array
+    {
+        $field = (string)$config->recordTypeField;
+        $recordTypes = $config->recordTypes ?? [];
+
+        $schemas = [];
+        $mapping = [];
+        foreach ($recordTypes as $recordType) {
+            $schema = $this->buildReadSchema($config, $resources, -1, $recordType);
+            $property = $schema['properties'][$field] ?? ['type' => 'string'];
+            $property['enum'] = [($property['type'] ?? null) === 'integer' ? (int)$recordType : $recordType];
+            $schema['properties'][$field] = $property;
+            $schema['required'] = [$field];
+
+            $name = \count($recordTypes) === 1
+                ? $config->resourceType . 'Read'
+                : $config->resourceType . self::recordTypeSchemaSuffix($recordType) . 'Read';
+            $schemas[$name] = $schema;
+            $mapping[$recordType] = '#/components/schemas/' . $name;
+        }
+
+        if (\count($recordTypes) > 1) {
+            $schemas[$config->resourceType . 'Read'] = [
+                'oneOf' => array_map(static fn (string $ref): array => ['$ref' => $ref], array_values($mapping)),
+                'discriminator' => ['propertyName' => $field, 'mapping' => $mapping],
+            ];
+        }
+
+        return $schemas;
+    }
+
+    /** 'textmedia' → 'Textmedia', 'menu_pages' → 'MenuPages', '254' → '254' */
+    private static function recordTypeSchemaSuffix(string $recordType): string
+    {
+        $parts = preg_split('/[^A-Za-z0-9]+/', $recordType, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return implode('', array_map('ucfirst', $parts));
     }
 
     /** @param ApiDefinition[] $resources */
@@ -367,8 +419,9 @@ final readonly class OpenApiSchemasBuilder
         $required = [];
 
         if (!$config->isExplicitMode) {
-            foreach (array_keys($config->columnMap()) as $column) {
-                $columnDef = $this->resolveDefaultModeColumn($config, $column);
+            $writeType = $config->typeSchemas ? $config->fixedRecordType() : null;
+            foreach (array_keys($config->columnMap($writeType)) as $column) {
+                $columnDef = $this->resolveDefaultModeColumn($config, $column, $writeType);
 
                 $propSchema = $this->buildPropertySchema($columnDef);
                 $propSchema = array_merge($propSchema, $this->mapValidators($columnDef->validators));
@@ -414,7 +467,7 @@ final readonly class OpenApiSchemasBuilder
      * the TCA-derived validators and required flag — mirroring the runtime
      * validation performed by FieldValidator without polluting $config->columns.
      */
-    private function resolveDefaultModeColumn(ApiDefinition $config, string $column): ColumnDefinition
+    private function resolveDefaultModeColumn(ApiDefinition $config, string $column, ?string $recordType = null): ColumnDefinition
     {
         $declared = $config->columns[$column] ?? null;
         if ($declared !== null) {
@@ -423,8 +476,8 @@ final readonly class OpenApiSchemasBuilder
 
         return new ColumnDefinition(
             groups:     null,
-            required:   TcaValidatorDeriver::isTcaColumnRequired($config->table, $column),
-            validators: TcaValidatorDeriver::deriveValidatorsForColumn($config->table, $column),
+            required:   TcaValidatorDeriver::isTcaColumnRequired($config->table, $column, $recordType),
+            validators: TcaValidatorDeriver::deriveValidatorsForColumn($config->table, $column, $recordType),
         );
     }
 
@@ -534,8 +587,9 @@ final readonly class OpenApiSchemasBuilder
         $required = [];
 
         if (!$config->isExplicitMode) {
-            foreach (array_keys($config->columnMap()) as $column) {
-                $columnDef = $this->resolveDefaultModeColumn($config, $column);
+            $writeType = $config->typeSchemas ? $config->fixedRecordType() : null;
+            foreach (array_keys($config->columnMap($writeType)) as $column) {
+                $columnDef = $this->resolveDefaultModeColumn($config, $column, $writeType);
                 $properties[$column] = $this->buildMultipartPropertySchema($columnDef, $config->table, $column);
                 if ($columnDef->required) {
                     $required[] = $column;

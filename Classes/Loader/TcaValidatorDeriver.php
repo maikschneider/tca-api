@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Loader;
 
+use MaikSchneider\TcaApi\Tca\RecordTypeFields;
+
 /**
  * Boot-time validator derivation from TCA.
  *
@@ -85,28 +87,28 @@ final class TcaValidatorDeriver
      * Derive validator configs from TCA for a single column. Returns the same
      * shape the boot-time deriver injects into declared columns. Returns an
      * empty list when no constraints apply or the table/column is not in TCA.
+     * With $recordType, the type's columnsOverrides apply.
      *
      * @return list<array<string, mixed>>
      */
-    public static function deriveValidatorsForColumn(string $table, string $column): array
+    public static function deriveValidatorsForColumn(string $table, string $column, ?string $recordType = null): array
     {
-        $tcaColumn = $GLOBALS['TCA'][$table]['columns'][$column] ?? null;
-        if (!\is_array($tcaColumn)) {
+        $tcaConfig = RecordTypeFields::columnDefinition($table, $column, $recordType)['config'] ?? null;
+        if (!\is_array($tcaConfig)) {
             return [];
         }
-        $tcaConfig = $tcaColumn['config'] ?? [];
-        $tcaType   = (string)($tcaConfig['type'] ?? '');
 
-        return self::deriveValidatorsForType($tcaType, $tcaConfig);
+        return self::deriveValidatorsForType((string)($tcaConfig['type'] ?? ''), $tcaConfig);
     }
 
     /**
      * Returns true when the TCA column declares the v13+ required flag.
      * The flag lives inside the column's `config` array, sibling to `type`/`max`.
+     * With $recordType, the type's columnsOverrides apply.
      */
-    public static function isTcaColumnRequired(string $table, string $column): bool
+    public static function isTcaColumnRequired(string $table, string $column, ?string $recordType = null): bool
     {
-        return ($GLOBALS['TCA'][$table]['columns'][$column]['config']['required'] ?? false) === true;
+        return (RecordTypeFields::columnDefinition($table, $column, $recordType)['config']['required'] ?? false) === true;
     }
 
     /**

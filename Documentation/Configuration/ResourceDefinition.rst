@@ -69,8 +69,11 @@ The ``general`` key defines the basic resource properties:
      - Scopes the resource to record types of the table's TCA ``ctrl.type``
        field (``CType``, ``doktype``, …). Accepts an array
        (``['textmedia', 'header']``), a comma-separated list or ``'*'`` for
-       every type in ``$TCA[table]['types']``. When omitted, the resource
-       serves records of every type — see :ref:`record-types`.
+       every type in ``$TCA[table]['types']``. In default mode each record then
+       exposes only its type's columns; the options form
+       (``['include' => …, 'schema' => 'table']``) keeps all table columns.
+       When omitted, the resource serves records of every type with all
+       columns — see :ref:`record-types`.
    * - ``writeMode``
      - Write execution strategy. ``acting_user`` (default) — DataHandler runs
        under the authenticated user identity, preserving the actor for audit
@@ -178,6 +181,44 @@ types. Unknown types, tables without ``ctrl.type`` and foreign-field types
     Relations are not scoped: a column referencing records of the table
     renders them regardless of ``recordTypes``, as it does for
     ``storagePid``.
+
+Columns per record type
+-----------------------
+
+In default mode (no column declares ``groups``), each record exposes only the
+columns of **its type's form** — the fields in the type's ``showitem``, with
+palettes unpacked, in the same order. A ``header`` content element has no
+``bodytext`` or ``assets``, a ``textmedia`` element does. System fields that
+palettes carry (``hidden``, ``starttime``, ``sys_language_uid``, …) stay hidden
+as everywhere else.
+
+The type's ``columnsOverrides`` apply as well. A ``required`` or ``max`` set
+for one type is validated only for records of that type, and FlexForm and
+field processing use the type's configuration.
+
+*   A collection over several types returns each item with its own columns.
+*   On writes, columns outside the target type's form are ignored — the type
+    being created or switched to, otherwise the record's current type.
+*   The OpenAPI ``Read`` schema of a multi-type resource is a ``oneOf`` over
+    one schema per type (``ContentTextmediaRead``, ``ContentHeaderRead``, …)
+    with a ``discriminator`` on the type field. A single-type resource's
+    ``Read`` and ``Write`` schemas describe that type. The ``Write`` schema of
+    a multi-type resource lists the columns of all its types, because ``PATCH``
+    bodies are partial and cannot be matched against a single type.
+
+Declared ``columns`` keep their configuration but count only for the types
+whose form contains them. Explicit mode is unaffected: declared columns are
+the columns.
+
+To scope a resource without changing its columns, use the options form with
+``'schema' => 'table'``:
+
+..  code-block:: php
+
+    'recordTypes' => [
+        'include' => ['textmedia', 'header'],   // default: '*'
+        'schema'  => 'table',                   // default: 'type'
+    ],
 
 ..  _endpoint-grouping:
 

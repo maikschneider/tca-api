@@ -27,18 +27,24 @@ final class FieldValidator
      *
      * @param bool $partial When true (PATCH), skip required-check for absent fields
      *                      but still validate any field that IS provided.
+     * @param string|null $recordType The target record type; on a resource with type
+     *                                schemas only that type's columns are validated.
      *
      * @return list<array{propertyPath: string, message: string, code: string}>
      */
-    public function validate(array $body, ApiDefinition $config, bool $partial = false): array
+    public function validate(array $body, ApiDefinition $config, bool $partial = false, ?string $recordType = null): array
     {
         $violations = [];
 
         if (!$config->isExplicitMode) {
             // Default mode mirrors explicit mode's required/validator semantics.
             // Pass 1: declared columns (validators + required already gap-filled at boot).
+            $columnMap = $config->columnMap($recordType);
             $seen = [];
             foreach ($config->columns as $column => $columnDef) {
+                if ($config->typeSchemas && !isset($columnMap[$column])) {
+                    continue;
+                }
                 $seen[$column] = true;
                 $provided = \array_key_exists($column, $body);
                 if ($partial && !$provided) {
@@ -58,7 +64,7 @@ final class FieldValidator
             // Pass 2: exposable TCA columns not in $config->columns — derive
             // validators and the required flag on demand. Symmetric with
             // ColumnFilterTrait, which iterates the same set on writes.
-            foreach (array_keys($config->columnMap()) as $column) {
+            foreach (array_keys($columnMap) as $column) {
                 if (isset($seen[$column])) {
                     continue;
                 }
@@ -66,7 +72,7 @@ final class FieldValidator
                 if ($partial && !$provided) {
                     continue;
                 }
-                $required = TcaValidatorDeriver::isTcaColumnRequired($config->table, $column);
+                $required = TcaValidatorDeriver::isTcaColumnRequired($config->table, $column, $recordType);
                 if ($required && (!$provided || $body[$column] === '' || $body[$column] === null)) {
                     $violations[] = $this->buildViolation($column, "Field '$column' is required.", 'REQUIRED');
                     continue;
@@ -74,7 +80,7 @@ final class FieldValidator
                 if (!$provided) {
                     continue;
                 }
-                foreach (TcaValidatorDeriver::deriveValidatorsForColumn($config->table, $column) as $validatorConfig) {
+                foreach (TcaValidatorDeriver::deriveValidatorsForColumn($config->table, $column, $recordType) as $validatorConfig) {
                     array_push($violations, ...$this->applyValidator($validatorConfig, $column, $body[$column], $config, $body, $partial));
                 }
             }
