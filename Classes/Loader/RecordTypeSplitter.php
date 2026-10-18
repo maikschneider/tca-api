@@ -80,6 +80,8 @@ final class RecordTypeSplitter
     }
 
     /**
+     * The configs generated from one split resource, keyed by their final resource name.
+     *
      * @param array<string, mixed> $config
      * @param array<string, mixed> $options
      * @return array<string, array<string, mixed>>
@@ -212,6 +214,7 @@ final class RecordTypeSplitter
         return $labels;
     }
 
+    /** Translates a label reference ('LLL:EXT:…' or 'domain:key'); returns plain labels unchanged. */
     private static function translate(string $label): string
     {
         if (!str_starts_with($label, 'LLL:') && preg_match('/^[a-z0-9_.]+:[A-Za-z0-9_.-]+$/', $label) !== 1) {
