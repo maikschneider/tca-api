@@ -82,6 +82,9 @@ trait WriteOperationTrait
         bool $creating = false,
     ): array|ResponseInterface {
         [$recordTypeViolations, $recordType] = $this->resolveRecordType($body, $config, $creating);
+        if ($creating && $recordType !== null) {
+            $body[$config->recordTypeField] = $recordType;
+        }
         $violations = [...$recordTypeViolations, ...$this->fieldValidator->validate($body, $config, $partial)];
         if ($violations !== []) {
             return $this->hydraResponseBuilder->buildValidationError($violations);

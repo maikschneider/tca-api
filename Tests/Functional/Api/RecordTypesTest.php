@@ -141,6 +141,19 @@ final class RecordTypesTest extends ApiFunctionalTestCase
     }
 
     #[Test]
+    public function createOnASingleTypeResourceAssignsARequiredType(): void
+    {
+        $config = self::contentConfig('content-header-required', 'ContentHeaderRequired', 'header');
+        $config['columns']['CType'] = ['groups' => ['list', 'show', 'create', 'update'], 'required' => true];
+        $this->registerResource('content-header-required', $config);
+
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/content-header-required', 1, ['header' => 'New header']);
+
+        self::assertSame(201, $response->getStatusCode());
+        self::assertSame('header', $this->fetchContentRow($this->decodeResponseBody($response)['uid'])['CType']);
+    }
+
+    #[Test]
     public function createOnASingleTypeResourceRejectsAnotherType(): void
     {
         $response = $this->executeApiWriteRequestAs('POST', '/_api/content-header', 1, ['header' => 'New', 'CType' => 'textmedia']);
@@ -217,9 +230,30 @@ final class RecordTypesTest extends ApiFunctionalTestCase
 
         self::assertSame(['textmedia', 'header'], $schemas['ContentRead']['properties']['CType']['enum']);
         self::assertSame(['textmedia', 'header'], $schemas['ContentWrite']['properties']['CType']['enum']);
-        self::assertContains('CType', $schemas['ContentWrite']['required']);
         self::assertSame(['header'], $schemas['ContentHeaderWrite']['properties']['CType']['enum']);
-        self::assertNotContains('CType', $schemas['ContentHeaderWrite']['required'] ?? []);
+    }
+
+    #[Test]
+    public function openApiRequiresTheTypeFieldOnlyWhenCreatingAMultiTypeRecord(): void
+    {
+        $body  = $this->decodeResponseBody($this->executeApiRequest('/_api/openapi.json'));
+        $paths = $body['paths'];
+
+        self::assertNotContains('CType', $body['components']['schemas']['ContentWrite']['required'] ?? []);
+        self::assertSame(
+            ['allOf' => [['$ref' => '#/components/schemas/ContentWrite']], 'required' => ['CType']],
+            $paths['/_api/content']['post']['requestBody']['content']['application/json']['schema'],
+        );
+        foreach (['put', 'patch'] as $method) {
+            self::assertSame(
+                ['$ref' => '#/components/schemas/ContentWrite'],
+                $paths['/_api/content/{uid}'][$method]['requestBody']['content']['application/json']['schema'],
+            );
+        }
+        self::assertSame(
+            ['$ref' => '#/components/schemas/ContentHeaderWrite'],
+            $paths['/_api/content-header']['post']['requestBody']['content']['application/json']['schema'],
+        );
     }
 
     // ── Configuration ─────────────────────────────────────────────────────────

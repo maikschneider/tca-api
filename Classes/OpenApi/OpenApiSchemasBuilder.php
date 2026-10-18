@@ -152,8 +152,9 @@ final readonly class OpenApiSchemasBuilder
      * Restricts the type field of a record-type scoped resource to its allowed types.
      *
      * Write schemas always carry the field, because create accepts and checks it
-     * even when the column is not writable otherwise. It is required only when
-     * several types are allowed; a single-type resource sets it server-side.
+     * even when the column is not writable otherwise. The schema is shared by
+     * create and update, so the create-only requirement of a multi-type resource
+     * is added by the create operation instead.
      */
     private function withRecordTypeEnum(array $schema, ApiDefinition $config, bool $isWrite): array
     {
@@ -173,10 +174,6 @@ final readonly class OpenApiSchemasBuilder
             : $config->recordTypes;
         $properties[$field] = $property;
         $schema['properties'] = $properties;
-
-        if ($isWrite && $config->fixedRecordType() === null && !\in_array($field, $schema['required'] ?? [], true)) {
-            $schema['required'][] = $field;
-        }
 
         return $schema;
     }
