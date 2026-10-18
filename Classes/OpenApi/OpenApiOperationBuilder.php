@@ -72,12 +72,12 @@ final readonly class OpenApiOperationBuilder
     {
         $content = [
             'application/json' => [
-                'schema' => ['$ref' => '#/components/schemas/' . $resourceType . 'Write'],
+                'schema' => $this->createSchema($resourceType . 'Write', $config),
             ],
         ];
         if ($this->hasUploadColumns($config, 'create')) {
             $content['multipart/form-data'] = [
-                'schema' => ['$ref' => '#/components/schemas/' . $resourceType . 'WriteMultipart'],
+                'schema' => $this->createSchema($resourceType . 'WriteMultipart', $config),
             ];
         }
 
@@ -276,6 +276,21 @@ final readonly class OpenApiOperationBuilder
         }
 
         return is_a($filterConfig->filterClass, MultiValueFilterInterface::class, true);
+    }
+
+    /**
+     * Request schema for create. A multi-type resource requires its type field on
+     * create only, so the requirement is layered over the Write schema that
+     * update shares instead of living in it.
+     */
+    private function createSchema(string $schemaName, ApiDefinition $config): array
+    {
+        $ref = ['$ref' => '#/components/schemas/' . $schemaName];
+        if (!$config->isRecordTypeScoped() || $config->fixedRecordType() !== null) {
+            return $ref;
+        }
+
+        return ['allOf' => [$ref], 'required' => [$config->recordTypeField]];
     }
 
     private function hasUploadColumns(ApiDefinition $config, string $operation = ''): bool

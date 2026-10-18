@@ -7,6 +7,7 @@ namespace MaikSchneider\TcaApi\Configuration;
 use MaikSchneider\TcaApi\Cache\CacheDefinition;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Enum\WriteMode;
+use MaikSchneider\TcaApi\Exception\InvalidApiDefinitionException;
 use MaikSchneider\TcaApi\Filter\FilterDefinition;
 use MaikSchneider\TcaApi\Filter\FilterPreResolvableInterface;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
@@ -33,6 +34,9 @@ final readonly class ApiDefinition
      * @param int[]|null                      $readStoragePids resolved read-side pid constraint;
      *                                                          null = no constraint (read all pages),
      *                                                          non-empty list = WHERE pid IN (...)
+     * @param string|null                     $recordTypeField the TCA ctrl.type column; set only when recordTypes is set
+     * @param list<string>|null               $recordTypes     record types the resource is scoped to;
+     *                                                          null = all records regardless of type
      * @param array<string, ColumnDefinition>|null $resolvedColumnMap precomputed result of columnMap();
      *                                                                null = compute on demand
      */
@@ -62,7 +66,23 @@ final readonly class ApiDefinition
         public readonly ?string $group = null,
         public readonly ?string $groupDescription = null,
         private readonly ?array $resolvedColumnMap = null,
+        public readonly ?string $recordTypeField = null,
+        public readonly ?array $recordTypes = null,
     ) {
+    }
+
+    public function isRecordTypeScoped(): bool
+    {
+        return $this->recordTypeField !== null && $this->recordTypes !== null;
+    }
+
+    /**
+     * The record type a single-type resource assigns to every record it creates;
+     * null when the resource is unscoped or allows several types.
+     */
+    public function fixedRecordType(): ?string
+    {
+        return $this->isRecordTypeScoped() && \count($this->recordTypes) === 1 ? $this->recordTypes[0] : null;
     }
 
     /**
@@ -480,6 +500,8 @@ final readonly class ApiDefinition
         //   'group' => ['name' => 'Editorial', 'description' => …]  — tag name + description
         [$group, $groupDescription] = self::resolveGroup($general['group'] ?? null, $label);
 
+        [$recordTypeField, $recordTypes] = self::resolveRecordTypes($general['recordTypes'] ?? null, $general['table']);
+
         return new self(
             table:                  $general['table'],
             resourceName:           $general['resourceName'],
@@ -506,7 +528,87 @@ final readonly class ApiDefinition
             group:                  $group,
             groupDescription:       $groupDescription,
             resolvedColumnMap:      self::buildColumnMap($general['table'], $columns, $isExplicitMode),
+            recordTypeField:        $recordTypeField,
+            recordTypes:            $recordTypes,
         );
+    }
+
+    /**
+     * Normalises general.recordTypes against the table's TCA types.
+     *
+     * Accepted shapes: a list, a comma-separated string, or '*' for every type in
+     * $TCA[table]['types']. Values are compared as strings because TCA type keys
+     * are a mix of strings (CType) and integers (doktype).
+     *
+     * @return array{0: ?string, 1: ?list<string>} type field and allowed types (both null when unset)
+     */
+    private static function resolveRecordTypes(mixed $raw, string $table): array
+    {
+        if ($raw === null) {
+            return [null, null];
+        }
+
+        $typeField = $GLOBALS['TCA'][$table]['ctrl']['type'] ?? null;
+        if (!\is_string($typeField) || $typeField === '') {
+            throw new InvalidApiDefinitionException(sprintf(
+                'TcaApi config for "%s": general.recordTypes is set, but the table has no TCA ctrl.type field.',
+                $table,
+            ));
+        }
+        if (str_contains($typeField, ':')) {
+            throw new InvalidApiDefinitionException(sprintf(
+                'TcaApi config for "%s": general.recordTypes does not support foreign-field record types (ctrl.type = "%s").',
+                $table,
+                $typeField,
+            ));
+        }
+
+        $definedTypes = array_map('strval', array_keys($GLOBALS['TCA'][$table]['types'] ?? []));
+
+        if ($raw === '*') {
+            return [$typeField, $definedTypes];
+        }
+
+        if (!\is_array($raw) && !\is_string($raw)) {
+            throw new InvalidApiDefinitionException(sprintf(
+                'TcaApi config for "%s": general.recordTypes must be "*", a comma-separated string or a list.',
+                $table,
+            ));
+        }
+
+        $values = \is_array($raw) ? $raw : explode(',', $raw);
+        $types  = [];
+        foreach ($values as $value) {
+            if (!\is_string($value) && !\is_int($value)) {
+                throw new InvalidApiDefinitionException(sprintf(
+                    'TcaApi config for "%s": general.recordTypes entries must be strings or integers.',
+                    $table,
+                ));
+            }
+            $value = trim((string)$value);
+            if ($value === '') {
+                continue;
+            }
+            if (!\in_array($value, $definedTypes, true)) {
+                throw new InvalidApiDefinitionException(sprintf(
+                    'TcaApi config for "%s": general.recordTypes contains "%s", which is not a type in $TCA[\'%s\'][\'types\']. Defined: %s',
+                    $table,
+                    $value,
+                    $table,
+                    implode(', ', $definedTypes),
+                ));
+            }
+            $types[] = $value;
+        }
+
+        if ($types === []) {
+            throw new InvalidApiDefinitionException(sprintf(
+                'TcaApi config for "%s": general.recordTypes must contain at least one record type.',
+                $table,
+            ));
+        }
+
+        return [$typeField, array_values(array_unique($types))];
     }
 
     /**

@@ -7,6 +7,7 @@ namespace MaikSchneider\TcaApi\Tests\Unit\Configuration;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Enum\WriteMode;
+use MaikSchneider\TcaApi\Exception\InvalidApiDefinitionException;
 use MaikSchneider\TcaApi\Filter\ExactFilter;
 use MaikSchneider\TcaApi\Filter\FilterDefinition;
 use MaikSchneider\TcaApi\Filter\SearchFilter;
@@ -799,5 +800,115 @@ final class ApiDefinitionTest extends TestCase
         (new \ReflectionProperty(TcaColumnDiscovery::class, 'columnNameCache'))->setValue(null, []);
 
         self::assertSame(['title', 'teaser'], array_keys($def->columnMap()));
+    }
+
+    // ── recordTypes ─────────────────────────────────────────────────────
+
+    private static function recordTypesConfig(mixed $recordTypes, string $typeField = 'record_type'): array
+    {
+        $GLOBALS['TCA']['tx_test'] = [
+            'ctrl' => ['type' => $typeField],
+            'columns' => ['record_type' => ['config' => ['type' => 'select']]],
+            'types' => ['news' => ['showitem' => ''], 'event' => ['showitem' => ''], 1 => ['showitem' => '']],
+        ];
+        (new \ReflectionProperty(TcaColumnDiscovery::class, 'columnNameCache'))->setValue(null, []);
+
+        $cfg = self::minimalConfig();
+        $cfg['general']['recordTypes'] = $recordTypes;
+
+        return $cfg;
+    }
+
+    #[Test]
+    public function recordTypesDefaultToUnscoped(): void
+    {
+        $def = ApiDefinition::fromArray(self::minimalConfig());
+
+        self::assertFalse($def->isRecordTypeScoped());
+        self::assertNull($def->recordTypeField);
+        self::assertNull($def->recordTypes);
+        self::assertNull($def->fixedRecordType());
+    }
+
+    #[Test]
+    public function recordTypesAcceptACommaSeparatedStringAndSkipEmptyEntries(): void
+    {
+        $def = ApiDefinition::fromArray(self::recordTypesConfig(' news, ,event,news'));
+
+        self::assertTrue($def->isRecordTypeScoped());
+        self::assertSame('record_type', $def->recordTypeField);
+        self::assertSame(['news', 'event'], $def->recordTypes);
+        self::assertNull($def->fixedRecordType());
+    }
+
+    #[Test]
+    public function recordTypesNormaliseIntegersToStrings(): void
+    {
+        $def = ApiDefinition::fromArray(self::recordTypesConfig([1]));
+
+        self::assertSame(['1'], $def->recordTypes);
+        self::assertSame('1', $def->fixedRecordType());
+    }
+
+    #[Test]
+    public function recordTypesWildcardListsEveryDefinedType(): void
+    {
+        $def = ApiDefinition::fromArray(self::recordTypesConfig('*'));
+
+        self::assertSame(['news', 'event', '1'], $def->recordTypes);
+    }
+
+    #[Test]
+    public function recordTypesWithForeignFieldTypeThrows(): void
+    {
+        $this->expectException(InvalidApiDefinitionException::class);
+        $this->expectExceptionMessage('does not support foreign-field record types');
+
+        ApiDefinition::fromArray(self::recordTypesConfig(['news'], 'category:type'));
+    }
+
+    #[Test]
+    public function recordTypesWithInvalidShapeThrows(): void
+    {
+        $this->expectException(InvalidApiDefinitionException::class);
+        $this->expectExceptionMessage('must be "*", a comma-separated string or a list');
+
+        ApiDefinition::fromArray(self::recordTypesConfig(true));
+    }
+
+    #[Test]
+    public function recordTypesWithNonScalarEntryThrows(): void
+    {
+        $this->expectException(InvalidApiDefinitionException::class);
+        $this->expectExceptionMessage('entries must be strings or integers');
+
+        ApiDefinition::fromArray(self::recordTypesConfig([['news']]));
+    }
+
+    #[Test]
+    public function recordTypesWithOnlyEmptyEntriesThrows(): void
+    {
+        $this->expectException(InvalidApiDefinitionException::class);
+        $this->expectExceptionMessage('must contain at least one record type');
+
+        ApiDefinition::fromArray(self::recordTypesConfig(' , '));
+    }
+
+    #[Test]
+    public function recordTypesWithoutTcaTypeFieldThrows(): void
+    {
+        $this->expectException(InvalidApiDefinitionException::class);
+        $this->expectExceptionMessage('the table has no TCA ctrl.type field');
+
+        ApiDefinition::fromArray(self::recordTypesConfig(['news'], ''));
+    }
+
+    #[Test]
+    public function recordTypesWithUnknownTypeThrows(): void
+    {
+        $this->expectException(InvalidApiDefinitionException::class);
+        $this->expectExceptionMessage('contains "page", which is not a type');
+
+        ApiDefinition::fromArray(self::recordTypesConfig(['news', 'page']));
     }
 }

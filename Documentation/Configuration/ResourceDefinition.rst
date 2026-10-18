@@ -65,6 +65,12 @@ The ``general`` key defines the basic resource properties:
        ``'*'`` to read from all pages regardless of the write target. When
        omitted, reads fall back to ``storagePid``. This is the complete read
        set: list the write page explicitly if it should also be readable.
+   * - ``recordTypes``
+     - Scopes the resource to record types of the table's TCA ``ctrl.type``
+       field (``CType``, ``doktype``, …). Accepts an array
+       (``['textmedia', 'header']``), a comma-separated list or ``'*'`` for
+       every type in ``$TCA[table]['types']``. When omitted, the resource
+       serves records of every type — see :ref:`record-types`.
    * - ``writeMode``
      - Write execution strategy. ``acting_user`` (default) — DataHandler runs
        under the authenticated user identity, preserving the actor for audit
@@ -129,6 +135,49 @@ target:
 ``readStoragePids`` is the complete read set — it does **not** implicitly
 include ``storagePid``. List the write page explicitly if it should be
 readable too.
+
+..  _record-types:
+
+Record types
+============
+
+Tables with a TCA ``ctrl.type`` field — ``tt_content.CType``, ``pages.doktype``
+— hold records of several types. ``recordTypes`` limits a resource to some of
+them:
+
+..  code-block:: php
+
+    'general' => [
+        'table'        => 'tt_content',
+        'resourceName' => 'content',
+        'resourceType' => 'Content',
+        'operations'   => ['list', 'show', 'create', 'update'],
+        'recordTypes'  => ['textmedia', 'header'],
+    ],
+
+The scope applies to every operation, not only to ``list``: a record of
+another type answers ``404`` on ``show``, ``update`` and ``delete``, exactly
+like a record on another page. A filter on the type column cannot do that,
+because filters only narrow collections.
+
+On writes:
+
+*   A resource with **one** record type sets the type field on ``create``
+    itself. A client may omit it; a different value is a ``422``.
+*   A resource with **several** record types requires the type field on
+    ``create`` and rejects values outside the list with ``422``
+    (``INVALID_RECORD_TYPE``).
+*   ``update`` cannot move a record to a type outside the list.
+
+The OpenAPI schema describes the type field as an ``enum`` of the allowed
+types. Unknown types, tables without ``ctrl.type`` and foreign-field types
+(``'type' => 'local_field:foreign_field'``) fail at boot.
+
+..  note::
+
+    Relations are not scoped: a column referencing records of the table
+    renders them regardless of ``recordTypes``, as it does for
+    ``storagePid``.
 
 ..  _endpoint-grouping:
 
