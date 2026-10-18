@@ -55,16 +55,19 @@ The ``general`` key defines the basic resource properties:
      - Upper limit for ``itemsPerPage``; when set, the requested page size is
        clamped to this value. No limit when omitted.
    * - ``storagePid``
-     - Page ID for newly created records. Also constrains reads to this page
-       unless ``readStoragePids`` is set. When omitted, reads are not
-       pid-constrained and writes target page 0.
+     - Page ID for newly created records, or a ``{$site.setting}``
+       placeholder resolved per site (see :ref:`site-storage-pages`). Also
+       constrains reads to this page unless ``readStoragePids`` is set. When
+       omitted, reads are not pid-constrained and writes target page 0. Any
+       other value fails at boot.
    * - ``readStoragePids``
      - Widens the read-side pid constraint independently of ``storagePid``.
        Accepts an array (``[42, 17, 5]``) or comma-separated list
        (``'42,17,5'``) — reads then use ``pid IN (...)`` — or the sentinel
-       ``'*'`` to read from all pages regardless of the write target. When
-       omitted, reads fall back to ``storagePid``. This is the complete read
-       set: list the write page explicitly if it should also be readable.
+       ``'*'`` to read from all pages regardless of the write target. Entries
+       may be ``{$site.setting}`` placeholders. When omitted, reads fall back
+       to ``storagePid``. This is the complete read set: list the write page
+       explicitly if it should also be readable.
    * - ``recordTypes``
      - Scopes the resource to record types of the table's TCA ``ctrl.type``
        field (``CType``, ``doktype``, …). Accepts an array
@@ -138,6 +141,48 @@ target:
 ``readStoragePids`` is the complete read set — it does **not** implicitly
 include ``storagePid``. List the write page explicitly if it should be
 readable too.
+
+..  _site-storage-pages:
+
+Storage pages per site
+----------------------
+
+When one resource serves several sites that keep their records on their own
+page, point ``storagePid`` and ``readStoragePids`` at a site setting. The
+``{$…}`` placeholder is resolved from the settings of the site that receives
+the request:
+
+..  code-block:: php
+
+    'general' => [
+        'table'           => 'tx_myext_entry',
+        'resourceName'    => 'entries',
+        'resourceType'    => 'Entry',
+        'storagePid'      => '{$myext.storagePid}',
+        'readStoragePids' => ['{$myext.storagePid}', '{$myext.sharedPid}'],
+    ],
+
+..  code-block:: yaml
+    :caption: config/sites/tenant-a/config.yaml
+
+    settings:
+      myext:
+        storagePid: 12
+        sharedPid: 3
+
+The resolved pid scopes every operation: ``list`` and ``show`` read only the
+site's pages, ``update`` and ``delete`` of another site's record answer
+``404``, and ``create`` stores the record, its inline-created relations and
+its file references on the site's page.
+
+A placeholder fails closed. When the setting is missing, empty, boolean, negative or
+not an integer, the request answers ``500`` (the message names the setting
+when ``tca_api.debugMode`` is on) and no query runs without the pid
+constraint.
+
+Response caching includes the site and its resolved read pages. Changing a
+storage-page setting cannot reuse a response from the previous scope, and
+an invalid setting fails even when a response was previously cached.
 
 ..  _record-types:
 

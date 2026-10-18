@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\OperationHandler;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\Configuration\StoragePidResolver;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\DataWriteService;
 use MaikSchneider\TcaApi\DataAccess\FileReferenceInputResolver;
@@ -57,6 +58,9 @@ class CreateHandler implements OperationHandlerInterface
             return $parsed;
         }
 
+        // Validate the response's read scope before any writes.
+        StoragePidResolver::readPids($config);
+
         $result = $this->validateAndResolve($parsed['body'], $parsed['uploadedFiles'], $config, $request, creating: true);
         if ($result instanceof ResponseInterface) {
             return $result;
@@ -68,7 +72,7 @@ class CreateHandler implements OperationHandlerInterface
 
         $feUser = $request->getAttribute('frontend.user');
 
-        $data['pid'] = $config->storagePid ?? 0;
+        $data['pid'] = StoragePidResolver::writePid($config);
 
         if ($feUser !== null && !empty($feUser->user['uid'])) {
             $feUid = (int)$feUser->user['uid'];

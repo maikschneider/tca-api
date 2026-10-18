@@ -1,3 +1,5 @@
 "pages"
 ,"uid","pid","title","slug","doktype","is_siteroot","perms_everybody"
 ,800,0,"Site B","/",1,1,1
+,801,1,"Site A records","/site-a-records",254,0,1
+,802,800,"Site B records","/site-b-records",254,0,1

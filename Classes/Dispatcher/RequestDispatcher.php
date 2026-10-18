@@ -6,9 +6,11 @@ namespace MaikSchneider\TcaApi\Dispatcher;
 
 use MaikSchneider\TcaApi\Cache\CacheTagCollector;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\Configuration\StoragePidResolver;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Event\BeforeOperationEvent;
+use MaikSchneider\TcaApi\Exception\StoragePidResolutionException;
 use MaikSchneider\TcaApi\Filter\FilterValueException;
 use MaikSchneider\TcaApi\OpenApi\HydraApiDocumentationBuilder;
 use MaikSchneider\TcaApi\OpenApi\HydraEntrypointBuilder;
@@ -117,7 +119,11 @@ final class RequestDispatcher
             return $this->methodNotAllowed($operation);
         }
 
-        $existingRecord = $this->resolveExistingRecord($operation, $ctx->uid, $config, $ctx->language);
+        try {
+            $existingRecord = $this->resolveExistingRecord($operation, $ctx->uid, $config, $ctx->language);
+        } catch (StoragePidResolutionException $e) {
+            return $this->internalError($e, $siteSettings);
+        }
         if ($existingRecord === false) {
             return $this->notFound();
         }
@@ -140,7 +146,11 @@ final class RequestDispatcher
         // ── Cache: check for hit on cacheable read operations ────────────
         $cacheKey = null;
         if ($config->cache->enabled && \in_array($operation, ['list', 'show'], true)) {
-            $cacheKey = $this->buildCacheKey($operation, $config, $request);
+            try {
+                $cacheKey = $this->buildCacheKey($operation, $config, $request);
+            } catch (StoragePidResolutionException $e) {
+                return $this->internalError($e, $siteSettings);
+            }
         }
 
         if ($cacheKey !== null) {
@@ -173,10 +183,7 @@ final class RequestDispatcher
             return $this->hydraResponseBuilder->buildError(400, $e->getMessage(), 'Bad Request');
         } catch (\RuntimeException $e) {
             $this->cacheTagCollector->reset();
-            $description = (bool)$siteSettings->get('tca_api.debugMode', false)
-                ? $e->getMessage()
-                : 'An internal error occurred';
-            return $this->hydraResponseBuilder->buildError(500, $description, 'Internal Server Error');
+            return $this->internalError($e, $siteSettings);
         }
 
         if ($response === null) {
@@ -357,7 +364,7 @@ final class RequestDispatcher
     }
 
     /**
-     * Generate a deterministic cache key from site, operation, resource, language and relevant query parameters.
+     * Generate a deterministic cache key from site, read scope, operation, resource, language and relevant query parameters.
      *
      * Returns null when an ignored parameter is present in the request (= bypass caching).
      */
@@ -398,7 +405,23 @@ final class RequestDispatcher
         $site = $request->getAttribute('site');
         $sitePart = $site instanceof Site ? 'site:' . $site->getIdentifier() . ':' : '';
 
-        return md5($sitePart . $operation . ':' . $config->resourceName . $uidPart . $languagePart . ':' . json_encode($relevant, JSON_THROW_ON_ERROR));
+        // Site-setting changes do not flush the response cache.
+        $pids = StoragePidResolver::readPids($config);
+        if ($pids !== null) {
+            sort($pids, SORT_NUMERIC);
+        }
+        $pidPart = ':pids:' . json_encode($pids, JSON_THROW_ON_ERROR);
+
+        return md5($sitePart . $operation . ':' . $config->resourceName . $uidPart . $languagePart . $pidPart . ':' . json_encode($relevant, JSON_THROW_ON_ERROR));
+    }
+
+    private function internalError(\RuntimeException $e, SiteSettings $siteSettings): ResponseInterface
+    {
+        $description = (bool)$siteSettings->get('tca_api.debugMode', false)
+            ? $e->getMessage()
+            : 'An internal error occurred';
+
+        return $this->hydraResponseBuilder->buildError(500, $description, 'Internal Server Error');
     }
 
     private function notFound(): ResponseInterface
