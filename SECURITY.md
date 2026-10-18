@@ -1,5 +1,7 @@
-# Security
+# Security Policy
 
-Found something that looks off? Just drop me an email at **schneider.maik@me.com** and I'll take a look.
+Please **do not report security vulnerabilities through public GitHub issues.**
 
-No need to open a public issue for security-related stuff — a quick private message is totally fine.
+Following the [TYPO3 security guidelines](https://docs.typo3.org/m/typo3/reference-coreapi/main/en-us/Security/SecurityTeam/Index.html), security issues in TYPO3 extensions are handled by the TYPO3 Security Team. Please report them by email to **security@typo3.org**.
+
+Include the affected version, a description of the issue, and steps to reproduce if possible.
