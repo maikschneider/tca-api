@@ -61,8 +61,9 @@ All keys are optional.
    * - ``required``
      - Require on POST/PUT (skipped on PATCH if absent).
    * - ``embed``
-     - ``true`` or ``['depth' => N]`` — inline related records instead of shallow
-       stubs. See :ref:`relations`.
+     - ``true`` or ``['depth' => N, 'columns' => [...]]`` (both keys optional) —
+       inline related records instead of shallow stubs, optionally limited to
+       some of their columns. See :ref:`relations`.
    * - ``resourceName``
      - Override the related resource used for relation columns. Normally TCA
        API looks up the child resource by its DB ``foreign_table``. Set this

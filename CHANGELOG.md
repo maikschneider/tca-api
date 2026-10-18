@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`embed.columns` limits the columns of an embedded record.** `'embed' => ['columns' => ['title']]` inlines only the listed columns of the related record, like a `fields[]` sparse fieldset applied to the embedded record, and composes with `depth`. The relation is shaped where it is used, so the related table no longer needs a resource file of its own just to keep the embed small. The OpenAPI schema describes the embedded object with the listed columns ([#213](https://github.com/maikschneider/tca-api/issues/213)).
 - **Record types: `general.recordTypes` scopes a resource to types of the table's `ctrl.type` field.** A `tt_content` resource with `'recordTypes' => ['textmedia', 'header']` serves only those content elements, and the scope applies to `show`, `update` and `delete` as well — a filter on `CType` only narrowed the collection, so `/_api/content/123` still served, patched or deleted a record of any type. A single-type resource sets the type on `create` itself, a multi-type resource requires it, and neither accepts a type outside the list (`422`, `INVALID_RECORD_TYPE`). The OpenAPI schema describes the type field as an `enum`. Accepts a list, a comma-separated string or `'*'` for every TCA type ([#218](https://github.com/maikschneider/tca-api/issues/218)).
 
 ### Fixed
