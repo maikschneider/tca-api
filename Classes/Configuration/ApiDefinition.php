@@ -822,14 +822,14 @@ final readonly class ApiDefinition
             return null;
         }
 
-        $values = \is_array($raw) ? $raw : explode(',', (string)$raw);
+        $values = \is_array($raw) ? $raw : (\is_bool($raw) ? [$raw] : explode(',', (string)$raw));
         $pids   = [];
         foreach ($values as $value) {
             $value = \is_string($value) ? trim($value) : $value;
             if ($value === '') {
                 continue;
             }
-            if (MathUtility::canBeInterpretedAsInteger($value)) {
+            if (!\is_bool($value) && MathUtility::canBeInterpretedAsInteger($value)) {
                 $pids[] = (int)$value;
                 continue;
             }
@@ -863,7 +863,7 @@ final readonly class ApiDefinition
         if ($raw === null) {
             return [null, null];
         }
-        if (MathUtility::canBeInterpretedAsInteger($raw)) {
+        if (!\is_bool($raw) && MathUtility::canBeInterpretedAsInteger($raw)) {
             return [(int)$raw, null];
         }
 

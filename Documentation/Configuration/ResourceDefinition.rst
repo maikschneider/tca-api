@@ -180,7 +180,9 @@ not an integer, the request answers ``500`` (the message names the setting
 when ``tca_api.debugMode`` is on) and no query runs without the pid
 constraint.
 
-Response caching includes the site, so sites never share cached responses.
+Response caching includes the site and its resolved read pages. Changing a
+storage-page setting cannot reuse a response from the previous scope, and
+an invalid setting fails even when a response was previously cached.
 
 ..  _record-types:
 

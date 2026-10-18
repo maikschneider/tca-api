@@ -6,6 +6,7 @@ namespace MaikSchneider\TcaApi\Dispatcher;
 
 use MaikSchneider\TcaApi\Cache\CacheTagCollector;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\Configuration\StoragePidResolver;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Event\BeforeOperationEvent;
@@ -145,7 +146,11 @@ final class RequestDispatcher
         // ── Cache: check for hit on cacheable read operations ────────────
         $cacheKey = null;
         if ($config->cache->enabled && \in_array($operation, ['list', 'show'], true)) {
-            $cacheKey = $this->buildCacheKey($operation, $config, $request);
+            try {
+                $cacheKey = $this->buildCacheKey($operation, $config, $request);
+            } catch (StoragePidResolutionException $e) {
+                return $this->internalError($e, $siteSettings);
+            }
         }
 
         if ($cacheKey !== null) {
@@ -359,7 +364,7 @@ final class RequestDispatcher
     }
 
     /**
-     * Generate a deterministic cache key from site, operation, resource, language and relevant query parameters.
+     * Generate a deterministic cache key from site, read scope, operation, resource, language and relevant query parameters.
      *
      * Returns null when an ignored parameter is present in the request (= bypass caching).
      */
@@ -400,7 +405,16 @@ final class RequestDispatcher
         $site = $request->getAttribute('site');
         $sitePart = $site instanceof Site ? 'site:' . $site->getIdentifier() . ':' : '';
 
-        return md5($sitePart . $operation . ':' . $config->resourceName . $uidPart . $languagePart . ':' . json_encode($relevant, JSON_THROW_ON_ERROR));
+        // Site settings can change without flushing the API response cache.
+        // Resolve before looking up an entry, so invalid settings fail closed
+        // and a changed storage scope cannot reuse the previous scope's data.
+        $pids = StoragePidResolver::readPids($config);
+        if ($pids !== null) {
+            sort($pids, SORT_NUMERIC);
+        }
+        $pidPart = ':pids:' . json_encode($pids, JSON_THROW_ON_ERROR);
+
+        return md5($sitePart . $operation . ':' . $config->resourceName . $uidPart . $languagePart . $pidPart . ':' . json_encode($relevant, JSON_THROW_ON_ERROR));
     }
 
     private function internalError(\RuntimeException $e, SiteSettings $siteSettings): ResponseInterface

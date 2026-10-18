@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api;
 
+use MaikSchneider\TcaApi\Dispatcher\RequestDispatcher;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
+use Psr\Http\Message\ResponseInterface;
+use TYPO3\CMS\Core\Cache\CacheManager;
+use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
+use TYPO3\CMS\Core\Http\ServerRequest;
+use TYPO3\CMS\Core\Site\Entity\Site;
 
 /**
  * storagePid / readStoragePids as a {$site.setting} placeholder, resolved per request.
@@ -52,6 +58,11 @@ final class SiteStoragePidTest extends ApiFunctionalTestCase
         $brokenReadConfig = self::articleConfig('broken-read-articles', '{$tenant.storagePid}');
         $brokenReadConfig['general']['readStoragePids'] = ['{$tenant.emptyPid}'];
         $this->registerResource('broken-read-articles', $brokenReadConfig);
+
+        $cachedConfig = self::articleConfig('cached-tenant-articles', '{$tenant.storagePid}');
+        $cachedConfig['cache'] = ['enabled' => true];
+        $this->registerResource('cached-tenant-articles', $cachedConfig);
+        $this->get(CacheManager::class)->getCache('tca_api')->flush();
     }
 
     private static function articleConfig(string $resourceName, string $storagePid): array
@@ -168,6 +179,51 @@ final class SiteStoragePidTest extends ApiFunctionalTestCase
             ->select(['uid'], self::ARTICLE_TABLE, ['title' => 'Must not persist'])->fetchAssociative());
         self::assertFalse($this->getConnectionPool()->getConnectionForTable(self::COLOR_TABLE)
             ->select(['uid'], self::COLOR_TABLE, ['name' => 'Must not persist either'])->fetchAssociative());
+    }
+
+    public function testCachedReadsFollowChangedSiteStoragePages(): void
+    {
+        $listA = $this->dispatchCachedRequest(801);
+        self::assertSame(200, $listA->getStatusCode(), (string)$listA->getBody());
+        self::assertSame('MISS', $listA->getHeaderLine('X-TCA-API-Cache'));
+        self::assertSame('HIT', $this->dispatchCachedRequest(801)->getHeaderLine('X-TCA-API-Cache'));
+        self::assertSame('MISS', $this->dispatchCachedRequest(801, '/7700')->getHeaderLine('X-TCA-API-Cache'));
+        self::assertSame('HIT', $this->dispatchCachedRequest(801, '/7700')->getHeaderLine('X-TCA-API-Cache'));
+
+        $listB = $this->dispatchCachedRequest(802);
+        self::assertSame('MISS', $listB->getHeaderLine('X-TCA-API-Cache'));
+        self::assertSame([7701], array_column($this->decodeResponseBody($listB)['hydra:member'], 'uid'));
+        self::assertSame(404, $this->dispatchCachedRequest(802, '/7700')->getStatusCode());
+    }
+
+    public function testInvalidSiteStoragePagesCannotServeCachedResponses(): void
+    {
+        self::assertSame(200, $this->dispatchCachedRequest(801)->getStatusCode());
+        self::assertSame(200, $this->dispatchCachedRequest(801, '/7700')->getStatusCode());
+
+        self::assertSame(500, $this->dispatchCachedRequest('')->getStatusCode());
+        self::assertSame(500, $this->dispatchCachedRequest('', '/7700')->getStatusCode());
+    }
+
+    private function dispatchCachedRequest(int|string $pid, string $suffix = ''): ResponseInterface
+    {
+        // Keep the site identifier and URL fixed while changing its settings,
+        // without flushing the response cache between requests.
+        $site = new Site('site-a', 1, ['base' => 'http://site-a.localhost/', 'settings' => [
+            'tca_api' => ['apiPrefix' => '/a-api/', 'debugMode' => true],
+            'tenant' => ['storagePid' => $pid],
+        ]]);
+        $request = (new ServerRequest('http://site-a.localhost/a-api/cached-tenant-articles' . $suffix))
+            ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_FE)
+            ->withAttribute('site', $site)
+            ->withAttribute('tca_api.api_prefix', '/a-api');
+        $previousRequest = $GLOBALS['TYPO3_REQUEST'] ?? null;
+        $GLOBALS['TYPO3_REQUEST'] = $request;
+        try {
+            return $this->get(RequestDispatcher::class)->dispatch($request, $site->getSettings());
+        } finally {
+            $GLOBALS['TYPO3_REQUEST'] = $previousRequest;
+        }
     }
 
     private function fetchRow(string $table, int $uid): array

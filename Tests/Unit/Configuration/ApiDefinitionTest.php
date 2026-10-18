@@ -12,6 +12,7 @@ use MaikSchneider\TcaApi\Filter\ExactFilter;
 use MaikSchneider\TcaApi\Filter\FilterDefinition;
 use MaikSchneider\TcaApi\Filter\SearchFilter;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -127,6 +128,27 @@ final class ApiDefinitionTest extends TestCase
         $cfg = self::minimalConfig();
         $cfg['general']['storagePid'] = '4two';
         ApiDefinition::fromArray($cfg);
+    }
+
+    #[Test]
+    #[DataProvider('booleanPidConfigurations')]
+    public function booleanPidConfigurationThrows(string $option, mixed $value): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $cfg = self::minimalConfig();
+        $cfg['general'][$option] = $value;
+        ApiDefinition::fromArray($cfg);
+    }
+
+    /** @return iterable<string, array{string, bool|list<int|bool>}> */
+    public static function booleanPidConfigurations(): iterable
+    {
+        yield 'write true' => ['storagePid', true];
+        yield 'write false' => ['storagePid', false];
+        yield 'read scalar true' => ['readStoragePids', true];
+        yield 'read scalar false' => ['readStoragePids', false];
+        yield 'read entry true' => ['readStoragePids', [42, true]];
+        yield 'read entry false' => ['readStoragePids', [42, false]];
     }
 
     #[Test]
