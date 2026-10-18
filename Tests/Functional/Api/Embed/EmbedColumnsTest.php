@@ -177,8 +177,8 @@ final class EmbedColumnsTest extends ApiFunctionalTestCase
         $properties = $spec['components']['schemas']['EcArticleRead']['properties'];
 
         self::assertSame('array', $properties['categories']['type']);
-        self::assertSame(['@type', 'uid', 'title'], array_keys($properties['categories']['items']['properties']));
-        self::assertSame(['@type', '@id', 'uid', 'name'], array_keys($properties['color_id']['oneOf'][0]['properties']));
+        self::assertSame(['@type', 'uid', 'title'], array_keys($properties['categories']['items']['oneOf'][0]['properties']));
+        self::assertSame(['@type', '@id', 'uid', 'name'], array_keys($properties['color_id']['oneOf'][0]['oneOf'][0]['properties']));
         self::assertSame(['type' => 'null'], $properties['color_id']['oneOf'][1]);
     }
 
@@ -206,10 +206,55 @@ final class EmbedColumnsTest extends ApiFunctionalTestCase
         self::assertSame(['type' => 'array', 'items' => ['type' => 'integer']], $schemas['EcArticleRead']['properties']['categories']);
         self::assertSame(
             ['type' => 'array', 'items' => ['type' => 'string', 'format' => 'iri-reference']],
-            $schemas['EcArticleNestedRead']['properties']['categories']['items']['properties']['parent'],
+            $schemas['EcArticleNestedRead']['properties']['categories']['items']['oneOf'][0]['properties']['parent'],
         );
 
         $body = $this->decodeResponseBody($this->executeApiRequest('/_api/ec-articles/2'));
         self::assertSame([20], $body['categories']);
+    }
+
+    public function testNestedRelationInheritsDepthWithoutItsOwnEmbedColumns(): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('sys_category')->update('sys_category', ['parent' => 21], ['uid' => 20]);
+        $this->registerArticles([
+            'categories' => ['resourceName' => 'ec-categories', 'embed' => ['depth' => 2, 'columns' => ['parent']]],
+        ]);
+        $this->registerCategories(['title' => [], 'parent' => []]);
+
+        $category = $this->fetchArticles()[2]['categories'][0];
+        self::assertSame(21, $category['parent'][0]['uid']);
+        self::assertSame('ReverseMM Category B', $category['parent'][0]['title']);
+
+        $spec = $this->decodeResponseBody($this->executeApiRequest('/_api/openapi.json'));
+        $embedded = $spec['components']['schemas']['EcArticleRead']['properties']['categories']['items']['oneOf'][0];
+        $parent = $embedded['properties']['parent']['items']['oneOf'][0];
+        self::assertSame('object', $parent['type']);
+        self::assertArrayHasKey('title', $parent['properties']);
+        self::assertSame(
+            ['type' => 'array', 'items' => ['type' => 'string', 'format' => 'iri-reference']],
+            $parent['properties']['parent'],
+        );
+    }
+
+    public function testCyclicEmbedAllowsTheReferenceReturnedByTheSerializer(): void
+    {
+        $connection = $this->getConnectionPool()->getConnectionForTable('sys_category');
+        $connection->update('sys_category', ['parent' => 21], ['uid' => 20]);
+        $connection->update('sys_category', ['parent' => 20], ['uid' => 21]);
+        $this->registerArticles([
+            'categories' => ['resourceName' => 'ec-categories', 'embed' => ['depth' => 3, 'columns' => ['parent']]],
+        ]);
+        $this->registerCategories(['title' => [], 'parent' => []]);
+
+        $category = $this->fetchArticles()[2]['categories'][0];
+        self::assertSame(21, $category['parent'][0]['uid']);
+        self::assertSame('/_api/ec-categories/20', $category['parent'][0]['parent'][0]);
+
+        $spec = $this->decodeResponseBody($this->executeApiRequest('/_api/openapi.json'));
+        $embedded = $spec['components']['schemas']['EcArticleRead']['properties']['categories']['items']['oneOf'][0];
+        $parent = $embedded['properties']['parent']['items']['oneOf'][0];
+        $cycle = $parent['properties']['parent']['items'];
+        self::assertSame('object', $cycle['oneOf'][0]['type']);
+        self::assertSame(['type' => 'string', 'format' => 'iri-reference'], $cycle['oneOf'][1]);
     }
 }

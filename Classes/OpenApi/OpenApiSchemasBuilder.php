@@ -196,8 +196,9 @@ final readonly class OpenApiSchemasBuilder
      * Schema of one related record with the embed depth the serializer applies:
      * a reference once the depth is used up, and for a record embedded with
      * "embed.columns" the related resource's read schema cut down to those
-     * columns. Null when the column embeds every column or points at several
-     * tables, which buildHasOneSchema() and buildHasManySchema() describe.
+     * columns. Embedded objects also allow references because runtime cycle
+     * detection can stop embedding before the depth budget is exhausted.
+     * Null for polymorphic relations, handled by the existing group schemas.
      *
      * @param ApiDefinition[] $resources
      */
@@ -209,21 +210,26 @@ final readonly class OpenApiSchemasBuilder
         }
 
         $table = $this->relatedTable($tcaConfig);
-        if ($columnDef->embedColumns() === [] || $table === null) {
+        if ($table === null) {
             return null;
         }
 
         $related    = $this->relatedConfig($table, $columnDef, $config, $resources) ?? RelationSerializer::buildDefaultConfig($table, $columnDef);
         $readSchema = $this->buildReadSchema($related, $resources, $depth - 1);
-        $properties = array_intersect_key(
-            $readSchema['properties'],
-            array_flip(['@type', '@id', 'uid', ...$columnDef->embedColumns()]),
-        );
+        $properties = $columnDef->embedColumns() === []
+            ? $readSchema['properties']
+            : array_intersect_key(
+                $readSchema['properties'],
+                array_flip(['@type', '@id', 'uid', ...$columnDef->embedColumns()]),
+            );
         if (!$related->isAddressable()) {
             unset($properties['@id']);
         }
 
-        return ['type' => 'object', 'properties' => $properties];
+        return ['oneOf' => [
+            ['type' => 'object', 'properties' => $properties],
+            $this->referenceSchema($tcaConfig, $columnDef, $config, $resources),
+        ]];
     }
 
     /**
