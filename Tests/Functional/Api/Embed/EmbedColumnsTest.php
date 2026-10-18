@@ -215,59 +215,43 @@ final class EmbedColumnsTest extends ApiFunctionalTestCase
 
     public function testNestedRelationInheritsDepthWithoutItsOwnEmbedColumns(): void
     {
-        $GLOBALS['TCA']['sys_category']['columns']['parent']['config'] = [
-            'type' => 'select',
-            'renderType' => 'selectSingle',
-            'foreign_table' => 'sys_category',
-            'maxitems' => 1,
-        ];
-        $this->get(TcaSchemaFactory::class)->load($GLOBALS['TCA'], true);
-        $this->getConnectionPool()->getConnectionForTable('sys_category')->update('sys_category', ['parent' => 21], ['uid' => 20]);
+        $this->getConnectionPool()->getConnectionForTable('tx_myext_domain_model_article')->update(
+            'tx_myext_domain_model_article',
+            ['parent_id' => 2],
+            ['uid' => 1],
+        );
         $this->registerArticles([
-            'categories' => ['resourceName' => 'ec-categories', 'embed' => ['depth' => 2, 'columns' => ['parent']]],
+            'parent_id' => ['embed' => ['depth' => 2, 'columns' => ['color_id']]],
+            'color_id' => ['resourceName' => 'colors'],
         ]);
-        $this->registerCategories(['title' => [], 'parent' => []]);
 
-        $category = $this->fetchArticles()[2]['categories'][0];
-        self::assertSame(21, $category['parent']['uid']);
-        self::assertSame('ReverseMM Category B', $category['parent']['title']);
+        $article = $this->fetchArticles()[1];
+        self::assertSame(2, $article['parent_id']['uid']);
+        self::assertSame('Blue', $article['parent_id']['color_id']['name']);
 
         $spec = $this->decodeResponseBody($this->executeApiRequest('/_api/openapi.json'));
-        $embedded = $spec['components']['schemas']['EcArticleRead']['properties']['categories']['items']['oneOf'][0];
-        $parent = $embedded['properties']['parent']['oneOf'][0]['oneOf'][0];
-        self::assertSame('object', $parent['type']);
-        self::assertArrayHasKey('title', $parent['properties']);
-        self::assertSame(
-            ['oneOf' => [['type' => 'string', 'format' => 'iri-reference'], ['type' => 'null']]],
-            $parent['properties']['parent'],
-        );
+        $parent = $spec['components']['schemas']['EcArticleRead']['properties']['parent_id']['oneOf'][0]['oneOf'][0];
+        $color = $parent['properties']['color_id']['oneOf'][0]['oneOf'][0];
+        self::assertSame('object', $color['type']);
+        self::assertArrayHasKey('name', $color['properties']);
     }
 
     public function testCyclicEmbedAllowsTheReferenceReturnedByTheSerializer(): void
     {
-        $GLOBALS['TCA']['sys_category']['columns']['parent']['config'] = [
-            'type' => 'select',
-            'renderType' => 'selectSingle',
-            'foreign_table' => 'sys_category',
-            'maxitems' => 1,
-        ];
-        $this->get(TcaSchemaFactory::class)->load($GLOBALS['TCA'], true);
-        $connection = $this->getConnectionPool()->getConnectionForTable('sys_category');
-        $connection->update('sys_category', ['parent' => 21], ['uid' => 20]);
-        $connection->update('sys_category', ['parent' => 20], ['uid' => 21]);
+        $connection = $this->getConnectionPool()->getConnectionForTable('tx_myext_domain_model_article');
+        $connection->update('tx_myext_domain_model_article', ['parent_id' => 2], ['uid' => 1]);
+        $connection->update('tx_myext_domain_model_article', ['parent_id' => 1], ['uid' => 2]);
         $this->registerArticles([
-            'categories' => ['resourceName' => 'ec-categories', 'embed' => ['depth' => 3, 'columns' => ['parent']]],
+            'parent_id' => ['embed' => ['depth' => 2, 'columns' => ['title', 'parent_id']]],
         ]);
-        $this->registerCategories(['title' => [], 'parent' => []]);
 
-        $category = $this->fetchArticles()[2]['categories'][0];
-        self::assertSame(21, $category['parent']['uid']);
-        self::assertSame('/_api/ec-categories/20', $category['parent']['parent']);
+        $article = $this->fetchArticles()[1];
+        self::assertSame(2, $article['parent_id']['uid']);
+        self::assertSame('/_api/ec-articles/1', $article['parent_id']['parent_id']);
 
         $spec = $this->decodeResponseBody($this->executeApiRequest('/_api/openapi.json'));
-        $embedded = $spec['components']['schemas']['EcArticleRead']['properties']['categories']['items']['oneOf'][0];
-        $parent = $embedded['properties']['parent']['oneOf'][0]['oneOf'][0];
-        $cycle = $parent['properties']['parent']['oneOf'][0];
+        $parent = $spec['components']['schemas']['EcArticleRead']['properties']['parent_id']['oneOf'][0]['oneOf'][0];
+        $cycle = $parent['properties']['parent_id']['oneOf'][0];
         self::assertSame('object', $cycle['oneOf'][0]['type']);
         self::assertSame(['type' => 'string', 'format' => 'iri-reference'], $cycle['oneOf'][1]);
     }
