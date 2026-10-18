@@ -19,3 +19,6 @@ websiteTitle: ''
 settings:
   tca_api:
     apiPrefix: '/a-api/'
+  tenant:
+    storagePid: 801
+    emptyPid: ''

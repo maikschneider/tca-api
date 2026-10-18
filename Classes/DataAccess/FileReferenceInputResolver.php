@@ -6,6 +6,7 @@ namespace MaikSchneider\TcaApi\DataAccess;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\LinkDefinition;
+use MaikSchneider\TcaApi\Configuration\StoragePidResolver;
 use Psr\Http\Message\ServerRequestInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -104,7 +105,7 @@ final readonly class FileReferenceInputResolver
                     'fieldname'   => $column,
                     'table_local' => 'sys_file',
                     'hidden'      => 0,
-                    'pid'         => $config->storagePid ?? 0,
+                    'pid'         => StoragePidResolver::writePid($config),
                 ] + $this->referenceOverrides($item);
             }
 

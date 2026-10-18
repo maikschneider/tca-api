@@ -33,9 +33,12 @@ final readonly class ApiDefinition
      * @param array<string, FilterDefinition>  $filters    normalised filter definitions
      * @param string[]                        $allowedOrder
      * @param array<string, string>           $defaultOrder
-     * @param int[]|null                      $readStoragePids resolved read-side pid constraint;
+     * @param list<int|string>|null          $readStoragePids read-side pid constraint;
      *                                                          null = no constraint (read all pages),
-     *                                                          non-empty list = WHERE pid IN (...)
+     *                                                          non-empty list = WHERE pid IN (...);
+     *                                                          a string is a site setting key holding a pid
+     * @param string|null                     $storagePidSetting site setting key holding the write pid, when
+     *                                                          storagePid is a {$…} placeholder (storagePid is null then)
      * @param string|null                     $recordTypeField the TCA ctrl.type column; set only when recordTypes is set
      * @param list<string>|null               $recordTypes     record types the resource is scoped to;
      *                                                          null = all records regardless of type
@@ -74,6 +77,7 @@ final readonly class ApiDefinition
         public readonly ?array $recordTypes = null,
         public readonly bool $typeSchemas = false,
         private readonly ?array $resolvedTypeColumnMaps = null,
+        public readonly ?string $storagePidSetting = null,
     ) {
     }
 
@@ -523,9 +527,7 @@ final readonly class ApiDefinition
             );
         }
 
-        $storagePid = isset($general['storagePid']) && MathUtility::canBeInterpretedAsInteger($general['storagePid'])
-            ? (int)$general['storagePid']
-            : null;
+        [$storagePid, $storagePidSetting] = self::resolveStoragePid($general['storagePid'] ?? null, $label);
 
         // ── group (OpenAPI tag) ──────────────────────────────────────────
         // Accepted shapes:
@@ -568,7 +570,7 @@ final readonly class ApiDefinition
             languageMode:           $languageMode,
             writeMode:              $writeMode,
             cache:                  $cache,
-            readStoragePids:        self::resolveReadStoragePids($general['readStoragePids'] ?? null, $storagePid),
+            readStoragePids:        self::resolveReadStoragePids($general['readStoragePids'] ?? null, $storagePid ?? $storagePidSetting, $label),
             group:                  $group,
             groupDescription:       $groupDescription,
             resolvedColumnMap:      $typeColumnMaps !== null
@@ -578,6 +580,7 @@ final readonly class ApiDefinition
             recordTypes:            $recordTypes,
             typeSchemas:            $typeSchemas,
             resolvedTypeColumnMaps: $typeColumnMaps,
+            storagePidSetting:      $storagePidSetting,
         );
     }
 
@@ -804,9 +807,12 @@ final readonly class ApiDefinition
      *   - '*'                 → null (read from all pages, regardless of the write target)
      *   - CSV string "1,2,3"  → [1, 2, 3]
      *   - array [1, 2, 3]     → [1, 2, 3]
-     *   - empty / no integers → throws (misconfiguration: fail loud, never silently match nothing)
+     *   - '{$site.setting}'   → 'site.setting', resolved per request by {@see StoragePidResolver}
+     *   - empty / no pids, or an entry that is neither → throws (misconfiguration: fail loud)
+     *
+     * @return list<int|string>|null
      */
-    private static function resolveReadStoragePids(mixed $raw, ?int $storagePid): ?array
+    private static function resolveReadStoragePids(mixed $raw, int|string|null $storagePid, string $label): ?array
     {
         if ($raw === null) {
             return $storagePid !== null ? [$storagePid] : null;
@@ -820,9 +826,22 @@ final readonly class ApiDefinition
         $pids   = [];
         foreach ($values as $value) {
             $value = \is_string($value) ? trim($value) : $value;
+            if ($value === '') {
+                continue;
+            }
             if (MathUtility::canBeInterpretedAsInteger($value)) {
                 $pids[] = (int)$value;
+                continue;
             }
+            $setting = self::siteSettingKey($value);
+            if ($setting === null) {
+                throw new \InvalidArgumentException(sprintf(
+                    'TcaApi config for "%s": general.readStoragePids entry "%s" is neither an integer pid nor a {$site.setting} placeholder.',
+                    $label,
+                    \is_string($value) ? $value : get_debug_type($value),
+                ));
+            }
+            $pids[] = $setting;
         }
 
         if ($pids === []) {
@@ -832,5 +851,36 @@ final readonly class ApiDefinition
         }
 
         return array_values(array_unique($pids));
+    }
+
+    /**
+     * general.storagePid: an integer pid, or a {$site.setting} placeholder resolved per request.
+     *
+     * @return array{0: ?int, 1: ?string} the pid and the setting key; both null when unset
+     */
+    private static function resolveStoragePid(mixed $raw, string $label): array
+    {
+        if ($raw === null) {
+            return [null, null];
+        }
+        if (MathUtility::canBeInterpretedAsInteger($raw)) {
+            return [(int)$raw, null];
+        }
+
+        $setting = self::siteSettingKey($raw);
+        if ($setting === null) {
+            throw new \InvalidArgumentException(sprintf(
+                'TcaApi config for "%s": general.storagePid must be an integer pid or a {$site.setting} placeholder.',
+                $label,
+            ));
+        }
+
+        return [null, $setting];
+    }
+
+    /** '{$myext.storagePid}' → 'myext.storagePid'; null for anything else */
+    private static function siteSettingKey(mixed $value): ?string
+    {
+        return \is_string($value) && preg_match('/^\{\$([A-Za-z0-9_.-]+)\}$/', $value, $match) === 1 ? $match[1] : null;
     }
 }

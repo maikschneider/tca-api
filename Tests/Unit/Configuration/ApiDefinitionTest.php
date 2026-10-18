@@ -107,6 +107,50 @@ final class ApiDefinitionTest extends TestCase
     }
 
     #[Test]
+    public function storagePidAcceptsASiteSettingPlaceholder(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['storagePid'] = '{$tenant.storagePid}';
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertNull($def->storagePid);
+        self::assertSame('tenant.storagePid', $def->storagePidSetting);
+        self::assertSame(['tenant.storagePid'], $def->readStoragePids);
+    }
+
+    #[Test]
+    public function storagePidThatIsNeitherIntegerNorPlaceholderThrows(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('general.storagePid must be an integer pid or a {$site.setting} placeholder');
+
+        $cfg = self::minimalConfig();
+        $cfg['general']['storagePid'] = '4two';
+        ApiDefinition::fromArray($cfg);
+    }
+
+    #[Test]
+    public function readStoragePidsAcceptsPlaceholdersNextToIntegers(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['readStoragePids'] = ['{$tenant.storagePid}', 5, '{$tenant.sharedPid}'];
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertSame(['tenant.storagePid', 5, 'tenant.sharedPid'], $def->readStoragePids);
+    }
+
+    #[Test]
+    public function readStoragePidsEntryThatIsNeitherIntegerNorPlaceholderThrows(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('entry "typo" is neither an integer pid nor a {$site.setting} placeholder');
+
+        $cfg = self::minimalConfig();
+        $cfg['general']['readStoragePids'] = [42, 'typo'];
+        ApiDefinition::fromArray($cfg);
+    }
+
+    #[Test]
     public function readStoragePidsDeduplicates(): void
     {
         $cfg = self::minimalConfig();

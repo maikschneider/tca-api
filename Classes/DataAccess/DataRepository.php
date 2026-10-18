@@ -8,6 +8,7 @@ use Doctrine\DBAL\Types\BigIntType;
 use Doctrine\DBAL\Types\IntegerType;
 use Doctrine\DBAL\Types\SmallIntType;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\Configuration\StoragePidResolver;
 use MaikSchneider\TcaApi\Filter\FilterInterface;
 use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
 use TYPO3\CMS\Core\Database\Connection;
@@ -391,7 +392,7 @@ final class DataRepository
 
     private function applyPidConstraint(QueryBuilder $qb, ApiDefinition $config, string $alias = ''): void
     {
-        $pids = $config->readStoragePids;
+        $pids = StoragePidResolver::readPids($config);
         if ($pids === null || $pids === []) {
             return;
         }
