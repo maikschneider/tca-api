@@ -71,8 +71,9 @@ The ``general`` key defines the basic resource properties:
        (``['textmedia', 'header']``), a comma-separated list or ``'*'`` for
        every type in ``$TCA[table]['types']``. In default mode each record then
        exposes only its type's columns; the options form
-       (``['include' => …, 'schema' => 'table']``) keeps all table columns.
-       When omitted, the resource serves records of every type with all
+       (``['include' => …, 'schema' => 'table']``) keeps all table columns,
+       and ``'split' => true`` adds one resource per type (see
+       :ref:`record-type-split`). When omitted, the resource serves records of every type with all
        columns — see :ref:`record-types`.
    * - ``writeMode``
      - Write execution strategy. ``acting_user`` (default) — DataHandler runs
@@ -222,6 +223,60 @@ To scope a resource without changing its columns, use the options form with
         'include' => ['textmedia', 'header'],   // default: '*'
         'schema'  => 'table',                   // default: 'type'
     ],
+
+..  _record-type-split:
+
+One resource per record type
+----------------------------
+
+``'split' => true`` expands the resource into one resource per included type,
+for clients that work with one type at a time. Each generated resource is the
+base config scoped to a single type, so it behaves like a hand-written
+single-type resource: ``create`` sets the type, other types answer ``404``.
+
+..  code-block:: php
+
+    'general' => [
+        'table'        => 'tt_content',
+        'resourceName' => 'content',
+        'resourceType' => 'Content',
+        'recordTypes'  => [
+            'include'     => ['textmedia', 'header'],   // default: '*'
+            'split'       => true,
+            'namePattern' => '{resourceName}-{type}',   // default
+            'keepBase'    => true,                      // default
+        ],
+    ],
+    'types' => [
+        'textmedia' => [
+            'security' => ['create' => AccessRole::FE_USER],
+        ],
+    ],
+
+This registers ``content-textmedia`` (``ContentTextmedia``) and
+``content-header`` (``ContentHeader``) next to ``content``.
+
+*   ``namePattern`` sets the generated ``resourceName``; the ``resourceType`` is
+    its PascalCase form. A name may contain letters, digits, ``-`` and ``_``
+    only, because it is the URL segment.
+*   ``keepBase => false`` drops the multi-type base resource.
+*   ``types`` holds per-type overrides, merged over the base config of that
+    type's resource only. They may set ``general.resourceName`` and
+    ``general.resourceType`` as well. ``types`` without ``split`` fails at
+    boot.
+*   The expansion runs after the ``Overrides/`` pass, so an override file that
+    edits the base config reaches every generated resource.
+*   Without a ``group``, each generated resource gets its own Swagger UI
+    section, described with the type's label from the TCA ``items``.
+*   A generated name that is already taken fails at boot.
+
+..  warning::
+
+    Generated resources inherit the base ``security``. Reads are public by
+    default, so splitting ``'*'`` on ``tt_content`` publishes one public
+    endpoint per content type. Restrict ``security`` in the base config or in
+    ``types``, and add the generated names to the ``tca_api.allowedResources``
+    site setting if you use it.
 
 ..  _endpoint-grouping:
 

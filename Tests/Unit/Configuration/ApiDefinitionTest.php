@@ -1012,9 +1012,9 @@ final class ApiDefinitionTest extends TestCase
     public function recordTypesWithUnknownOptionThrows(): void
     {
         $this->expectException(InvalidApiDefinitionException::class);
-        $this->expectExceptionMessage('unknown option(s) "split"');
+        $this->expectExceptionMessage('unknown option(s) "splitt"');
 
-        ApiDefinition::fromArray(self::typeSchemaConfig(['include' => ['news'], 'split' => true]));
+        ApiDefinition::fromArray(self::typeSchemaConfig(['include' => ['news'], 'splitt' => true]));
     }
 
     #[Test]
