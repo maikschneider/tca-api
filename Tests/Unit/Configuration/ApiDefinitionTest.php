@@ -851,6 +851,14 @@ final class ApiDefinitionTest extends TestCase
     }
 
     #[Test]
+    public function recordTypesAcceptAListWithGapsInItsKeys(): void
+    {
+        $def = ApiDefinition::fromArray(self::recordTypesConfig([1 => 'event', 3 => 'news']));
+
+        self::assertSame(['event', 'news'], $def->recordTypes);
+    }
+
+    #[Test]
     public function recordTypesWildcardListsEveryDefinedType(): void
     {
         $def = ApiDefinition::fromArray(self::recordTypesConfig('*'));

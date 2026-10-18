@@ -598,7 +598,7 @@ final readonly class ApiDefinition
             return [null, null, 'type'];
         }
 
-        if (\is_array($raw) && !array_is_list($raw)) {
+        if (\is_array($raw) && array_filter(array_keys($raw), \is_string(...)) !== []) {
             $unknown = array_diff(array_keys($raw), ['include', 'schema']);
             if ($unknown !== []) {
                 throw new InvalidApiDefinitionException(sprintf(

@@ -17,6 +17,8 @@ return [
                 'items'      => [
                     ['label' => 'Article', 'value' => 'article'],
                     ['label' => 'Note', 'value' => 'note'],
+                    ['label' => 'First', 'value' => '0'],
+                    ['label' => 'Second', 'value' => '1'],
                 ],
             ],
         ],
@@ -28,5 +30,7 @@ return [
     'types' => [
         'article' => ['showitem' => 'item_type, title'],
         'note'    => ['showitem' => 'title'],
+        '0'       => ['showitem' => 'item_type, title'],
+        '1'       => ['showitem' => 'item_type, title'],
     ],
 ];

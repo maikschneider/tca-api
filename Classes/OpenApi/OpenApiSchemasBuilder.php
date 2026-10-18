@@ -167,7 +167,7 @@ final readonly class OpenApiSchemasBuilder
         if (\count($recordTypes) > 1) {
             $schemas[$config->resourceType . 'Read'] = [
                 'oneOf' => array_map(static fn (string $ref): array => ['$ref' => $ref], array_values($mapping)),
-                'discriminator' => ['propertyName' => $field, 'mapping' => $mapping],
+                'discriminator' => ['propertyName' => $field, 'mapping' => (object)$mapping],
             ];
         }
 

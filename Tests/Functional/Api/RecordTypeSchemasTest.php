@@ -26,7 +26,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   uid=602 → tca_api_teaser
  *
  * The fixture table tx_testrecordtypes_item has the types article and note; the
- * note form leaves out the type field. uid=700 is an article.
+ * note form leaves out the type field, and the types 0 and 1 are numbered.
+ * uid=700 is an article.
  */
 final class RecordTypeSchemasTest extends ApiFunctionalTestCase
 {
@@ -52,6 +53,9 @@ final class RecordTypeSchemasTest extends ApiFunctionalTestCase
             'schema'  => 'table',
         ]));
         $this->registerResource('items', array_replace_recursive(self::config('items', 'Item', ['article', 'note']), [
+            'general' => ['table' => 'tx_testrecordtypes_item'],
+        ]));
+        $this->registerResource('numbered-items', array_replace_recursive(self::config('numbered-items', 'NumberedItem', ['0', '1']), [
             'general' => ['table' => 'tx_testrecordtypes_item'],
         ]));
         $this->registerResource('colliding-content', self::config('colliding-content', 'CollidingContent', ['tca_api_foo_bar', 'tca_api_foo-bar']));
@@ -286,6 +290,14 @@ final class RecordTypeSchemasTest extends ApiFunctionalTestCase
         self::assertCount(2, array_unique($mapping));
         self::assertSame(['tca_api_foo_bar'], $this->schemaAt($schemas, $mapping['tca_api_foo_bar'])['properties']['CType']['enum']);
         self::assertSame(['tca_api_foo-bar'], $this->schemaAt($schemas, $mapping['tca_api_foo-bar'])['properties']['CType']['enum']);
+    }
+
+    #[Test]
+    public function openApiEncodesTheDiscriminatorMappingOfNumberedTypesAsAnObject(): void
+    {
+        $specification = json_decode((string)$this->executeApiRequest('/_api/openapi.json')->getBody(), false, 512, JSON_THROW_ON_ERROR);
+
+        self::assertInstanceOf(\stdClass::class, $specification->components->schemas->NumberedItemRead->discriminator->mapping);
     }
 
     private function schemaAt(array $schemas, string $ref): array
