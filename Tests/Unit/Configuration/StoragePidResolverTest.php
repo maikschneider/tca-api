@@ -23,6 +23,7 @@ final class StoragePidResolverTest extends TestCase
             'emptyPid'   => '',
             'namedPid'   => 'folder',
             'negativePid' => -1,
+            'booleanPid' => true,
         ]]]);
         $GLOBALS['TYPO3_REQUEST'] = (new ServerRequest('http://localhost/'))->withAttribute('site', $site);
     }
@@ -117,5 +118,13 @@ final class StoragePidResolverTest extends TestCase
         $this->expectExceptionMessage('"tenant.negativePid", which is "-1" on site "tenant" instead of a pid');
 
         StoragePidResolver::writePid(self::definition('{$tenant.negativePid}'));
+    }
+
+    #[Test]
+    public function aBooleanSettingDoesNotResolveToPageOne(): void
+    {
+        $this->expectException(StoragePidResolutionException::class);
+
+        StoragePidResolver::readPids(self::definition('{$tenant.booleanPid}'));
     }
 }

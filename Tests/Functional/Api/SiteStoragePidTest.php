@@ -48,6 +48,10 @@ final class SiteStoragePidTest extends ApiFunctionalTestCase
         ]);
         $this->registerResource('tenant-articles', self::articleConfig('tenant-articles', '{$tenant.storagePid}'));
         $this->registerResource('broken-articles', self::articleConfig('broken-articles', '{$tenant.emptyPid}'));
+
+        $brokenReadConfig = self::articleConfig('broken-read-articles', '{$tenant.storagePid}');
+        $brokenReadConfig['general']['readStoragePids'] = ['{$tenant.emptyPid}'];
+        $this->registerResource('broken-read-articles', $brokenReadConfig);
     }
 
     private static function articleConfig(string $resourceName, string $storagePid): array
@@ -150,6 +154,20 @@ final class SiteStoragePidTest extends ApiFunctionalTestCase
         self::assertSame(500, $create->getStatusCode());
         self::assertFalse($this->getConnectionPool()->getConnectionForTable(self::ARTICLE_TABLE)
             ->select(['uid'], self::ARTICLE_TABLE, ['title' => 'Nowhere'])->fetchAssociative());
+    }
+
+    public function testAnInvalidReadSettingPreventsCreateFromWritingRecords(): void
+    {
+        $response = $this->executeApiWriteRequestAs('POST', $this->onSite('a') . '/broken-read-articles', 1, [
+            'title' => 'Must not persist',
+            'related_items_inline' => [['name' => 'Must not persist either']],
+        ]);
+
+        self::assertSame(500, $response->getStatusCode());
+        self::assertFalse($this->getConnectionPool()->getConnectionForTable(self::ARTICLE_TABLE)
+            ->select(['uid'], self::ARTICLE_TABLE, ['title' => 'Must not persist'])->fetchAssociative());
+        self::assertFalse($this->getConnectionPool()->getConnectionForTable(self::COLOR_TABLE)
+            ->select(['uid'], self::COLOR_TABLE, ['name' => 'Must not persist either'])->fetchAssociative());
     }
 
     private function fetchRow(string $table, int $uid): array

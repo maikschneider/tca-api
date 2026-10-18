@@ -175,7 +175,7 @@ site's pages, ``update`` and ``delete`` of another site's record answer
 ``404``, and ``create`` stores the record, its inline-created relations and
 its file references on the site's page.
 
-A placeholder fails closed. When the setting is missing, empty, negative or
+A placeholder fails closed. When the setting is missing, empty, boolean, negative or
 not an integer, the request answers ``500`` (the message names the setting
 when ``tca_api.debugMode`` is on) and no query runs without the pid
 constraint.

@@ -58,6 +58,11 @@ class CreateHandler implements OperationHandlerInterface
             return $parsed;
         }
 
+        // The created record is read back for the response. Resolve that scope
+        // before storing uploads or records, so an invalid setting cannot leave
+        // persisted data behind a failed create response.
+        StoragePidResolver::readPids($config);
+
         $result = $this->validateAndResolve($parsed['body'], $parsed['uploadedFiles'], $config, $request, creating: true);
         if ($result instanceof ResponseInterface) {
             return $result;
