@@ -8,7 +8,6 @@ use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Dispatcher\RequestContext;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
-use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 
 final class HydraApiDocumentationBuilder
 {
@@ -205,15 +204,7 @@ final class HydraApiDocumentationBuilder
             ],
         ];
 
-        $columnMap = $config->isExplicitMode
-            ? $config->columns
-            : array_combine(
-                $cols = TcaColumnDiscovery::getExposableColumnNames($config->table),
-                array_map(
-                    static fn (string $col): ColumnDefinition => $config->columns[$col] ?? new ColumnDefinition(groups: null),
-                    $cols,
-                ),
-            );
+        $columnMap = $config->columnMap();
 
         $tcaLabelColumn = $GLOBALS['TCA'][$config->table]['ctrl']['label'] ?? null;
 

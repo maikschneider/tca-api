@@ -9,7 +9,6 @@ use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Serializer\RelationSerializer;
 use MaikSchneider\TcaApi\Tca\GroupAllowedResolver;
-use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use TYPO3\CMS\Core\Schema\Field\FileFieldType;
 use TYPO3\CMS\Core\Schema\Field\GroupFieldType;
 use TYPO3\CMS\Core\Schema\Field\RelationalFieldTypeInterface;
@@ -226,14 +225,9 @@ final class EmbedPreloader
      */
     private function outputColumns(ApiDefinition $config, array $fields, string $operation): array
     {
-        if ($config->isExplicitMode) {
-            $columns = array_filter($config->columns, static fn (ColumnDefinition $def) => $def->isReadable($operation));
-        } else {
-            $columns = [];
-            foreach (TcaColumnDiscovery::getExposableColumnNames($config->table) as $column) {
-                $columns[$column] = $config->columns[$column] ?? new ColumnDefinition(groups: null);
-            }
-        }
+        $columns = $config->isExplicitMode
+            ? array_filter($config->columnMap(), static fn (ColumnDefinition $def) => $def->isReadable($operation))
+            : $config->columnMap();
 
         return $fields === [] ? $columns : array_intersect_key($columns, array_flip($fields));
     }

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\OperationHandler;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
-use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 
 /**
  * Filters and normalizes writable column values for TYPO3 DataHandler.
@@ -21,7 +20,7 @@ trait ColumnFilterTrait
 
         if (!$config->isExplicitMode) {
             // Default mode: accept all exposable TCA columns present in the body
-            foreach (TcaColumnDiscovery::getExposableColumnNames($config->table) as $column) {
+            foreach (array_keys($config->columnMap()) as $column) {
                 if (\array_key_exists($column, $body)) {
                     $value = $body[$column];
                     $result[$column] = \is_array($value) ? implode(',', $value) : $value;
