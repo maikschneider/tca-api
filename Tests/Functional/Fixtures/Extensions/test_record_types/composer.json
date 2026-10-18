@@ -1,0 +1,14 @@
+{
+	"name": "maikschneider/tca-api-test-record-types",
+	"description": "Functional test fixture: record types with columnsOverrides and a typed table",
+	"type": "typo3-cms-extension",
+	"license": "GPL-2.0-or-later",
+	"require": {
+		"maikschneider/tca-api": "*"
+	},
+	"extra": {
+		"typo3/cms": {
+			"extension-key": "test_record_types"
+		}
+	}
+}

@@ -1,0 +1,5 @@
+"tt_content"
+,"uid","pid","CType","header","bodytext","colPos","sorting","hidden","deleted"
+,600,1,"textmedia","Textmedia element","Textmedia body",0,256,0,0
+,601,1,"header","Header element","Stale body",0,512,0,0
+,602,1,"tca_api_teaser","Teaser element","Teaser body",0,768,0,0

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Loader;
 
+use MaikSchneider\TcaApi\Tca\RecordTypeFields;
+
 /**
  * Boot-time validator derivation from TCA.
  *
@@ -45,68 +47,97 @@ final class TcaValidatorDeriver
         }
 
         foreach ($rawConfig['columns'] ?? [] as $columnName => $columnRaw) {
-            if (!\is_array($columnRaw)) {
+            if (!\is_array($columnRaw) || !\is_array($tcaColumns[$columnName] ?? null)) {
                 continue;
             }
-            if (($columnRaw['tcaValidation'] ?? true) === false) {
-                continue;
-            }
-
-            $tcaColumn = $tcaColumns[$columnName] ?? null;
-            if (!\is_array($tcaColumn)) {
-                continue;
-            }
-
-            $tcaConfig = $tcaColumn['config'] ?? [];
-            $tcaType   = (string)($tcaConfig['type'] ?? '');
-
-            // Derive validators (gap-fill only)
-            $existingTypes = array_column($columnRaw['validators'] ?? [], 'type');
-            foreach (self::deriveValidatorsForType($tcaType, $tcaConfig) as $derived) {
-                if (!\in_array($derived['type'], $existingTypes, true)) {
-                    $columnRaw['validators'][] = $derived;
-                }
-            }
-
-            // Derive required flag from TCA (TYPO3 v13+ places `required` inside
-            // the column's `config` array, sibling to `type`/`max`/etc.).
-            // Only inject when the key is completely absent from the raw config.
-            if (!\array_key_exists('required', $columnRaw) && ($tcaConfig['required'] ?? false)) {
-                $columnRaw['required'] = true;
-            }
-
-            $rawConfig['columns'][$columnName] = $columnRaw;
+            $rawConfig['columns'][$columnName] = self::deriveColumn($table, $columnName, $columnRaw);
         }
 
         return $rawConfig;
     }
 
     /**
+     * The declared columns of $rawConfig derived per record type, for each type
+     * whose columnsOverrides touch them — the overrides of $columns that
+     * {@see \MaikSchneider\TcaApi\Configuration\ApiDefinition::fromArray()}
+     * applies to that type's column map.
+     *
+     * @return array<string, array<string, array<string, mixed>>> raw column configs by record type and column
+     */
+    public function deriveRecordTypeColumns(string $table, array $rawConfig): array
+    {
+        $types = $GLOBALS['TCA'][$table]['types'] ?? [];
+        if ($table === '' || !\is_array($types)) {
+            return [];
+        }
+
+        $recordTypeColumns = [];
+        foreach ($rawConfig['columns'] ?? [] as $columnName => $columnRaw) {
+            if (!\is_array($columnRaw) || !\is_array($GLOBALS['TCA'][$table]['columns'][$columnName] ?? null)) {
+                continue;
+            }
+            foreach ($types as $recordType => $typeConfig) {
+                if (\is_array($typeConfig['columnsOverrides'][$columnName] ?? null)) {
+                    $recordTypeColumns[(string)$recordType][$columnName] = self::deriveColumn($table, $columnName, $columnRaw, (string)$recordType);
+                }
+            }
+        }
+
+        return $recordTypeColumns;
+    }
+
+    /**
+     * Gap-fills one declared column config with the validators and required flag
+     * of its TCA column, with $recordType's columnsOverrides applied when given.
+     *
+     * @return array<string, mixed>
+     */
+    private static function deriveColumn(string $table, string $column, array $columnRaw, ?string $recordType = null): array
+    {
+        if (($columnRaw['tcaValidation'] ?? true) === false) {
+            return $columnRaw;
+        }
+
+        $existingTypes = array_column($columnRaw['validators'] ?? [], 'type');
+        foreach (self::deriveValidatorsForColumn($table, $column, $recordType) as $derived) {
+            if (!\in_array($derived['type'], $existingTypes, true)) {
+                $columnRaw['validators'][] = $derived;
+            }
+        }
+
+        if (!\array_key_exists('required', $columnRaw) && (RecordTypeFields::columnDefinition($table, $column, $recordType)['config']['required'] ?? false)) {
+            $columnRaw['required'] = true;
+        }
+
+        return $columnRaw;
+    }
+
+    /**
      * Derive validator configs from TCA for a single column. Returns the same
      * shape the boot-time deriver injects into declared columns. Returns an
      * empty list when no constraints apply or the table/column is not in TCA.
+     * With $recordType, the type's columnsOverrides apply.
      *
      * @return list<array<string, mixed>>
      */
-    public static function deriveValidatorsForColumn(string $table, string $column): array
+    public static function deriveValidatorsForColumn(string $table, string $column, ?string $recordType = null): array
     {
-        $tcaColumn = $GLOBALS['TCA'][$table]['columns'][$column] ?? null;
-        if (!\is_array($tcaColumn)) {
+        $tcaConfig = RecordTypeFields::columnDefinition($table, $column, $recordType)['config'] ?? null;
+        if (!\is_array($tcaConfig)) {
             return [];
         }
-        $tcaConfig = $tcaColumn['config'] ?? [];
-        $tcaType   = (string)($tcaConfig['type'] ?? '');
 
-        return self::deriveValidatorsForType($tcaType, $tcaConfig);
+        return self::deriveValidatorsForType((string)($tcaConfig['type'] ?? ''), $tcaConfig);
     }
 
     /**
      * Returns true when the TCA column declares the v13+ required flag.
      * The flag lives inside the column's `config` array, sibling to `type`/`max`.
+     * With $recordType, the type's columnsOverrides apply.
      */
-    public static function isTcaColumnRequired(string $table, string $column): bool
+    public static function isTcaColumnRequired(string $table, string $column, ?string $recordType = null): bool
     {
-        return ($GLOBALS['TCA'][$table]['columns'][$column]['config']['required'] ?? false) === true;
+        return (RecordTypeFields::columnDefinition($table, $column, $recordType)['config']['required'] ?? false) === true;
     }
 
     /**

@@ -14,13 +14,13 @@ use MaikSchneider\TcaApi\Configuration\ApiDefinition;
  */
 trait ColumnFilterTrait
 {
-    private function filterWritableColumns(array $body, ApiDefinition $config): array
+    private function filterWritableColumns(array $body, ApiDefinition $config, ?string $recordType = null): array
     {
         $result = [];
 
         if (!$config->isExplicitMode) {
             // Default mode: accept all exposable TCA columns present in the body
-            foreach (array_keys($config->columnMap()) as $column) {
+            foreach (array_keys($config->columnMap($recordType)) as $column) {
                 if (\array_key_exists($column, $body)) {
                     $value = $body[$column];
                     $result[$column] = \is_array($value) ? implode(',', $value) : $value;

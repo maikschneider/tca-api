@@ -85,7 +85,11 @@ trait WriteOperationTrait
         if ($creating && $recordType !== null) {
             $body[$config->recordTypeField] = $recordType;
         }
-        $violations = [...$recordTypeViolations, ...$this->fieldValidator->validate($body, $config, $partial)];
+        $targetType    = $this->targetRecordType($recordType, $config, $request);
+        $body          = $this->withoutOtherTypeColumns($body, $config, $targetType);
+        $uploadedFiles = $this->withoutOtherTypeColumns($uploadedFiles, $config, $targetType);
+
+        $violations = [...$recordTypeViolations, ...$this->fieldValidator->validate($body, $config, $partial, $targetType)];
         if ($violations !== []) {
             return $this->hydraResponseBuilder->buildValidationError($violations);
         }
@@ -103,7 +107,7 @@ trait WriteOperationTrait
             return $this->hydraResponseBuilder->buildValidationError($resolved->violations);
         }
 
-        $data        = $this->filterWritableColumns($resolved->scalarBody, $config);
+        $data        = $this->filterWritableColumns($resolved->scalarBody, $config, $targetType);
         if ($creating && $recordType !== null) {
             $data[$config->recordTypeField] = $recordType;
         }
@@ -114,6 +118,49 @@ trait WriteOperationTrait
         $storedFiles += $linkedFiles->references;
 
         return ['data' => $data, 'resolved' => $resolved, 'storedFiles' => $storedFiles];
+    }
+
+    /**
+     * The record type whose columns a write may touch on a resource with type
+     * schemas: the type being created or switched to, else the existing record's.
+     */
+    private function targetRecordType(?string $recordType, ApiDefinition $config, ServerRequestInterface $request): ?string
+    {
+        if (!$config->typeSchemas) {
+            return null;
+        }
+        if ($recordType !== null) {
+            return $recordType;
+        }
+
+        $existingRecord = $request->getAttribute('tca_api.existing_record');
+
+        return \is_array($existingRecord) ? $config->recordTypeOf($existingRecord) : null;
+    }
+
+    /**
+     * Drops TCA columns that are not part of the target type's form, so they are
+     * ignored on write like any other unknown input.
+     *
+     * @template T of array
+     * @param T $input
+     * @return T
+     */
+    private function withoutOtherTypeColumns(array $input, ApiDefinition $config, ?string $recordType): array
+    {
+        if ($recordType === null) {
+            return $input;
+        }
+
+        $columnMap = $config->columnMap($recordType);
+        $tcaColumns = $GLOBALS['TCA'][$config->table]['columns'] ?? [];
+        foreach (array_keys($input) as $key) {
+            if (isset($tcaColumns[$key]) && !isset($columnMap[$key]) && $key !== $config->recordTypeField) {
+                unset($input[$key]);
+            }
+        }
+
+        return $input;
     }
 
     /**

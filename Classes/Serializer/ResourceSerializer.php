@@ -75,7 +75,9 @@ final class ResourceSerializer
     ): array {
         $uid           = (int)$row['uid'];
         $schema        = $this->getSchema($config->table);
-        $columnMap     = $config->columnMap();
+        $recordType    = $config->recordTypeOf($row);
+        $columnMap     = $config->columnMap($recordType);
+        $fieldSchema   = $recordType !== null && $schema->hasSubSchema($recordType) ? $schema->getSubSchema($recordType) : $schema;
         $preloadedFiles = $preloaded['files'][$config->table] ?? null;
 
         // The base '{table}' tag is added by RequestDispatcher at cache activation
@@ -100,11 +102,12 @@ final class ResourceSerializer
             if ($fields !== [] && !\in_array($column, $fields, true)) {
                 continue;
             }
-            if (!$schema->hasField($column)) {
+            $columnSchema = $fieldSchema->hasField($column) ? $fieldSchema : $schema;
+            if (!$columnSchema->hasField($column)) {
                 continue;
             }
 
-            $field = $schema->getField($column);
+            $field = $columnSchema->getField($column);
 
             // Password columns must never appear in API responses, even when explicitly configured.
             if (($GLOBALS['TCA'][$config->table]['columns'][$column]['config']['type'] ?? '') === 'password') {

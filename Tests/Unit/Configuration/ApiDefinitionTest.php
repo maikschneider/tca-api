@@ -851,6 +851,14 @@ final class ApiDefinitionTest extends TestCase
     }
 
     #[Test]
+    public function recordTypesAcceptAListWithGapsInItsKeys(): void
+    {
+        $def = ApiDefinition::fromArray(self::recordTypesConfig([1 => 'event', 3 => 'news']));
+
+        self::assertSame(['event', 'news'], $def->recordTypes);
+    }
+
+    #[Test]
     public function recordTypesWildcardListsEveryDefinedType(): void
     {
         $def = ApiDefinition::fromArray(self::recordTypesConfig('*'));
@@ -910,5 +918,111 @@ final class ApiDefinitionTest extends TestCase
         $this->expectExceptionMessage('contains "page", which is not a type');
 
         ApiDefinition::fromArray(self::recordTypesConfig(['news', 'page']));
+    }
+
+    // ── recordTypes: type schemas ───────────────────────────────────────
+
+    private static function typeSchemaConfig(mixed $recordTypes): array
+    {
+        $GLOBALS['TCA']['tx_test'] = [
+            'ctrl' => ['type' => 'record_type', 'enablecolumns' => ['disabled' => 'hidden']],
+            'columns' => [
+                'record_type' => ['config' => ['type' => 'select']],
+                'title'       => ['config' => ['type' => 'input']],
+                'teaser'      => ['config' => ['type' => 'text']],
+                'location'    => ['config' => ['type' => 'input']],
+                'hidden'      => ['config' => ['type' => 'check']],
+            ],
+            'palettes' => ['visibility' => ['showitem' => 'hidden, location']],
+            'types' => [
+                'news'  => ['showitem' => 'record_type, title, teaser'],
+                'event' => ['showitem' => '--div--;Tab, record_type, title, --palette--;;visibility'],
+            ],
+        ];
+        (new \ReflectionProperty(TcaColumnDiscovery::class, 'columnNameCache'))->setValue(null, []);
+
+        $cfg = self::minimalConfig();
+        $cfg['general']['recordTypes'] = $recordTypes;
+
+        return $cfg;
+    }
+
+    #[Test]
+    public function recordTypesSwitchOnTypeSchemasInDefaultMode(): void
+    {
+        $def = ApiDefinition::fromArray(self::typeSchemaConfig(['news', 'event']));
+
+        self::assertTrue($def->typeSchemas);
+        self::assertSame(['record_type', 'title', 'teaser'], array_keys($def->columnMap('news')));
+        self::assertSame(['record_type', 'title', 'location'], array_keys($def->columnMap('event')));
+        self::assertSame(['record_type', 'title', 'teaser', 'location'], array_keys($def->columnMap()));
+        self::assertSame('event', $def->recordTypeOf(['record_type' => 'event']));
+    }
+
+    #[Test]
+    public function columnMapOfAnUnknownTypeFallsBackToAllTypes(): void
+    {
+        $def = ApiDefinition::fromArray(self::typeSchemaConfig(['news', 'event']));
+
+        self::assertSame(array_keys($def->columnMap()), array_keys($def->columnMap('page')));
+    }
+
+    #[Test]
+    public function typeSchemasKeepDeclaredColumnConfig(): void
+    {
+        $cfg = self::typeSchemaConfig(['news']);
+        $cfg['columns'] = ['teaser' => ['required' => true]];
+
+        self::assertTrue(ApiDefinition::fromArray($cfg)->columnMap('news')['teaser']->required);
+    }
+
+    #[Test]
+    public function tableSchemaKeepsAllTableColumns(): void
+    {
+        $def = ApiDefinition::fromArray(self::typeSchemaConfig(['include' => ['news'], 'schema' => 'table']));
+
+        self::assertFalse($def->typeSchemas);
+        self::assertSame(['news'], $def->recordTypes);
+        self::assertSame(['record_type', 'title', 'teaser', 'location'], array_keys($def->columnMap('news')));
+        self::assertNull($def->recordTypeOf(['record_type' => 'news']));
+    }
+
+    #[Test]
+    public function recordTypesOptionsIncludeEveryTypeByDefault(): void
+    {
+        $def = ApiDefinition::fromArray(self::typeSchemaConfig(['schema' => 'type']));
+
+        self::assertSame(['news', 'event'], $def->recordTypes);
+        self::assertTrue($def->typeSchemas);
+    }
+
+    #[Test]
+    public function explicitModeHasNoTypeSchemas(): void
+    {
+        $cfg = self::typeSchemaConfig(['news', 'event']);
+        $cfg['columns'] = ['title' => ['groups' => ['list']]];
+
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertFalse($def->typeSchemas);
+        self::assertSame(['title'], array_keys($def->columnMap('news')));
+    }
+
+    #[Test]
+    public function recordTypesWithUnknownOptionThrows(): void
+    {
+        $this->expectException(InvalidApiDefinitionException::class);
+        $this->expectExceptionMessage('unknown option(s) "split"');
+
+        ApiDefinition::fromArray(self::typeSchemaConfig(['include' => ['news'], 'split' => true]));
+    }
+
+    #[Test]
+    public function recordTypesWithInvalidSchemaThrows(): void
+    {
+        $this->expectException(InvalidApiDefinitionException::class);
+        $this->expectExceptionMessage('general.recordTypes.schema must be "type" or "table"');
+
+        ApiDefinition::fromArray(self::typeSchemaConfig(['schema' => 'record']));
     }
 }
