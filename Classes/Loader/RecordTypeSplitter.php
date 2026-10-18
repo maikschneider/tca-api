@@ -16,7 +16,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * Runs on the raw configs after the Overrides/ pass, so override files edit the
  * base config and every generated resource inherits it. Each generated config is
  * the base config scoped to one type, with its name taken from `namePattern` and
- * the type's entry under the top-level `types` key merged over it.
+ * the type's entry under the top-level `types` key merged over it. The
+ * resourceType and Swagger UI group follow from the final name unless set.
  */
 final class RecordTypeSplitter
 {
@@ -38,6 +39,9 @@ final class RecordTypeSplitter
             $options = \is_array($recordTypes) && array_filter(array_keys($recordTypes), \is_string(...)) !== [] ? $recordTypes : [];
             $label = (string)($config['general']['resourceName'] ?? $resourceName);
 
+            if (isset($options['split']) && !\is_bool($options['split'])) {
+                throw new InvalidApiDefinitionException(sprintf('TcaApi config for "%s": general.recordTypes.split must be a boolean.', $label));
+            }
             if (($options['split'] ?? false) !== true) {
                 if (isset($config['types'])) {
                     throw new InvalidApiDefinitionException(sprintf(
@@ -111,20 +115,16 @@ final class RecordTypeSplitter
 
         $generated = [];
         foreach ($recordTypes as $recordType) {
-            $resourceName = strtr($namePattern, ['{resourceName}' => $label, '{type}' => $recordType]);
-            $typeConfig = $config;
-            $typeConfig['general']['resourceName'] = $resourceName;
-            $typeConfig['general']['resourceType'] = self::pascalCase($resourceName);
-            $typeConfig['general']['recordTypes'] = ['include' => [$recordType]] + $typeOptions;
-            if (!isset($typeConfig['general']['group']) && isset($typeLabels[$recordType])) {
-                $typeConfig['general']['group'] = ['name' => $typeConfig['general']['resourceType'], 'description' => $typeLabels[$recordType]];
-            }
-
             $override = $typeOverrides[$recordType] ?? [];
             if (!\is_array($override)) {
                 throw new InvalidApiDefinitionException(sprintf('TcaApi config for "%s": "types.%s" must be an array.', $label, $recordType));
             }
-            $typeConfig = array_replace_recursive($typeConfig, $override);
+
+            $typeConfig = $config;
+            $typeConfig['general']['resourceName'] = strtr($namePattern, ['{resourceName}' => $label, '{type}' => $recordType]);
+            unset($typeConfig['general']['resourceType']);
+            $typeConfig['general']['recordTypes'] = ['include' => [$recordType]] + $typeOptions;
+            $typeConfig = self::merge($typeConfig, $override);
 
             $resourceName = (string)$typeConfig['general']['resourceName'];
             if (preg_match('/^[A-Za-z0-9_-]+$/', $resourceName) !== 1) {
@@ -135,10 +135,44 @@ final class RecordTypeSplitter
                     $recordType,
                 ));
             }
+            if (isset($generated[$resourceName])) {
+                throw new InvalidApiDefinitionException(sprintf(
+                    'TcaApi config for "%s": the generated resource name "%s" is already used by a resource generated from "%s".',
+                    $label,
+                    $resourceName,
+                    $label,
+                ));
+            }
+
+            $typeConfig['general']['resourceType'] ??= self::pascalCase($resourceName);
+            if (!isset($typeConfig['general']['group']) && isset($typeLabels[$recordType])) {
+                $typeConfig['general']['group'] = ['name' => $typeConfig['general']['resourceType'], 'description' => $typeLabels[$recordType]];
+            }
             $generated[$resourceName] = $typeConfig;
         }
 
         return $generated;
+    }
+
+    /**
+     * Merges a types.<type> override over a config. Nested maps merge key by key;
+     * lists and scalars are replaced as a whole, so an override can narrow a list
+     * such as operations or the groups of an access role.
+     *
+     * @param array<array-key, mixed> $base
+     * @param array<array-key, mixed> $override
+     * @return array<array-key, mixed>
+     */
+    private static function merge(array $base, array $override): array
+    {
+        foreach ($override as $key => $value) {
+            $baseValue = $base[$key] ?? null;
+            $base[$key] = \is_array($value) && \is_array($baseValue) && !array_is_list($value) && !array_is_list($baseValue)
+                ? self::merge($baseValue, $value)
+                : $value;
+        }
+
+        return $base;
     }
 
     /** 'content-textmedia' → 'ContentTextmedia', 'pages-254' → 'Pages254' */

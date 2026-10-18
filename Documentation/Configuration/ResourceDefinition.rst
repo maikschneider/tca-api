@@ -261,7 +261,9 @@ This registers ``content-textmedia`` (``ContentTextmedia``) and
     only, because it is the URL segment.
 *   ``keepBase => false`` drops the multi-type base resource.
 *   ``types`` holds per-type overrides, merged over the base config of that
-    type's resource only. They may set ``general.resourceName`` and
+    type's resource only. Nested arrays merge key by key, lists such as
+    ``operations`` or the groups of an access role are replaced as a whole.
+    An override may set ``general.resourceName`` and
     ``general.resourceType`` as well. ``types`` without ``split`` fails at
     boot.
 *   The expansion runs after the ``Overrides/`` pass, so an override file that

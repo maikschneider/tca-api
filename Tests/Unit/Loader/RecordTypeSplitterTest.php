@@ -59,7 +59,7 @@ final class RecordTypeSplitterTest extends TestCase
 
         self::assertSame(['items-news', 'items-event_date', 'items'], array_keys($expanded));
         self::assertSame(
-            ['table' => 'tx_test', 'resourceName' => 'items-event_date', 'resourceType' => 'ItemsEventDate', 'recordTypes' => ['include' => ['event_date'], 'schema' => 'table'], 'group' => ['name' => 'ItemsEventDate', 'description' => 'Event']],
+            ['table' => 'tx_test', 'resourceName' => 'items-event_date', 'recordTypes' => ['include' => ['event_date'], 'schema' => 'table'], 'resourceType' => 'ItemsEventDate', 'group' => ['name' => 'ItemsEventDate', 'description' => 'Event']],
             $expanded['items-event_date']['general'],
         );
         self::assertTrue($expanded['items']['general']['recordTypes']['split']);
@@ -183,5 +183,78 @@ final class RecordTypeSplitterTest extends TestCase
         $this->expectExceptionMessage('"types.news" must be an array');
 
         RecordTypeSplitter::expand(['items' => self::config(['include' => ['news'], 'split' => true], ['types' => ['news' => 'x']])]);
+    }
+
+    #[Test]
+    public function aTypesEntryReplacesListsInsteadOfMergingThemByIndex(): void
+    {
+        $expanded = RecordTypeSplitter::expand(['items' => self::config(['include' => ['news'], 'split' => true], [
+            'general'  => ['operations' => ['list', 'show', 'create']],
+            'security' => ['show' => ['frontend_group', [1, 2]]],
+            'types'    => ['news' => [
+                'general'  => ['operations' => ['list']],
+                'security' => ['show' => ['frontend_group', [5]]],
+            ]],
+        ])]);
+
+        self::assertSame(['list'], $expanded['items-news']['general']['operations']);
+        self::assertSame(['frontend_group', [5]], $expanded['items-news']['security']['show']);
+    }
+
+    #[Test]
+    public function aResourceNameOverrideAlsoNamesTheResourceTypeAndGroup(): void
+    {
+        $expanded = RecordTypeSplitter::expand(['items' => self::config(['include' => ['news'], 'split' => true], [
+            'types' => ['news' => ['general' => ['resourceName' => 'articles']]],
+        ])]);
+
+        self::assertSame('Articles', $expanded['articles']['general']['resourceType']);
+        self::assertSame(['name' => 'Articles', 'description' => 'News article'], $expanded['articles']['general']['group']);
+    }
+
+    #[Test]
+    public function aResourceTypeOverrideNamesTheGroup(): void
+    {
+        $expanded = RecordTypeSplitter::expand(['items' => self::config(['include' => ['news'], 'split' => true], [
+            'types' => ['news' => ['general' => ['resourceType' => 'Article']]],
+        ])]);
+
+        self::assertSame('Article', $expanded['items-news']['general']['resourceType']);
+        self::assertSame('Article', $expanded['items-news']['general']['group']['name']);
+    }
+
+    #[Test]
+    public function twoTypesOverriddenToTheSameNameThrow(): void
+    {
+        $this->expectException(InvalidApiDefinitionException::class);
+        $this->expectExceptionMessage('"articles" is already used by a resource generated from "items"');
+
+        RecordTypeSplitter::expand(['items' => self::config(['include' => ['news', 'event_date'], 'split' => true], [
+            'types' => [
+                'news'       => ['general' => ['resourceName' => 'articles']],
+                'event_date' => ['general' => ['resourceName' => 'articles']],
+            ],
+        ])]);
+    }
+
+    #[Test]
+    public function aSplitThatIsNoBooleanThrows(): void
+    {
+        $this->expectException(InvalidApiDefinitionException::class);
+        $this->expectExceptionMessage('split must be a boolean');
+
+        RecordTypeSplitter::expand(['items' => self::config(['include' => ['news'], 'split' => 1])]);
+    }
+
+    #[Test]
+    public function invalidTypeItemsYieldNoLabels(): void
+    {
+        $GLOBALS['TCA']['tx_test']['columns']['record_type']['config']['items'] = [['value' => 'news'], 'invalid', ['label' => '', 'value' => 'event_date']];
+        $news = RecordTypeSplitter::expand(['items' => self::config(['include' => ['news'], 'split' => true])])['items-news'];
+        self::assertArrayNotHasKey('group', $news['general']);
+
+        $GLOBALS['TCA']['tx_test']['columns']['record_type']['config']['items'] = 'invalid';
+        $news = RecordTypeSplitter::expand(['items' => self::config(['include' => ['news'], 'split' => true])])['items-news'];
+        self::assertArrayNotHasKey('group', $news['general']);
     }
 }
