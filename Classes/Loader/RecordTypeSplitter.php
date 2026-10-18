@@ -125,6 +125,16 @@ final class RecordTypeSplitter
             if (!\is_array($override)) {
                 throw new InvalidApiDefinitionException(sprintf('TcaApi config for "%s": "types.%s" must be an array.', $label, $recordType));
             }
+            if (\is_array($override['general'] ?? null) && \array_key_exists('recordTypes', $override['general'])) {
+                $recordTypesOverride = $override['general']['recordTypes'];
+                if (!\is_array($recordTypesOverride) || array_is_list($recordTypesOverride) || \array_key_exists('include', $recordTypesOverride)) {
+                    throw new InvalidApiDefinitionException(sprintf(
+                        'TcaApi config for "%s": "types.%s" may not change general.recordTypes.include; the generated resource serves only its own type.',
+                        $label,
+                        $recordType,
+                    ));
+                }
+            }
 
             $typeConfig = $config;
             $typeConfig['general']['resourceName'] = strtr($namePattern, ['{resourceName}' => $label, '{type}' => $recordType]);
@@ -133,9 +143,9 @@ final class RecordTypeSplitter
             $typeConfig = self::merge($typeConfig, $override);
 
             $resourceName = (string)$typeConfig['general']['resourceName'];
-            if (preg_match('/^[A-Za-z0-9_-]+$/', $resourceName) !== 1) {
+            if (preg_match('/^[A-Za-z0-9_-]*[A-Za-z][A-Za-z0-9_-]*$/', $resourceName) !== 1) {
                 throw new InvalidApiDefinitionException(sprintf(
-                    'TcaApi config for "%s": the generated resource name "%s" may only contain letters, digits, "-" and "_". Set types.%s.general.resourceName or a different namePattern.',
+                    'TcaApi config for "%s": the generated resource name "%s" must contain a letter and may only contain letters, digits, "-" and "_". Set types.%s.general.resourceName or a different namePattern.',
                     $label,
                     $resourceName,
                     $recordType,

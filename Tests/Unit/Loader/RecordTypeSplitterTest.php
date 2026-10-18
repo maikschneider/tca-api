@@ -126,7 +126,7 @@ final class RecordTypeSplitterTest extends TestCase
     public function aGeneratedNameWithCharactersUnsafeInAUrlThrows(): void
     {
         $this->expectException(InvalidApiDefinitionException::class);
-        $this->expectExceptionMessage('"items-with space" may only contain letters, digits');
+        $this->expectExceptionMessage('"items-with space" must contain a letter and may only contain letters, digits');
 
         RecordTypeSplitter::expand(['items' => self::config(['include' => ['with space'], 'split' => true])]);
     }
@@ -256,5 +256,37 @@ final class RecordTypeSplitterTest extends TestCase
         $GLOBALS['TCA']['tx_test']['columns']['record_type']['config']['items'] = 'invalid';
         $news = RecordTypeSplitter::expand(['items' => self::config(['include' => ['news'], 'split' => true])])['items-news'];
         self::assertArrayNotHasKey('group', $news['general']);
+    }
+
+    #[Test]
+    public function aTypesEntryCannotWidenTheRecordTypesOfItsResource(): void
+    {
+        $this->expectException(InvalidApiDefinitionException::class);
+        $this->expectExceptionMessage('"types.news" may not change general.recordTypes.include');
+
+        RecordTypeSplitter::expand(['items' => self::config(['include' => ['news', 'event_date'], 'split' => true], [
+            'types' => ['news' => ['general' => ['recordTypes' => ['include' => ['news', 'event_date']]]]],
+        ])]);
+    }
+
+    #[Test]
+    public function aTypesEntryMayChangeOtherRecordTypeOptions(): void
+    {
+        $expanded = RecordTypeSplitter::expand(['items' => self::config(['include' => ['news'], 'split' => true], [
+            'types' => ['news' => ['general' => ['recordTypes' => ['schema' => 'table']]]],
+        ])]);
+
+        self::assertSame(['include' => ['news'], 'schema' => 'table'], $expanded['items-news']['general']['recordTypes']);
+    }
+
+    #[Test]
+    public function aGeneratedNameWithoutALetterThrows(): void
+    {
+        $GLOBALS['TCA']['tx_test']['types']['254'] = ['showitem' => ''];
+
+        $this->expectException(InvalidApiDefinitionException::class);
+        $this->expectExceptionMessage('"254" must contain a letter and may only contain letters, digits');
+
+        RecordTypeSplitter::expand(['items' => self::config(['include' => ['254'], 'split' => true, 'namePattern' => '{type}'])]);
     }
 }

@@ -302,8 +302,8 @@ This registers ``content-textmedia`` (``ContentTextmedia``) and
 ``content-header`` (``ContentHeader``) next to ``content``.
 
 *   ``namePattern`` sets the generated ``resourceName``; the ``resourceType`` is
-    its PascalCase form. A name may contain letters, digits, ``-`` and ``_``
-    only, because it is the URL segment.
+    its PascalCase form. A name must contain a letter and may contain letters,
+    digits, ``-`` and ``_`` only, because it is the URL segment.
 *   ``keepBase => false`` drops the multi-type base resource. Relations to the
     table that set no ``resourceName`` then link to the first generated
     resource, which serves only its own type. Keep the base, or set the
@@ -312,7 +312,8 @@ This registers ``content-textmedia`` (``ContentTextmedia``) and
     type's resource only. Nested arrays merge key by key, lists such as
     ``operations`` or the groups of an access role are replaced as a whole.
     An override may set ``general.resourceName`` and
-    ``general.resourceType`` as well. ``types`` without ``split`` fails at
+    ``general.resourceType`` as well, but not ``general.recordTypes.include``:
+    a generated resource serves only its own type. ``types`` without ``split`` fails at
     boot.
 *   The expansion runs after the ``Overrides/`` pass, so an override file that
     edits the base config reaches every generated resource.
