@@ -405,9 +405,7 @@ final class RequestDispatcher
         $site = $request->getAttribute('site');
         $sitePart = $site instanceof Site ? 'site:' . $site->getIdentifier() . ':' : '';
 
-        // Site settings can change without flushing the API response cache.
-        // Resolve before looking up an entry, so invalid settings fail closed
-        // and a changed storage scope cannot reuse the previous scope's data.
+        // Site-setting changes do not flush the response cache.
         $pids = StoragePidResolver::readPids($config);
         if ($pids !== null) {
             sort($pids, SORT_NUMERIC);

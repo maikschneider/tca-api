@@ -63,8 +63,7 @@ final class StoragePidResolver
         }
 
         $value = $site->getSettings()->get($setting);
-        // MathUtility accepts true as integer 1; a boolean setting must not
-        // accidentally scope reads or writes to the root page.
+        // MathUtility treats true as integer 1.
         if (!\is_bool($value) && MathUtility::canBeInterpretedAsInteger($value) && (int)$value >= 0) {
             return (int)$value;
         }

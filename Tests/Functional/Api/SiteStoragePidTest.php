@@ -207,8 +207,7 @@ final class SiteStoragePidTest extends ApiFunctionalTestCase
 
     private function dispatchCachedRequest(int|string $pid, string $suffix = ''): ResponseInterface
     {
-        // Keep the site identifier and URL fixed while changing its settings,
-        // without flushing the response cache between requests.
+        // Change only the storage setting while retaining cached responses.
         $site = new Site('site-a', 1, ['base' => 'http://site-a.localhost/', 'settings' => [
             'tca_api' => ['apiPrefix' => '/a-api/', 'debugMode' => true],
             'tenant' => ['storagePid' => $pid],
