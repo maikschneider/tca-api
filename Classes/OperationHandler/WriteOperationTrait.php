@@ -129,9 +129,8 @@ trait WriteOperationTrait
         }
 
         $field = $config->recordTypeField;
-        $value = $body[$field] ?? null;
 
-        if ($value === null || $value === '') {
+        if (!\array_key_exists($field, $body)) {
             if (!$creating || $config->fixedRecordType() !== null) {
                 return [[], $config->fixedRecordType()];
             }
@@ -143,6 +142,7 @@ trait WriteOperationTrait
             ]], null];
         }
 
+        $value = $body[$field];
         if (!\is_scalar($value) || !\in_array((string)$value, $config->recordTypes, true)) {
             return [[[
                 'propertyPath' => $field,

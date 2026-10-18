@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\DataAccess;
 
+use Doctrine\DBAL\Types\BigIntType;
+use Doctrine\DBAL\Types\IntegerType;
+use Doctrine\DBAL\Types\SmallIntType;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Filter\FilterInterface;
 use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
@@ -11,7 +14,6 @@ use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Site\Entity\SiteLanguage;
-use TYPO3\CMS\Core\Utility\MathUtility;
 
 final class DataRepository
 {
@@ -404,15 +406,31 @@ final class DataRepository
             return;
         }
 
-        // Integer type columns (pages.doktype) get an integer parameter: comparing
-        // an int column with a string list is not portable across DBMS.
-        $types = $config->recordTypes;
-        $parameter = array_filter($types, MathUtility::canBeInterpretedAsInteger(...)) === $types
-            ? $qb->createNamedParameter(array_map('intval', $types), Connection::PARAM_INT_ARRAY)
-            : $qb->createNamedParameter($types, Connection::PARAM_STR_ARRAY);
+        // Bind by the column's storage type, not by the configured values: pages.doktype
+        // is an int column, tx_news.type a varchar holding '0', '1', '2'. PostgreSQL
+        // rejects both int = varchar and varchar = int comparisons.
+        $parameter = $this->isIntegerColumn($config->table, $config->recordTypeField)
+            ? $qb->createNamedParameter(array_map('intval', $config->recordTypes), Connection::PARAM_INT_ARRAY)
+            : $qb->createNamedParameter($config->recordTypes, Connection::PARAM_STR_ARRAY);
 
         $col = $alias !== '' ? $alias . '.' . $config->recordTypeField : $config->recordTypeField;
         $qb->andWhere($qb->expr()->in($col, $parameter));
+    }
+
+    /**
+     * Reads the column type from the cached schema information TYPO3 itself uses to
+     * type Connection::insert() values. Unknown columns count as non-integer.
+     */
+    private function isIntegerColumn(string $table, string $column): bool
+    {
+        $tableInfo = $this->connectionPool->getConnectionForTable($table)->getSchemaInformation()->getTableInfo($table);
+        if (!$tableInfo->hasColumnInfo($column)) {
+            return false;
+        }
+
+        $type = $tableInfo->getColumnInfo($column)->getType();
+
+        return $type instanceof IntegerType || $type instanceof SmallIntType || $type instanceof BigIntType;
     }
 
     private function applyLanguageConstraint(QueryBuilder $qb, ApiDefinition $config, ?SiteLanguage $language, string $alias = ''): void

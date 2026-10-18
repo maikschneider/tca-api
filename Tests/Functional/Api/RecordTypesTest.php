@@ -188,6 +188,18 @@ final class RecordTypesTest extends ApiFunctionalTestCase
     }
 
     #[Test]
+    public function updateRejectsAnEmptyOrNullType(): void
+    {
+        foreach (['', null] as $type) {
+            $response = $this->executeApiWriteRequestAs('PATCH', '/_api/content/500', 1, ['CType' => $type]);
+
+            self::assertSame(422, $response->getStatusCode());
+            $this->assertViolation($response, 'CType', 'INVALID_RECORD_TYPE');
+        }
+        self::assertSame('textmedia', $this->fetchContentRow(500)['CType']);
+    }
+
+    #[Test]
     public function updateCanSwitchBetweenAllowedTypes(): void
     {
         $response = $this->executeApiWriteRequestAs('PATCH', '/_api/content/500', 1, ['CType' => 'header']);
