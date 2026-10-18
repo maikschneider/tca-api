@@ -22,6 +22,7 @@ use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
+use TYPO3\CMS\Core\Site\Entity\Site;
 use TYPO3\CMS\Core\Site\Entity\SiteLanguage;
 use TYPO3\CMS\Core\Site\Entity\SiteSettings;
 use TYPO3\CMS\Core\Utility\PathUtility;
@@ -356,7 +357,7 @@ final class RequestDispatcher
     }
 
     /**
-     * Generate a deterministic cache key from operation, resource, and relevant query parameters.
+     * Generate a deterministic cache key from site, operation, resource, language and relevant query parameters.
      *
      * Returns null when an ignored parameter is present in the request (= bypass caching).
      */
@@ -394,7 +395,10 @@ final class RequestDispatcher
         $languageId = $request->getAttribute('tca_api.language_id');
         $languagePart = \is_int($languageId) ? ':language:' . $languageId : ':language:none';
 
-        return md5($operation . ':' . $config->resourceName . $uidPart . $languagePart . ':' . json_encode($relevant, JSON_THROW_ON_ERROR));
+        $site = $request->getAttribute('site');
+        $sitePart = $site instanceof Site ? 'site:' . $site->getIdentifier() . ':' : '';
+
+        return md5($sitePart . $operation . ':' . $config->resourceName . $uidPart . $languagePart . ':' . json_encode($relevant, JSON_THROW_ON_ERROR));
     }
 
     private function notFound(): ResponseInterface

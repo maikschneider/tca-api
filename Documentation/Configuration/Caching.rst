@@ -58,9 +58,9 @@ Cache flow
 
 For every ``GET`` request to a cached resource the dispatcher:
 
-1. Builds a cache key from the operation, resource name, UID, sorted query
-   parameters, and the resolved language id (see :ref:`languages`). Different
-   locales never share a cache entry.
+1. Builds a cache key from the site, operation, resource name, UID, sorted
+   query parameters, and the resolved language id (see :ref:`languages`).
+   Different sites and locales never share a cache entry.
 2. Checks the ``tca_api`` TYPO3 cache.
 3. **HIT** — returns the stored response body with ``X-TCA-API-Cache: HIT``
    header.
