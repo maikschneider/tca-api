@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api;
 
+use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -111,5 +112,89 @@ final class RecordTypeSplitTest extends ApiFunctionalTestCase
 
         $hydra = $this->decodeResponseBody($this->executeApiRequest('/_api/docs.jsonld'));
         self::assertContains('SplitContentTextmedia', array_column($hydra['hydra:supportedClass'], 'hydra:title'));
+    }
+
+    #[Test]
+    public function aGeneratedResourceKeepsItsSchemaNameNextToTheBasesTypeSchemas(): void
+    {
+        $schemas = $this->decodeResponseBody($this->executeApiRequest('/_api/openapi.json'))['components']['schemas'];
+
+        self::assertSame('SplitContentHeader', $schemas['SplitContentHeaderRead']['properties']['@type']['example']);
+        self::assertNotContains(
+            ['$ref' => '#/components/schemas/SplitContentHeaderRead'],
+            $schemas['SplitContentRead']['oneOf'],
+        );
+    }
+
+    #[Test]
+    public function hydraLinksARelationToTheTableToTheKeptBase(): void
+    {
+        $this->registerResource('split-pages', [
+            'general'  => ['table' => 'pages', 'resourceName' => 'split-pages', 'resourceType' => 'SplitPage'],
+            'columns'  => ['tx_split_content' => ['groups' => ['show']]],
+            'security' => ['list' => AccessRole::PUBLIC, 'show' => AccessRole::PUBLIC],
+        ]);
+
+        $hydra = $this->decodeResponseBody($this->executeApiRequest('/_api/docs.jsonld'));
+        $class = array_values(array_filter($hydra['hydra:supportedClass'], static fn (array $class): bool => $class['hydra:title'] === 'SplitPage'))[0];
+        $property = array_values(array_filter($class['hydra:supportedProperty'], static fn (array $property): bool => $property['hydra:title'] === 'tx_split_content'))[0];
+
+        self::assertSame('#SplitContent', $property['hydra:property']['range']);
+    }
+
+    #[Test]
+    public function anEmbeddedRelationNamingAGeneratedResourceOfTheSameTableUsesIt(): void
+    {
+        $this->registerLinkingContent(['embed' => true]);
+        $this->getConnectionPool()->getConnectionForTable('tt_content')->update('tt_content', ['tx_split_content' => 601], ['uid' => 600]);
+
+        $item = $this->decodeResponseBody($this->executeApiRequest('/_api/linking-content/600'));
+
+        self::assertSame('/_api/split-content-header/601', $item['tx_split_content']['@id']);
+        self::assertSame('SplitContentHeader', $item['tx_split_content']['@type']);
+    }
+
+    #[Test]
+    public function nestedCreateThroughAGeneratedResourceKeepsItsType(): void
+    {
+        $this->registerLinkingContent();
+
+        $otherType = $this->executeApiWriteRequestAs('POST', '/_api/linking-content', 1, [
+            'CType'            => 'textmedia',
+            'tx_split_content' => ['CType' => 'textmedia', 'header' => 'Not a header'],
+        ]);
+        $created = $this->executeApiWriteRequestAs('POST', '/_api/linking-content', 1, [
+            'CType'            => 'textmedia',
+            'tx_split_content' => ['header' => 'Nested header'],
+        ]);
+
+        self::assertSame(422, $otherType->getStatusCode());
+        self::assertContains('tx_split_content.CType', array_column($this->decodeResponseBody($otherType)['violations'], 'propertyPath'));
+        self::assertSame(201, $created->getStatusCode(), (string)$created->getBody());
+        $child = $this->getConnectionPool()->getConnectionForTable('tt_content')
+            ->select(['CType'], 'tt_content', ['header' => 'Nested header'])->fetchAssociative();
+        self::assertSame('header', $child['CType'] ?? null);
+    }
+
+    private function registerLinkingContent(array $relation = []): void
+    {
+        $this->registerResource('linking-content', [
+            'general' => [
+                'table'        => 'tt_content',
+                'resourceName' => 'linking-content',
+                'resourceType' => 'LinkingContent',
+                'operations'   => ['list', 'show', 'create'],
+                'storagePid'   => 1,
+            ],
+            'columns' => [
+                'CType'            => ['groups' => ['show', 'create']],
+                'tx_split_content' => ['groups' => ['show', 'create'], 'resourceName' => 'split-content-header'] + $relation,
+            ],
+            'security' => [
+                'list'   => AccessRole::PUBLIC,
+                'show'   => AccessRole::PUBLIC,
+                'create' => AccessRole::FE_USER,
+            ],
+        ]);
     }
 }

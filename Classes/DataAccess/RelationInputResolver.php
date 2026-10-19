@@ -10,6 +10,7 @@ use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Security\AccessController;
 use MaikSchneider\TcaApi\Serializer\RelationSerializer;
 use MaikSchneider\TcaApi\Validation\FieldValidator;
+use MaikSchneider\TcaApi\Validation\RecordTypeGuard;
 use Psr\Http\Message\ServerRequestInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -291,7 +292,8 @@ final readonly class RelationInputResolver
      */
     private function validateChildData(array $childData, ApiDefinition $subConfig, string $col, int|string|null $index): array
     {
-        $childViolations = $this->fieldValidator->validate($childData, $subConfig);
+        [$typeViolations, $recordType] = RecordTypeGuard::resolve($childData, $subConfig, true);
+        $childViolations = [...$typeViolations, ...$this->fieldValidator->validate($childData, $subConfig, false, $recordType)];
         if ($childViolations === []) {
             return [];
         }
@@ -309,7 +311,7 @@ final readonly class RelationInputResolver
     }
 
     /**
-     * Prepare child data: set pid, strip client-provided ownership columns,
+     * Prepare child data: set pid and record type, strip client-provided ownership columns,
      * inject authenticated FE user as owner when sub-resource config has one.
      */
     private function prepareChildData(array $data, int $pid, ?array $feUserRow, ?ApiDefinition $subConfig): array
@@ -318,6 +320,11 @@ final readonly class RelationInputResolver
 
         if ($subConfig === null) {
             return $data;
+        }
+
+        [, $recordType] = RecordTypeGuard::resolve($data, $subConfig, true);
+        if ($recordType !== null) {
+            $data[$subConfig->recordTypeField] = $recordType;
         }
 
         $ownerCol = $subConfig->ownershipColumn;
