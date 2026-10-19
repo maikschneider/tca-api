@@ -12,6 +12,14 @@ annotation-driven frameworks like `EXT:t3api
 because none of them solve the **read-heavy API use case** without significant
 trade-offs in performance, boilerplate, or flexibility.
 
+..  seealso::
+
+    The talk `TCA rein, JSON-LD raus
+    <https://maikschneider.github.io/typo3-api-benchmark/talk/>`__
+    (TYPO3 Camp Berlin 2026, German) walks through the extension and its
+    measured performance, based on the `TYPO3 API benchmark
+    <https://github.com/maikschneider/typo3-api-benchmark>`__.
+
 ..  attention::
 
     The analysis below is based on code reading and architectural reasoning.
