@@ -108,7 +108,7 @@ A runnable demo covering a range of configurations lives at
 [maikschneider/typo3-petstore](https://github.com/maikschneider/typo3-petstore).
 
 The talk "TCA rein, JSON-LD raus" (TYPO3 Camp Berlin 2026, German) introduces the extension and
-its performance: [slides with speaker notes](https://maikschneider.github.io/typo3-api-benchmark/talk/),
+its performance: [slides](https://maikschneider.github.io/typo3-api-benchmark/talk/),
 based on the [TYPO3 API benchmark](https://github.com/maikschneider/typo3-api-benchmark).
 
 ## 🧑‍💻 Contributing
