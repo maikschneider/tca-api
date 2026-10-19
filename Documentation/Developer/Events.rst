@@ -69,6 +69,10 @@ Event API reference
      - The serialized response data (collection array or single-item array).
    * - ``setData(array $data): void``
      - Replace the response data. The dispatcher sends the modified array.
+   * - ``getRequest(): ServerRequestInterface``
+     - The PSR-7 server request, with the ``frontend.user`` and ``tca_api.*`` attributes.
+   * - ``getConfig(): ApiDefinition``
+     - The typed configuration of the resource the operation runs on.
    * - ``stopPropagation(): void``
      - Prevents subsequent listeners from receiving the event.
 
@@ -89,6 +93,12 @@ Event API reference
      - The data array about to be passed to DataHandler.
    * - ``setData(array $data): void``
      - Replace the data before it is written.
+   * - ``getRequest(): ServerRequestInterface``
+     - The PSR-7 server request, with the ``frontend.user`` and ``tca_api.*`` attributes.
+   * - ``getConfig(): ApiDefinition``
+     - The typed configuration of the resource the operation runs on.
+   * - ``getUid(): ?int``
+     - The UID of the record being updated or deleted, ``null`` on create.
    * - ``stopPropagation(): void``
      - Aborts the write. The handler returns a 422 response.
 
@@ -107,6 +117,10 @@ Event API reference
      - ``create``, ``update``, or ``delete``.
    * - ``getUid(): int``
      - The UID of the affected record (new record UID after create).
+   * - ``getRequest(): ServerRequestInterface``
+     - The PSR-7 server request, with the ``frontend.user`` and ``tca_api.*`` attributes.
+   * - ``getConfig(): ApiDefinition``
+     - The typed configuration of the resource the operation runs on.
    * - ``stopPropagation(): void``
      - Prevents subsequent listeners from receiving the event.
 
@@ -152,5 +166,39 @@ custom request header is present. ``getConfig()`` returns an
             if (!$event->getRequest()->hasHeader('X-Admin-Token')) {
                 $event->stopPropagation(); // dispatcher returns 403
             }
+        }
+    }
+
+The write events carry the request as well, so a listener reads the frontend
+user from the event instead of :php:`$GLOBALS['TYPO3_REQUEST']`. Since several
+resources can share one table, compare ``getConfig()->resourceName`` rather
+than ``getTable()`` to target a single resource:
+
+..  code-block:: php
+
+    namespace My\Extension\EventListener;
+
+    use MaikSchneider\TcaApi\Event\AfterWriteEvent;
+    use Psr\Log\LoggerInterface;
+
+    final class LogArticleWritesListener
+    {
+        public function __construct(private readonly LoggerInterface $logger)
+        {
+        }
+
+        public function __invoke(AfterWriteEvent $event): void
+        {
+            if ($event->getConfig()->resourceName !== 'articles') {
+                return;
+            }
+
+            $feUser = $event->getRequest()->getAttribute('frontend.user');
+
+            $this->logger->info('Article {operation} by frontend user {user}', [
+                'operation' => $event->getOperation(),
+                'uid'       => $event->getUid(),
+                'user'      => $feUser?->user['uid'] ?? null,
+            ]);
         }
     }

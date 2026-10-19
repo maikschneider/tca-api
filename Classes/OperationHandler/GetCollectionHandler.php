@@ -78,7 +78,7 @@ class GetCollectionHandler implements OperationHandlerInterface
         $preloaded = $this->embedPreloader->preload($rows, $config, $language, $fields, 'list');
         $members   = $this->serializer->serializeCollection($rows, $config, $baseUrl, $fields, $preloaded, 'list');
 
-        $event = new AfterOperationEvent('list', $members);
+        $event = new AfterOperationEvent('list', $members, $request, $config);
         $this->eventDispatcher->dispatch($event);
 
         $queryState = array_diff_key($request->getQueryParams(), ['page' => null]);
