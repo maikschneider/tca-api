@@ -29,12 +29,15 @@ final class FieldValidator
      *                      but still validate any field that IS provided.
      * @param string|null $recordType The target record type; on a resource with type
      *                                schemas only that type's columns are validated.
+     * @param list<string> $ignoredColumns Columns the write ignores (e.g. disabled by
+     *                                     TCEFORM TSconfig); neither required nor validated.
      *
      * @return list<array{propertyPath: string, message: string, code: string}>
      */
-    public function validate(array $body, ApiDefinition $config, bool $partial = false, ?string $recordType = null): array
+    public function validate(array $body, ApiDefinition $config, bool $partial = false, ?string $recordType = null, array $ignoredColumns = []): array
     {
         $violations = [];
+        $ignored = array_flip($ignoredColumns);
 
         if (!$config->isExplicitMode) {
             // Default mode mirrors explicit mode's required/validator semantics.
@@ -44,6 +47,9 @@ final class FieldValidator
             $declaredColumns = $config->typeSchemas ? array_intersect_key($columnMap, $config->columns) : $config->columns;
             foreach ($declaredColumns as $column => $columnDef) {
                 $seen[$column] = true;
+                if (isset($ignored[$column])) {
+                    continue;
+                }
                 $provided = \array_key_exists($column, $body);
                 if ($partial && !$provided) {
                     continue;
@@ -63,7 +69,7 @@ final class FieldValidator
             // validators and the required flag on demand. Symmetric with
             // ColumnFilterTrait, which iterates the same set on writes.
             foreach (array_keys($columnMap) as $column) {
-                if (isset($seen[$column])) {
+                if (isset($seen[$column]) || isset($ignored[$column])) {
                     continue;
                 }
                 $provided = \array_key_exists($column, $body);
@@ -88,7 +94,7 @@ final class FieldValidator
 
         // Explicit mode
         foreach ($config->columns as $column => $columnDef) {
-            if (!$columnDef->isWritable()) {
+            if (!$columnDef->isWritable() || isset($ignored[$column])) {
                 continue;
             }
 

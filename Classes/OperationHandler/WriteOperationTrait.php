@@ -91,15 +91,16 @@ trait WriteOperationTrait
         $body          = $this->withoutOtherTypeColumns($body, $config, $targetType);
         $uploadedFiles = $this->withoutOtherTypeColumns($uploadedFiles, $config, $targetType);
 
-        $tceform       = TceformRestrictions::forConfig($config);
-        $tceformType   = $tceform !== null ? ($targetType ?? $this->tceformRecordType($body, $config, $request)) : null;
-        $body          = $this->withoutTceformDisabledColumns($body, $config, $tceform, $tceformType);
-        $uploadedFiles = $this->withoutTceformDisabledColumns($uploadedFiles, $config, $tceform, $tceformType);
+        $tceform         = TceformRestrictions::forConfig($config);
+        $tceformType     = $tceform !== null ? ($targetType ?? $this->tceformRecordType($body, $config, $request)) : null;
+        $disabledColumns = $this->tceformDisabledColumns($config, $tceform, $tceformType);
+        $body            = array_diff_key($body, array_flip($disabledColumns));
+        $uploadedFiles   = array_diff_key($uploadedFiles, array_flip($disabledColumns));
 
         $violations = [
             ...$recordTypeViolations,
             ...$this->tceformViolations($body, $config, $tceform, $tceformType),
-            ...$this->fieldValidator->validate($body, $config, $partial, $targetType),
+            ...$this->fieldValidator->validate($body, $config, $partial, $targetType, $disabledColumns),
         ];
         if ($violations !== []) {
             return $this->hydraResponseBuilder->buildValidationError($violations);
@@ -176,7 +177,9 @@ trait WriteOperationTrait
 
     /**
      * The record type the TCEFORM types.<type> properties apply to on a resource
-     * without type schemas: the type being written, else the existing record's.
+     * without type schemas: the type being written, else the existing record's. A
+     * type value the resource does not write does not count, so a client cannot
+     * pick the rules of another type.
      */
     private function tceformRecordType(array $body, ApiDefinition $config, ServerRequestInterface $request): ?string
     {
@@ -184,7 +187,7 @@ trait WriteOperationTrait
         if (!\is_string($typeField) || $typeField === '' || str_contains($typeField, ':')) {
             return null;
         }
-        if (\is_scalar($body[$typeField] ?? null)) {
+        if (\is_scalar($body[$typeField] ?? null) && array_key_exists($typeField, $this->filterWritableColumns([$typeField => $body[$typeField]], $config))) {
             return (string)$body[$typeField];
         }
 
@@ -194,27 +197,26 @@ trait WriteOperationTrait
     }
 
     /**
-     * Drops TCA columns that the storage page's TCEFORM TSconfig disables, so they
-     * are ignored on write like columns outside the record type.
+     * TCA columns that the storage page's TCEFORM TSconfig disables. Writes ignore
+     * them like columns outside the record type, and they are not required.
      *
-     * @template T of array
-     * @param T $input
-     * @return T
+     * @return list<string>
      */
-    private function withoutTceformDisabledColumns(array $input, ApiDefinition $config, ?TceformRestrictions $tceform, ?string $recordType): array
+    private function tceformDisabledColumns(ApiDefinition $config, ?TceformRestrictions $tceform, ?string $recordType): array
     {
         if ($tceform === null) {
-            return $input;
+            return [];
         }
 
-        $tcaColumns = $GLOBALS['TCA'][$config->table]['columns'] ?? [];
-        foreach (array_keys($input) as $key) {
-            if (isset($tcaColumns[$key]) && $key !== $config->recordTypeField && $tceform->isDisabled((string)$key, $recordType)) {
-                unset($input[$key]);
+        $disabled = [];
+        foreach (array_keys($GLOBALS['TCA'][$config->table]['columns'] ?? []) as $column) {
+            $column = (string)$column;
+            if ($column !== $config->recordTypeField && $tceform->isDisabled($column, $recordType)) {
+                $disabled[] = $column;
             }
         }
 
-        return $input;
+        return $disabled;
     }
 
     /**

@@ -113,6 +113,35 @@ final class TceformTsconfigTest extends ApiFunctionalTestCase
         }
     }
 
+    public function testADisabledFieldIsNotRequired(): void
+    {
+        $this->registerResource('required-layout', self::config('required-layout', 'RequiredLayout', ['tsconfig' => 'storagePid']) + [
+            'columns' => ['layout' => ['required' => true]],
+        ]);
+
+        $response = $this->executeApiWriteRequestAs('POST', '/_api/required-layout', 1, ['CType' => 'textmedia', 'header' => 'Without layout']);
+
+        self::assertSame(201, $response->getStatusCode());
+    }
+
+    public function testATypeValueTheResourceDoesNotWriteDoesNotSelectTheTypesRules(): void
+    {
+        $this->registerResource('header-editor', self::config('header-editor', 'HeaderEditor', ['tsconfig' => 'storagePid']) + [
+            'columns' => [
+                'CType'         => ['groups' => ['list', 'show']],
+                'header'        => ['groups' => ['list', 'show', 'update']],
+                'header_layout' => ['groups' => ['list', 'show', 'update']],
+            ],
+        ]);
+
+        $response = $this->executeApiWriteRequestAs('PATCH', '/_api/header-editor/8100', 1, ['CType' => 'text', 'header_layout' => 2]);
+
+        self::assertSame(200, $response->getStatusCode());
+        $row = $this->fetchRow(8100);
+        self::assertSame('textmedia', $row['CType']);
+        self::assertSame(0, (int)$row['header_layout']);
+    }
+
     public function testIgnoreIsTheDefault(): void
     {
         $response = $this->executeApiWriteRequestAs('POST', '/_api/plain-content', 1, ['CType' => 'header', 'header' => 'New', 'layout' => 1, 'frame_class' => 'ruler-before']);
