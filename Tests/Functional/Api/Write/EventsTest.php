@@ -58,6 +58,7 @@ final class EventsTest extends ApiFunctionalTestCase
         self::assertCount(1, $afterOps);
         self::assertNotEmpty($afterOps, 'No AfterOperationEvent was dispatched.');
         self::assertSame('list', $afterOps[0]->getOperation());
+        $this->assertCarriesRequestAndConfig($afterOps[0], 'articles');
     }
 
     // ── GET /_api/articles/1 (show) ──────────────────────────────────────────
@@ -75,6 +76,30 @@ final class EventsTest extends ApiFunctionalTestCase
         // AfterOperationEvent fires
         $afterOps = EventCollector::getByClass(AfterOperationEvent::class);
         self::assertCount(1, $afterOps);
+        $this->assertCarriesRequestAndConfig($afterOps[0], 'articles');
+    }
+
+    // ── GET /_api/me (userinfo) ──────────────────────────────────────────────
+
+    public function testEventsOnUserInfo(): void
+    {
+        $this->registerResource('me', [
+            'general' => [
+                'type'         => 'userinfo',
+                'table'        => 'fe_users',
+                'resourceName' => 'me',
+                'resourceType' => 'FeUser',
+                'operations'   => [],
+            ],
+        ]);
+
+        $this->executeApiRequestAs('/_api/me', 1);
+
+        $afterOps = EventCollector::getByClass(AfterOperationEvent::class);
+        self::assertCount(1, $afterOps);
+        self::assertSame('userinfo', $afterOps[0]->getOperation());
+        $this->assertCarriesRequestAndConfig($afterOps[0], 'me');
+        self::assertSame(1, (int)$afterOps[0]->getRequest()->getAttribute('frontend.user')->user['uid']);
     }
 
     // ── POST /_api/articles (create) ─────────────────────────────────────────
@@ -104,6 +129,12 @@ final class EventsTest extends ApiFunctionalTestCase
         self::assertNotEmpty($afterWrites, 'No AfterWriteEvent was dispatched.');
         self::assertSame('create', $afterWrites[0]->getOperation());
         self::assertSame($body['uid'], $afterWrites[0]->getUid());
+
+        self::assertNull($beforeWrites[0]->getUid());
+        foreach ([$beforeWrites[0], $afterWrites[0], EventCollector::getByClass(AfterOperationEvent::class)[0]] as $event) {
+            $this->assertCarriesRequestAndConfig($event, 'articles');
+            self::assertSame(1, (int)$event->getRequest()->getAttribute('frontend.user')->user['uid']);
+        }
     }
 
     // ── PUT /_api/articles/1 (update) ────────────────────────────────────────
@@ -117,10 +148,16 @@ final class EventsTest extends ApiFunctionalTestCase
         self::assertCount(1, $beforeWrites);
         self::assertNotEmpty($beforeWrites, 'No BeforeWriteEvent was dispatched.');
         self::assertSame('update', $beforeWrites[0]->getOperation());
+        self::assertSame(1, $beforeWrites[0]->getUid());
 
         // AfterWriteEvent fires
         $afterWrites = EventCollector::getByClass(AfterWriteEvent::class);
         self::assertCount(1, $afterWrites);
+
+        foreach ([$beforeWrites[0], $afterWrites[0], EventCollector::getByClass(AfterOperationEvent::class)[0]] as $event) {
+            $this->assertCarriesRequestAndConfig($event, 'articles');
+            self::assertSame(1, (int)$event->getRequest()->getAttribute('frontend.user')->user['uid']);
+        }
     }
 
     // ── DELETE /_api/articles/3 (delete) ─────────────────────────────────────
@@ -134,9 +171,22 @@ final class EventsTest extends ApiFunctionalTestCase
         self::assertCount(1, $beforeWrites);
         self::assertNotEmpty($beforeWrites, 'No BeforeWriteEvent was dispatched.');
         self::assertSame('delete', $beforeWrites[0]->getOperation());
+        self::assertSame(3, $beforeWrites[0]->getUid());
 
         // AfterWriteEvent fires
         $afterWrites = EventCollector::getByClass(AfterWriteEvent::class);
         self::assertCount(1, $afterWrites);
+
+        foreach ([$beforeWrites[0], $afterWrites[0], EventCollector::getByClass(AfterOperationEvent::class)[0]] as $event) {
+            $this->assertCarriesRequestAndConfig($event, 'articles');
+        }
+    }
+
+    private function assertCarriesRequestAndConfig(
+        AfterOperationEvent|BeforeWriteEvent|AfterWriteEvent $event,
+        string $resourceName,
+    ): void {
+        self::assertSame($resourceName, $event->getConfig()->resourceName);
+        self::assertSame($event->getOperation(), $event->getRequest()->getAttribute('tca_api.operation'));
     }
 }

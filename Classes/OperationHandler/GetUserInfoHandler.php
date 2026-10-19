@@ -72,7 +72,7 @@ class GetUserInfoHandler implements OperationHandlerInterface
         $preloaded  = $this->embedPreloader->preload([$row], $config, $language, $fields);
         $serialized = $this->serializer->serialize($row, $config, $baseUrl, $fields, $preloaded);
 
-        $event = new AfterOperationEvent('userinfo', $serialized);
+        $event = new AfterOperationEvent('userinfo', $serialized, $request, $config);
         $this->eventDispatcher->dispatch($event);
 
         return $this->hydraResponseBuilder->buildItem($event->getData());

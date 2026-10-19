@@ -64,7 +64,7 @@ class GetItemHandler implements OperationHandlerInterface
         $preloaded  = $this->embedPreloader->preload([$row], $config, $language, $fields, 'show');
         $serialized = $this->serializer->serialize($row, $config, $baseUrl, $fields, $preloaded, -1, [], 'show');
 
-        $event = new AfterOperationEvent('show', $serialized);
+        $event = new AfterOperationEvent('show', $serialized, $request, $config);
         $this->eventDispatcher->dispatch($event);
 
         return $this->hydraResponseBuilder->buildItem($event->getData());
