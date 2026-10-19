@@ -87,7 +87,7 @@ class UpdateHandler implements OperationHandlerInterface
         $data = $beforeEvent->getData();
 
         // Call 1: update parent record and any new related records (no file columns).
-        $dataMap      = [$config->table => [$uid => $data]] + $resolved->extraDataMap;
+        $dataMap      = array_replace_recursive([$config->table => [$uid => $data]], $resolved->extraDataMap);
         $writeContext = $this->writeContextFactory->fromRequest($request, $config->writeMode);
         $this->writeService->processDataMap($dataMap, $writeContext);
 

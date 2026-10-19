@@ -50,7 +50,7 @@ final readonly class ApiDefinitionLoader
         $definitions = $this->cache->require($cacheIdentifier);
         if (!is_array($definitions)) {
             $filterMap  = $this->buildResolvableFilterMap();
-            $rawConfigs = $this->collectDefinitions();
+            $rawConfigs = RecordTypeSplitter::expand($this->collectDefinitions());
             $definitions = [];
             foreach ($rawConfigs as $resourceName => $config) {
                 $table = $config['general']['table'] ?? '';

@@ -38,17 +38,18 @@ final class ApiRegistry
 
     /**
      * The config a relation from $config to $foreignTable serializes with.
-     * A self-referential relation keeps $config so its embed definitions apply
-     * again; an explicit $resourceName selects that registration by name.
+     * An explicit $resourceName selects that registration by name, also on the
+     * same table; otherwise a self-referential relation keeps $config so its
+     * embed definitions apply again.
      */
     public function getRelated(string $foreignTable, ApiDefinition $config, ?string $resourceName = null): ?ApiDefinition
     {
-        if ($foreignTable === $config->table) {
-            return $config;
-        }
-
         if ($resourceName !== null) {
             return $this->get($resourceName);
+        }
+
+        if ($foreignTable === $config->table) {
+            return $config;
         }
 
         return $this->getByTable($foreignTable);

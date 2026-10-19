@@ -99,7 +99,7 @@ class CreateHandler implements OperationHandlerInterface
         // before the parent record exists. DataHandler's NEW_xxx remapping does not
         // propagate uid_foreign to sys_file_reference for type=file columns.
         $primaryKey   = 'NEW_primary';
-        $dataMap      = [$config->table => [$primaryKey => $data]] + $resolved->extraDataMap;
+        $dataMap      = array_replace_recursive([$config->table => [$primaryKey => $data]], $resolved->extraDataMap);
         $writeContext = $this->writeContextFactory->fromRequest($request, $config->writeMode);
         $substMap     = $this->writeService->processDataMap($dataMap, $writeContext);
         $uid          = (int)($substMap[$primaryKey] ?? 0);
