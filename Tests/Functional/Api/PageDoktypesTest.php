@@ -17,9 +17,17 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
  *
  * The external URL of a link page is the `link` column since TYPO3 v14 and `url`
  * before, so the link and shortcut pages are inserted here rather than in a CSV.
+ *
+ * tx_testrecordtypes_item.target (test_record_types fixture) is a manyToOne group
+ * over pages and tt_content.
  */
 final class PageDoktypesTest extends ApiFunctionalTestCase
 {
+    protected array $testExtensionsToLoad = [
+        'tca_api',
+        __DIR__ . '/../Fixtures/Extensions/test_record_types',
+    ];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -96,5 +104,22 @@ final class PageDoktypesTest extends ApiFunctionalTestCase
         $shortcut = array_values(array_filter($class['hydra:supportedProperty'], static fn (array $property): bool => $property['hydra:title'] === 'shortcut'))[0];
         self::assertSame('#WebPage', $shortcut['hydra:property']['range']);
         self::assertSame(1, $shortcut['hydra:property']['owl:maxCardinality']);
+    }
+
+    public function testAManyToOneGroupOverSeveralTablesKeepsItsRecord(): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('tx_testrecordtypes_item')
+            ->insert('tx_testrecordtypes_item', ['uid' => 710, 'pid' => 1, 'item_type' => 'article', 'title' => 'Item', 'target' => 'pages_500']);
+        $this->registerResource('items', [
+            'general'  => ['table' => 'tx_testrecordtypes_item', 'resourceName' => 'items', 'resourceType' => 'Item'],
+            'columns'  => ['target' => ['groups' => ['show']]],
+            'security' => ['list' => AccessRole::PUBLIC, 'show' => AccessRole::PUBLIC],
+        ]);
+
+        $target = $this->decodeResponseBody($this->executeApiRequest('/_api/items/710'))['target'];
+        $schema = $this->decodeResponseBody($this->executeApiRequest('/_api/openapi.json'))['components']['schemas']['ItemRead']['properties']['target'];
+
+        self::assertSame('array', $schema['type']);
+        self::assertSame(['/_api/web-pages/500'], $target);
     }
 }
