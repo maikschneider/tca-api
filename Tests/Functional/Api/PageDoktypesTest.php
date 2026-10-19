@@ -90,5 +90,11 @@ final class PageDoktypesTest extends ApiFunctionalTestCase
         self::assertArrayHasKey('shortcut', $schemas['WebPage4Read']['properties']);
         self::assertArrayNotHasKey('shortcut', $schemas['WebPage1Read']['properties']);
         self::assertArrayNotHasKey('items', $schemas['WebPage4Read']['properties']['shortcut']);
+
+        $hydra = $this->decodeResponseBody($this->executeApiRequest('/_api/docs.jsonld'));
+        $class = array_values(array_filter($hydra['hydra:supportedClass'], static fn (array $class): bool => $class['hydra:title'] === 'WebPage'))[0];
+        $shortcut = array_values(array_filter($class['hydra:supportedProperty'], static fn (array $property): bool => $property['hydra:title'] === 'shortcut'))[0];
+        self::assertSame('#WebPage', $shortcut['hydra:property']['range']);
+        self::assertSame(1, $shortcut['hydra:property']['owl:maxCardinality']);
     }
 }

@@ -227,6 +227,28 @@ types. Unknown types, tables without ``ctrl.type`` and foreign-field types
     renders them regardless of ``recordTypes``, as it does for
     ``storagePid``.
 
+Recipe: pages
+-------------
+
+``pages.doktype`` works like ``CType``. Most pages types are not content for
+an API: sysfolders (``254``), the recycler (``255``), spacers (``199``) and
+backend user sections (``6``). Scope a pages resource to the types a frontend
+renders:
+
+..  code-block:: php
+
+    'general' => [
+        'table'        => 'pages',
+        'resourceName' => 'pages',
+        'resourceType' => 'Page',
+        'recordTypes'  => [1, 3, 4],   // standard, link, shortcut
+    ],
+
+Pages of other types answer ``404``, also on ``show`` by uid. Each page
+exposes the fields of its type: a link page carries its URL (``link``, or
+``url`` before TYPO3 v14) resolved like any typolink field, and a shortcut
+page carries ``shortcut_mode`` and ``shortcut`` as a link to the target page.
+
 Columns per record type
 -----------------------
 

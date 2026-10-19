@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A `type=group` column holding one record is serialized.** `pages.shortcut` (`relationship => manyToOne`, one allowed table) rendered as `null`, because the single-relation path only read `foreign_table`. It now links to the target record, and OpenAPI and Hydra describe it as one relation instead of a list ([#222](https://github.com/maikschneider/tca-api/issues/222), [#119](https://github.com/maikschneider/tca-api/issues/119)).
 - **Cached responses are no longer shared between sites.** The cache key did not include the site, so two sites exposing the same resource served each other's cached responses, including links with the other site's API prefix ([#38](https://github.com/maikschneider/tca-api/issues/38)).
 - **Hydra docs no longer describe file columns as integers.** The 2.2.0 change that documents relations without an item endpoint as uids keyed off `foreign_table`, which TYPO3 also sets on `type=file` columns (`sys_file_reference`), so every file column got `"range": "xsd:integer"` although it still serializes as file objects. API Platform Admin guessed a number field from that and crashed rendering the file objects. File columns are described as `xsd:string` again ([#215](https://github.com/maikschneider/tca-api/issues/215)).
 
