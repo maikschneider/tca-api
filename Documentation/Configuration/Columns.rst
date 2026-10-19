@@ -142,7 +142,7 @@ decoded before output; sensitive types are excluded entirely.
      - Decoded crop config object
    * - ``flex``
      - Auto-decoded via ``GeneralUtility::xml2array``
-     - Decoded associative array
+     - Decoded associative array; typed per record type in OpenAPI
    * - ``datetime``
      - Auto-formatted to ISO 8601 (``DateTimeInterface::ATOM``)
      - ``"2024-01-01T00:00:00+00:00"`` or ``null``

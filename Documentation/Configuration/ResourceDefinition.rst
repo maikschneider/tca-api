@@ -251,6 +251,10 @@ field processing use the type's configuration.
     ``Read`` and ``Write`` schemas describe that type. The ``Write`` schema of
     a multi-type resource lists the columns of all its types, because ``PATCH``
     bodies are partial and cannot be matched against a single type.
+*   A FlexForm field is described by the data structure of its type: the
+    per-type schema lists the sheets and fields of the decoded value
+    (``data.<sheet>.lDEF.<field>.vDEF``) instead of a generic ``object``.
+    A schema that is not bound to one type keeps the generic ``object``.
 
 Declared ``columns`` keep their configuration but count only for the types
 whose form contains them. Their TCA-derived validation follows the type's

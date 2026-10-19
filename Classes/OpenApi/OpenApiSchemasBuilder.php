@@ -108,7 +108,7 @@ final readonly class OpenApiSchemasBuilder
         if (!$config->isExplicitMode) {
             foreach ($config->columnMap($recordType) as $column => $columnDef) {
                 $tcaConfig = RecordTypeFields::columnDefinition($config->table, $column, $recordType)['config'] ?? null;
-                $properties[$column] = $this->buildReadPropertySchema($columnDef, $tcaConfig, $config, $resources, $remainingDepth);
+                $properties[$column] = $this->buildReadPropertySchema($columnDef, $tcaConfig, $config, $resources, $remainingDepth, $column, $recordType);
             }
         } else {
             foreach ($config->columns as $column => $columnDef) {
@@ -119,7 +119,7 @@ final readonly class OpenApiSchemasBuilder
                     continue;
                 }
                 $tcaConfig = $GLOBALS['TCA'][$config->table]['columns'][$column]['config'] ?? null;
-                $properties[$column] = $this->buildReadPropertySchema($columnDef, $tcaConfig, $config, $resources, $remainingDepth);
+                $properties[$column] = $this->buildReadPropertySchema($columnDef, $tcaConfig, $config, $resources, $remainingDepth, $column, $recordType);
             }
         }
 
@@ -196,13 +196,16 @@ final readonly class OpenApiSchemasBuilder
     }
 
     /** @param ApiDefinition[] $resources */
-    private function buildReadPropertySchema(ColumnDefinition $columnDef, ?array $tcaConfig, ApiDefinition $config, array $resources, int $remainingDepth = -1): array
+    private function buildReadPropertySchema(ColumnDefinition $columnDef, ?array $tcaConfig, ApiDefinition $config, array $resources, int $remainingDepth, string $column, ?string $recordType): array
     {
         if ($tcaConfig !== null) {
             $tcaType = $tcaConfig['type'] ?? '';
 
             if ($tcaType === 'file') {
                 return $this->buildFilePropertySchema($tcaConfig);
+            }
+            if ($tcaType === 'flex' && $columnDef->processor === null) {
+                return FlexFormSchema::forColumn($config->table, $column, $recordType) ?? ['type' => 'object'];
             }
             if ($tcaType === 'json' || $tcaType === 'flex') {
                 return ['type' => 'object'];
