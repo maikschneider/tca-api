@@ -161,7 +161,9 @@ final class ResourceSerializer
                 continue;
             }
 
-            if ($field->getRelationshipType()->hasOne()) {
+            // A group over several tables stays a list of prefixed references, as the schema describes it.
+            $fieldConfig = $field->getConfiguration();
+            if ($field->getRelationshipType()->hasOne() && (($fieldConfig['type'] ?? '') !== 'group' || RelationSerializer::hasOneForeignTable($fieldConfig) !== null)) {
                 $result[$column] = $this->relationSerializer->serializeHasOne($column, $columnDef, $config, $row, $field, $preloaded, $remainingDepth, $visited, $operation, $apiPrefix, $this);
                 continue;
             }

@@ -26,6 +26,22 @@ return [
             'label'  => 'Title',
             'config' => ['type' => 'input'],
         ],
+        'target' => [
+            'label'  => 'Target',
+            'config' => [
+                'type'         => 'group',
+                'allowed'      => 'pages,tt_content',
+                'relationship' => 'manyToOne',
+            ],
+        ],
+        'target_page' => [
+            'label'  => 'Target page',
+            'config' => [
+                'type'         => 'group',
+                'allowed'      => 'pages',
+                'relationship' => 'manyToOne',
+            ],
+        ],
     ],
     'types' => [
         'article' => ['showitem' => 'item_type, title'],

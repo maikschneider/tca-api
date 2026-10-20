@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A `type=group` column holding one record is serialized.** `pages.shortcut` (`relationship => manyToOne`, one allowed table) rendered as `null`, because the single-relation path only read `foreign_table`. It now links to the target record, and OpenAPI and Hydra describe it as one relation instead of a list ([#222](https://github.com/maikschneider/tca-api/issues/222), [#119](https://github.com/maikschneider/tca-api/issues/119)).
 - **Nested creates respect the child resource's record types.** A record created through a relation into a resource with `recordTypes` kept whatever type the client sent, so a child could be created as a type the target resource does not serve. A single-type child resource now sets its type, and any other value is rejected with `422`, `INVALID_RECORD_TYPE`.
 - **Nested creates into the parent's own table are no longer dropped.** The child records were merged into the DataHandler datamap with `+`, which discards entries for a table already present, so the parent was saved without them.
 - **An explicit `resourceName` on a relation into the same table is honoured.** Embedded records of a self-relation were serialized with the parent resource's identity and columns even when the column named another resource. Hydra relation ranges now also follow the runtime choice: the resource itself for a self-relation, otherwise the first resource registered for the table.

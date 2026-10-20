@@ -8,6 +8,7 @@ use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
+use MaikSchneider\TcaApi\Tca\GroupAllowedResolver;
 use MaikSchneider\TcaApi\Utility\UidListParser;
 use TYPO3\CMS\Core\Schema\Field\FieldTypeInterface;
 use TYPO3\CMS\Core\Schema\Field\GroupFieldType;
@@ -33,6 +34,28 @@ final class RelationSerializer
     }
 
     /**
+     * The table a hasOne field points to: foreign_table, or the single allowed
+     * table of a type=group field such as pages.shortcut.
+     *
+     * @param array<string, mixed> $fieldConfig
+     */
+    public static function hasOneForeignTable(array $fieldConfig): ?string
+    {
+        $foreignTable = $fieldConfig['foreign_table'] ?? null;
+        if (\is_string($foreignTable) && $foreignTable !== '') {
+            return $foreignTable;
+        }
+        if (($fieldConfig['type'] ?? null) !== 'group') {
+            return null;
+        }
+
+        $resolver = new GroupAllowedResolver();
+        $allowedTables = $resolver->resolveAllowedTables($fieldConfig);
+
+        return \count($allowedTables) === 1 && !$resolver->isWildcard($fieldConfig) ? $allowedTables[0] : null;
+    }
+
+    /**
      * Serialize a hasOne relational field, with optional deep embedding.
      *
      * $remainingDepth == -1  → top level: resolve embed depth from $columnDef
@@ -52,7 +75,7 @@ final class RelationSerializer
         ResourceSerializer $serializer,
     ): mixed {
         $fkValue      = (int)($row[$column] ?? 0);
-        $foreignTable = $fieldObj->getConfiguration()['foreign_table'] ?? null;
+        $foreignTable = self::hasOneForeignTable($fieldObj->getConfiguration());
 
         if ($fkValue <= 0 || $foreignTable === null) {
             return null;

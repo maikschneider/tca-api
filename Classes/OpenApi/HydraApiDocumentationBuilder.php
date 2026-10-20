@@ -8,6 +8,7 @@ use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Dispatcher\RequestContext;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
+use MaikSchneider\TcaApi\Serializer\RelationSerializer;
 
 final class HydraApiDocumentationBuilder
 {
@@ -268,7 +269,10 @@ final class HydraApiDocumentationBuilder
             return $resource?->isAddressable() === true ? $resource->resourceType : null;
         }
 
-        $foreignTable = $GLOBALS['TCA'][$config->table]['columns'][$column]['config']['foreign_table'] ?? null;
+        $tcaConfig = $GLOBALS['TCA'][$config->table]['columns'][$column]['config'] ?? [];
+        $foreignTable = ($tcaConfig['type'] ?? '') === 'group'
+            ? (self::isSingleGroupRelation($tcaConfig) ? RelationSerializer::hasOneForeignTable($tcaConfig) : null)
+            : ($tcaConfig['foreign_table'] ?? null);
         if ($foreignTable === null) {
             return null;
         }
@@ -284,7 +288,16 @@ final class HydraApiDocumentationBuilder
         $tcaConfig = $GLOBALS['TCA'][$table]['columns'][$column]['config'] ?? [];
 
         return ($tcaConfig['maxitems'] ?? null) === 1
-            || ($tcaConfig['renderType'] ?? '') === 'selectSingle';
+            || ($tcaConfig['renderType'] ?? '') === 'selectSingle'
+            || self::isSingleGroupRelation($tcaConfig);
+    }
+
+    /** A type=group column holding one record, such as pages.shortcut. */
+    private static function isSingleGroupRelation(array $tcaConfig): bool
+    {
+        return ($tcaConfig['type'] ?? '') === 'group'
+            && \in_array($tcaConfig['relationship'] ?? null, ['manyToOne', 'oneToOne'], true)
+            && !isset($tcaConfig['MM']);
     }
 
     /**
