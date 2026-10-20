@@ -18,6 +18,8 @@ use MaikSchneider\TcaApi\OpenApi\OpenApiBuilder;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Registry\HandlerRegistry;
 use MaikSchneider\TcaApi\Security\AccessController;
+use MaikSchneider\TcaApi\Security\Authentication\AuthenticatorChain;
+use MaikSchneider\TcaApi\Security\Authentication\Principal;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
@@ -40,6 +42,7 @@ final class RequestDispatcher
     public function __construct(
         private readonly ResponseFactoryInterface $responseFactory,
         private readonly AccessController $accessController,
+        private readonly AuthenticatorChain $authenticatorChain,
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly DataRepository $dataRepository,
@@ -55,9 +58,15 @@ final class RequestDispatcher
 
     public function dispatch(ServerRequestInterface $request, SiteSettings $siteSettings): ResponseInterface
     {
+        $authentication = $this->authenticatorChain->authenticate($request);
+        if ($authentication->principal === null) {
+            return $this->unauthorized($authentication->challenge, $authentication->reason);
+        }
+
         $ctx = new RequestContext($siteSettings, $request);
         $method = strtoupper($request->getMethod());
         $request = $request
+            ->withAttribute(Principal::REQUEST_ATTRIBUTE, $authentication->principal)
             ->withAttribute('tca_api.language', $ctx->language)
             ->withAttribute('tca_api.language_id', $ctx->language?->getLanguageId());
 
@@ -243,8 +252,7 @@ final class RequestDispatcher
     private function checkAccess(string $operation, ServerRequestInterface $request, ApiDefinition $config, array $existingRecord, SiteSettings $siteSettings): ?ResponseInterface
     {
         if ($operation === 'userinfo') {
-            $feUser = $request->getAttribute('frontend.user');
-            if ($feUser === null || empty($feUser->user['uid'])) {
+            if (!Principal::fromRequest($request)->isFrontendUser()) {
                 return $this->forbidden('userinfo', $siteSettings);
             }
             return null;
@@ -436,6 +444,13 @@ final class RequestDispatcher
             : 'Method not allowed';
 
         return $this->hydraResponseBuilder->buildError(405, $description, 'Method Not Allowed');
+    }
+
+    private function unauthorized(string $challenge, string $reason): ResponseInterface
+    {
+        $response = $this->hydraResponseBuilder->buildError(401, $reason, 'Unauthorized');
+
+        return $challenge !== '' ? $response->withHeader('WWW-Authenticate', $challenge) : $response;
     }
 
     private function forbidden(string $operation, SiteSettings $siteSettings): ResponseInterface

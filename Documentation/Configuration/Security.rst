@@ -96,7 +96,9 @@ object-level security):
         'create' => [MyAccessChecker::class, 'checkCreatePermission'],
     ],
 
-The callable must return ``true`` to grant access or ``false`` to deny it.
+The callable must return ``true`` to grant access or ``false`` to deny it. The
+caller is available as ``Principal::fromRequest($request)``, see
+:ref:`authenticators`.
 
 ..  code-block:: php
 

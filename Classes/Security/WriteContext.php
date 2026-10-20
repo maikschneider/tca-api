@@ -60,6 +60,16 @@ final readonly class WriteContext
      * WARNING: This bypasses user-level audit tracking. Only use for internal operations
      * where no user session exists.
      */
+    public static function forService(int $uid, string $username, WriteMode $mode = WriteMode::ACTING_USER): self
+    {
+        return new self(
+            mode: $mode,
+            actorType: 'service',
+            actorUid: $uid,
+            actorUsername: $username,
+        );
+    }
+
     public static function forSystem(): self
     {
         return new self(

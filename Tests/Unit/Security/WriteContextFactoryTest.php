@@ -33,8 +33,7 @@ final class WriteContextFactoryTest extends TestCase
 
         $request = $this->createMock(ServerRequestInterface::class);
         $request->method('getAttribute')
-            ->with('frontend.user')
-            ->willReturn($feUser);
+            ->willReturnCallback(static fn (string $name): ?object => $name === 'frontend.user' ? $feUser : null);
 
         return $request;
     }
@@ -43,8 +42,7 @@ final class WriteContextFactoryTest extends TestCase
     {
         $request = $this->createMock(ServerRequestInterface::class);
         $request->method('getAttribute')
-            ->with('frontend.user')
-            ->willReturn(null);
+            ->willReturnCallback(static fn (string $name): ?object => $name === 'frontend.user' ? null : null);
 
         return $request;
     }

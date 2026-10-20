@@ -14,6 +14,7 @@ use MaikSchneider\TcaApi\DataAccess\RelationInputResolver;
 use MaikSchneider\TcaApi\Event\AfterOperationEvent;
 use MaikSchneider\TcaApi\Event\AfterWriteEvent;
 use MaikSchneider\TcaApi\Event\BeforeWriteEvent;
+use MaikSchneider\TcaApi\Security\Authentication\Principal;
 use MaikSchneider\TcaApi\Security\WriteContextFactory;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
@@ -70,12 +71,12 @@ class CreateHandler implements OperationHandlerInterface
         $resolved = $result['resolved'];
         $storedFiles = $result['storedFiles'];
 
-        $feUser = $request->getAttribute('frontend.user');
+        $principal = Principal::fromRequest($request);
 
         $data['pid'] = StoragePidResolver::writePid($config);
 
-        if ($feUser !== null && !empty($feUser->user['uid'])) {
-            $feUid = (int)$feUser->user['uid'];
+        if ($principal->isFrontendUser()) {
+            $feUid = $principal->frontendUserUid;
             if ($config->ownershipColumn !== null) {
                 $data[$config->ownershipColumn] = $feUid;
             }

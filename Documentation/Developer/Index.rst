@@ -13,6 +13,7 @@ operation handlers, and the request attribute API.
 
     Events
     CustomHandlers
+    Authenticators
     RequestAttributes
     Architecture
     ConfigurationModule

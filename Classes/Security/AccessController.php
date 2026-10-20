@@ -6,8 +6,8 @@ namespace MaikSchneider\TcaApi\Security;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Enum\AccessRole;
+use MaikSchneider\TcaApi\Security\Authentication\Principal;
 use Psr\Http\Message\ServerRequestInterface;
-use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final class AccessController
@@ -17,9 +17,11 @@ final class AccessController
      */
     public function isAllowed(AccessRole|array $requiredRole, ServerRequestInterface $request, array $record = [], ?ApiDefinition $config = null): bool
     {
+        $principal = Principal::fromRequest($request);
+
         if (is_array($requiredRole)) {
             if ($requiredRole[0] instanceof AccessRole) {
-                return $this->hasFrontendUserInGroups($request, $requiredRole[1] ?? []);
+                return $this->isFrontendUserInGroups($principal, $requiredRole[1] ?? []);
             }
 
             [$class, $method] = $requiredRole;
@@ -29,50 +31,38 @@ final class AccessController
         return match ($requiredRole) {
             AccessRole::PUBLIC   => true,
             AccessRole::DISABLED => false,
-            AccessRole::FE_USER  => $this->hasFrontendUser($request),
-            AccessRole::FE_GROUP => $this->hasFrontendUserInGroups($request, []),
-            AccessRole::BE_USER  => $this->hasBackendUser(),
-            AccessRole::BE_ADMIN => $this->isBackendAdmin(),
-            AccessRole::OWNER    => $this->isOwner($request, $record, $config),
+            AccessRole::FE_USER  => $principal->isFrontendUser(),
+            AccessRole::FE_GROUP => $this->isFrontendUserInGroups($principal, []),
+            AccessRole::BE_USER  => $principal->isBackendUser(),
+            AccessRole::BE_ADMIN => $principal->isBackendAdmin(),
+            AccessRole::OWNER    => $this->isOwner($principal, $record, $config),
         };
     }
 
-    private function isOwner(ServerRequestInterface $request, array $record, ?ApiDefinition $config): bool
+    private function isOwner(Principal $principal, array $record, ?ApiDefinition $config): bool
     {
         $ownerColumn = $config?->ownershipColumn;
         if ($ownerColumn === null) {
             return false;
         }
 
-        if ($config->ownershipBeAdminBypass && $this->isBackendAdmin()) {
+        if ($config->ownershipBeAdminBypass && $principal->isBackendAdmin()) {
             return true;
         }
 
-        $feUser = $request->getAttribute('frontend.user');
-        if ($feUser === null || empty($feUser->user['uid'])) {
+        if (!$principal->isFrontendUser()) {
             return false;
         }
 
-        return (int)($record[$ownerColumn] ?? null) === (int)$feUser->user['uid'];
+        return (int)($record[$ownerColumn] ?? null) === $principal->frontendUserUid;
     }
 
-    private function hasFrontendUser(ServerRequestInterface $request): bool
+    /**
+     * @param array<int> $allowedGroupIds empty means any group
+     */
+    private function isFrontendUserInGroups(Principal $principal, array $allowedGroupIds): bool
     {
-        $feUser = $request->getAttribute('frontend.user');
-
-        return $feUser !== null && !empty($feUser->user['uid']);
-    }
-
-    private function hasFrontendUserInGroups(ServerRequestInterface $request, array $allowedGroupIds): bool
-    {
-        if (!$this->hasFrontendUser($request)) {
-            return false;
-        }
-
-        $feUser = $request->getAttribute('frontend.user');
-        $userGroups = GeneralUtility::intExplode(',', (string)($feUser->user['usergroup'] ?? ''), true);
-
-        if ($userGroups === []) {
+        if (!$principal->isFrontendUser() || $principal->frontendGroupIds === []) {
             return false;
         }
 
@@ -80,22 +70,6 @@ final class AccessController
             return true;
         }
 
-        return array_intersect($userGroups, $allowedGroupIds) !== [];
-    }
-
-    private function hasBackendUser(): bool
-    {
-        $beUser = $GLOBALS['BE_USER'] ?? null;
-
-        return $beUser instanceof BackendUserAuthentication
-            && is_array($beUser->user)
-            && !empty($beUser->user['uid']);
-    }
-
-    private function isBackendAdmin(): bool
-    {
-        $beUser = $GLOBALS['BE_USER'] ?? null;
-
-        return $beUser instanceof BackendUserAuthentication && $beUser->isAdmin();
+        return array_intersect($principal->frontendGroupIds, $allowedGroupIds) !== [];
     }
 }

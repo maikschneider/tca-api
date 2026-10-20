@@ -8,6 +8,7 @@ use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\EmbedPreloader;
 use MaikSchneider\TcaApi\Event\AfterOperationEvent;
+use MaikSchneider\TcaApi\Security\Authentication\Principal;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -56,8 +57,8 @@ class GetUserInfoHandler implements OperationHandlerInterface
 
     private function doHandle(ServerRequestInterface $request, ApiDefinition $config, array $fields): ResponseInterface
     {
-        $feUser = $request->getAttribute('frontend.user');
-        $uid    = (int)($feUser->user['uid'] ?? 0);
+        $principal = Principal::fromRequest($request);
+        $uid       = $principal->frontendUserUid;
 
         $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
         $baseUrl   = $apiPrefix . '/' . $config->resourceName;

@@ -8,6 +8,7 @@ use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Security\AccessController;
+use MaikSchneider\TcaApi\Security\Authentication\Principal;
 use MaikSchneider\TcaApi\Serializer\RelationSerializer;
 use MaikSchneider\TcaApi\Validation\FieldValidator;
 use MaikSchneider\TcaApi\Validation\RecordTypeGuard;
@@ -80,8 +81,8 @@ final readonly class RelationInputResolver
         ServerRequestInterface $request,
     ): ResolvedInput {
         $table = $parentDefinition->table;
-        $feUser       = $request->getAttribute('frontend.user');
-        $feUserRow    = $feUser?->user;
+        $principal    = Principal::fromRequest($request);
+        $ownerUid     = $principal->isFrontendUser() ? $principal->frontendUserUid : null;
         $apiPrefix    = rtrim((string)$request->getAttribute('tca_api.api_prefix', '/_api'), '/');
         $scalarBody   = [];
         $extraDataMap = [];
@@ -140,7 +141,7 @@ final readonly class RelationInputResolver
                     }
 
                     $ph                              = StringUtility::getUniqueId('NEW');
-                    $childData                       = $this->prepareChildData($childData, $pid, $feUserRow, $subConfig);
+                    $childData                       = $this->prepareChildData($childData, $pid, $ownerUid, $subConfig);
                     $extraDataMap[$foreignTable][$ph] = $childData;
                     $childPlaceholders[]             = $ph;
                 }
@@ -176,7 +177,7 @@ final readonly class RelationInputResolver
                         }
 
                         $ph                              = StringUtility::getUniqueId('NEW');
-                        $extraDataMap[$foreignTable][$ph] = $this->prepareChildData($value, $pid, $feUserRow, $subConfig);
+                        $extraDataMap[$foreignTable][$ph] = $this->prepareChildData($value, $pid, $ownerUid, $subConfig);
                         $scalarBody[$col]                = $ph;
                     } else {
                         $violations[] = $this->unresolvableRelation($col, $foreignTable, null);
@@ -212,7 +213,7 @@ final readonly class RelationInputResolver
                         }
 
                         $ph                              = StringUtility::getUniqueId('NEW');
-                        $extraDataMap[$effectiveFt][$ph] = $this->prepareChildData($item, $pid, $feUserRow, $subConfig);
+                        $extraDataMap[$effectiveFt][$ph] = $this->prepareChildData($item, $pid, $ownerUid, $subConfig);
                         $resolvedUids[]                  = $ph;
                     } elseif (is_string($item) && ($uid = $this->iriToUid($item, $apiPrefix)) !== null) {
                         $resolvedUids[] = $uid;
@@ -314,7 +315,7 @@ final readonly class RelationInputResolver
      * Prepare child data: set pid and record type, strip client-provided ownership columns,
      * inject authenticated FE user as owner when sub-resource config has one.
      */
-    private function prepareChildData(array $data, int $pid, ?array $feUserRow, ?ApiDefinition $subConfig): array
+    private function prepareChildData(array $data, int $pid, ?int $ownerUid, ?ApiDefinition $subConfig): array
     {
         $data['pid'] = $pid;
 
@@ -334,13 +335,12 @@ final readonly class RelationInputResolver
             unset($data[$col]);
         }
 
-        if ($feUserRow !== null && !empty($feUserRow['uid'])) {
-            $feUid = (int)$feUserRow['uid'];
+        if ($ownerUid !== null) {
             if ($ownerCol !== null) {
-                $data[$ownerCol] = $feUid;
+                $data[$ownerCol] = $ownerUid;
             }
             if ($trackCol !== null && $trackCol !== $ownerCol) {
-                $data[$trackCol] = $feUid;
+                $data[$trackCol] = $ownerUid;
             }
         }
 

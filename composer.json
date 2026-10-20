@@ -60,6 +60,7 @@
 	},
 	"autoload-dev": {
 		"psr-4": {
+			"MaikSchneider\\TcaApiTestAuthenticator\\": "Tests/Functional/Fixtures/Extensions/test_authenticator/Classes",
 			"MaikSchneider\\TcaApiTestEvents\\": "Tests/Functional/Fixtures/Extensions/test_events/Classes",
 			"MaikSchneider\\TcaApi\\Tests\\": "Tests"
 		}
