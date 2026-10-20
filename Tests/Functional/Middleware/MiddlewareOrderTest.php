@@ -16,7 +16,7 @@ final class MiddlewareOrderTest extends ApiFunctionalTestCase
     public function testApiMiddlewareRunsAfterTheAuthenticationMiddlewares(): void
     {
         // The resolver returns the stack last-in-first-out; reverse it into execution order.
-        $stack = array_reverse(array_keys($this->get(MiddlewareStackResolver::class)->resolve('frontend')->getArrayCopy()));
+        $stack = array_reverse(array_keys(iterator_to_array($this->get(MiddlewareStackResolver::class)->resolve('frontend'))));
         $apiPosition = array_search('maikschneider/tca-api/middleware', $stack, true);
 
         self::assertIsInt($apiPosition);
