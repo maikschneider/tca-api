@@ -34,6 +34,14 @@ return [
                 'relationship' => 'manyToOne',
             ],
         ],
+        'target_page' => [
+            'label'  => 'Target page',
+            'config' => [
+                'type'         => 'group',
+                'allowed'      => 'pages',
+                'relationship' => 'manyToOne',
+            ],
+        ],
     ],
     'types' => [
         'article' => ['showitem' => 'item_type, title'],

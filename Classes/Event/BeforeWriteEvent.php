@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Event;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use Psr\EventDispatcher\StoppableEventInterface;
+use Psr\Http\Message\ServerRequestInterface;
 
 /**
  * Dispatched before DataHandler writes a record (create, update, delete).
@@ -20,6 +22,9 @@ final class BeforeWriteEvent implements StoppableEventInterface
         private readonly string $table,
         private readonly string $operation,
         private array $data,
+        private readonly ServerRequestInterface $request,
+        private readonly ApiDefinition $config,
+        private readonly ?int $uid,
     ) {
     }
 
@@ -41,6 +46,24 @@ final class BeforeWriteEvent implements StoppableEventInterface
     public function setData(array $data): void
     {
         $this->data = $data;
+    }
+
+    public function getRequest(): ServerRequestInterface
+    {
+        return $this->request;
+    }
+
+    public function getConfig(): ApiDefinition
+    {
+        return $this->config;
+    }
+
+    /**
+     * The uid of the record being updated or deleted, null on create.
+     */
+    public function getUid(): ?int
+    {
+        return $this->uid;
     }
 
     public function stopPropagation(): void

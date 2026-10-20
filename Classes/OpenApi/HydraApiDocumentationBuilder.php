@@ -218,7 +218,7 @@ final class HydraApiDocumentationBuilder
             // getFieldNameFromSchema() resolves the human-readable display field.
             $schemaId = ($name === $tcaLabelColumn) ? 'schema:name' : 'schema:' . $name;
 
-            $relatedType = $this->findRelatedResourceType($config->table, $name, $column);
+            $relatedType = $this->findRelatedResourceType($config, $name, $column);
 
             if ($relatedType !== null) {
                 $hydraProperty = [
@@ -257,7 +257,7 @@ final class HydraApiDocumentationBuilder
         return $properties;
     }
 
-    private function findRelatedResourceType(string $table, string $column, ColumnDefinition $columnDef): ?string
+    private function findRelatedResourceType(ApiDefinition $config, string $column, ColumnDefinition $columnDef): ?string
     {
         // Explicit resourceName on the column takes priority — avoids ambiguity when
         // multiple resources share the same foreign table.
@@ -269,12 +269,15 @@ final class HydraApiDocumentationBuilder
             return $resource?->isAddressable() === true ? $resource->resourceType : null;
         }
 
-        $tcaConfig = $GLOBALS['TCA'][$table]['columns'][$column]['config'] ?? [];
+        $tcaConfig = $GLOBALS['TCA'][$config->table]['columns'][$column]['config'] ?? [];
         $foreignTable = ($tcaConfig['type'] ?? '') === 'group'
             ? (self::isSingleGroupRelation($tcaConfig) ? RelationSerializer::hasOneForeignTable($tcaConfig) : null)
             : ($tcaConfig['foreign_table'] ?? null);
         if ($foreignTable === null) {
             return null;
+        }
+        if ($foreignTable === $config->table) {
+            return $config->isAddressable() ? $config->resourceType : null;
         }
 
         return $this->allowedTypeMap[$foreignTable] ?? null;
@@ -307,7 +310,8 @@ final class HydraApiDocumentationBuilder
         foreach ($resources as $definition) {
             // Without a show endpoint the relation renders uids, not links.
             if ($definition->isAddressable()) {
-                $map[$definition->table] = $definition->resourceType;
+                // The first registration wins, as in ApiRegistry::getByTable().
+                $map[$definition->table] ??= $definition->resourceType;
             }
         }
         return $map;

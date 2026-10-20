@@ -79,7 +79,7 @@ class UpdateHandler implements OperationHandlerInterface
         $resolved    = $result['resolved'];
         $storedFiles = $result['storedFiles'];
 
-        $beforeEvent = new BeforeWriteEvent($config->table, 'update', $data);
+        $beforeEvent = new BeforeWriteEvent($config->table, 'update', $data, $request, $config, $uid);
         $this->eventDispatcher->dispatch($beforeEvent);
         if ($beforeEvent->isPropagationStopped()) {
             return $this->hydraResponseBuilder->buildError(422, 'Operation aborted by event listener.', 'Unprocessable Entity');
@@ -87,7 +87,7 @@ class UpdateHandler implements OperationHandlerInterface
         $data = $beforeEvent->getData();
 
         // Call 1: update parent record and any new related records (no file columns).
-        $dataMap      = [$config->table => [$uid => $data]] + $resolved->extraDataMap;
+        $dataMap      = array_replace_recursive([$config->table => [$uid => $data]], $resolved->extraDataMap);
         $writeContext = $this->writeContextFactory->fromRequest($request, $config->writeMode);
         $this->writeService->processDataMap($dataMap, $writeContext);
 
@@ -98,7 +98,7 @@ class UpdateHandler implements OperationHandlerInterface
             $this->attachFileReferences($storedFiles, $config, $uid, $writeContext);
         }
 
-        $this->eventDispatcher->dispatch(new AfterWriteEvent($config->table, 'update', $uid));
+        $this->eventDispatcher->dispatch(new AfterWriteEvent($config->table, 'update', $uid, $request, $config));
 
         $row       = $this->dataRepository->findById($config->table, $uid, $config);
         $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
@@ -106,7 +106,7 @@ class UpdateHandler implements OperationHandlerInterface
 
         $serialized = $this->serializer->serialize($row, $config, $baseUrl);
 
-        $event = new AfterOperationEvent('update', $serialized);
+        $event = new AfterOperationEvent('update', $serialized, $request, $config);
         $this->eventDispatcher->dispatch($event);
 
         return $this->hydraResponseBuilder->buildItem($event->getData());

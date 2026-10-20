@@ -149,7 +149,13 @@ final readonly class OpenApiSchemasBuilder
 
         $schemas = [];
         $mapping = [];
+        // Another resource's own schema names win, e.g. those of resources split from this one.
         $suffixes = [];
+        foreach ($resources as $resource) {
+            if ($resource !== $config && str_starts_with($resource->resourceType, $config->resourceType)) {
+                $suffixes[substr($resource->resourceType, \strlen($config->resourceType))] = true;
+            }
+        }
         foreach ($recordTypes as $recordType) {
             $schema = $this->buildReadSchema($config, $resources, -1, $recordType);
             $property = $schema['properties'][$field] ?? ['type' => 'string'];
@@ -372,7 +378,7 @@ final readonly class OpenApiSchemasBuilder
      */
     private function relatedConfig(string $table, ColumnDefinition $columnDef, ApiDefinition $config, array $resources): ?ApiDefinition
     {
-        if ($table === $config->table) {
+        if ($table === $config->table && $columnDef->resourceName === null) {
             return $config;
         }
 

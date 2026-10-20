@@ -87,7 +87,7 @@ class CreateHandler implements OperationHandlerInterface
         // Store uploaded files in FAL now (after validation, before DataHandler).
         // Returns a map of column -> [refKey => refData] for the second DataHandler call.
 
-        $beforeEvent = new BeforeWriteEvent($config->table, 'create', $data);
+        $beforeEvent = new BeforeWriteEvent($config->table, 'create', $data, $request, $config, null);
         $this->eventDispatcher->dispatch($beforeEvent);
         if ($beforeEvent->isPropagationStopped()) {
             return $this->hydraResponseBuilder->buildError(422, 'Operation aborted by event listener.', 'Unprocessable Entity');
@@ -99,7 +99,7 @@ class CreateHandler implements OperationHandlerInterface
         // before the parent record exists. DataHandler's NEW_xxx remapping does not
         // propagate uid_foreign to sys_file_reference for type=file columns.
         $primaryKey   = 'NEW_primary';
-        $dataMap      = [$config->table => [$primaryKey => $data]] + $resolved->extraDataMap;
+        $dataMap      = array_replace_recursive([$config->table => [$primaryKey => $data]], $resolved->extraDataMap);
         $writeContext = $this->writeContextFactory->fromRequest($request, $config->writeMode);
         $substMap     = $this->writeService->processDataMap($dataMap, $writeContext);
         $uid          = (int)($substMap[$primaryKey] ?? 0);
@@ -119,7 +119,7 @@ class CreateHandler implements OperationHandlerInterface
             $this->attachFileReferences($storedFiles, $config, $uid, $writeContext);
         }
 
-        $this->eventDispatcher->dispatch(new AfterWriteEvent($config->table, 'create', $uid));
+        $this->eventDispatcher->dispatch(new AfterWriteEvent($config->table, 'create', $uid, $request, $config));
 
         $row       = $this->dataRepository->findById($config->table, $uid, $config);
         $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
@@ -128,7 +128,7 @@ class CreateHandler implements OperationHandlerInterface
 
         $serialized = $this->serializer->serialize($row, $config, $baseUrl);
 
-        $event = new AfterOperationEvent('create', $serialized);
+        $event = new AfterOperationEvent('create', $serialized, $request, $config);
         $this->eventDispatcher->dispatch($event);
 
         return $this->hydraResponseBuilder->buildItem($event->getData())

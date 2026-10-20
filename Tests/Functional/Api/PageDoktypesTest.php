@@ -19,7 +19,7 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
  * before, so the link and shortcut pages are inserted here rather than in a CSV.
  *
  * tx_testrecordtypes_item.target (test_record_types fixture) is a manyToOne group
- * over pages and tt_content.
+ * over pages and tt_content; target_page is a manyToOne group over pages only.
  */
 final class PageDoktypesTest extends ApiFunctionalTestCase
 {
@@ -97,6 +97,10 @@ final class PageDoktypesTest extends ApiFunctionalTestCase
         self::assertSame(['1', '3', '4'], array_map('strval', array_keys($schemas['WebPageRead']['discriminator']['mapping'])));
         self::assertArrayHasKey('shortcut', $schemas['WebPage4Read']['properties']);
         self::assertArrayNotHasKey('shortcut', $schemas['WebPage1Read']['properties']);
+        self::assertSame([
+            ['type' => 'string', 'format' => 'iri-reference'],
+            ['type' => 'null'],
+        ], $schemas['WebPage4Read']['properties']['shortcut']['oneOf']);
         self::assertArrayNotHasKey('items', $schemas['WebPage4Read']['properties']['shortcut']);
 
         $hydra = $this->decodeResponseBody($this->executeApiRequest('/_api/docs.jsonld'));
@@ -104,6 +108,28 @@ final class PageDoktypesTest extends ApiFunctionalTestCase
         $shortcut = array_values(array_filter($class['hydra:supportedProperty'], static fn (array $property): bool => $property['hydra:title'] === 'shortcut'))[0];
         self::assertSame('#WebPage', $shortcut['hydra:property']['range']);
         self::assertSame(1, $shortcut['hydra:property']['owl:maxCardinality']);
+    }
+
+    public function testAManyToOneGroupOverOneTableIsSingular(): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('tx_testrecordtypes_item')
+            ->insert('tx_testrecordtypes_item', ['uid' => 710, 'pid' => 1, 'item_type' => 'article', 'title' => 'Item', 'target_page' => '500']);
+        $this->registerResource('items', [
+            'general'  => ['table' => 'tx_testrecordtypes_item', 'resourceName' => 'items', 'resourceType' => 'Item'],
+            'columns'  => ['target_page' => ['groups' => ['show']]],
+            'security' => ['list' => AccessRole::PUBLIC, 'show' => AccessRole::PUBLIC],
+        ]);
+
+        $response = $this->executeApiRequest('/_api/items/710');
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('/_api/web-pages/500', $this->decodeResponseBody($response)['target_page']);
+
+        $schema = $this->decodeResponseBody($this->executeApiRequest('/_api/openapi.json'))['components']['schemas']['ItemRead']['properties']['target_page'];
+        self::assertSame([
+            ['type' => 'string', 'format' => 'iri-reference'],
+            ['type' => 'null'],
+        ], $schema['oneOf']);
+        self::assertArrayNotHasKey('items', $schema);
     }
 
     public function testAManyToOneGroupOverSeveralTablesKeepsItsRecord(): void
