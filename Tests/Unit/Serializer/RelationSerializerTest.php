@@ -8,6 +8,7 @@ use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Serializer\RelationSerializer;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -67,6 +68,32 @@ final class RelationSerializerTest extends TestCase
         self::assertArrayHasKey('@id', $stub);
         self::assertArrayHasKey('@type', $stub);
         self::assertArrayHasKey('uid', $stub);
+    }
+
+    // ── hasOneForeignTable ───────────────────────────────────────────────────
+
+    /** @return iterable<string, array{array<string, mixed>, ?string}> */
+    public static function hasOneFieldConfigs(): iterable
+    {
+        yield 'foreign_table wins over allowed' => [
+            ['type' => 'group', 'foreign_table' => 'tt_content', 'allowed' => 'pages'],
+            'tt_content',
+        ];
+        yield 'group with a single allowed table' => [['type' => 'group', 'allowed' => 'pages'], 'pages'];
+        yield 'group with several allowed tables' => [['type' => 'group', 'allowed' => 'pages,tt_content'], null];
+        yield 'group with a wildcard resolving to one table' => [
+            ['type' => 'group', 'allowed' => '*', 'MM_oppositeUsage' => ['pages' => ['categories']]],
+            null,
+        ];
+        yield 'allowed is ignored outside group fields' => [['type' => 'select', 'allowed' => 'pages'], null];
+    }
+
+    /** @param array<string, mixed> $fieldConfig */
+    #[Test]
+    #[DataProvider('hasOneFieldConfigs')]
+    public function hasOneForeignTableResolvesTheSingleTargetTable(array $fieldConfig, ?string $expected): void
+    {
+        self::assertSame($expected, RelationSerializer::hasOneForeignTable($fieldConfig));
     }
 
     // ── buildDefaultConfig ───────────────────────────────────────────────────
