@@ -99,6 +99,14 @@ CORS
     Value for the ``Access-Control-Allow-Origin`` header. Use ``*`` to allow
     all origins.
 
+..  confval:: tca_api.corsAllowHeaders
+    :type: string
+    :default: ``''``
+
+    Comma-separated request headers added to
+    ``Access-Control-Allow-Headers``, for example ``X-API-Key``.
+    ``Content-Type``, ``Authorization`` and ``X-Locale`` are always allowed.
+
 ..  confval:: tca_api.corsAllowCredentials
     :type: bool
     :default: ``false``
