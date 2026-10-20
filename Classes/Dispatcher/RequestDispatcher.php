@@ -252,14 +252,18 @@ final class RequestDispatcher
     private function checkAccess(string $operation, ServerRequestInterface $request, ApiDefinition $config, array $existingRecord, SiteSettings $siteSettings): ?ResponseInterface
     {
         if ($operation === 'userinfo') {
-            if (!Principal::fromRequest($request)->isFrontendUser()) {
+            if (!Principal::fromRequest($request)->isFrontendUser()
+                || !$this->accessController->isOperationInScope($request, $config->resourceName, 'userinfo')
+            ) {
                 return $this->forbidden('userinfo', $siteSettings);
             }
             return null;
         }
 
         $requiredRole = $config->securityRole($operation);
-        if (!$this->accessController->isAllowed($requiredRole, $request, $existingRecord, $config)) {
+        if (!$this->accessController->isAllowed($requiredRole, $request, $existingRecord, $config)
+            || !$this->accessController->isOperationInScope($request, $config->resourceName, $operation)
+        ) {
             return $this->forbidden($operation, $siteSettings);
         }
 

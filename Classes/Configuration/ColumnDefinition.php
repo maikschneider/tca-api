@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Configuration;
 
 use MaikSchneider\TcaApi\Enum\AccessRole;
+use MaikSchneider\TcaApi\Security\Scope;
 use MaikSchneider\TcaApi\Validation\ValidatorInterface;
 
 /**
@@ -405,6 +406,13 @@ final readonly class ColumnDefinition
 
         if (!\is_array($role) || !isset($role[0])) {
             return false;
+        }
+
+        if ($role[0] === AccessRole::API_KEY) {
+            $scopes = $role[1] ?? [];
+
+            return \is_array($scopes) && array_is_list($scopes)
+                && array_filter($scopes, static fn (mixed $scope): bool => !Scope::isValid($scope)) === [];
         }
 
         return $role[0] instanceof AccessRole

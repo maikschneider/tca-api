@@ -68,6 +68,10 @@ Access roles
    * - ``AccessRole::OWNER``
      - Authenticated FE user whose UID matches the record's ownership column.
        See :ref:`ownership` below.
+   * - ``AccessRole::API_KEY``
+     - Requires a credential sent with the request (API key, token) instead of
+       a session. Use ``[AccessRole::API_KEY, ['articles:write']]`` to also
+       require scopes. See :ref:`scopes` below.
 
 Configuration
 =============
@@ -112,6 +116,49 @@ caller is available as ``Principal::fromRequest($request)``, see
             return true;
         }
     }
+
+..  _scopes:
+
+Scopes
+======
+
+Credentials can carry **scopes** that limit what they may do. A scope names a
+resource and an access level:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Scope
+     - Grants
+   * - ``articles:read``
+     - ``list``, ``show`` and ``userinfo`` on ``articles``
+   * - ``articles:write``
+     - ``create``, ``update`` and ``delete`` on ``articles``
+   * - ``articles:*``
+     - All operations on ``articles``
+   * - ``*:read``
+     - Read access to every resource
+
+**Scopes always restrict.** A credential with scopes may only perform the
+operations they cover, even when its role would allow more, so a key bound to a
+frontend user is never more powerful than its scopes. This also applies to
+``PUBLIC`` operations and to nested creates into another resource. Sessions and
+credentials without scopes are unrestricted.
+
+A role can additionally require scopes:
+
+..  code-block:: php
+
+    'security' => [
+        'show'   => AccessRole::API_KEY,                       // any credential
+        'create' => [AccessRole::API_KEY, ['articles:write']], // a credential with the scope
+        'update' => AccessRole::FE_USER,                       // session or user-bound credential
+    ],
+
+Invalid scope strings fail when the configuration is loaded. Which scopes a
+credential carries is decided by the extension that authenticates it, see
+:ref:`authenticators`.
 
 ..  _ownership:
 

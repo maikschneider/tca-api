@@ -55,7 +55,7 @@ API specification
 
     Who may access the OpenAPI JSON spec at ``{apiPrefix}openapi.json``.
     Allowed values: ``PUBLIC``, ``FE_USER``, ``BE_USER``, ``BE_ADMIN``,
-    ``NONE``.
+    ``API_KEY``, ``NONE``.
 
 ..  confval:: tca_api.apiSpecTitle
     :type: string
