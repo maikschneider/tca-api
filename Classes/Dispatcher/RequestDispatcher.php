@@ -362,7 +362,8 @@ final class RequestDispatcher
                     dom_id: '#swagger-ui',
                     presets: [SwaggerUIBundle.presets.apis],
                     layout: 'BaseLayout',
-                    deepLinking: true
+                    deepLinking: true,
+                    persistAuthorization: true
                 });
             </script>
             </body>

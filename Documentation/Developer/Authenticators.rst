@@ -128,3 +128,59 @@ for requests that did not pass the dispatcher:
     if ($principal->isBackendAdmin()) {
         // …
     }
+
+Documenting the scheme in OpenAPI
+=================================
+
+Add the scheme your clients use in a listener for
+``ModifyOpenApiSecuritySchemesEvent``. The ``SecurityScheme`` flags tell the
+document which operations it applies to: each operation lists, as alternatives,
+every scheme that can satisfy its access role, and a credential scheme also
+lists the scopes the operation needs. Swagger UI then offers the scheme in its
+"Authorize" dialog.
+
+..  code-block:: php
+
+    use MaikSchneider\TcaApi\Event\ModifyOpenApiSecuritySchemesEvent;
+    use MaikSchneider\TcaApi\OpenApi\SecurityScheme;
+    use TYPO3\CMS\Core\Attribute\AsEventListener;
+
+    #[AsEventListener('my-extension/partner-token-scheme')]
+    final class AddPartnerTokenScheme
+    {
+        public function __invoke(ModifyOpenApiSecuritySchemesEvent $event): void
+        {
+            $event->addScheme(new SecurityScheme(
+                'PartnerToken',
+                ['type' => 'apiKey', 'in' => 'header', 'name' => 'X-Partner-Token'],
+                authenticatesFrontendUsers: true,
+                isCredential: true,
+            ));
+        }
+    }
+
+The resulting requirements:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 35 65
+
+   * - Access role
+     - ``security``
+   * - ``PUBLIC``
+     - ``[]`` (anonymous)
+   * - ``FE_USER``, ``FE_GROUP``
+     - schemes with ``authenticatesFrontendUsers``
+   * - ``OWNER``
+     - schemes with ``authenticatesFrontendUsers`` or ``authenticatesBackendUsers``
+   * - ``BE_USER``, ``BE_ADMIN``
+     - schemes with ``authenticatesBackendUsers``
+   * - ``API_KEY``
+     - schemes with ``isCredential``
+   * - callable voter
+     - every scheme, plus ``{}`` (anonymous)
+   * - ``DISABLED``
+     - no requirement
+
+Protected operations also document a ``401`` response. The Hydra API
+documentation has no equivalent of security schemes and is unchanged.

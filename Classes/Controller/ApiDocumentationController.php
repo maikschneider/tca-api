@@ -237,7 +237,8 @@ final readonly class ApiDocumentationController
                 dom_id: '#{$domId}',
                 presets: [SwaggerUIBundle.presets.apis],
                 layout: 'BaseLayout',
-                deepLinking: true
+                deepLinking: true,
+                persistAuthorization: true
             });
             JS;
 
