@@ -172,7 +172,9 @@ The resulting requirements:
    * - ``FE_USER``, ``FE_GROUP``
      - schemes with ``authenticatesFrontendUsers``
    * - ``OWNER``
-     - schemes with ``authenticatesFrontendUsers`` or ``authenticatesBackendUsers``
+     - schemes with ``authenticatesFrontendUsers``; schemes with
+       ``authenticatesBackendUsers`` only while ``ownership.beAdminBypass`` is
+       enabled
    * - ``BE_USER``, ``BE_ADMIN``
      - schemes with ``authenticatesBackendUsers``
    * - ``API_KEY``
