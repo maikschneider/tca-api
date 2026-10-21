@@ -6,6 +6,7 @@ namespace MaikSchneider\TcaApi\OpenApi;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Dispatcher\RequestContext;
+use MaikSchneider\TcaApi\Enum\AccessRole;
 
 final readonly class OpenApiPathsBuilder
 {
@@ -65,17 +66,15 @@ final readonly class OpenApiPathsBuilder
      */
     private function withSecurity(array $operation, ApiDefinition $config, string $operationName, array $schemes): array
     {
-        if ($schemes === []) {
-            return $operation;
+        $role = $config->securityRole($operationName);
+        $requirement = $this->securityBuilder->buildRequirement($role, $config->resourceName, $operationName, $schemes, $config->ownershipBeAdminBypass);
+        if ($requirement !== null) {
+            $operation['security'] = $requirement;
         }
 
-        $requirement = $this->securityBuilder->buildRequirement($config->securityRole($operationName), $config->resourceName, $operationName, $schemes, $config->ownershipBeAdminBypass);
-        if ($requirement === null) {
-            return $operation;
-        }
-
-        $operation['security'] = $requirement;
-        if ($requirement !== []) {
+        // An operation no scheme can satisfy is still protected and answers 401.
+        $isProtected = $requirement === null ? $role !== AccessRole::DISABLED : $requirement !== [];
+        if ($isProtected) {
             $operation['responses']['401'] = [
                 'description' => 'Invalid credentials',
                 'content' => ['application/ld+json' => ['schema' => ['$ref' => '#/components/schemas/HydraError']]],
