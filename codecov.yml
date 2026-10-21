@@ -14,6 +14,10 @@ coverage:
         informational: true
 
 flags:
+  unit:
+    paths:
+      - Classes/
+    carryforward: true
   functional:
     paths:
       - Classes/
@@ -34,7 +38,7 @@ comment:
   layout: "reach,diff,flags,files"
   behavior: default
   require_changes: true
-  after_n_builds: 6
+  after_n_builds: 2
 
 github_checks:
   annotations: true
