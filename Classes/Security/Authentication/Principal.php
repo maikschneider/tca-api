@@ -73,6 +73,15 @@ final readonly class Principal
         return $this->backendUserUid > 0;
     }
 
+    /**
+     * Authenticated with a credential sent in the request (API key, token)
+     * rather than a session cookie.
+     */
+    public function isCredential(): bool
+    {
+        return $this->isAuthenticated() && $this->source !== 'session';
+    }
+
     public function isBackendAdmin(): bool
     {
         return $this->isBackendUser() && $this->isBackendAdmin;

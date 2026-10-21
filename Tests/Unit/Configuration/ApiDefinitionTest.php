@@ -296,6 +296,36 @@ final class ApiDefinitionTest extends TestCase
     }
 
     #[Test]
+    public function apiKeyRoleWithScopesIsAccepted(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['security'] = ['list' => [AccessRole::API_KEY, ['articles:read', '*:write']]];
+
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertSame([AccessRole::API_KEY, ['articles:read', '*:write']], $def->securityRole('list'));
+    }
+
+    #[Test]
+    #[DataProvider('invalidApiKeyScopesProvider')]
+    public function invalidApiKeyScopesThrow(mixed $scopes): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['security'] = ['list' => [AccessRole::API_KEY, $scopes]];
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('security["list"] requires a list of scopes');
+        ApiDefinition::fromArray($cfg);
+    }
+
+    public static function invalidApiKeyScopesProvider(): \Generator
+    {
+        yield 'string instead of list' => ['articles:read'];
+        yield 'map instead of list' => [['read' => 'articles:read']];
+        yield 'unknown access' => [['articles:delete']];
+    }
+
+    #[Test]
     public function omittedOperationsDefaultToListAndShow(): void
     {
         $def = ApiDefinition::fromArray(self::minimalConfig());

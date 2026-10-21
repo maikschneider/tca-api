@@ -11,6 +11,7 @@ use MaikSchneider\TcaApi\Exception\InvalidApiDefinitionException;
 use MaikSchneider\TcaApi\Filter\FilterDefinition;
 use MaikSchneider\TcaApi\Filter\FilterPreResolvableInterface;
 use MaikSchneider\TcaApi\Loader\TcaValidatorDeriver;
+use MaikSchneider\TcaApi\Security\Scope;
 use MaikSchneider\TcaApi\Tca\RecordTypeFields;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use TYPO3\CMS\Core\Utility\MathUtility;
@@ -382,12 +383,22 @@ final readonly class ApiDefinition
             // Accepted shapes:
             //   AccessRole::PUBLIC                           — simple enum
             //   [AccessRole::FE_GROUP, [1, 2]]              — enum + group IDs
+            //   [AccessRole::API_KEY, ['articles:write']]   — enum + required scopes
             //   [MyChecker::class, 'methodName']            — callable [class, method]
             if ($secRole instanceof AccessRole) {
                 continue;
             }
             if (\is_array($secRole) && isset($secRole[0])) {
-                // [AccessRole, array<int>]
+                if ($secRole[0] === AccessRole::API_KEY && !self::areValidScopes($secRole[1] ?? [])) {
+                    throw new \InvalidArgumentException(
+                        sprintf(
+                            'TcaApi config for "%s": security["%s"] requires a list of scopes such as "articles:read", "articles:write" or "*:read".',
+                            $label,
+                            $secOp,
+                        ),
+                    );
+                }
+                // [AccessRole, array<int>] or [AccessRole::API_KEY, list<string>]
                 if ($secRole[0] instanceof AccessRole) {
                     continue;
                 }
@@ -896,5 +907,14 @@ final readonly class ApiDefinition
     private static function siteSettingKey(mixed $value): ?string
     {
         return \is_string($value) && preg_match('/^\{\$([A-Za-z0-9_.-]+)\}$/', $value, $match) === 1 ? $match[1] : null;
+    }
+
+    private static function areValidScopes(mixed $scopes): bool
+    {
+        if (!\is_array($scopes) || !array_is_list($scopes)) {
+            return false;
+        }
+
+        return array_filter($scopes, static fn (mixed $scope): bool => !Scope::isValid($scope)) === [];
     }
 }

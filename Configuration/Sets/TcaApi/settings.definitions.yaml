@@ -62,6 +62,7 @@ settings:
       FE_USER: 'Frontend users'
       BE_USER: 'Backend users'
       BE_ADMIN: 'Backend admins'
+      API_KEY: 'Requests with an API key or token'
       NONE: 'Disabled'
     default: 'PUBLIC'
 

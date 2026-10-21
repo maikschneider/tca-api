@@ -116,6 +116,8 @@ final class ColumnDefinitionTest extends TestCase
         yield 'access role' => [AccessRole::FE_USER];
         yield 'frontend group tuple' => [[AccessRole::FE_GROUP, [1, 2]]];
         yield 'callable tuple' => [['App\\AccessPolicy', 'canCreate']];
+        yield 'api key with scopes' => [[AccessRole::API_KEY, ['articles:write']]];
+        yield 'api key without scopes' => [[AccessRole::API_KEY]];
     }
 
     // ── Invalid inputs ──────────────────────────────────────────────────
@@ -172,6 +174,8 @@ final class ColumnDefinitionTest extends TestCase
     {
         yield 'scalar' => ['FE_USER'];
         yield 'empty tuple' => [[]];
+        yield 'api key with scope string' => [[AccessRole::API_KEY, 'articles:write']];
+        yield 'api key with invalid scope' => [[AccessRole::API_KEY, ['articles:delete']]];
     }
 
     #[Test]

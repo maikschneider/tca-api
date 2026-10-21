@@ -13,4 +13,5 @@ enum AccessRole: string
     case BE_USER = 'BE_USER';
     case BE_ADMIN = 'BE_ADMIN';
     case OWNER = 'OWNER';
+    case API_KEY = 'API_KEY';
 }

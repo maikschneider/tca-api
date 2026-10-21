@@ -270,7 +270,9 @@ final readonly class RelationInputResolver
         $requiredRole = $columnDef !== null && $columnDef->nestedWrite !== null
             ? $columnDef->nestedWrite
             : $subConfig->securityRole('create');
-        if ($this->accessController->isAllowed($requiredRole, $request)) {
+        if ($this->accessController->isAllowed($requiredRole, $request)
+            && $this->accessController->isOperationInScope($request, $subConfig->resourceName, 'create')
+        ) {
             return null;
         }
 

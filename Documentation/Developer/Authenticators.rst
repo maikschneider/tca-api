@@ -72,10 +72,12 @@ caller without a TYPO3 user record.
      - ``backendUserUid > 0``
    * - ``BE_ADMIN``
      - ``backendUserUid > 0`` and ``isBackendAdmin``
+   * - ``API_KEY``
+     - any authenticated principal whose ``source`` is not ``session``
 
 Writes record the frontend user, otherwise the backend user, otherwise the
-service as actor. ``scopes`` is reserved for scope-based access and ``null``
-means unrestricted.
+service as actor. ``scopes`` lists the granted scopes, ``null`` means
+unrestricted. See :ref:`scopes`.
 
 Example
 =======
