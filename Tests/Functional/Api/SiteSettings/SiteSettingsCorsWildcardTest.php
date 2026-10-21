@@ -49,6 +49,13 @@ final class SiteSettingsCorsWildcardTest extends ApiFunctionalTestCase
         self::assertSame('true', $response->getHeaderLine('Access-Control-Allow-Credentials'));
     }
 
+    public function testAllowHeadersDefaultWithoutCorsAllowHeaders(): void
+    {
+        $response = $this->executeApiRequest('/_api/articles');
+
+        self::assertSame('Content-Type, Authorization, X-Locale', $response->getHeaderLine('Access-Control-Allow-Headers'));
+    }
+
     public function testWildcardFallsBackWhenNoOriginHeader(): void
     {
         $response = $this->executeFrontendSubRequest(new InternalRequest('http://localhost/_api/articles'));
