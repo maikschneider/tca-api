@@ -1,4 +1,5 @@
 *                                                 text=auto
+CHANGELOG.md                                      merge=union
 Tests/Fixtures/**                                 linguist-vendored
 /.claude                                          export-ignore
 /.ddev                                            export-ignore
@@ -13,6 +14,7 @@ Tests/Fixtures/**                                 linguist-vendored
 /.gitignore                                       export-ignore
 /.spectral.yaml                                   export-ignore
 /codecov.yml                                      export-ignore
+/.coderabbit.yaml                                 export-ignore
 /php-cs-fixer.php                                 export-ignore
 /package.json                                     export-ignore
 /esbuild.config.mjs                               export-ignore

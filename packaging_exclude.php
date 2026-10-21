@@ -26,6 +26,7 @@ return [
         'DS_Store',
         'CLAUDE.md',
         'codecov.yml',
+        'coderabbit.yaml',
         'CONTRIBUTING.md',
         'editorconfig',
         'esbuild.config.mjs',
