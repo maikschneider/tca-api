@@ -20,7 +20,10 @@ final class ScopeTest extends TestCase
         yield 'everything' => ['*:*', true];
         yield 'unknown access' => ['articles:delete', false];
         yield 'no access part' => ['articles', false];
-        yield 'uppercase' => ['Articles:read', false];
+        yield 'uppercase' => ['NewsArticle-text:read', true];
+        yield 'dots' => ['news.articles:write', true];
+        yield 'leading dot' => ['.articles:read', false];
+        yield 'uppercase access' => ['articles:READ', false];
         yield 'empty' => ['', false];
         yield 'not a string' => [42, false];
     }

@@ -12,7 +12,7 @@ namespace MaikSchneider\TcaApi\Security;
  */
 final class Scope
 {
-    private const PATTERN = '/^(\*|[a-z0-9][a-z0-9_-]*):(\*|read|write)$/';
+    private const PATTERN = '/^(\*|[A-Za-z0-9][A-Za-z0-9._-]*):(\*|read|write)$/';
 
     private const READ_OPERATIONS = ['list', 'show', 'userinfo'];
 
