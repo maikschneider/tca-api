@@ -66,7 +66,7 @@ final readonly class OpenApiSecurityBuilder
      * @param array<string, SecurityScheme> $schemes
      * @return list<array<string, list<string>>|\stdClass>|null
      */
-    public function buildRequirement(mixed $role, string $resourceName, string $operation, array $schemes): ?array
+    public function buildRequirement(mixed $role, string $resourceName, string $operation, array $schemes, bool $ownershipBeAdminBypass = true): ?array
     {
         $accessRole = $role instanceof AccessRole ? $role : (\is_array($role) && $role[0] instanceof AccessRole ? $role[0] : null);
         if ($accessRole === AccessRole::PUBLIC) {
@@ -83,7 +83,7 @@ final readonly class OpenApiSecurityBuilder
 
         $requirement = [];
         foreach ($schemes as $scheme) {
-            if ($this->canSatisfy($scheme, $accessRole)) {
+            if ($this->canSatisfy($scheme, $accessRole, $ownershipBeAdminBypass)) {
                 $requirement[] = [$scheme->name => $scheme->isCredential ? $scopes : []];
             }
         }
@@ -96,12 +96,12 @@ final readonly class OpenApiSecurityBuilder
         return $requirement !== [] ? $requirement : null;
     }
 
-    private function canSatisfy(SecurityScheme $scheme, ?AccessRole $role): bool
+    private function canSatisfy(SecurityScheme $scheme, ?AccessRole $role, bool $ownershipBeAdminBypass): bool
     {
         return match ($role) {
             AccessRole::FE_USER, AccessRole::FE_GROUP => $scheme->authenticatesFrontendUsers,
-            // A backend admin passes an owner check through the ownership bypass.
-            AccessRole::OWNER => $scheme->authenticatesFrontendUsers || $scheme->authenticatesBackendUsers,
+            // A backend admin passes an owner check only through the ownership bypass.
+            AccessRole::OWNER => $scheme->authenticatesFrontendUsers || ($ownershipBeAdminBypass && $scheme->authenticatesBackendUsers),
             AccessRole::BE_USER, AccessRole::BE_ADMIN => $scheme->authenticatesBackendUsers,
             AccessRole::API_KEY => $scheme->isCredential,
             default => true,

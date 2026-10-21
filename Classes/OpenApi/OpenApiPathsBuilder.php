@@ -69,7 +69,7 @@ final readonly class OpenApiPathsBuilder
             return $operation;
         }
 
-        $requirement = $this->securityBuilder->buildRequirement($config->securityRole($operationName), $config->resourceName, $operationName, $schemes);
+        $requirement = $this->securityBuilder->buildRequirement($config->securityRole($operationName), $config->resourceName, $operationName, $schemes, $config->ownershipBeAdminBypass);
         if ($requirement === null) {
             return $operation;
         }
