@@ -13,6 +13,7 @@ readonly class OpenApiBuilder
         private ApiRegistry $apiRegistry,
         private OpenApiPathsBuilder $pathsBuilder,
         private OpenApiSchemasBuilder $schemasBuilder,
+        private OpenApiSecurityBuilder $securityBuilder,
     ) {
     }
 
@@ -29,13 +30,17 @@ readonly class OpenApiBuilder
             $info['description'] = $description;
         }
 
+        $schemes = $this->securityBuilder->collectSchemes($resources, $ctx);
+        $components = ['schemas' => $this->schemasBuilder->build($resources)];
+        if ($schemes !== []) {
+            $components['securitySchemes'] = $this->securityBuilder->buildComponents($schemes);
+        }
+
         $document = [
             'openapi' => '3.1.0',
             'info' => $info,
-            'paths' => $this->pathsBuilder->build($resources, $ctx),
-            'components' => [
-                'schemas' => $this->schemasBuilder->build($resources),
-            ],
+            'paths' => $this->pathsBuilder->build($resources, $ctx, $schemes),
+            'components' => $components,
         ];
 
         $tags = $this->buildTags($resources);
