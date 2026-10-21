@@ -41,6 +41,13 @@ final class SiteSettingsCorsTest extends ApiFunctionalTestCase
         self::assertSame('Origin, X-Locale', $response->getHeaderLine('Vary'));
     }
 
+    public function testWwwAuthenticateIsExposed(): void
+    {
+        $response = $this->executeApiRequest('/_api/articles');
+
+        self::assertStringContainsString('WWW-Authenticate', $response->getHeaderLine('Access-Control-Expose-Headers'));
+    }
+
     public function testCorsAllowCredentialsHeader(): void
     {
         $response = $this->executeApiRequest('/_api/articles');
@@ -58,7 +65,7 @@ final class SiteSettingsCorsTest extends ApiFunctionalTestCase
         self::assertSame(204, $response->getStatusCode());
         self::assertSame('https://example.com', $response->getHeaderLine('Access-Control-Allow-Origin'));
         self::assertSame('GET, POST, PUT, PATCH, DELETE, OPTIONS', $response->getHeaderLine('Access-Control-Allow-Methods'));
-        self::assertSame('Content-Type, Authorization, X-Locale', $response->getHeaderLine('Access-Control-Allow-Headers'));
+        self::assertSame('Content-Type, Authorization, X-Locale, X-API-Key', $response->getHeaderLine('Access-Control-Allow-Headers'));
         self::assertSame('true', $response->getHeaderLine('Access-Control-Allow-Credentials'));
         self::assertSame('Origin, X-Locale', $response->getHeaderLine('Vary'));
         self::assertSame('86400', $response->getHeaderLine('Access-Control-Max-Age'));

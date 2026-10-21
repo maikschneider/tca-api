@@ -23,3 +23,4 @@ settings:
     corsEnabled: true
     corsOrigin: 'https://example.com'
     corsAllowCredentials: true
+    corsAllowHeaders: 'X-API-Key, x-locale'
