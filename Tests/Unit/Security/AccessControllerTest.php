@@ -7,6 +7,7 @@ namespace MaikSchneider\TcaApi\Tests\Unit\Security;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Security\AccessController;
+use MaikSchneider\TcaApi\Security\Authentication\Principal;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -312,7 +313,45 @@ final class AccessControllerTest extends TestCase
         self::assertFalse($this->controller->isAllowed(AccessRole::OWNER, $request, ['fe_user_id' => 99], $config));
     }
 
+    // ── AccessRole::API_KEY ───────────────────────────────────────────────────
+
+    #[Test]
+    public function apiKeyRoleDeniesSessionPrincipal(): void
+    {
+        $request = $this->makePrincipalRequest(new Principal(frontendUserUid: 42, source: 'session'));
+
+        self::assertFalse($this->controller->isAllowed(AccessRole::API_KEY, $request));
+        self::assertFalse($this->controller->isAllowed([AccessRole::API_KEY, ['articles:read']], $request));
+    }
+
+    #[Test]
+    public function apiKeyRoleGrantsUnscopedCredentialEveryScope(): void
+    {
+        $request = $this->makePrincipalRequest(new Principal(isService: true, source: 'api_key'));
+
+        self::assertTrue($this->controller->isAllowed(AccessRole::API_KEY, $request));
+        self::assertTrue($this->controller->isAllowed([AccessRole::API_KEY, ['articles:write']], $request));
+    }
+
+    #[Test]
+    public function apiKeyRoleRequiresEveryScope(): void
+    {
+        $request = $this->makePrincipalRequest(new Principal(isService: true, scopes: ['articles:read'], source: 'api_key'));
+
+        self::assertTrue($this->controller->isAllowed([AccessRole::API_KEY, ['articles:read']], $request));
+        self::assertFalse($this->controller->isAllowed([AccessRole::API_KEY, ['articles:read', 'articles:write']], $request));
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private function makePrincipalRequest(Principal $principal): ServerRequestInterface
+    {
+        $request = $this->createMock(ServerRequestInterface::class);
+        $request->method('getAttribute')
+            ->willReturnCallback(static fn (string $name): ?object => $name === Principal::REQUEST_ATTRIBUTE ? $principal : null);
+
+        return $request;
+    }
 
     private function buildDefinitionWithOwnership(string $column, bool $beAdminBypass = true): ApiDefinition
     {
