@@ -5,9 +5,8 @@ on:
     branches:
       - main
       - 'renovate/**'
+  # Every base branch, so stacked PRs are tested before they are retargeted to main.
   pull_request:
-    branches:
-      - main
 
 permissions:
   contents: read
