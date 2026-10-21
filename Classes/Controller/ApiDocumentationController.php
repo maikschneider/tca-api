@@ -230,8 +230,21 @@ final readonly class ApiDocumentationController
             JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_SLASHES,
         );
 
+        // Swagger UI persists authorization under one origin-wide key, so credentials
+        // entered for one site would be sent to the next site selected in the module.
+        $serverJson = (string)json_encode(
+            (string)($specification['servers'][0]['url'] ?? ''),
+            JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_SLASHES,
+        );
+
         $domId = self::DOM_ID;
         $init = <<<JS
+            try {
+                if (localStorage.getItem('tca-api-authorized-server') !== {$serverJson}) {
+                    localStorage.removeItem('authorized');
+                    localStorage.setItem('tca-api-authorized-server', {$serverJson});
+                }
+            } catch (e) {}
             SwaggerUIBundle({
                 spec: {$specJson},
                 dom_id: '#{$domId}',
