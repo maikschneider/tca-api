@@ -14,6 +14,10 @@ PSR-7 request. These are available in operation handlers and event listeners.
    * - Attribute
      - Type
      - Description
+   * - ``tca_api.principal``
+     - ``Principal``
+     - The caller of the request, resolved by the authenticator chain. Read it
+       with ``Principal::fromRequest()``. See :ref:`authenticators`.
    * - ``tca_api.uid``
      - ``int|null``
      - UID parsed from the URL segment (``null`` for collection operations).

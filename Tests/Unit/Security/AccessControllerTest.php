@@ -32,8 +32,7 @@ final class AccessControllerTest extends TestCase
     {
         $request = $this->createMock(ServerRequestInterface::class);
         $request->method('getAttribute')
-            ->with('frontend.user')
-            ->willReturn($feUser);
+            ->willReturnCallback(static fn (string $name): ?object => $name === 'frontend.user' ? $feUser : null);
 
         return $request;
     }

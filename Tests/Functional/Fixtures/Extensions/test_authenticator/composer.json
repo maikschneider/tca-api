@@ -1,0 +1,19 @@
+{
+	"name": "maikschneider/tca-api-test-authenticator",
+	"description": "Functional test fixture: resolves the API principal from an X-Test-Auth header",
+	"type": "typo3-cms-extension",
+	"license": "GPL-2.0-or-later",
+	"require": {
+		"maikschneider/tca-api": "*"
+	},
+	"autoload": {
+		"psr-4": {
+			"MaikSchneider\\TcaApiTestAuthenticator\\": "Classes/"
+		}
+	},
+	"extra": {
+		"typo3/cms": {
+			"extension-key": "test_authenticator"
+		}
+	}
+}

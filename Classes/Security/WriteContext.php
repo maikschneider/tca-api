@@ -55,6 +55,20 @@ final readonly class WriteContext
     }
 
     /**
+     * Create context for an authenticated service principal without a TYPO3 user
+     * record, e.g. a service API key.
+     */
+    public static function forService(int $uid, string $username, WriteMode $mode = WriteMode::ACTING_USER): self
+    {
+        return new self(
+            mode: $mode,
+            actorType: 'service',
+            actorUid: $uid,
+            actorUsername: $username,
+        );
+    }
+
+    /**
      * Create context for system-level writes (no real user).
      *
      * WARNING: This bypasses user-level audit tracking. Only use for internal operations

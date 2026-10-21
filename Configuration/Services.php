@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use MaikSchneider\TcaApi\ConfigurationModuleProvider\TcaApiConfigurationProvider;
 use MaikSchneider\TcaApi\Controller\ApiDocumentationController;
+use MaikSchneider\TcaApi\Security\Authentication\AuthenticatorInterface;
 use MaikSchneider\TcaApi\Serializer\FileProcessing\FileProcessorInterface;
 use MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface;
 use MaikSchneider\TcaApi\Serializer\Processing\PreloadingProcessorInterface;
@@ -32,6 +33,10 @@ return static function (ContainerConfigurator $containerConfigurator, ContainerB
     foreach ([ColumnProcessorInterface::class, FileProcessorInterface::class] as $processorInterface) {
         $containerBuilder->registerForAutoconfiguration($processorInterface)->setPublic(true);
     }
+
+    // Authenticators of any extension join the chain without a tag of their own.
+    $containerBuilder->registerForAutoconfiguration(AuthenticatorInterface::class)
+        ->addTag('tca_api.authenticator');
 
     // The "Integrations" backend module (Swagger UI) depends on the v14-only
     // ComponentFactory. Excluded from the Classes/* autowiring glob in

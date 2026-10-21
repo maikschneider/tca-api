@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Unit\Security;
 
 use MaikSchneider\TcaApi\Enum\WriteMode;
+use MaikSchneider\TcaApi\Security\Authentication\Principal;
 use MaikSchneider\TcaApi\Security\WriteContextFactory;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -33,8 +34,7 @@ final class WriteContextFactoryTest extends TestCase
 
         $request = $this->createMock(ServerRequestInterface::class);
         $request->method('getAttribute')
-            ->with('frontend.user')
-            ->willReturn($feUser);
+            ->willReturnCallback(static fn (string $name): ?object => $name === 'frontend.user' ? $feUser : null);
 
         return $request;
     }
@@ -43,8 +43,16 @@ final class WriteContextFactoryTest extends TestCase
     {
         $request = $this->createMock(ServerRequestInterface::class);
         $request->method('getAttribute')
-            ->with('frontend.user')
             ->willReturn(null);
+
+        return $request;
+    }
+
+    private function requestWithPrincipal(Principal $principal): ServerRequestInterface
+    {
+        $request = $this->createMock(ServerRequestInterface::class);
+        $request->method('getAttribute')
+            ->willReturnCallback(static fn (string $name): ?object => $name === Principal::REQUEST_ATTRIBUTE ? $principal : null);
 
         return $request;
     }
@@ -115,5 +123,39 @@ final class WriteContextFactoryTest extends TestCase
         $context = $this->factory->fromRequest($this->requestWithNoUser());
 
         self::assertSame('system', $context->actorType);
+    }
+
+    // ── Principal from an authenticator ──────────────────────────────────
+
+    #[Test]
+    public function fromRequestReturnsServiceContextForAServicePrincipal(): void
+    {
+        $principal = new Principal(isService: true, serviceLabel: 'CI deploy', serviceUid: 7, source: 'api_key');
+
+        $context = $this->factory->fromRequest($this->requestWithPrincipal($principal));
+
+        self::assertSame('service', $context->actorType);
+        self::assertSame(7, $context->actorUid);
+        self::assertSame('CI deploy', $context->actorUsername);
+        self::assertSame(WriteMode::ACTING_USER, $context->mode);
+    }
+
+    #[Test]
+    public function fromRequestNamesAnUnlabelledServiceAfterItsSource(): void
+    {
+        $principal = new Principal(isService: true, source: 'api_key');
+
+        self::assertSame('api_key', $this->factory->fromRequest($this->requestWithPrincipal($principal))->actorUsername);
+    }
+
+    #[Test]
+    public function fromRequestPrefersTheFrontendUserWhenThePrincipalCarriesBoth(): void
+    {
+        $principal = new Principal(frontendUserUid: 4, frontendUsername: 'jane', backendUserUid: 2, backendUsername: 'admin', isBackendAdmin: true);
+
+        $context = $this->factory->fromRequest($this->requestWithPrincipal($principal));
+
+        self::assertSame('fe_user', $context->actorType);
+        self::assertSame(4, $context->actorUid);
     }
 }
