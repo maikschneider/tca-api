@@ -121,8 +121,8 @@ final class TcaApiMiddleware implements MiddlewareInterface
         $response = $response
             ->withHeader('Access-Control-Allow-Origin', $origin)
             ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
-            ->withHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Locale')
-            ->withHeader('Access-Control-Expose-Headers', 'Link, X-TCA-API-Cache, X-Cache-Tags, X-Cache-Tag-Count')
+            ->withHeader('Access-Control-Allow-Headers', $this->corsAllowHeaders($settings))
+            ->withHeader('Access-Control-Expose-Headers', 'Link, WWW-Authenticate, X-TCA-API-Cache, X-Cache-Tags, X-Cache-Tag-Count')
             ->withHeader('Vary', 'Origin');
 
         if ($corsAllowCredentials) {
@@ -130,6 +130,21 @@ final class TcaApiMiddleware implements MiddlewareInterface
         }
 
         return $response;
+    }
+
+    /**
+     * The built-in request headers plus the comma-separated `tca_api.corsAllowHeaders`,
+     * deduplicated case-insensitively since header names are case-insensitive.
+     */
+    private function corsAllowHeaders(SiteSettings $settings): string
+    {
+        $headers = [];
+        $configured = GeneralUtility::trimExplode(',', (string)$settings->get('tca_api.corsAllowHeaders', ''), true);
+        foreach (['Content-Type', 'Authorization', 'X-Locale', ...$configured] as $header) {
+            $headers[strtolower($header)] ??= $header;
+        }
+
+        return implode(', ', $headers);
     }
 
     private function resolveMatchedRequestPrefix(string $path, string $apiPrefix, ?SiteLanguage $requestLanguage): ?string

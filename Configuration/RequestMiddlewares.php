@@ -11,6 +11,9 @@ return [
             ],
             'after' => [
                 'typo3/cms-frontend/site',
+                'typo3/cms-frontend/authentication',
+                'typo3/cms-frontend/backend-user-authentication',
+                'typo3/cms-frontend/base-redirect-resolver',
             ],
         ],
     ],

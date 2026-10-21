@@ -114,6 +114,13 @@ settings:
     type: string
     default: '*'
 
+  tca_api.corsAllowHeaders:
+    label: 'Additional Allowed Headers'
+    description: 'Comma-separated request headers added to Access-Control-Allow-Headers, e.g. X-API-Key. Content-Type, Authorization and X-Locale are always allowed.'
+    category: TcaApi.cors
+    type: string
+    default: ''
+
   tca_api.corsAllowCredentials:
     label: 'Allow Credentials'
     description: 'Include Access-Control-Allow-Credentials: true in CORS responses. Required when the frontend sends cookies or Authorization headers with cross-origin requests.'
