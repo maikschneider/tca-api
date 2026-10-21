@@ -20,7 +20,10 @@ final class ScopeTest extends TestCase
         yield 'everything' => ['*:*', true];
         yield 'unknown access' => ['articles:delete', false];
         yield 'no access part' => ['articles', false];
-        yield 'uppercase' => ['Articles:read', false];
+        yield 'uppercase' => ['NewsArticle-text:read', true];
+        yield 'dots' => ['news.articles:write', true];
+        yield 'leading dot' => ['.articles:read', false];
+        yield 'uppercase access' => ['articles:READ', false];
         yield 'empty' => ['', false];
         yield 'not a string' => [42, false];
     }
@@ -52,6 +55,11 @@ final class ScopeTest extends TestCase
         yield 'access wildcard' => [['articles:*'], 'articles:write', true];
         yield 'any of several' => [['colors:read', 'articles:write'], 'articles:write', true];
         yield 'none granted' => [[], 'articles:read', false];
+        yield 'all access from read and write' => [['articles:read', 'articles:write'], 'articles:*', true];
+        yield 'all access needs both' => [['articles:read'], 'articles:*', false];
+        yield 'all access from a wildcard grant' => [['*:*'], 'articles:*', true];
+        yield 'all resources need a wildcard grant' => [['articles:read', 'colors:read'], '*:read', false];
+        yield 'everything from read and write wildcards' => [['*:read', '*:write'], '*:*', true];
     }
 
     /**

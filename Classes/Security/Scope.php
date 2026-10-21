@@ -12,7 +12,7 @@ namespace MaikSchneider\TcaApi\Security;
  */
 final class Scope
 {
-    private const PATTERN = '/^(\*|[a-z0-9][a-z0-9_-]*):(\*|read|write)$/';
+    private const PATTERN = '/^(\*|[A-Za-z0-9][A-Za-z0-9._-]*):(\*|read|write)$/';
 
     private const READ_OPERATIONS = ['list', 'show', 'userinfo'];
 
@@ -27,11 +27,18 @@ final class Scope
     }
 
     /**
+     * A required `{resource}:*` is met by a `*` grant or by read and write granted
+     * separately. A required `*:{access}` needs a `*` resource grant, since the
+     * resources are not enumerable here.
+     *
      * @param list<string> $granted
      */
     public static function grants(array $granted, string $required): bool
     {
         [$requiredResource, $requiredAccess] = explode(':', $required, 2) + [1 => ''];
+        if ($requiredAccess === '*') {
+            return self::grants($granted, $requiredResource . ':read') && self::grants($granted, $requiredResource . ':write');
+        }
 
         foreach ($granted as $scope) {
             [$resource, $access] = explode(':', $scope, 2) + [1 => ''];
