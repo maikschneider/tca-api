@@ -45,19 +45,16 @@ final class OpenApiResponseValidator
 
         foreach (array_keys((array)$decoded->paths) as $template) {
             $pattern = preg_replace('/\\\\\{[^\/]+?\\\\\}/', '[^/]+', preg_quote((string)$template, '#'));
-            $this->paths[(string)$template] = ['template' => (string)$template, 'pattern' => '#' . $pattern . '$#'];
+            $this->paths[(string)$template] = ['template' => (string)$template, 'pattern' => '#^' . $pattern . '$#'];
         }
     }
 
     /**
-     * @return list<string> mismatch signatures; empty when the response matches or is not documented as JSON
+     * @param string $path the request path without the site language's base path, e.g. "/_api/articles/1"
+     * @return list<string> mismatch signatures; empty when the response matches or the path is no documented operation
      */
     public function validate(string $method, string $path, int $status, string $contentType, string $body): array
     {
-        if (!preg_match('#^application/(ld\+)?json#', $contentType) || $body === '') {
-            return [];
-        }
-
         $template = $this->matchPath($path);
         $method   = strtolower($method);
         if ($template === null || !isset($this->spec->paths->{$template}->{$method})) {
@@ -71,10 +68,17 @@ final class OpenApiResponseValidator
             return [$prefix . ': status not documented'];
         }
 
+        $isJson  = preg_match('#^application/(ld\+)?json#', $contentType) === 1;
         $content = $responses->{$code}->content ?? null;
         $media   = $content === null ? null : (isset($content->{'application/ld+json'}) ? 'application/ld+json' : (isset($content->{'application/json'}) ? 'application/json' : null));
         if ($media === null || !isset($content->{$media}->schema)) {
-            return [$prefix . ': no JSON schema documented'];
+            return $isJson && $body !== '' ? [$prefix . ': no JSON schema documented'] : [];
+        }
+        if ($body === '') {
+            return [$prefix . ': empty body, documented ' . $media];
+        }
+        if (!$isJson) {
+            return [$prefix . ': content type "' . $contentType . '", documented ' . $media];
         }
 
         $pointer = '#/paths/' . self::escape($template) . '/' . $method . '/responses/' . $code . '/content/' . self::escape($media) . '/schema';
@@ -96,15 +100,13 @@ final class OpenApiResponseValidator
 
     private function matchPath(string $path): ?string
     {
-        $match = null;
         foreach ($this->paths as $entry) {
-            // The longest match wins, so "/_api/articles/{uid}" beats "/_api/articles".
-            if (preg_match($entry['pattern'], $path) && ($match === null || \strlen($entry['template']) > \strlen($match))) {
-                $match = $entry['template'];
+            if (preg_match($entry['pattern'], $path) === 1) {
+                return $entry['template'];
             }
         }
 
-        return $match;
+        return null;
     }
 
     /** @return list<ValidationError> */
