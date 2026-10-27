@@ -22,6 +22,8 @@ final readonly class Principal
      * @param list<int> $frontendGroupIds
      * @param list<string>|null $scopes granted scopes; `null` means unrestricted
      * @param string $source identifies the authenticator, e.g. `session` or `api_key`
+     * @param string $credential safe-to-log identifier of the credential the
+     *        request carried, e.g. `api_key:12:t3key_AbCdEfGh`; empty for sessions
      */
     public function __construct(
         public int $frontendUserUid = 0,
@@ -35,6 +37,7 @@ final readonly class Principal
         public int $serviceUid = 0,
         public ?array $scopes = null,
         public string $source = '',
+        public string $credential = '',
     ) {
     }
 
