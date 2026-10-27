@@ -67,10 +67,10 @@ final class ImageProcessor implements FileProcessorInterface
             return $this->processSingleVariant($fileReference, $base, $cropJson, $imageDef);
         }
 
-        // All-variants mode: process every stored crop variant.
-        $base['cropVariants'] = $cropJson !== ''
-            ? $this->buildAllCropVariants($fileReference, $cropJson, $imageDef)
-            : [];
+        // All-variants mode: process every stored crop variant. A map keyed by variant
+        // id, so an empty one is encoded as {} rather than [].
+        $variants = $cropJson !== '' ? $this->buildAllCropVariants($fileReference, $cropJson, $imageDef) : [];
+        $base['cropVariants'] = $variants === [] ? new \stdClass() : $variants;
 
         return $base;
     }

@@ -26,20 +26,38 @@ final readonly class OpenApiSchemasBuilder
                 ],
                 'required' => ['@id', '@type', 'uid'],
             ],
+            // What FileProcessor writes, plus the fields ImageProcessor adds: alternative and
+            // copyright, and either width/height (with a cropVariant) or cropVariants.
             'FileObject' => [
                 'type' => 'object',
                 'properties' => [
                     'uid'       => ['type' => 'integer'],
                     'name'      => ['type' => 'string'],
                     'extension' => ['type' => 'string'],
-                    'publicUrl' => ['type' => 'string'],
+                    // null for a file in a non-public storage
+                    'publicUrl' => ['oneOf' => [['type' => 'string'], ['type' => 'null']]],
                     'mimeType'  => ['type' => 'string'],
                     'fileSize'  => ['type' => 'integer'],
                     'metadata'  => [
                         'type' => 'object',
                         'properties' => [
                             'title'       => ['oneOf' => [['type' => 'string'], ['type' => 'null']]],
+                            'alternative' => ['oneOf' => [['type' => 'string'], ['type' => 'null']]],
                             'description' => ['oneOf' => [['type' => 'string'], ['type' => 'null']]],
+                            'copyright'   => ['oneOf' => [['type' => 'string'], ['type' => 'null']]],
+                        ],
+                    ],
+                    'width'        => ['type' => 'integer'],
+                    'height'       => ['type' => 'integer'],
+                    'cropVariants' => [
+                        'type' => 'object',
+                        'additionalProperties' => [
+                            'type' => 'object',
+                            'properties' => [
+                                'publicUrl' => ['type' => 'string'],
+                                'width'     => ['type' => 'integer'],
+                                'height'    => ['type' => 'integer'],
+                            ],
                         ],
                     ],
                 ],
