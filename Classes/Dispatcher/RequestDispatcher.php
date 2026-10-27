@@ -357,12 +357,22 @@ final class RequestDispatcher
             <div id="swagger-ui"></div>
             <script src="{$jsUrl}"></script>
             <script>
+                // Sites under sub-paths share one origin and Swagger UI's origin-wide
+                // authorization key, so credentials are kept per documentation page.
+                try {
+                    var server = location.origin + location.pathname;
+                    if (localStorage.getItem('tca-api-authorized-server') !== server) {
+                        localStorage.removeItem('authorized');
+                        localStorage.setItem('tca-api-authorized-server', server);
+                    }
+                } catch (e) {}
                 SwaggerUIBundle({
                     url: {$openApiUrl},
                     dom_id: '#swagger-ui',
                     presets: [SwaggerUIBundle.presets.apis],
                     layout: 'BaseLayout',
-                    deepLinking: true
+                    deepLinking: true,
+                    persistAuthorization: true
                 });
             </script>
             </body>

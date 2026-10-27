@@ -88,6 +88,8 @@ final class ApiDocumentationModuleTest extends ApiFunctionalTestCase
         // The Swagger mount point and inline bootstrap are rendered into the module body.
         self::assertStringContainsString('id="tca-api-swagger-ui"', $html);
         self::assertStringContainsString('SwaggerUIBundle(', $html);
+        // Persisted authorization is dropped when the selected site's server changes.
+        self::assertStringContainsString("localStorage.getItem('tca-api-authorized-server') !== \"http://localhost\"", $html);
 
         // All four static assets are wired: the vendored bundle plus the two
         // backend-only override files that carry the theme + title/servers fixes.
