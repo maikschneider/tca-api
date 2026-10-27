@@ -12,7 +12,7 @@ return [
         '.github',
         'bin',
         'build',
-        'config',
+        'config/',
         'Documentation-GENERATED-temp',
         'MEMORY',
         'Plans',

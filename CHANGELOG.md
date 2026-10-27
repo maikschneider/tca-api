@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The TER package contains `Configuration/` again.** Tailor matches excluded directories as a case-insensitive prefix, so excluding `config` also dropped `Configuration/`, and TER releases up to 2.2.0 shipped without services, middlewares and site set. Composer installs were not affected.
 - **The API middleware is declared after core's frontend and backend authentication.** It ran after them only because of how the other constraints happened to sort, so a third-party middleware could reorder the stack and leave `frontend.user` and `BE_USER` unset during access checks ([#243](https://github.com/maikschneider/tca-api/issues/243)).
 - **A `type=group` column holding one record is serialized.** `pages.shortcut` (`relationship => manyToOne`, one allowed table) rendered as `null`, because the single-relation path only read `foreign_table`. It now links to the target record, and OpenAPI and Hydra describe it as one relation instead of a list ([#222](https://github.com/maikschneider/tca-api/issues/222), [#119](https://github.com/maikschneider/tca-api/issues/119)).
 - **Nested creates respect the child resource's record types.** A record created through a relation into a resource with `recordTypes` kept whatever type the client sent, so a child could be created as a type the target resource does not serve. A single-type child resource now sets its type, and any other value is rejected with `422`, `INVALID_RECORD_TYPE`.
