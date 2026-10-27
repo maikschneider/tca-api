@@ -36,6 +36,7 @@ final class WriteAuditLogger
             'actor_type' => $context->actorType,
             'actor_uid' => $context->actorUid,
             'actor_username' => $context->actorUsername,
+            'credential' => $context->credential,
             'write_mode' => $context->mode->value,
         ]);
     }
@@ -51,6 +52,7 @@ final class WriteAuditLogger
             'actor_type' => $context->actorType,
             'actor_uid' => $context->actorUid,
             'actor_username' => $context->actorUsername,
+            'credential' => $context->credential,
             'write_mode' => $context->mode->value,
             'reason' => $reason,
         ]);
