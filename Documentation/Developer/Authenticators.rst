@@ -13,6 +13,45 @@ Built in is the ``SessionAuthenticator``: the frontend and backend user that
 TYPO3's authentication middlewares restored from their session cookies. A
 request without any credentials is anonymous.
 
+..  _authenticators-api-key:
+
+API keys
+========
+
+When the `api_key <https://github.com/maikschneider/api-key>`__ extension is
+installed (``composer require maikschneider/api-key``), tca_api registers an
+``ApiKeyAuthenticator`` (priority ``10``). It accepts a key sent as
+``X-API-Key: t3key_…`` or ``Authorization: Bearer t3key_…`` and maps it to a
+principal with ``source = 'api_key'``:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 35 65
+
+   * - Key
+     - Principal
+   * - Service key (no user)
+     - service principal; satisfies ``API_KEY`` only
+   * - Bound to a frontend user
+     - that frontend user with its groups; satisfies ``FE_USER``,
+       ``FE_GROUP``, ``OWNER`` and ``API_KEY``
+   * - Bound to a backend user
+     - that backend user; satisfies ``BE_USER``, ``BE_ADMIN`` (for admins) and
+       ``API_KEY``
+   * - Invalid, expired, revoked, IP- or site-restricted
+     - ``401 Unauthorized``, never anonymous
+
+The bound user is read from the database, not logged in: keyed requests create
+no ``fe_sessions`` row, send no ``Set-Cookie`` and leave ``lastlogin``
+untouched. The key's scopes become the principal's scopes, so a key bound to a
+user can never do more than its scopes allow. A key without scopes is
+unrestricted. Bearer tokens without the ``t3key_`` prefix are left to other
+authenticators.
+
+The bridge also adds ``X-API-Key`` to ``Access-Control-Allow-Headers`` and
+documents the ``ApiKey`` and ``ApiKeyBearer`` security schemes in the OpenAPI
+document. Without the extension none of this is registered.
+
 Interface
 =========
 
@@ -28,6 +67,11 @@ Interface
 
         public function getPriority(): int;
     }
+
+An authenticator that reads a custom request header implements
+``RequestHeaderAuthenticatorInterface`` instead; its ``getRequestHeaders()``
+are added to ``Access-Control-Allow-Headers``, so browser clients can send them
+through a CORS preflight.
 
 Every implementation in any extension is registered automatically. The chain
 asks the authenticators in descending priority and stops at the first one that
@@ -76,7 +120,9 @@ caller without a TYPO3 user record.
      - any authenticated principal whose ``source`` is not ``session``
 
 Writes record the frontend user, otherwise the backend user, otherwise the
-service as actor. ``scopes`` lists the granted scopes, ``null`` means
+service as actor. ``credential`` is a safe-to-log identifier of the credential
+the request carried (e.g. ``api_key:12:t3key_AbCdEfGh``); the write audit log
+records it next to the actor. ``scopes`` lists the granted scopes, ``null`` means
 unrestricted. See :ref:`scopes`.
 
 Example

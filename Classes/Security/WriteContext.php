@@ -16,41 +16,47 @@ final readonly class WriteContext
 {
     /**
      * @param WriteMode   $mode           Execution strategy for this write
-     * @param string      $actorType      Actor type: 'fe_user', 'be_user', or 'system'
+     * @param string      $actorType      Actor type: 'fe_user', 'be_user', 'system', or the
+     *                                    authenticator source of a service principal (e.g. 'api_key')
      * @param int         $actorUid       Actor UID (0 for anonymous/system)
      * @param string      $actorUsername  Human-readable actor identifier for audit
+     * @param string      $credential     Safe-to-log identifier of the credential the
+     *                                    request carried, e.g. an API key; empty for sessions
      */
     public function __construct(
         public WriteMode $mode,
         public string $actorType,
         public int $actorUid,
         public string $actorUsername,
+        public string $credential = '',
     ) {
     }
 
     /**
      * Create context for an authenticated frontend user.
      */
-    public static function forFrontendUser(int $uid, string $username, WriteMode $mode = WriteMode::ACTING_USER): self
+    public static function forFrontendUser(int $uid, string $username, WriteMode $mode = WriteMode::ACTING_USER, string $credential = ''): self
     {
         return new self(
             mode: $mode,
             actorType: 'fe_user',
             actorUid: $uid,
             actorUsername: $username,
+            credential: $credential,
         );
     }
 
     /**
      * Create context for an authenticated backend user.
      */
-    public static function forBackendUser(int $uid, string $username, WriteMode $mode = WriteMode::ACTING_USER): self
+    public static function forBackendUser(int $uid, string $username, WriteMode $mode = WriteMode::ACTING_USER, string $credential = ''): self
     {
         return new self(
             mode: $mode,
             actorType: 'be_user',
             actorUid: $uid,
             actorUsername: $username,
+            credential: $credential,
         );
     }
 
@@ -58,13 +64,14 @@ final readonly class WriteContext
      * Create context for an authenticated service principal without a TYPO3 user
      * record, e.g. a service API key.
      */
-    public static function forService(int $uid, string $username, WriteMode $mode = WriteMode::ACTING_USER): self
+    public static function forService(int $uid, string $username, WriteMode $mode = WriteMode::ACTING_USER, string $actorType = 'service', string $credential = ''): self
     {
         return new self(
             mode: $mode,
-            actorType: 'service',
+            actorType: $actorType,
             actorUid: $uid,
             actorUsername: $username,
+            credential: $credential,
         );
     }
 
