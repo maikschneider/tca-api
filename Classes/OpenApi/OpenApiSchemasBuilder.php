@@ -16,8 +16,12 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final readonly class OpenApiSchemasBuilder
 {
-    /** @param ApiDefinition[] $resources */
-    public function build(array $resources): array
+    /**
+     * @param ApiDefinition[] $resources    the resources the spec documents
+     * @param ApiDefinition[] $allResources every registered resource; one the site doesn't serve is still
+     *                                      embedded with its own columns, as ApiRegistry::getRelated() resolves it
+     */
+    public function build(array $resources, array $allResources = []): array
     {
         $schemas = [
             'RelationStub' => [
@@ -97,12 +101,20 @@ final readonly class OpenApiSchemasBuilder
             ],
         ];
 
+        // Relations resolve among the documented resources first, then among blocked ones without item endpoint.
+        $related = array_values($resources);
+        foreach ($allResources as $resource) {
+            if (!\in_array($resource, $resources, true)) {
+                $related[] = $resource->withoutItemEndpoint();
+            }
+        }
+
         $names = new OpenApiSchemaNames($resources);
         foreach ($resources as $config) {
             $name = $names->of($config);
             $schemas += $config->typeSchemas
-                ? $this->buildTypeReadSchemas($config, $resources, $names, $schemas)
-                : [$name . 'Read' => $this->withRecordTypeEnum($this->buildReadSchema($config, $resources), $config, false)];
+                ? $this->buildTypeReadSchemas($config, $resources, $names, $schemas, $related)
+                : [$name . 'Read' => $this->withRecordTypeEnum($this->buildReadSchema($config, $related), $config, false)];
             if ($this->hasWriteOperations($config)) {
                 $schemas[$name . 'Write'] = $this->withRecordTypeEnum($this->buildWriteSchema($config), $config, true);
             }
@@ -194,9 +206,10 @@ final readonly class OpenApiSchemasBuilder
      *
      * @param ApiDefinition[]       $resources
      * @param array<string, mixed>  $built     component schemas built so far, whose names are taken
+     * @param ApiDefinition[]       $related   resources relations resolve among, see build()
      * @return array<string, array<string, mixed>>
      */
-    private function buildTypeReadSchemas(ApiDefinition $config, array $resources, OpenApiSchemaNames $names, array $built): array
+    private function buildTypeReadSchemas(ApiDefinition $config, array $resources, OpenApiSchemaNames $names, array $built, array $related): array
     {
         $field = (string)$config->recordTypeField;
         $recordTypes = $config->recordTypes ?? [];
@@ -214,10 +227,8 @@ final readonly class OpenApiSchemasBuilder
         }
         $suffixes = [];
         foreach ($recordTypes as $recordType) {
-            $schema = $this->buildReadSchema($config, $resources, -1, $recordType);
-            $property = $schema['properties'][$field] ?? ['type' => 'string'];
-            $property['enum'] = [($property['type'] ?? null) === 'integer' ? (int)$recordType : $recordType];
-            $schema['properties'][$field] = $property;
+            $schema = $this->buildReadSchema($config, $related, -1, $recordType);
+            $schema['properties'][$field] = self::recordTypeEnum($schema['properties'][$field] ?? ['type' => 'string'], [$recordType]);
             $schema['required'] = [$field];
 
             $name = $base . 'Read';
@@ -330,14 +341,31 @@ final readonly class OpenApiSchemasBuilder
             return $schema;
         }
 
-        $property = $properties[$field] ?? ['type' => 'string'];
-        $property['enum'] = ($property['type'] ?? null) === 'integer'
-            ? array_map('intval', $config->recordTypes)
-            : $config->recordTypes;
-        $properties[$field] = $property;
+        $properties[$field] = self::recordTypeEnum($properties[$field] ?? ['type' => 'string'], $config->recordTypes);
         $schema['properties'] = $properties;
 
         return $schema;
+    }
+
+    /**
+     * The type field restricted to record types. A nullable column is a oneOf with
+     * null; the type field always holds a type, so its non-null branch is used.
+     *
+     * @param list<string> $recordTypes
+     */
+    private static function recordTypeEnum(array $property, array $recordTypes): array
+    {
+        foreach ($property['oneOf'] ?? [] as $branch) {
+            if (($branch['type'] ?? null) !== 'null') {
+                $property = $branch;
+                break;
+            }
+        }
+        $property['enum'] = ($property['type'] ?? null) === 'integer'
+            ? array_map('intval', $recordTypes)
+            : array_values($recordTypes);
+
+        return $property;
     }
 
     private function buildPropertySchema(ColumnDefinition $columnDef): array
