@@ -541,6 +541,33 @@ final class OpenApiSchemasBuilderTest extends TestCase
         self::assertSame('integer', $readProps['fe_user_id']['type']);
     }
 
+    // ── Collection schema ──────────────────────────────────────────────────────
+
+    #[Test]
+    public function collectionPagingLinksAreNullable(): void
+    {
+        $view = $this->builder->build([$this->makeConfig([])])['TestCollection']['properties']['hydra:view']['properties'];
+
+        foreach (['hydra:previous', 'hydra:next'] as $link) {
+            self::assertSame([['type' => 'string'], ['type' => 'null']], $view[$link]['oneOf'], $link);
+        }
+        self::assertSame('string', $view['hydra:first']['type']);
+        self::assertSame('string', $view['hydra:last']['type']);
+    }
+
+    #[Test]
+    public function collectionDescribesTheSearchTemplate(): void
+    {
+        $search = $this->builder->build([$this->makeConfig([])])['TestCollection']['properties']['hydra:search'];
+
+        self::assertSame('object', $search['type']);
+        self::assertSame(['@type', 'hydra:template', 'hydra:variableRepresentation', 'hydra:mapping'], array_keys($search['properties']));
+        self::assertSame(
+            ['@type', 'variable', 'property', 'required'],
+            array_keys($search['properties']['hydra:mapping']['items']['properties']),
+        );
+    }
+
     // ── Helper ─────────────────────────────────────────────────────────────────
 
     /** @param list<string> $operations */

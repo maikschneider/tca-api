@@ -590,8 +590,30 @@ final readonly class OpenApiSchemasBuilder
                         '@type' => ['type' => 'string'],
                         'hydra:first' => ['type' => 'string'],
                         'hydra:last' => ['type' => 'string'],
-                        'hydra:previous' => ['type' => 'string'],
-                        'hydra:next' => ['type' => 'string'],
+                        // null on the first and the last page
+                        'hydra:previous' => ['oneOf' => [['type' => 'string'], ['type' => 'null']]],
+                        'hydra:next' => ['oneOf' => [['type' => 'string'], ['type' => 'null']]],
+                    ],
+                ],
+                // Only present when the resource has public filters or orderings.
+                'hydra:search' => [
+                    'type' => 'object',
+                    'properties' => [
+                        '@type' => ['type' => 'string', 'example' => 'hydra:IriTemplate'],
+                        'hydra:template' => ['type' => 'string'],
+                        'hydra:variableRepresentation' => ['type' => 'string', 'example' => 'BasicRepresentation'],
+                        'hydra:mapping' => [
+                            'type' => 'array',
+                            'items' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    '@type' => ['type' => 'string', 'example' => 'IriTemplateMapping'],
+                                    'variable' => ['type' => 'string'],
+                                    'property' => ['type' => 'string'],
+                                    'required' => ['type' => 'boolean'],
+                                ],
+                            ],
+                        ],
                     ],
                 ],
             ],
