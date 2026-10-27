@@ -14,7 +14,6 @@ GET /_api/grp-articles 200 /hydra:member/*/related_items/*: additionalProperties
 GET /_api/grp-articles 200 /hydra:member/*/related_items/*: additionalProperties (@id, title, related_colors, related_items)
 GET /_api/grp-articles/{uid} 200 /related_items/*: additionalProperties (@id, name)
 GET /_api/grp-articles/{uid} 200 /related_items/*: additionalProperties (@id, title, related_colors, related_items)
-GET /_api/keyed-arts/{uid} 200 /fe_user_id: type (string, got integer)
 GET /_api/linking-content/{uid} 200 /tx_split_content/colPos: type (string, got integer)
 GET /_api/pid-articles/{uid} 404: empty body, documented application/ld+json
 GET /_api/qc-articles 200 /hydra:member/*/related_items/*: additionalProperties (@id, name)
@@ -52,8 +51,6 @@ GET /api/fbu-categories 200 /hydra:member/*/items/*: additionalProperties (@id, 
 GET /api/fbu-categories/{uid} 200 /items/*: additionalProperties (@id, title, color_id, categories, profile_photo, first_name, downloads, article_url)
 GET /api/rv-lang-categories/{uid} 200 /items/*: additionalProperties (@id, title, color_id, categories, profile_photo, first_name, downloads, article_url)
 PATCH /_api/typed-content/{uid} 200 /colPos: type (string, got integer)
-POST /_api/keyed-arts 201 /fe_user_id: type (string, got integer)
 POST /_api/lenient-teasers 201 /colPos: type (string, got integer)
 POST /_api/split-content-header 201 /colPos: type (string, got integer)
 POST /_api/typed-content 201 /colPos: type (string, got integer)
-PUT /_api/keyed-arts/{uid} 200 /fe_user_id: type (string, got integer)
