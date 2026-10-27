@@ -46,4 +46,21 @@ final class AuthenticatorChain
 
         return AuthenticationResult::authenticated(Principal::anonymous());
     }
+
+    /**
+     * Request headers the registered authenticators read credentials from.
+     *
+     * @return list<string>
+     */
+    public function getRequestHeaders(): array
+    {
+        $headers = [];
+        foreach ($this->authenticators as $authenticator) {
+            if ($authenticator instanceof RequestHeaderAuthenticatorInterface) {
+                array_push($headers, ...$authenticator->getRequestHeaders());
+            }
+        }
+
+        return $headers;
+    }
 }

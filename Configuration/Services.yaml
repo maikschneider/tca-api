@@ -10,6 +10,8 @@ services:
       - '../Classes/ConfigurationModuleProvider/'
       # Registered conditionally in Services.php — depends on v14-only backend API.
       - '../Classes/Controller/'
+      # Registered conditionally in Services.php — depends on the optional api_key extension.
+      - '../Classes/Integration/ApiKey/'
 
   _instanceof:
     MaikSchneider\TcaApi\OperationHandler\OperationHandlerInterface:
