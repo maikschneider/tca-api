@@ -68,14 +68,14 @@ final class OpenApiSpecCommand extends Command
 
         $file = $input->getOption('output');
         if (\is_string($file) && $file !== '') {
-            if (file_put_contents($file, $json . "\n") === false) {
+            if (file_put_contents($file, $json) === false) {
                 $output->writeln('<error>Could not write ' . $file . '</error>');
                 return Command::FAILURE;
             }
             return Command::SUCCESS;
         }
 
-        $output->writeln($json, OutputInterface::OUTPUT_RAW);
+        $output->write($json, false, OutputInterface::OUTPUT_RAW);
 
         return Command::SUCCESS;
     }

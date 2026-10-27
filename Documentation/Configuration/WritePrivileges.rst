@@ -66,6 +66,11 @@ to a real account:
 
     _tca_api[fe_user:42:johndoe]
     _tca_api[be_user:1:admin]
+    _tca_api[api_key:12:CI deploy]
+
+A service API key acts under its own uid and title (see
+:ref:`authenticators-api-key`). A key bound to a user acts as that user, and
+the write audit log records the key in its ``credential`` field.
 
 Table access control
 ====================

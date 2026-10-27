@@ -1,9 +1,7 @@
-/**
- * Typical client code against types generated from the spec of the dev site
- * (`npm run client:check`). It must compile: a schema that is too loose or too
- * strict for real responses breaks it, which response validation alone can't
- * catch.
- */
+// Typical client code against types generated from the spec of the dev site
+// (`npm run client:check`). It must compile: a schema that is too loose or too
+// strict for real responses breaks it, which response validation alone can't
+// catch.
 import type { components } from './generated/openapi';
 
 type Schemas = components['schemas'];

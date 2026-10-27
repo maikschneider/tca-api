@@ -44,14 +44,16 @@ final class ApiRegistry
      */
     /**
      * @param list<string> $allowedResourceNames the site's tca_api.allowedResources; empty = all.
-     *                                           A resource the site doesn't serve is never the related one.
+     *                                           A resource the site doesn't serve keeps its columns,
+     *                                           but loses its item endpoint, so it isn't linked.
      */
     public function getRelated(string $foreignTable, ApiDefinition $config, ?string $resourceName = null, array $allowedResourceNames = []): ?ApiDefinition
     {
         $isAllowed = static fn (string $name): bool => $allowedResourceNames === [] || \in_array($name, $allowedResourceNames, true);
 
         if ($resourceName !== null) {
-            return $isAllowed($resourceName) ? $this->get($resourceName) : null;
+            $resource = $this->get($resourceName);
+            return $resource !== null && !$isAllowed($resourceName) ? $resource->withoutItemEndpoint() : $resource;
         }
 
         if ($foreignTable === $config->table) {
@@ -61,13 +63,18 @@ final class ApiRegistry
         if ($allowedResourceNames === []) {
             return $this->getByTable($foreignTable);
         }
+        $blocked = null;
         foreach (self::$resources as $name => $resource) {
-            if ($resource->table === $foreignTable && $isAllowed($name)) {
+            if ($resource->table !== $foreignTable) {
+                continue;
+            }
+            if ($isAllowed($name)) {
                 return $resource;
             }
+            $blocked ??= $resource;
         }
 
-        return null;
+        return $blocked?->withoutItemEndpoint();
     }
 
     /** @return array<string, ApiDefinition> */
