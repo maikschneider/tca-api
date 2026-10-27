@@ -66,6 +66,21 @@ final class OpenApiSchemasBuilderTest extends TestCase
         self::assertSame('integer', $props['fileSize']['type']);
     }
 
+    #[Test]
+    public function fileObjectDescribesTheImageProcessorFields(): void
+    {
+        $props = $this->builder->build([])['FileObject']['properties'];
+
+        self::assertSame([['type' => 'string'], ['type' => 'null']], $props['publicUrl']['oneOf']);
+        self::assertSame(['title', 'alternative', 'description', 'copyright'], array_keys($props['metadata']['properties']));
+        self::assertSame('integer', $props['width']['type']);
+        self::assertSame('integer', $props['height']['type']);
+        self::assertSame(
+            ['publicUrl', 'width', 'height'],
+            array_keys($props['cropVariants']['additionalProperties']['properties']),
+        );
+    }
+
     // ── HasOne relation schema ─────────────────────────────────────────────────
 
     #[Test]
