@@ -67,8 +67,7 @@ class GetUserInfoHandler implements OperationHandlerInterface
 
         $row = $this->dataRepository->findById($config->table, $uid, $config, $language);
         if ($row === null) {
-            return $this->responseFactory->createResponse(404)
-                ->withHeader('Content-Type', 'application/ld+json');
+            return $this->hydraResponseBuilder->buildError(404, 'Resource not found', 'Not Found');
         }
 
         $preloaded  = $this->embedPreloader->preload([$row], $config, $language, $fields, '', $this->allowedResourcesFromRequest($request));
