@@ -103,7 +103,7 @@ final class ImageManipulationTest extends ApiFunctionalTestCase
 
     // ── empty string ─────────────────────────────────────────────────────────
 
-    public function testEmptyStringReturnsRawValue(): void
+    public function testEmptyStringReturnsNull(): void
     {
         $this->registerResource('crop-colors', self::BASE_CONFIG);
 
@@ -112,8 +112,8 @@ final class ImageManipulationTest extends ApiFunctionalTestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertArrayHasKey('crop_settings', $body);
-        // Empty string is not valid JSON → raw fallback (empty string returned)
-        self::assertSame('', $body['crop_settings']);
+        // An empty column is null, as for flex columns and as the spec describes it
+        self::assertNull($body['crop_settings']);
     }
 
     // ── invalid JSON ─────────────────────────────────────────────────────────

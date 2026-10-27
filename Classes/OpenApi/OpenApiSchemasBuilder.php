@@ -7,6 +7,8 @@ namespace MaikSchneider\TcaApi\OpenApi;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Loader\TcaValidatorDeriver;
+use MaikSchneider\TcaApi\Serializer\Processing\RouteEnhancerProcessor;
+use MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor;
 use MaikSchneider\TcaApi\Serializer\RelationSerializer;
 use MaikSchneider\TcaApi\Tca\RecordTypeFields;
 use MaikSchneider\TcaApi\Tca\RelationCardinality;
@@ -164,8 +166,23 @@ final readonly class OpenApiSchemasBuilder
         if ($vpDef->callback === null && \is_array($sourceConfig) && ($sourceConfig['type'] ?? null) === 'file') {
             return $this->buildFilePropertySchema($sourceConfig);
         }
+        if ($vpDef->callback === null && $vpDef->type === null) {
+            return self::processorSchema($vpDef->processor) ?? $this->buildPropertySchema($vpDef);
+        }
 
         return $this->buildPropertySchema($vpDef);
+    }
+
+    /**
+     * Output of the extension's own processors: TypoLinkProcessor (also applied to
+     * type=link columns without a processor) and RouteEnhancerProcessor send a URL,
+     * or null when there is none. Other processors' output is only known to their author.
+     */
+    private static function processorSchema(?string $processor): ?array
+    {
+        return \in_array($processor, [TypoLinkProcessor::class, RouteEnhancerProcessor::class], true)
+            ? ['oneOf' => [['type' => 'string'], ['type' => 'null']]]
+            : null;
     }
 
     /**
@@ -241,14 +258,16 @@ final readonly class OpenApiSchemasBuilder
     /** @param ApiDefinition[] $resources */
     private function buildReadPropertySchema(ColumnDefinition $columnDef, ?array $tcaConfig, ApiDefinition $config, array $resources, int $remainingDepth = -1): array
     {
+        // A column callback runs after everything else and replaces the value.
+        if ($columnDef->callback !== null) {
+            return $this->buildPropertySchema($columnDef);
+        }
+
         if ($tcaConfig !== null) {
             $tcaType = $tcaConfig['type'] ?? '';
 
             if ($tcaType === 'file') {
                 return $this->buildFilePropertySchema($tcaConfig);
-            }
-            if ($tcaType === 'json' || $tcaType === 'flex') {
-                return ['type' => 'object'];
             }
             if ($this->isHasManyField($tcaType, $tcaConfig)) {
                 $related = $this->relatedRecordSchema($tcaConfig, $columnDef, $config, $resources, $remainingDepth);
@@ -261,6 +280,17 @@ final readonly class OpenApiSchemasBuilder
                 return $related !== null
                     ? ['oneOf' => [$related, ['type' => 'null']]]
                     : $this->buildHasOneSchema($columnDef, $this->referenceSchema($tcaConfig, $columnDef, $config, $resources));
+            }
+            $processorSchema = $columnDef->type === null ? self::processorSchema($columnDef->processor) : null;
+            if ($processorSchema !== null) {
+                return $processorSchema;
+            }
+            // A declared type wins, and any other processor's output is only known to its author.
+            if ($columnDef->type === null && $columnDef->processor === null) {
+                $valueSchema = ColumnValueSchema::forTcaConfig($tcaConfig);
+                if ($valueSchema !== null) {
+                    return $valueSchema;
+                }
             }
         }
 

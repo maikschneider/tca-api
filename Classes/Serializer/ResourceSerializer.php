@@ -373,11 +373,12 @@ final class ResourceSerializer
 
     /**
      * Decode a JSON string from the database into a PHP array/value.
-     * Returns null for null input, falls back to the raw string on invalid JSON.
+     * Returns null for null or empty input, falls back to the raw string on invalid JSON.
      */
     private function decodeJsonValue(mixed $value): mixed
     {
-        if ($value === null) {
+        // An empty column, e.g. an image without crop settings, is null rather than "".
+        if ($value === null || $value === '') {
             return null;
         }
 

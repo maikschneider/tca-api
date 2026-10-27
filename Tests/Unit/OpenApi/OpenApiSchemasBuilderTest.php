@@ -6,6 +6,8 @@ namespace MaikSchneider\TcaApi\Tests\Unit\OpenApi;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\OpenApi\OpenApiSchemasBuilder;
+use MaikSchneider\TcaApi\Serializer\Processing\RouteEnhancerProcessor;
+use MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -428,7 +430,7 @@ final class OpenApiSchemasBuilderTest extends TestCase
     // ── FlexForm / JSON schema ─────────────────────────────────────────────────
 
     #[Test]
-    public function flexFormColumnProducesObjectSchema(): void
+    public function flexFormColumnProducesNullableObjectSchema(): void
     {
         $GLOBALS['TCA']['test_table'] = [
             'ctrl' => [],
@@ -442,11 +444,11 @@ final class OpenApiSchemasBuilderTest extends TestCase
         $readProps = $schemas['TestRead']['properties'];
 
         self::assertArrayHasKey('pi_flexform', $readProps);
-        self::assertSame('object', $readProps['pi_flexform']['type']);
+        self::assertSame([['type' => 'object'], ['type' => 'null']], $readProps['pi_flexform']['oneOf']);
     }
 
     #[Test]
-    public function jsonFieldProducesObjectSchema(): void
+    public function jsonFieldProducesNullableObjectOrArraySchema(): void
     {
         $GLOBALS['TCA']['test_table'] = [
             'ctrl' => [],
@@ -460,7 +462,92 @@ final class OpenApiSchemasBuilderTest extends TestCase
         $readProps = $schemas['TestRead']['properties'];
 
         self::assertArrayHasKey('meta', $readProps);
-        self::assertSame('object', $readProps['meta']['type']);
+        self::assertEquals([['type' => 'object'], ['type' => 'array', 'items' => new \stdClass()], ['type' => 'null']], $readProps['meta']['oneOf']);
+    }
+
+    // ── Scalar columns without a declared type ─────────────────────────────────
+
+    #[Test]
+    public function untypedScalarColumnsAreDescribedAsTheyAreSent(): void
+    {
+        $GLOBALS['TCA']['test_table'] = ['ctrl' => [], 'columns' => [
+            'istopnews' => ['config' => ['type' => 'check']],
+            'count'     => ['config' => ['type' => 'number']],
+            'price'     => ['config' => ['type' => 'number', 'format' => 'decimal', 'nullable' => true]],
+            'event_at'  => ['config' => ['type' => 'datetime']],
+            'website'   => ['config' => ['type' => 'link']],
+            'bodytext'  => ['config' => ['type' => 'text']],
+            'title'     => ['config' => ['type' => 'input']],
+            'subtitle'  => ['config' => ['type' => 'input', 'nullable' => true]],
+            'layout'    => ['config' => ['type' => 'select', 'renderType' => 'selectSingle', 'items' => [['label' => 'A', 'value' => 0], ['label' => 'B', 'value' => 1]]]],
+            'ctype'     => ['config' => ['type' => 'select', 'renderType' => 'selectSingle', 'items' => [['label' => 'Text', 'value' => 'text']]]],
+            'orient'    => ['config' => ['type' => 'radio', 'items' => [['label' => 'A', 'value' => 0], ['label' => 'B', 'value' => 8]]]],
+            'crop'      => ['config' => ['type' => 'imageManipulation']],
+        ]];
+
+        $columns = array_fill_keys(array_keys($GLOBALS['TCA']['test_table']['columns']), ['groups' => ['list', 'show']]);
+        $readProps = $this->builder->build([$this->makeConfig($columns)])['TestRead']['properties'];
+        $nullable = static fn (array $schema): array => ['oneOf' => [$schema, ['type' => 'null']]];
+
+        self::assertSame(['type' => 'integer'], $readProps['istopnews']);
+        self::assertSame(['type' => 'integer'], $readProps['count']);
+        self::assertSame($nullable(['type' => 'string']), $readProps['price']);
+        self::assertSame($nullable(['type' => 'string', 'format' => 'date-time']), $readProps['event_at']);
+        self::assertSame($nullable(['type' => 'string']), $readProps['website']);
+        self::assertSame($nullable(['type' => 'string']), $readProps['bodytext']);
+        self::assertSame(['type' => 'string'], $readProps['title']);
+        self::assertSame($nullable(['type' => 'string']), $readProps['subtitle']);
+        self::assertSame(['type' => 'integer'], $readProps['layout']);
+        self::assertSame(['type' => 'string'], $readProps['ctype']);
+        self::assertSame(['type' => 'integer'], $readProps['orient']);
+        self::assertEquals(['oneOf' => [['type' => 'object'], ['type' => 'array', 'items' => new \stdClass()], ['type' => 'null']]], $readProps['crop']);
+    }
+
+    #[Test]
+    public function declaredTypeAndProcessorKeepTheConfiguredSchema(): void
+    {
+        $GLOBALS['TCA']['test_table'] = ['ctrl' => [], 'columns' => [
+            'istopnews' => ['config' => ['type' => 'check']],
+            'bodytext'  => ['config' => ['type' => 'text']],
+        ]];
+
+        $readProps = $this->builder->build([$this->makeConfig([
+            'istopnews' => ['groups' => ['list', 'show'], 'type' => 'boolean'],
+            'bodytext'  => ['groups' => ['list', 'show'], 'processor' => 'SomeProcessor'],
+        ])])['TestRead']['properties'];
+
+        self::assertSame(['type' => 'boolean'], $readProps['istopnews']);
+        self::assertSame(['type' => 'string'], $readProps['bodytext']);
+    }
+
+    #[Test]
+    public function passthroughColumnIsUnconstrainedAndRouteVirtualPropertyANullableString(): void
+    {
+        $GLOBALS['TCA']['test_table'] = ['ctrl' => [], 'columns' => ['raw' => ['config' => ['type' => 'passthrough']]]];
+
+        $config = ApiDefinition::fromArray([
+            'general' => ['table' => 'test_table', 'resourceName' => 'tests', 'resourceType' => 'Test'],
+            'columns' => ['raw' => ['groups' => ['list', 'show']]],
+            'virtualProperties' => [
+                'url' => ['groups' => ['list', 'show'], 'processor' => RouteEnhancerProcessor::class],
+            ],
+        ]);
+        $readProps = $this->builder->build([$config])['TestRead']['properties'];
+
+        self::assertArrayNotHasKey('type', $readProps['raw']);
+        self::assertSame(['oneOf' => [['type' => 'string'], ['type' => 'null']]], $readProps['url']);
+    }
+
+    #[Test]
+    public function typoLinkProcessorColumnIsANullableString(): void
+    {
+        $GLOBALS['TCA']['test_table'] = ['ctrl' => [], 'columns' => ['website' => ['config' => ['type' => 'input']]]];
+
+        $readProps = $this->builder->build([$this->makeConfig([
+            'website' => ['groups' => ['list', 'show'], 'processor' => TypoLinkProcessor::class],
+        ])])['TestRead']['properties'];
+
+        self::assertSame(['oneOf' => [['type' => 'string'], ['type' => 'null']]], $readProps['website']);
     }
 
     // ── Virtual properties ─────────────────────────────────────────────────────
