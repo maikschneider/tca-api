@@ -22,8 +22,11 @@ final class WriteContextFactory
      * Resolution:
      *   - Frontend user → actorType = 'fe_user'
      *   - Backend user  → actorType = 'be_user'
-     *   - Service       → actorType = 'service'
+     *   - Service       → actorType = the principal's source, e.g. 'api_key' ('service' without one)
      *   - Anonymous     → actorType = 'system' (system mode forced)
+     *
+     * The credential the request carried is recorded alongside, so writes by a
+     * user-bound API key stay attributable to the key.
      */
     public function fromRequest(ServerRequestInterface $request, WriteMode $mode = WriteMode::ACTING_USER): WriteContext
     {
@@ -34,16 +37,20 @@ final class WriteContextFactory
                 uid: $principal->frontendUserUid,
                 username: $principal->frontendUsername !== '' ? $principal->frontendUsername : 'unknown',
                 mode: $mode,
+                credential: $principal->credential,
             ),
             $principal->isBackendUser() => WriteContext::forBackendUser(
                 uid: $principal->backendUserUid,
                 username: $principal->backendUsername !== '' ? $principal->backendUsername : 'unknown',
                 mode: $mode,
+                credential: $principal->credential,
             ),
             $principal->isService => WriteContext::forService(
                 uid: $principal->serviceUid,
                 username: $principal->serviceLabel !== '' ? $principal->serviceLabel : $principal->source,
                 mode: $mode,
+                actorType: $principal->source !== '' ? $principal->source : 'service',
+                credential: $principal->credential,
             ),
             default => WriteContext::forSystem(),
         };
