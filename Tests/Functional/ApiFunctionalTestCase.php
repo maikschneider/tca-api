@@ -5,11 +5,18 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Functional;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\Dispatcher\RequestContext;
 use MaikSchneider\TcaApi\Loader\ApiDefinitionLoader;
+use MaikSchneider\TcaApi\OpenApi\OpenApiBuilder;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
+use MaikSchneider\TcaApi\Tests\Functional\Contract\OpenApiResponseValidator;
 use Psr\Http\Message\ResponseInterface;
+use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Http\Stream;
 use TYPO3\CMS\Core\Http\UploadedFile;
+use TYPO3\CMS\Core\Routing\SiteMatcher;
+use TYPO3\CMS\Core\Routing\SiteRouteResult;
+use TYPO3\CMS\Core\Site\Entity\Site;
 use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequest;
 use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequestContext;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
@@ -27,6 +34,23 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
     /** Scheme and host the request helpers send to; switch it to address another site. */
     protected string $apiHost = 'http://localhost';
 
+    /**
+     * Validate every API response against the OpenAPI spec of the site that served it.
+     * Turn off only in tests that break the spec on purpose, e.g. with a broken resource config.
+     */
+    protected bool $validateResponsesAgainstOpenApi = true;
+
+    private const CONTRACT_BASELINE = __DIR__ . '/Contract/openapi-contract-baseline.txt';
+
+    /** Set to collect mismatches into this file instead of failing; see Tests/Functional/Contract/README.md. */
+    private const CONTRACT_COLLECT_ENV = 'TCA_API_CONTRACT_COLLECT';
+
+    /** @var array<string, true>|null */
+    private static ?array $contractBaseline = null;
+
+    /** @var array<string, OpenApiResponseValidator> keyed by host and registry state */
+    private array $contractValidators = [];
+
     protected array $pathsToProvideInTestInstance = [
         'typo3conf/ext/tca_api/Tests/Functional/Fixtures/fileadmin/user_upload' => 'fileadmin/user_upload',
     ];
@@ -39,6 +63,88 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
         // reloading baseline definitions to prevent cross-test leakage.
         $this->getApiRegistry()->reset();
         $this->get(ApiDefinitionLoader::class)->load();
+    }
+
+    /**
+     * Every request helper ends up here, so every response is checked against the spec.
+     */
+    protected function executeFrontendSubRequest(
+        InternalRequest $request,
+        ?InternalRequestContext $context = null,
+        bool $followRedirects = false,
+    ): ResponseInterface {
+        $response = parent::executeFrontendSubRequest($request, $context, $followRedirects);
+
+        if ($this->validateResponsesAgainstOpenApi) {
+            $this->assertResponseMatchesOpenApi($request, $response);
+        }
+
+        return $response;
+    }
+
+    private function assertResponseMatchesOpenApi(InternalRequest $request, ResponseInterface $response): void
+    {
+        $validator = $this->contractValidator($request);
+        if ($validator === null) {
+            return;
+        }
+
+        $body = $response->getBody();
+        $body->rewind();
+        $mismatches = $validator->validate(
+            $request->getMethod(),
+            $request->getUri()->getPath(),
+            $response->getStatusCode(),
+            $response->getHeaderLine('Content-Type'),
+            $body->getContents(),
+        );
+        $body->rewind();
+
+        $collectFile = getenv(self::CONTRACT_COLLECT_ENV);
+        if (\is_string($collectFile) && $collectFile !== '') {
+            if ($mismatches !== []) {
+                file_put_contents($collectFile, implode("\n", $mismatches) . "\n", FILE_APPEND | LOCK_EX);
+            }
+            return;
+        }
+
+        self::$contractBaseline ??= array_fill_keys(
+            array_filter(array_map('trim', file(self::CONTRACT_BASELINE) ?: []), static fn (string $line): bool => $line !== '' && $line[0] !== '#'),
+            true,
+        );
+        $unexpected = array_values(array_filter($mismatches, static fn (string $mismatch): bool => !isset(self::$contractBaseline[$mismatch])));
+
+        self::assertSame(
+            [],
+            $unexpected,
+            'The response does not match the OpenAPI spec. Fix the spec or the response, or see Tests/Functional/Contract/README.md for the baseline.',
+        );
+    }
+
+    /**
+     * The spec is built in-process for the site that serves the request, so sites that
+     * hide /openapi.json are covered too and validation never issues a request itself.
+     */
+    private function contractValidator(InternalRequest $request): ?OpenApiResponseValidator
+    {
+        $serverRequest = new ServerRequest($request->getUri(), 'GET');
+        $routeResult   = $this->get(SiteMatcher::class)->matchRequest($serverRequest);
+        if (!$routeResult instanceof SiteRouteResult || !($site = $routeResult->getSite()) instanceof Site) {
+            return null;
+        }
+
+        $resources = $this->getApiRegistry()->getAll();
+        $key       = $site->getIdentifier() . '|' . $request->getUri()->getAuthority() . '|' . implode(',', array_map(
+            static fn (ApiDefinition $definition): int => spl_object_id($definition),
+            $resources,
+        ));
+
+        if (!isset($this->contractValidators[$key])) {
+            $ctx = new RequestContext($site->getSettings(), $serverRequest->withAttribute('language', $routeResult->getLanguage()));
+            $this->contractValidators[$key] = new OpenApiResponseValidator($this->get(OpenApiBuilder::class)->build($ctx));
+        }
+
+        return $this->contractValidators[$key];
     }
 
     /**
