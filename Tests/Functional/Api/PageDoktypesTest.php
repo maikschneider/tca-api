@@ -98,7 +98,7 @@ final class PageDoktypesTest extends ApiFunctionalTestCase
         self::assertArrayHasKey('shortcut', $schemas['WebPage4Read']['properties']);
         self::assertArrayNotHasKey('shortcut', $schemas['WebPage1Read']['properties']);
         self::assertSame([
-            ['type' => 'string', 'format' => 'iri-reference'],
+            ['type' => 'string', 'format' => 'iri-reference', 'pattern' => '/web-pages/[0-9]+$', 'x-resource' => 'web-pages'],
             ['type' => 'null'],
         ], $schemas['WebPage4Read']['properties']['shortcut']['oneOf']);
         self::assertArrayNotHasKey('items', $schemas['WebPage4Read']['properties']['shortcut']);
@@ -126,7 +126,7 @@ final class PageDoktypesTest extends ApiFunctionalTestCase
 
         $schema = $this->decodeResponseBody($this->executeApiRequest('/_api/openapi.json'))['components']['schemas']['ItemRead']['properties']['target_page'];
         self::assertSame([
-            ['type' => 'string', 'format' => 'iri-reference'],
+            ['type' => 'string', 'format' => 'iri-reference', 'pattern' => '/web-pages/[0-9]+$', 'x-resource' => 'web-pages'],
             ['type' => 'null'],
         ], $schema['oneOf']);
         self::assertArrayNotHasKey('items', $schema);
