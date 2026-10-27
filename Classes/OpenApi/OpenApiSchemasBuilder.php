@@ -214,9 +214,7 @@ final readonly class OpenApiSchemasBuilder
         $suffixes = [];
         foreach ($recordTypes as $recordType) {
             $schema = $this->buildReadSchema($config, $resources, -1, $recordType);
-            $property = $schema['properties'][$field] ?? ['type' => 'string'];
-            $property['enum'] = [($property['type'] ?? null) === 'integer' ? (int)$recordType : $recordType];
-            $schema['properties'][$field] = $property;
+            $schema['properties'][$field] = self::recordTypeEnum($schema['properties'][$field] ?? ['type' => 'string'], [$recordType]);
             $schema['required'] = [$field];
 
             $name = $base . 'Read';
@@ -326,14 +324,31 @@ final readonly class OpenApiSchemasBuilder
             return $schema;
         }
 
-        $property = $properties[$field] ?? ['type' => 'string'];
-        $property['enum'] = ($property['type'] ?? null) === 'integer'
-            ? array_map('intval', $config->recordTypes)
-            : $config->recordTypes;
-        $properties[$field] = $property;
+        $properties[$field] = self::recordTypeEnum($properties[$field] ?? ['type' => 'string'], $config->recordTypes);
         $schema['properties'] = $properties;
 
         return $schema;
+    }
+
+    /**
+     * The type field restricted to record types. A nullable column is a oneOf with
+     * null; the type field always holds a type, so its non-null branch is used.
+     *
+     * @param list<string> $recordTypes
+     */
+    private static function recordTypeEnum(array $property, array $recordTypes): array
+    {
+        foreach ($property['oneOf'] ?? [] as $branch) {
+            if (($branch['type'] ?? null) !== 'null') {
+                $property = $branch;
+                break;
+            }
+        }
+        $property['enum'] = ($property['type'] ?? null) === 'integer'
+            ? array_map('intval', $recordTypes)
+            : array_values($recordTypes);
+
+        return $property;
     }
 
     private function buildPropertySchema(ColumnDefinition $columnDef): array
