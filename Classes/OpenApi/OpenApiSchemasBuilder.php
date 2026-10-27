@@ -94,16 +94,18 @@ final readonly class OpenApiSchemasBuilder
             ],
         ];
 
+        $names = new OpenApiSchemaNames($resources);
         foreach ($resources as $config) {
+            $name = $names->of($config);
             $schemas += $config->typeSchemas
-                ? $this->buildTypeReadSchemas($config, $resources)
-                : [$config->resourceType . 'Read' => $this->withRecordTypeEnum($this->buildReadSchema($config, $resources), $config, false)];
+                ? $this->buildTypeReadSchemas($config, $resources, $names)
+                : [$name . 'Read' => $this->withRecordTypeEnum($this->buildReadSchema($config, $resources), $config, false)];
             if ($this->hasWriteOperations($config)) {
-                $schemas[$config->resourceType . 'Write'] = $this->withRecordTypeEnum($this->buildWriteSchema($config), $config, true);
+                $schemas[$name . 'Write'] = $this->withRecordTypeEnum($this->buildWriteSchema($config), $config, true);
             }
-            $schemas[$config->resourceType . 'Collection'] = $this->buildCollectionSchema($config->resourceType);
+            $schemas[$name . 'Collection'] = $this->buildCollectionSchema($name);
             if ($this->hasUploadColumns($config)) {
-                $schemas[$config->resourceType . 'WriteMultipart'] = $this->withRecordTypeEnum($this->buildMultipartWriteSchema($config), $config, true);
+                $schemas[$name . 'WriteMultipart'] = $this->withRecordTypeEnum($this->buildMultipartWriteSchema($config), $config, true);
             }
         }
 
@@ -160,18 +162,20 @@ final readonly class OpenApiSchemasBuilder
      * @param ApiDefinition[] $resources
      * @return array<string, array<string, mixed>>
      */
-    private function buildTypeReadSchemas(ApiDefinition $config, array $resources): array
+    private function buildTypeReadSchemas(ApiDefinition $config, array $resources, OpenApiSchemaNames $names): array
     {
         $field = (string)$config->recordTypeField;
         $recordTypes = $config->recordTypes ?? [];
 
+        $base = $names->of($config);
         $schemas = [];
         $mapping = [];
         // Another resource's own schema names win, e.g. those of resources split from this one.
         $suffixes = [];
         foreach ($resources as $resource) {
-            if ($resource !== $config && str_starts_with($resource->resourceType, $config->resourceType)) {
-                $suffixes[substr($resource->resourceType, \strlen($config->resourceType))] = true;
+            $other = $names->of($resource);
+            if ($resource !== $config && str_starts_with($other, $base)) {
+                $suffixes[substr($other, \strlen($base))] = true;
             }
         }
         foreach ($recordTypes as $recordType) {
@@ -182,14 +186,14 @@ final readonly class OpenApiSchemasBuilder
             $schema['required'] = [$field];
 
             $name = \count($recordTypes) === 1
-                ? $config->resourceType . 'Read'
-                : $config->resourceType . self::uniqueRecordTypeSchemaSuffix($recordType, $suffixes) . 'Read';
+                ? $base . 'Read'
+                : $base . self::uniqueRecordTypeSchemaSuffix($recordType, $suffixes) . 'Read';
             $schemas[$name] = $schema;
             $mapping[$recordType] = '#/components/schemas/' . $name;
         }
 
         if (\count($recordTypes) > 1) {
-            $schemas[$config->resourceType . 'Read'] = [
+            $schemas[$base . 'Read'] = [
                 'oneOf' => array_map(static fn (string $ref): array => ['$ref' => $ref], array_values($mapping)),
                 'discriminator' => ['propertyName' => $field, 'mapping' => (object)$mapping],
             ];
@@ -589,7 +593,7 @@ final readonly class OpenApiSchemasBuilder
         return substr($phpPattern, 1, $lastDelimiter - 1);
     }
 
-    private function buildCollectionSchema(string $resourceType): array
+    private function buildCollectionSchema(string $schemaName): array
     {
         return [
             'type' => 'object',
@@ -600,7 +604,7 @@ final readonly class OpenApiSchemasBuilder
                 'hydra:totalItems' => ['type' => 'integer'],
                 'hydra:member' => [
                     'type' => 'array',
-                    'items' => ['$ref' => '#/components/schemas/' . $resourceType . 'Read'],
+                    'items' => ['$ref' => '#/components/schemas/' . $schemaName . 'Read'],
                 ],
                 'hydra:view' => [
                     'type' => 'object',

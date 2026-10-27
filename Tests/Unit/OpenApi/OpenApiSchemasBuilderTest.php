@@ -583,6 +583,33 @@ final class OpenApiSchemasBuilderTest extends TestCase
         );
     }
 
+    // ── Schema names ───────────────────────────────────────────────────────────
+
+    #[Test]
+    public function resourcesSharingAResourceTypeGetSeparateSchemas(): void
+    {
+        $public = ApiDefinition::fromArray([
+            'general' => ['table' => 'test_table', 'resourceName' => 'tests', 'resourceType' => 'Test', 'operations' => ['list', 'show', 'update']],
+            'columns' => ['title' => ['groups' => ['list', 'show']]],
+        ]);
+        $internal = ApiDefinition::fromArray([
+            'general' => ['table' => 'test_table', 'resourceName' => 'internal-tests', 'resourceType' => 'Test', 'operations' => ['list', 'show', 'update']],
+            'columns' => ['title' => ['groups' => ['list', 'show']], 'secret' => ['groups' => ['list', 'show']]],
+        ]);
+
+        $schemas = $this->builder->build([$public, $internal]);
+
+        // The first resource keeps the plain name, so its clients' types don't change.
+        self::assertArrayNotHasKey('secret', $schemas['TestRead']['properties']);
+        self::assertArrayHasKey('secret', $schemas['TestInternalTestsRead']['properties']);
+        self::assertArrayHasKey('TestInternalTestsWrite', $schemas);
+        self::assertSame(
+            '#/components/schemas/TestInternalTestsRead',
+            $schemas['TestInternalTestsCollection']['properties']['hydra:member']['items']['$ref'],
+        );
+        self::assertSame('#/components/schemas/TestRead', $schemas['TestCollection']['properties']['hydra:member']['items']['$ref']);
+    }
+
     // ── Helper ─────────────────────────────────────────────────────────────────
 
     /** @param list<string> $operations */
