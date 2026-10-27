@@ -656,6 +656,49 @@ final class OpenApiSchemasBuilderTest extends TestCase
         self::assertSame('#/components/schemas/TestRead', $schemas['TestCollection']['properties']['hydra:member']['items']['$ref']);
     }
 
+    #[Test]
+    public function generatedSchemaNameNeverTakesALaterResourcesPlainName(): void
+    {
+        $make = static fn (string $name, string $type): ApiDefinition => ApiDefinition::fromArray([
+            'general' => ['table' => 'test_table', 'resourceName' => $name, 'resourceType' => $type, 'operations' => ['list', 'show']],
+            'columns' => ['title' => ['groups' => ['list', 'show']]],
+        ]);
+
+        $schemas = $this->builder->build([
+            $make('tests', 'Test'),
+            $make('internal-tests', 'Test'),
+            $make('specials', 'TestInternalTests'),
+        ]);
+
+        // The later resource keeps its declared name; the duplicate gets a counter.
+        self::assertSame('#/components/schemas/TestInternalTestsRead', $schemas['TestInternalTestsCollection']['properties']['hydra:member']['items']['$ref']);
+        self::assertSame('#/components/schemas/TestInternalTests2Read', $schemas['TestInternalTests2Collection']['properties']['hydra:member']['items']['$ref']);
+    }
+
+    #[Test]
+    public function recordTypeSchemaNamesAreUniqueAcrossResources(): void
+    {
+        $GLOBALS['TCA']['test_table'] = [
+            'ctrl' => ['type' => 'record_type'],
+            'columns' => ['record_type' => ['config' => ['type' => 'select']], 'title' => ['config' => ['type' => 'input']]],
+            'types' => ['foo-bar' => ['showitem' => 'title'], 'bar' => ['showitem' => 'title'], 'baz' => ['showitem' => 'title']],
+        ];
+        $make = static fn (string $name, array $recordTypes): ApiDefinition => ApiDefinition::fromArray([
+            'general' => ['table' => 'test_table', 'resourceName' => $name, 'resourceType' => 'Item', 'recordTypes' => $recordTypes],
+        ]);
+
+        // "Item" + "FooBar" and "Item" + "Foo" (resource name) + "Bar" would both be ItemFooBarRead.
+        $schemas = $this->builder->build([$make('items', ['foo-bar', 'baz']), $make('foo', ['bar', 'baz'])]);
+
+        $mapping = static fn (string $read): array => (array)$schemas[$read]['discriminator']['mapping'];
+        $refs = [...array_values($mapping('ItemRead')), ...array_values($mapping('ItemFooRead'))];
+        self::assertCount(4, array_unique($refs));
+        foreach ($refs as $ref) {
+            self::assertArrayHasKey(substr($ref, \strlen('#/components/schemas/')), $schemas);
+        }
+        self::assertSame(['bar'], $schemas[substr($mapping('ItemFooRead')['bar'], \strlen('#/components/schemas/'))]['properties']['record_type']['enum']);
+    }
+
     // ── Helper ─────────────────────────────────────────────────────────────────
 
     /** @param list<string> $operations */
