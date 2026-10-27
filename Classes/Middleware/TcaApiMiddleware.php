@@ -6,6 +6,7 @@ namespace MaikSchneider\TcaApi\Middleware;
 
 use MaikSchneider\TcaApi\Dispatcher\RequestDispatcher;
 use MaikSchneider\TcaApi\Http\MultipartRequestParser;
+use MaikSchneider\TcaApi\Security\Authentication\AuthenticatorChain;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -24,6 +25,7 @@ final class TcaApiMiddleware implements MiddlewareInterface
         private readonly RequestDispatcher $dispatcher,
         private readonly ResponseFactoryInterface $responseFactory,
         private readonly MultipartRequestParser $multipartRequestParser,
+        private readonly AuthenticatorChain $authenticatorChain,
     ) {
     }
 
@@ -133,14 +135,15 @@ final class TcaApiMiddleware implements MiddlewareInterface
     }
 
     /**
-     * The built-in request headers plus the comma-separated `tca_api.corsAllowHeaders`,
+     * The built-in request headers, the headers registered authenticators read
+     * credentials from, and the comma-separated `tca_api.corsAllowHeaders`,
      * deduplicated case-insensitively since header names are case-insensitive.
      */
     private function corsAllowHeaders(SiteSettings $settings): string
     {
         $headers = [];
         $configured = GeneralUtility::trimExplode(',', (string)$settings->get('tca_api.corsAllowHeaders', ''), true);
-        foreach (['Content-Type', 'Authorization', 'X-Locale', ...$configured] as $header) {
+        foreach (['Content-Type', 'Authorization', 'X-Locale', ...$this->authenticatorChain->getRequestHeaders(), ...$configured] as $header) {
             $headers[strtolower($header)] ??= $header;
         }
 
