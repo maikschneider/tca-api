@@ -177,8 +177,9 @@ final class EmbedColumnsTest extends ApiFunctionalTestCase
         $properties = $spec['components']['schemas']['EcArticleRead']['properties'];
 
         self::assertSame('array', $properties['categories']['type']);
-        self::assertSame(['@type', 'uid', 'title'], array_keys($properties['categories']['items']['oneOf'][0]['properties']));
-        self::assertSame(['@type', '@id', 'uid', 'name'], array_keys($properties['color_id']['oneOf'][0]['oneOf'][0]['properties']));
+        // Neither can embed the article back, so they are never cut short to a reference (#267).
+        self::assertSame(['@type', 'uid', 'title'], array_keys($properties['categories']['items']['properties']));
+        self::assertSame(['@type', '@id', 'uid', 'name'], array_keys($properties['color_id']['oneOf'][0]['properties']));
         self::assertSame(['type' => 'null'], $properties['color_id']['oneOf'][1]);
     }
 
@@ -207,7 +208,7 @@ final class EmbedColumnsTest extends ApiFunctionalTestCase
         // sys_category.parent is oneToOne: one reference, as the serializer renders it (#262).
         self::assertSame(
             ['oneOf' => [['type' => 'string', 'format' => 'iri-reference'], ['type' => 'null']]],
-            $schemas['EcArticleNestedRead']['properties']['categories']['items']['oneOf'][0]['properties']['parent'],
+            $schemas['EcArticleNestedRead']['properties']['categories']['items']['properties']['parent'],
         );
 
         $body = $this->decodeResponseBody($this->executeApiRequest('/_api/ec-articles/2'));
@@ -231,8 +232,8 @@ final class EmbedColumnsTest extends ApiFunctionalTestCase
         self::assertSame('Blue', $article['parent_id']['color_id']['name']);
 
         $spec = $this->decodeResponseBody($this->executeApiRequest('/_api/openapi.json'));
-        $parent = $spec['components']['schemas']['EcArticleRead']['properties']['parent_id']['oneOf'][0]['oneOf'][0];
-        $color = $parent['properties']['color_id']['oneOf'][0]['oneOf'][0];
+        $parent = $spec['components']['schemas']['EcArticleRead']['properties']['parent_id']['oneOf'][0];
+        $color = $parent['properties']['color_id']['oneOf'][0];
         self::assertSame('object', $color['type']);
         self::assertArrayHasKey('name', $color['properties']);
     }
@@ -251,9 +252,12 @@ final class EmbedColumnsTest extends ApiFunctionalTestCase
         self::assertSame('/_api/ec-articles/1', $article['parent_id']['parent_id']);
 
         $spec = $this->decodeResponseBody($this->executeApiRequest('/_api/openapi.json'));
-        $parent = $spec['components']['schemas']['EcArticleRead']['properties']['parent_id']['oneOf'][0]['oneOf'][0];
+        // The root's parent can't be the root itself yet, so it is always embedded …
+        $parent = $spec['components']['schemas']['EcArticleRead']['properties']['parent_id']['oneOf'][0];
+        self::assertSame('object', $parent['type']);
+        // … but the grandparent may be the root again, cut short to its IRI.
         $cycle = $parent['properties']['parent_id']['oneOf'][0];
         self::assertSame('object', $cycle['oneOf'][0]['type']);
-        self::assertSame(['type' => 'string', 'format' => 'iri-reference'], $cycle['oneOf'][1]);
+        self::assertSame('iri-reference', $cycle['oneOf'][1]['format']);
     }
 }

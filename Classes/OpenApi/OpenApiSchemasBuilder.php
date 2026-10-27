@@ -119,8 +119,9 @@ final readonly class OpenApiSchemasBuilder
      * @param ApiDefinition[] $resources
      * @param int             $remainingDepth -1 for a resource's own schema, else the embed depth left, as in ResourceSerializer::serialize()
      * @param string|null     $recordType     on a resource with type schemas, the record type to describe; null = all types
+     * @param list<string>    $ancestorTables tables of the records this one is embedded in, outermost first
      */
-    private function buildReadSchema(ApiDefinition $config, array $resources, int $remainingDepth = -1, ?string $recordType = null): array
+    private function buildReadSchema(ApiDefinition $config, array $resources, int $remainingDepth = -1, ?string $recordType = null, array $ancestorTables = []): array
     {
         $properties = [
             '@type' => ['type' => 'string', 'example' => $config->resourceType],
@@ -131,7 +132,7 @@ final readonly class OpenApiSchemasBuilder
         if (!$config->isExplicitMode) {
             foreach ($config->columnMap($recordType) as $column => $columnDef) {
                 $tcaConfig = RecordTypeFields::columnDefinition($config->table, $column, $recordType)['config'] ?? null;
-                $properties[$column] = $this->buildReadPropertySchema($columnDef, $tcaConfig, $config, $resources, $remainingDepth);
+                $properties[$column] = $this->buildReadPropertySchema($columnDef, $tcaConfig, $config, $resources, $remainingDepth, $ancestorTables);
             }
         } else {
             foreach ($config->columns as $column => $columnDef) {
@@ -142,7 +143,7 @@ final readonly class OpenApiSchemasBuilder
                     continue;
                 }
                 $tcaConfig = $GLOBALS['TCA'][$config->table]['columns'][$column]['config'] ?? null;
-                $properties[$column] = $this->buildReadPropertySchema($columnDef, $tcaConfig, $config, $resources, $remainingDepth);
+                $properties[$column] = $this->buildReadPropertySchema($columnDef, $tcaConfig, $config, $resources, $remainingDepth, $ancestorTables);
             }
         }
 
@@ -264,8 +265,11 @@ final readonly class OpenApiSchemasBuilder
         return $suffix;
     }
 
-    /** @param ApiDefinition[] $resources */
-    private function buildReadPropertySchema(ColumnDefinition $columnDef, ?array $tcaConfig, ApiDefinition $config, array $resources, int $remainingDepth = -1): array
+    /**
+     * @param ApiDefinition[] $resources
+     * @param list<string>    $ancestorTables
+     */
+    private function buildReadPropertySchema(ColumnDefinition $columnDef, ?array $tcaConfig, ApiDefinition $config, array $resources, int $remainingDepth = -1, array $ancestorTables = []): array
     {
         // A column callback runs after everything else and replaces the value.
         if ($columnDef->callback !== null) {
@@ -279,13 +283,13 @@ final readonly class OpenApiSchemasBuilder
                 return $this->buildFilePropertySchema($tcaConfig);
             }
             if ($this->isHasManyField($tcaType, $tcaConfig)) {
-                $related = $this->relatedRecordSchema($tcaConfig, $columnDef, $config, $resources, $remainingDepth);
+                $related = $this->relatedRecordSchema($tcaConfig, $columnDef, $config, $resources, $remainingDepth, $ancestorTables, false);
                 return $related !== null
                     ? ['type' => 'array', 'items' => $related]
                     : $this->buildHasManySchema($columnDef, $this->referenceSchema($tcaConfig, $columnDef, $config, $resources));
             }
             if ($this->isHasOneField($tcaType, $tcaConfig)) {
-                $related = $this->relatedRecordSchema($tcaConfig, $columnDef, $config, $resources, $remainingDepth);
+                $related = $this->relatedRecordSchema($tcaConfig, $columnDef, $config, $resources, $remainingDepth, $ancestorTables, true);
                 return $related !== null
                     ? ['oneOf' => [$related, ['type' => 'null']]]
                     : $this->buildHasOneSchema($columnDef, $this->referenceSchema($tcaConfig, $columnDef, $config, $resources));
@@ -372,13 +376,19 @@ final readonly class OpenApiSchemasBuilder
      * Schema of one related record with the embed depth the serializer applies:
      * a reference once the depth is used up, and for a record embedded with
      * "embed.columns" the related resource's read schema cut down to those
-     * columns. Embedded objects also allow references because runtime cycle
-     * detection can stop embedding before the depth budget is exhausted.
-     * Null for polymorphic relations, handled by the existing group schemas.
+     * columns. Null for polymorphic relations, handled by the existing group schemas.
+     *
+     * An embedded record is cut short to a reference only when it is already on the
+     * embed path (RelationSerializer's $visited, keyed by table and uid), so the
+     * reference is allowed only when the related table is on the path: the
+     * ancestors for a to-one relation, the ancestors and this record for a to-many
+     * one. Categories embedded in an article are always objects; a parent article
+     * embedded in an article may be a reference.
      *
      * @param ApiDefinition[] $resources
+     * @param list<string>    $ancestorTables
      */
-    private function relatedRecordSchema(array $tcaConfig, ColumnDefinition $columnDef, ApiDefinition $config, array $resources, int $remainingDepth): ?array
+    private function relatedRecordSchema(array $tcaConfig, ColumnDefinition $columnDef, ApiDefinition $config, array $resources, int $remainingDepth, array $ancestorTables, bool $hasOne): ?array
     {
         $depth = $remainingDepth >= 0 ? $remainingDepth : $columnDef->embedDepth();
         if ($depth <= 0) {
@@ -390,8 +400,9 @@ final readonly class OpenApiSchemasBuilder
             return null;
         }
 
+        $embedPath  = [...$ancestorTables, $config->table];
         $related    = $this->relatedConfig($table, $columnDef, $config, $resources) ?? RelationSerializer::buildDefaultConfig($table, $columnDef);
-        $readSchema = $this->buildReadSchema($related, $resources, $depth - 1);
+        $readSchema = $this->buildReadSchema($related, $resources, $depth - 1, null, $embedPath);
         $properties = $columnDef->embedColumns() === []
             ? $readSchema['properties']
             : array_intersect_key(
@@ -402,10 +413,12 @@ final readonly class OpenApiSchemasBuilder
             unset($properties['@id']);
         }
 
-        return ['oneOf' => [
-            ['type' => 'object', 'properties' => $properties],
-            $this->referenceSchema($tcaConfig, $columnDef, $config, $resources),
-        ]];
+        $embedded = ['type' => 'object', 'properties' => $properties];
+        if (!\in_array($table, $hasOne ? $ancestorTables : $embedPath, true)) {
+            return $embedded;
+        }
+
+        return ['oneOf' => [$embedded, $this->referenceSchema($tcaConfig, $columnDef, $config, $resources)]];
     }
 
     /**
