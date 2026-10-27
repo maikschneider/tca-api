@@ -12,7 +12,6 @@ use MaikSchneider\TcaApi\Security\Authentication\Principal;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
 use Psr\EventDispatcher\EventDispatcherInterface;
-use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
@@ -33,7 +32,6 @@ class GetUserInfoHandler implements OperationHandlerInterface
         private readonly DataRepository $dataRepository,
         private readonly ResourceSerializer $serializer,
         private readonly HydraResponseBuilder $hydraResponseBuilder,
-        private readonly ResponseFactoryInterface $responseFactory,
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly EmbedPreloader $embedPreloader,
     ) {
