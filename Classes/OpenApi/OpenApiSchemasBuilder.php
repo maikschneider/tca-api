@@ -442,9 +442,23 @@ final readonly class OpenApiSchemasBuilder
             ]]];
         }
 
-        return $this->relatedConfig($table, $columnDef, $config, $resources)?->isAddressable() === true
-            ? $iri
-            : ['type' => 'integer'];
+        $related = $this->relatedConfig($table, $columnDef, $config, $resources);
+        if ($related?->isAddressable() !== true) {
+            return ['type' => 'integer'];
+        }
+
+        // Name the target, for generators (x-resource) and validators (pattern). The
+        // pattern matches the end of the IRI, whatever API or language prefix precedes it.
+        return $iri + [
+            'pattern'    => '/' . self::escapeRegex($related->resourceName) . '/[0-9]+$',
+            'x-resource' => $related->resourceName,
+        ];
+    }
+
+    /** Escapes for an ECMA-262 pattern; "-" stays as is, since an escaped "-" is invalid in unicode mode. */
+    private static function escapeRegex(string $value): string
+    {
+        return (string)preg_replace('/[.\\\\+*?^$()[\\]{}|\/]/', '\\\\$0', $value);
     }
 
     /** The single table a relation column points to, or null for a polymorphic group. */

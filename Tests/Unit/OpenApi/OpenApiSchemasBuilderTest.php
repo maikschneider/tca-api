@@ -117,6 +117,28 @@ final class OpenApiSchemasBuilderTest extends TestCase
         self::assertContains('iri-reference', $formats);
     }
 
+    #[Test]
+    public function relationIriNamesItsTargetResource(): void
+    {
+        $GLOBALS['TCA']['test_table'] = [
+            'ctrl' => [],
+            'columns' => [
+                'page' => ['config' => ['type' => 'select', 'renderType' => 'selectSingle', 'foreign_table' => 'pages']],
+            ],
+        ];
+
+        $schemas = $this->builder->build([
+            $this->makeConfig(['page' => ['groups' => ['list', 'show']]]),
+            self::makeTarget('pages', 'web-pages', ['list', 'show']),
+        ]);
+        $iri = $schemas['TestRead']['properties']['page']['oneOf'][0];
+
+        self::assertSame('web-pages', $iri['x-resource']);
+        self::assertSame('/web-pages/[0-9]+$', $iri['pattern']);
+        self::assertSame(1, preg_match('#' . $iri['pattern'] . '#u', '/de/_api/web-pages/186'));
+        self::assertSame(0, preg_match('#' . $iri['pattern'] . '#u', '/_api/articles/186'));
+    }
+
     /** @return iterable<string, array{list<ApiDefinition>}> */
     public static function nonAddressableTargetProvider(): iterable
     {
@@ -353,11 +375,11 @@ final class OpenApiSchemasBuilderTest extends TestCase
         // … but the grandparent may be the root record again, cut short to its IRI.
         $grandparent = $parent['properties']['parent']['oneOf'][0];
         self::assertSame('object', $grandparent['oneOf'][0]['type']);
-        self::assertSame(['type' => 'string', 'format' => 'iri-reference'], $grandparent['oneOf'][1]);
+        self::assertSame('iri-reference', $grandparent['oneOf'][1]['format']);
 
         // To-many: the record itself is on the path, so a child may be a reference.
         self::assertSame('object', $readProps['children']['items']['oneOf'][0]['type']);
-        self::assertSame(['type' => 'string', 'format' => 'iri-reference'], $readProps['children']['items']['oneOf'][1]);
+        self::assertSame('iri-reference', $readProps['children']['items']['oneOf'][1]['format']);
     }
 
     #[Test]
