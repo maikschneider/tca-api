@@ -436,7 +436,12 @@ final class RequestDispatcher
         }
         $pidPart = ':pids:' . json_encode($pids, JSON_THROW_ON_ERROR);
 
-        return md5($sitePart . $operation . ':' . $config->resourceName . $uidPart . $languagePart . $pidPart . ':' . json_encode($relevant, JSON_THROW_ON_ERROR));
+        // Relations to resources outside tca_api.allowedResources render differently.
+        $allowed = (array)$request->getAttribute('tca_api.allowed_resources', []);
+        sort($allowed);
+        $allowedPart = ':allowed:' . json_encode($allowed, JSON_THROW_ON_ERROR);
+
+        return md5($sitePart . $operation . ':' . $config->resourceName . $uidPart . $languagePart . $pidPart . $allowedPart . ':' . json_encode($relevant, JSON_THROW_ON_ERROR));
     }
 
     private function internalError(\RuntimeException $e, SiteSettings $siteSettings): ResponseInterface

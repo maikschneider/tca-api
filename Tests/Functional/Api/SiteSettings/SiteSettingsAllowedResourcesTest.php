@@ -52,6 +52,31 @@ final class SiteSettingsAllowedResourcesTest extends ApiFunctionalTestCase
         }
     }
 
+    public function testEmbeddedBlockedResourceKeepsItsColumnsWithoutIri(): void
+    {
+        $this->registerResource('articles', [
+            'general' => [
+                'table'        => 'tx_myext_domain_model_article',
+                'resourceName' => 'articles',
+                'resourceType' => 'Article',
+                'operations'   => ['list', 'show'],
+            ],
+            'columns' => [
+                'title'    => ['groups' => ['list', 'show']],
+                'color_id' => ['groups' => ['list', 'show'], 'embed' => true],
+            ],
+        ]);
+
+        $color = $this->decodeResponseBody($this->executeApiRequest('/_api/articles/1'))['color_id'];
+
+        // The colors resource exposes only "name": its column config still applies,
+        // but without an item endpoint on this site there is no @id.
+        self::assertSame(['@type', 'uid', 'name'], array_keys($color));
+
+        $schema = $this->decodeResponseBody($this->executeApiRequest('/_api/openapi.json'))['components']['schemas']['ArticleRead'];
+        self::assertSame(['@type', 'uid', 'name'], array_keys($schema['properties']['color_id']['oneOf'][0]['properties']));
+    }
+
     // ── Hydra docs do not leak blocked resource types ─────────────────────────
 
     public function testHydraDocsDoNotContainBlockedSupportedClass(): void
