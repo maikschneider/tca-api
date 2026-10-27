@@ -9,6 +9,9 @@ Before any access check, the dispatcher resolves the caller of the request, the
 the write audit trail all read this principal, so an extension can add a new
 way to authenticate (API keys, tokens) without touching access control.
 
+For the client side, which credentials to send and which extensions provide
+them, see :ref:`authentication`.
+
 Built in is the ``SessionAuthenticator``: the frontend and backend user that
 TYPO3's authentication middlewares restored from their session cookies. A
 request without any credentials is anonymous.
