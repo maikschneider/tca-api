@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\SiteSettings;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\OpenApi\OpenApiSchemasBuilder;
+use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
@@ -54,11 +57,13 @@ final class SiteSettingsAllowedResourcesTest extends ApiFunctionalTestCase
 
     public function testEmbeddedBlockedResourceKeepsItsColumnsWithoutIri(): void
     {
-        $this->registerResource('articles', [
+        // Serialized directly: a sub-request reloads the configured definitions,
+        // which would replace a registered "articles" resource.
+        $articles = ApiDefinition::fromArray([
             'general' => [
                 'table'        => 'tx_myext_domain_model_article',
-                'resourceName' => 'articles',
-                'resourceType' => 'Article',
+                'resourceName' => 'embed-articles',
+                'resourceType' => 'EmbedArticle',
                 'operations'   => ['list', 'show'],
             ],
             'columns' => [
@@ -66,15 +71,19 @@ final class SiteSettingsAllowedResourcesTest extends ApiFunctionalTestCase
                 'color_id' => ['groups' => ['list', 'show'], 'embed' => true],
             ],
         ]);
+        $row = $this->getConnectionPool()->getConnectionForTable('tx_myext_domain_model_article')
+            ->select(['*'], 'tx_myext_domain_model_article', ['uid' => 1])->fetchAssociative();
+        self::assertIsArray($row);
 
-        $color = $this->decodeResponseBody($this->executeApiRequest('/_api/articles/1'))['color_id'];
+        $color = $this->get(ResourceSerializer::class)
+            ->serialize($row, $articles, '/_api/embed-articles', [], ['__allowedResources' => ['embed-articles']])['color_id'];
 
         // The colors resource exposes only "name": its column config still applies,
         // but without an item endpoint on this site there is no @id.
         self::assertSame(['@type', 'uid', 'name'], array_keys($color));
 
-        $schema = $this->decodeResponseBody($this->executeApiRequest('/_api/openapi.json'))['components']['schemas']['ArticleRead'];
-        self::assertSame(['@type', 'uid', 'name'], array_keys($schema['properties']['color_id']['oneOf'][0]['properties']));
+        $schemas = $this->get(OpenApiSchemasBuilder::class)->build([$articles], $this->getApiRegistry()->getAll());
+        self::assertSame(['@type', 'uid', 'name'], array_keys($schemas['EmbedArticleRead']['properties']['color_id']['oneOf'][0]['properties']));
     }
 
     // ── Hydra docs do not leak blocked resource types ─────────────────────────
