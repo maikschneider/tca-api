@@ -1,9 +1,6 @@
 # Known mismatches between API responses and the OpenAPI spec on TYPO3 13, one per line.
 # See README.md in this directory before editing.
 GET /_api/articles 404: status not documented
-GET /_api/articles/{uid} 404: empty body, documented application/ld+json
-GET /_api/content-header/{uid} 404: empty body, documented application/ld+json
-GET /_api/content/{uid} 404: empty body, documented application/ld+json
 GET /_api/crop-colors 200 /hydra:member/*/crop_settings: type (object, got string)
 GET /_api/crop-colors/{uid} 200 /crop_settings: type (object, got string)
 GET /_api/file-articles/{uid} 200 /mystery: type (string, got null)
@@ -14,7 +11,6 @@ GET /_api/grp-articles 200 /hydra:member/*/related_items/*: additionalProperties
 GET /_api/grp-articles/{uid} 200 /related_items/*: additionalProperties (@id, name)
 GET /_api/grp-articles/{uid} 200 /related_items/*: additionalProperties (@id, title, related_colors, related_items)
 GET /_api/linking-content/{uid} 200 /tx_split_content/colPos: type (string, got integer)
-GET /_api/pid-articles/{uid} 404: empty body, documented application/ld+json
 GET /_api/qc-articles 200 /hydra:member/*/related_items/*: additionalProperties (@id, name)
 GET /_api/rm-categories/{uid} 200 /items/*: additionalProperties (@id, title, color_id, categories, profile_photo, first_name, downloads, article_url)
 GET /_api/split-content 200 /hydra:member/*/colPos: type (string, got integer)
@@ -26,8 +22,6 @@ GET /_api/split-content-textmedia 200 /hydra:member/*/imagewidth: type (string, 
 GET /_api/split-content-textmedia/{uid} 200 /colPos: type (string, got integer)
 GET /_api/split-content-textmedia/{uid} 200 /imageheight: type (string, got integer)
 GET /_api/split-content-textmedia/{uid} 200 /imagewidth: type (string, got integer)
-GET /_api/split-content-textmedia/{uid} 404: empty body, documented application/ld+json
-GET /_api/standard-pages/{uid} 404: empty body, documented application/ld+json
 GET /_api/table-content/{uid} 200 /colPos: type (string, got integer)
 GET /_api/table-content/{uid} 200 /imageheight: type (string, got integer)
 GET /_api/table-content/{uid} 200 /imagewidth: type (string, got integer)
@@ -40,8 +34,6 @@ GET /_api/web-pages 200 /hydra:member/*: additionalProperties (keywords, descrip
 GET /_api/web-pages 200 /hydra:member/*: additionalProperties (url)
 GET /_api/web-pages/{uid} 200 /: additionalProperties (keywords, description, content_from_pid, cache_timeout, cache_tags, module)
 GET /_api/web-pages/{uid} 200 /: additionalProperties (url)
-GET /_api/web-pages/{uid} 404: empty body, documented application/ld+json
-GET /a-api/tenant-articles/{uid} 404: empty body, documented application/ld+json
 GET /api/fbu-articles 200 /hydra:member/*/related_items/*: additionalProperties (@id, name)
 GET /api/fbu-articles 200 /hydra:member/*/related_items/*: additionalProperties (@id, title, color_id, related_colors, related_items)
 GET /api/fbu-articles/{uid} 200 /related_items/*: additionalProperties (@id, name)
