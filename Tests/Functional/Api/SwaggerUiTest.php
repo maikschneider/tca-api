@@ -23,6 +23,7 @@ final class SwaggerUiTest extends ApiFunctionalTestCase
         self::assertSame(200, $response->getStatusCode());
         $body = (string)$response->getBody();
         self::assertStringContainsString('<div id="swagger-ui"></div>', $body);
+        self::assertStringContainsString("localStorage.getItem('tca-api-authorized-server') !== server", $body);
     }
 
     public function testPostToSwaggerUiReturns405(): void

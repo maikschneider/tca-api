@@ -29,9 +29,12 @@ Available events
    * - ``AfterWriteEvent``
      - After DataHandler operations
      - Trigger side effects (cache clear, logging).
+   * - ``ModifyOpenApiSecuritySchemesEvent``
+     - While the OpenAPI document is built
+     - Declare how clients authenticate, see :ref:`authenticators`.
 
-All events are stoppable — call ``stopPropagation()`` to abort further
-processing.
+The operation and write events are stoppable: call ``stopPropagation()`` to
+abort further processing.
 
 Event API reference
 ===================
@@ -123,6 +126,27 @@ Event API reference
      - The typed configuration of the resource the operation runs on.
    * - ``stopPropagation(): void``
      - Prevents subsequent listeners from receiving the event.
+
+``ModifyOpenApiSecuritySchemesEvent``
+-------------------------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 35 65
+
+   * - Method
+     - Description
+   * - ``getSchemes(): array<string, SecurityScheme>``
+     - The schemes collected so far, keyed by name. Built in are
+       ``FrontendSession`` and ``BackendSession`` (session cookies).
+   * - ``addScheme(SecurityScheme $scheme): void``
+     - Adds or replaces a scheme.
+   * - ``removeScheme(string $name): void``
+     - Removes a scheme, e.g. a session scheme on a token-only site.
+   * - ``getResources(): array<string, ApiDefinition>``
+     - The resources the document describes.
+   * - ``getContext(): RequestContext``
+     - Site settings and URLs of the document being built.
 
 Registering a listener
 ======================
