@@ -9,6 +9,7 @@ use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Dispatcher\RequestContext;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Serializer\RelationSerializer;
+use MaikSchneider\TcaApi\Tca\RelationCardinality;
 
 final class HydraApiDocumentationBuilder
 {
@@ -287,9 +288,7 @@ final class HydraApiDocumentationBuilder
     {
         $tcaConfig = $GLOBALS['TCA'][$table]['columns'][$column]['config'] ?? [];
 
-        return ($tcaConfig['maxitems'] ?? null) === 1
-            || ($tcaConfig['renderType'] ?? '') === 'selectSingle'
-            || self::isSingleGroupRelation($tcaConfig);
+        return RelationCardinality::isHasOne($tcaConfig);
     }
 
     /** A type=group column holding one record, such as pages.shortcut. */
