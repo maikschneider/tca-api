@@ -50,7 +50,6 @@ GET /_api/articles/{uid} 200 /article_url: type (string, got null)
 GET /_api/articles/{uid} 200 /profile_photo/metadata: additionalProperties (alternative, copyright)
 GET /_api/articles/{uid} 200 /profile_photo: additionalProperties (cropVariants)
 GET /_api/auth-arts/{uid} 200 /: additionalProperties (fe_user_id)
-GET /_api/auth-arts/{uid} 401: status not documented
 GET /_api/bulk-files 200 /: additionalProperties (hydra:search)
 GET /_api/bulk-files 200 /hydra:member/*/attachments: type (string, got array)
 GET /_api/bulk-files 200 /hydra:view/hydra:next: type (string, got null)
