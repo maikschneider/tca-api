@@ -148,10 +148,24 @@ final readonly class OpenApiSchemasBuilder
             if ($config->isExplicitMode && !$vpDef->isReadable()) {
                 continue;
             }
-            $properties[$vpName] = $this->buildPropertySchema($vpDef);
+            $properties[$vpName] = $this->buildVirtualPropertySchema($vpDef, $config);
         }
 
         return ['type' => 'object', 'properties' => $properties];
+    }
+
+    /**
+     * A virtual property over a file column is serialized like the column itself,
+     * unless a callback, which runs last, replaces the value.
+     */
+    private function buildVirtualPropertySchema(ColumnDefinition $vpDef, ApiDefinition $config): array
+    {
+        $sourceConfig = $vpDef->column !== null ? ($GLOBALS['TCA'][$config->table]['columns'][$vpDef->column]['config'] ?? null) : null;
+        if ($vpDef->callback === null && \is_array($sourceConfig) && ($sourceConfig['type'] ?? null) === 'file') {
+            return $this->buildFilePropertySchema($sourceConfig);
+        }
+
+        return $this->buildPropertySchema($vpDef);
     }
 
     /**

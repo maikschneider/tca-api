@@ -490,6 +490,32 @@ final class OpenApiSchemasBuilderTest extends TestCase
     }
 
     #[Test]
+    public function virtualPropertyOverAFileColumnIsDescribedLikeTheColumn(): void
+    {
+        $GLOBALS['TCA']['test_table'] = ['ctrl' => [], 'columns' => [
+            'media' => ['config' => ['type' => 'file']],
+            'photo' => ['config' => ['type' => 'file', 'maxitems' => 1]],
+        ]];
+
+        $config = ApiDefinition::fromArray([
+            'general' => ['table' => 'test_table', 'resourceName' => 'tests', 'resourceType' => 'Test'],
+            'columns' => [],
+            'virtualProperties' => [
+                'teaserImage' => ['groups' => ['list', 'show'], 'column' => 'media', 'image' => ['cropVariant' => 'teaser']],
+                'teaserPhoto' => ['groups' => ['list', 'show'], 'column' => 'photo'],
+                'mediaCount'  => ['groups' => ['list', 'show'], 'column' => 'media', 'type' => 'integer', 'callback' => ['SomeClass', 'someMethod']],
+            ],
+        ]);
+
+        $readProps = $this->builder->build([$config])['TestRead']['properties'];
+
+        self::assertSame(['type' => 'array', 'items' => ['$ref' => '#/components/schemas/FileObject']], $readProps['teaserImage']);
+        self::assertSame([['$ref' => '#/components/schemas/FileObject'], ['type' => 'null']], $readProps['teaserPhoto']['oneOf']);
+        // A callback replaces the value, so its declared type wins.
+        self::assertSame(['type' => 'integer'], $readProps['mediaCount']);
+    }
+
+    #[Test]
     public function virtualPropertiesNotReadableAreExcludedInExplicitMode(): void
     {
         $GLOBALS['TCA']['test_table'] = ['ctrl' => [], 'columns' => []];
