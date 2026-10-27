@@ -2,12 +2,17 @@
 
 declare(strict_types=1);
 
+use MaikSchneider\ApiKey\Authentication\ApiKeyAuthenticatorInterface;
 use MaikSchneider\TcaApi\ConfigurationModuleProvider\TcaApiConfigurationProvider;
 use MaikSchneider\TcaApi\Controller\ApiDocumentationController;
+use MaikSchneider\TcaApi\Integration\ApiKey\AddApiKeySecuritySchemes;
+use MaikSchneider\TcaApi\Integration\ApiKey\ApiKeyAuthenticator;
 use MaikSchneider\TcaApi\Security\Authentication\AuthenticatorInterface;
 use MaikSchneider\TcaApi\Serializer\FileProcessing\FileProcessorInterface;
 use MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface;
 use MaikSchneider\TcaApi\Serializer\Processing\PreloadingProcessorInterface;
+use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
+use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use TYPO3\CMS\Backend\Template\Components\ComponentFactory;
@@ -45,6 +50,27 @@ return static function (ContainerConfigurator $containerConfigurator, ContainerB
         $services->set(ApiDocumentationController::class)
             ->autowire()
             ->autoconfigure();
+    }
+
+    // The bridge to the api_key extension, which tca_api only suggests. Its classes
+    // can be autoloadable while the extension is not active (classic mode, test
+    // instances), so the bridge is dropped again unless api_key registered its service.
+    if (interface_exists(ApiKeyAuthenticatorInterface::class)) {
+        $services->set(ApiKeyAuthenticator::class)
+            ->autowire()
+            ->autoconfigure();
+        $services->set(AddApiKeySecuritySchemes::class)
+            ->autowire()
+            ->autoconfigure();
+        $containerBuilder->addCompilerPass(new class() implements CompilerPassInterface {
+            public function process(ContainerBuilder $container): void
+            {
+                if (!$container->has(ApiKeyAuthenticatorInterface::class)) {
+                    $container->removeDefinition(ApiKeyAuthenticator::class);
+                    $container->removeDefinition(AddApiKeySecuritySchemes::class);
+                }
+            }
+        }, PassConfig::TYPE_BEFORE_OPTIMIZATION, 10);
     }
 
     if (!class_exists(\TYPO3\CMS\Lowlevel\ConfigurationModuleProvider\AbstractProvider::class)) {

@@ -14,6 +14,8 @@ $EM_CONF[$_EXTKEY] = [
             'frontend' => '',
         ],
         'conflicts' => [],
-        'suggests' => [],
+        'suggests' => [
+            'api_key' => '',
+        ],
     ],
 ];

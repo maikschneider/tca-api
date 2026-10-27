@@ -130,14 +130,35 @@ final class WriteContextFactoryTest extends TestCase
     #[Test]
     public function fromRequestReturnsServiceContextForAServicePrincipal(): void
     {
-        $principal = new Principal(isService: true, serviceLabel: 'CI deploy', serviceUid: 7, source: 'api_key');
+        $principal = new Principal(isService: true, serviceLabel: 'CI deploy', serviceUid: 7, source: 'api_key', credential: 'api_key:7:t3key_AbCdEfGh');
 
         $context = $this->factory->fromRequest($this->requestWithPrincipal($principal));
 
-        self::assertSame('service', $context->actorType);
+        self::assertSame('api_key', $context->actorType);
         self::assertSame(7, $context->actorUid);
         self::assertSame('CI deploy', $context->actorUsername);
+        self::assertSame('api_key:7:t3key_AbCdEfGh', $context->credential);
         self::assertSame(WriteMode::ACTING_USER, $context->mode);
+    }
+
+    #[Test]
+    public function fromRequestKeepsTheBoundUserAsActorAndRecordsTheCredential(): void
+    {
+        $principal = new Principal(frontendUserUid: 4, frontendUsername: 'jane', source: 'api_key', credential: 'api_key:9:t3key_AbCdEfGh');
+
+        $context = $this->factory->fromRequest($this->requestWithPrincipal($principal));
+
+        self::assertSame('fe_user', $context->actorType);
+        self::assertSame(4, $context->actorUid);
+        self::assertSame('api_key:9:t3key_AbCdEfGh', $context->credential);
+    }
+
+    #[Test]
+    public function fromRequestNamesAServiceWithoutSourceAService(): void
+    {
+        $principal = new Principal(isService: true, serviceLabel: 'cron', serviceUid: 1);
+
+        self::assertSame('service', $this->factory->fromRequest($this->requestWithPrincipal($principal))->actorType);
     }
 
     #[Test]
