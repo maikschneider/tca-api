@@ -8,6 +8,7 @@ use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Filter\FilterDefinition;
 use MaikSchneider\TcaApi\Filter\MultiValueFilterInterface;
+use MaikSchneider\TcaApi\Filter\RangeFilter;
 use MaikSchneider\TcaApi\Filter\RelationPathFilter;
 
 final readonly class OpenApiOperationBuilder
@@ -218,6 +219,22 @@ final readonly class OpenApiOperationBuilder
             // so keep advertising them top-level.
             $paramName = str_contains($field, '.') ? 'filters[' . $field . ']' : $field;
             $description = 'Filter by ' . $field . ' (' . $shortName . ')';
+            if ($this->isRangeFilter($filterConfig)) {
+                $params[] = [
+                    'name' => $paramName,
+                    'in' => 'query',
+                    'required' => false,
+                    'description' => $description . '. Supply one or more bounds as ' . $paramName . '[gte]=…, [lte], [gt] or [lt].',
+                    'style' => 'deepObject',
+                    'explode' => true,
+                    'schema' => [
+                        'type' => 'object',
+                        'properties' => array_fill_keys(['gte', 'lte', 'gt', 'lt'], ['type' => 'string']),
+                        'additionalProperties' => false,
+                    ],
+                ];
+                continue;
+            }
             $multiple = $this->acceptsMultipleValues($filterConfig);
             if ($multiple) {
                 $paramName .= '[]';
@@ -276,6 +293,16 @@ final readonly class OpenApiOperationBuilder
         }
 
         return is_a($filterConfig->filterClass, MultiValueFilterInterface::class, true);
+    }
+
+    /** RangeFilter reads a map of operators, also as the leaf of a relation path. */
+    private function isRangeFilter(FilterDefinition $filterConfig): bool
+    {
+        $filterClass = $filterConfig->filterClass === RelationPathFilter::class
+            ? $filterConfig->option('__leafFilter')
+            : $filterConfig->filterClass;
+
+        return \is_string($filterClass) && is_a($filterClass, RangeFilter::class, true);
     }
 
     /**
