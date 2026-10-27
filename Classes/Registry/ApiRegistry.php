@@ -42,17 +42,32 @@ final class ApiRegistry
      * same table; otherwise a self-referential relation keeps $config so its
      * embed definitions apply again.
      */
-    public function getRelated(string $foreignTable, ApiDefinition $config, ?string $resourceName = null): ?ApiDefinition
+    /**
+     * @param list<string> $allowedResourceNames the site's tca_api.allowedResources; empty = all.
+     *                                           A resource the site doesn't serve is never the related one.
+     */
+    public function getRelated(string $foreignTable, ApiDefinition $config, ?string $resourceName = null, array $allowedResourceNames = []): ?ApiDefinition
     {
+        $isAllowed = static fn (string $name): bool => $allowedResourceNames === [] || \in_array($name, $allowedResourceNames, true);
+
         if ($resourceName !== null) {
-            return $this->get($resourceName);
+            return $isAllowed($resourceName) ? $this->get($resourceName) : null;
         }
 
         if ($foreignTable === $config->table) {
             return $config;
         }
 
-        return $this->getByTable($foreignTable);
+        if ($allowedResourceNames === []) {
+            return $this->getByTable($foreignTable);
+        }
+        foreach (self::$resources as $name => $resource) {
+            if ($resource->table === $foreignTable && $isAllowed($name)) {
+                return $resource;
+            }
+        }
+
+        return null;
     }
 
     /** @return array<string, ApiDefinition> */

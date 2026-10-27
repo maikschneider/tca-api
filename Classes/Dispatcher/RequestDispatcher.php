@@ -150,7 +150,9 @@ final class RequestDispatcher
         }
 
         $request = $this->withRequestAttributes($request, $method, $ctx->uid, $operation, $config, $siteSettings, $ctx->language)
-            ->withAttribute('tca_api.existing_record', $existingRecord);
+            ->withAttribute('tca_api.existing_record', $existingRecord)
+            // Relations to resources outside this list render as uids, not IRIs this site would answer with 404.
+            ->withAttribute('tca_api.allowed_resources', $ctx->allowedResourceNames());
 
         // ── Cache: check for hit on cacheable read operations ────────────
         $cacheKey = null;

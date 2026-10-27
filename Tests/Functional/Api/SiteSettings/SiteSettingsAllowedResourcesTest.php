@@ -39,6 +39,19 @@ final class SiteSettingsAllowedResourcesTest extends ApiFunctionalTestCase
         self::assertSame(404, $response->getStatusCode());
     }
 
+    public function testRelationToBlockedResourceRendersUidNotIri(): void
+    {
+        $response = $this->executeApiRequest('/_api/articles');
+        self::assertSame(200, $response->getStatusCode());
+
+        $colorIds = array_column($this->decodeResponseBody($response)['hydra:member'], 'color_id');
+        self::assertNotSame([], array_filter($colorIds), 'Fixture articles must reference colors');
+        foreach ($colorIds as $colorId) {
+            // /_api/colors/{uid} answers 404 on this site, so no IRI may point there.
+            self::assertTrue($colorId === null || \is_int($colorId), 'color_id must be a uid, got ' . var_export($colorId, true));
+        }
+    }
+
     // ── Hydra docs do not leak blocked resource types ─────────────────────────
 
     public function testHydraDocsDoNotContainBlockedSupportedClass(): void

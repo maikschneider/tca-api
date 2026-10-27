@@ -28,6 +28,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 #[Autoconfigure(public: true)]
 class CreateHandler implements OperationHandlerInterface
 {
+    use AllowedResourcesTrait;
     use ColumnFilterTrait;
     use FileUploadTrait;
     use WriteOperationTrait;
@@ -127,7 +128,7 @@ class CreateHandler implements OperationHandlerInterface
         $baseUrl   = $apiPrefix . '/' . $config->resourceName;
         $location  = $baseUrl . '/' . $uid;
 
-        $serialized = $this->serializer->serialize($row, $config, $baseUrl);
+        $serialized = $this->serializer->serialize($row, $config, $baseUrl, [], ['__allowedResources' => $this->allowedResourcesFromRequest($request)]);
 
         $event = new AfterOperationEvent('create', $serialized, $request, $config);
         $this->eventDispatcher->dispatch($event);

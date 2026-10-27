@@ -19,6 +19,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 #[Autoconfigure(public: true)]
 class GetItemHandler implements OperationHandlerInterface
 {
+    use AllowedResourcesTrait;
     use LanguageAwareTrait;
 
     public function __construct(
@@ -61,7 +62,7 @@ class GetItemHandler implements OperationHandlerInterface
                 ->withHeader('Content-Type', 'application/ld+json');
         }
 
-        $preloaded  = $this->embedPreloader->preload([$row], $config, $language, $fields, 'show');
+        $preloaded  = $this->embedPreloader->preload([$row], $config, $language, $fields, 'show', $this->allowedResourcesFromRequest($request));
         $serialized = $this->serializer->serialize($row, $config, $baseUrl, $fields, $preloaded, -1, [], 'show');
 
         $event = new AfterOperationEvent('show', $serialized, $request, $config);
