@@ -25,6 +25,7 @@ final class WriteAuditLoggerTest extends TestCase
                 'actor_type' => 'fe_user',
                 'actor_uid' => 42,
                 'actor_username' => 'johndoe',
+                'credential' => '',
                 'write_mode' => 'acting_user',
             ]);
 
@@ -46,6 +47,7 @@ final class WriteAuditLoggerTest extends TestCase
                 'actor_type' => 'fe_user',
                 'actor_uid' => 42,
                 'actor_username' => 'johndoe',
+                'credential' => '',
                 'write_mode' => 'acting_user',
                 'reason' => 'Table blocked by access control policy',
             ]);
@@ -69,6 +71,7 @@ final class WriteAuditLoggerTest extends TestCase
                 'actor_type' => 'system',
                 'actor_uid' => 0,
                 'actor_username' => '_tca_api_system',
+                'credential' => '',
                 'write_mode' => 'system_admin',
             ]);
 
