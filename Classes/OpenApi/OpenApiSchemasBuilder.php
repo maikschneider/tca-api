@@ -101,7 +101,7 @@ final readonly class OpenApiSchemasBuilder
         foreach ($resources as $config) {
             $name = $names->of($config);
             $schemas += $config->typeSchemas
-                ? $this->buildTypeReadSchemas($config, $resources, $names)
+                ? $this->buildTypeReadSchemas($config, $resources, $names, $schemas)
                 : [$name . 'Read' => $this->withRecordTypeEnum($this->buildReadSchema($config, $resources), $config, false)];
             if ($this->hasWriteOperations($config)) {
                 $schemas[$name . 'Write'] = $this->withRecordTypeEnum($this->buildWriteSchema($config), $config, true);
@@ -191,10 +191,11 @@ final readonly class OpenApiSchemasBuilder
      * Read schema; a multi-type resource's Read schema is a oneOf over the type
      * schemas with a discriminator on the type field.
      *
-     * @param ApiDefinition[] $resources
+     * @param ApiDefinition[]       $resources
+     * @param array<string, mixed>  $built     component schemas built so far, whose names are taken
      * @return array<string, array<string, mixed>>
      */
-    private function buildTypeReadSchemas(ApiDefinition $config, array $resources, OpenApiSchemaNames $names): array
+    private function buildTypeReadSchemas(ApiDefinition $config, array $resources, OpenApiSchemaNames $names, array $built): array
     {
         $field = (string)$config->recordTypeField;
         $recordTypes = $config->recordTypes ?? [];
@@ -202,14 +203,15 @@ final readonly class OpenApiSchemasBuilder
         $base = $names->of($config);
         $schemas = [];
         $mapping = [];
-        // Another resource's own schema names win, e.g. those of resources split from this one.
-        $suffixes = [];
+        // Other resources' Read schemas and the schemas built so far keep their names,
+        // e.g. those of resources split from this one or type schemas of another resource.
+        $taken = array_fill_keys(array_keys($built), true);
         foreach ($resources as $resource) {
-            $other = $names->of($resource);
-            if ($resource !== $config && str_starts_with($other, $base)) {
-                $suffixes[substr($other, \strlen($base))] = true;
+            if ($resource !== $config) {
+                $taken[$names->of($resource) . 'Read'] = true;
             }
         }
+        $suffixes = [];
         foreach ($recordTypes as $recordType) {
             $schema = $this->buildReadSchema($config, $resources, -1, $recordType);
             $property = $schema['properties'][$field] ?? ['type' => 'string'];
@@ -217,9 +219,16 @@ final readonly class OpenApiSchemasBuilder
             $schema['properties'][$field] = $property;
             $schema['required'] = [$field];
 
-            $name = \count($recordTypes) === 1
-                ? $base . 'Read'
-                : $base . self::uniqueRecordTypeSchemaSuffix($recordType, $suffixes) . 'Read';
+            $name = $base . 'Read';
+            if (\count($recordTypes) > 1) {
+                $suffix = self::uniqueRecordTypeSchemaSuffix($recordType, $suffixes);
+                for ($counter = 2, $unique = $suffix; isset($taken[$base . $unique . 'Read']); $counter++) {
+                    $unique = $suffix . $counter;
+                }
+                $suffixes[$unique] = true;
+                $name = $base . $unique . 'Read';
+            }
+            $taken[$name] = true;
             $schemas[$name] = $schema;
             $mapping[$recordType] = '#/components/schemas/' . $name;
         }

@@ -23,15 +23,22 @@ final readonly class OpenApiSchemaNames
     public function __construct(array $resources)
     {
         $names = [];
+        // Every declared resourceType keeps its plain name, so a generated name can't take
+        // the name of a resource registered later, which embedded $refs by resourceType rely on.
         $taken = [];
         foreach ($resources as $config) {
+            $taken[$config->resourceType] = true;
+        }
+        $seenTypes = [];
+        foreach ($resources as $config) {
             $name = $config->resourceType;
-            if (isset($taken[$name])) {
+            if (isset($seenTypes[$config->resourceType])) {
                 $name = $config->resourceType . self::pascalCase($config->resourceName);
                 for ($counter = 2; isset($taken[$name]); $counter++) {
                     $name = $config->resourceType . self::pascalCase($config->resourceName) . $counter;
                 }
             }
+            $seenTypes[$config->resourceType] = true;
             $taken[$name] = true;
             $names[$config->resourceName] = $name;
         }
