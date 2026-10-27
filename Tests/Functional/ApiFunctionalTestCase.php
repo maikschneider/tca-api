@@ -14,6 +14,7 @@ use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Http\Stream;
 use TYPO3\CMS\Core\Http\UploadedFile;
+use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Routing\SiteMatcher;
 use TYPO3\CMS\Core\Routing\SiteRouteResult;
 use TYPO3\CMS\Core\Site\Entity\Site;
@@ -40,7 +41,8 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
      */
     protected bool $validateResponsesAgainstOpenApi = true;
 
-    private const CONTRACT_BASELINE = __DIR__ . '/Contract/openapi-contract-baseline.txt';
+    /** Known mismatches per TYPO3 major version (%d), whose core TCA differs. */
+    private const CONTRACT_BASELINE = __DIR__ . '/Contract/openapi-contract-baseline.v%d.txt';
 
     /** Set to collect mismatches into this file instead of failing; see Tests/Functional/Contract/README.md. */
     private const CONTRACT_COLLECT_ENV = 'TCA_API_CONTRACT_COLLECT';
@@ -84,16 +86,23 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
 
     private function assertResponseMatchesOpenApi(InternalRequest $request, ResponseInterface $response): void
     {
-        $validator = $this->contractValidator($request);
-        if ($validator === null) {
+        $contract = $this->contractValidator($request);
+        if ($contract === null) {
             return;
+        }
+        [$validator, $languageBasePath] = $contract;
+
+        // Spec paths start at the API prefix; a language base such as "/de" precedes it.
+        $path = $request->getUri()->getPath();
+        if ($languageBasePath !== '' && str_starts_with($path, $languageBasePath . '/')) {
+            $path = substr($path, \strlen($languageBasePath));
         }
 
         $body = $response->getBody();
         $body->rewind();
         $mismatches = $validator->validate(
             $request->getMethod(),
-            $request->getUri()->getPath(),
+            $path,
             $response->getStatusCode(),
             $response->getHeaderLine('Content-Type'),
             $body->getContents(),
@@ -109,7 +118,10 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
         }
 
         self::$contractBaseline ??= array_fill_keys(
-            array_filter(array_map('trim', file(self::CONTRACT_BASELINE) ?: []), static fn (string $line): bool => $line !== '' && $line[0] !== '#'),
+            array_filter(
+                array_map('trim', file(sprintf(self::CONTRACT_BASELINE, (new Typo3Version())->getMajorVersion())) ?: []),
+                static fn (string $line): bool => $line !== '' && $line[0] !== '#',
+            ),
             true,
         );
         $unexpected = array_values(array_filter($mismatches, static fn (string $mismatch): bool => !isset(self::$contractBaseline[$mismatch])));
@@ -124,8 +136,10 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
     /**
      * The spec is built in-process for the site that serves the request, so sites that
      * hide /openapi.json are covered too and validation never issues a request itself.
+     *
+     * @return array{OpenApiResponseValidator, string}|null the validator and the base path of the request's site language
      */
-    private function contractValidator(InternalRequest $request): ?OpenApiResponseValidator
+    private function contractValidator(InternalRequest $request): ?array
     {
         $serverRequest = new ServerRequest($request->getUri(), 'GET');
         $routeResult   = $this->get(SiteMatcher::class)->matchRequest($serverRequest);
@@ -144,7 +158,7 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
             $this->contractValidators[$key] = new OpenApiResponseValidator($this->get(OpenApiBuilder::class)->build($ctx));
         }
 
-        return $this->contractValidators[$key];
+        return [$this->contractValidators[$key], rtrim($routeResult->getLanguage()?->getBase()->getPath() ?? '', '/')];
     }
 
     /**
