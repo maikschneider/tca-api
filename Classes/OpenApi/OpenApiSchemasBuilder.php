@@ -9,6 +9,7 @@ use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Loader\TcaValidatorDeriver;
 use MaikSchneider\TcaApi\Serializer\RelationSerializer;
 use MaikSchneider\TcaApi\Tca\RecordTypeFields;
+use MaikSchneider\TcaApi\Tca\RelationCardinality;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final readonly class OpenApiSchemasBuilder
@@ -431,31 +432,19 @@ final readonly class OpenApiSchemasBuilder
 
     private function isHasOneField(string $tcaType, array $tcaConfig): bool
     {
-        if ($tcaType === 'group') {
-            return $this->relatedTable($tcaConfig) !== null
-                && \in_array($tcaConfig['relationship'] ?? null, ['manyToOne', 'oneToOne'], true)
-                && !isset($tcaConfig['MM']);
-        }
-        if ($tcaType !== 'select' || !isset($tcaConfig['foreign_table'])) {
-            return false;
-        }
-        $renderType = $tcaConfig['renderType'] ?? '';
-        $maxItems   = $tcaConfig['maxitems'] ?? null;
-        return $renderType === 'selectSingle' || $maxItems === 1;
+        return $this->isRelationField($tcaType, $tcaConfig) && RelationCardinality::isHasOne($tcaConfig);
     }
 
     private function isHasManyField(string $tcaType, array $tcaConfig): bool
     {
-        if (\in_array($tcaType, ['inline', 'category'], true)) {
-            return true;
-        }
-        if ($tcaType === 'group') {
-            return !$this->isHasOneField($tcaType, $tcaConfig);
-        }
-        // select with foreign_table that is not hasOne (e.g. selectMultipleSideBySide)
-        return $tcaType === 'select'
-            && isset($tcaConfig['foreign_table'])
-            && !$this->isHasOneField($tcaType, $tcaConfig);
+        return $this->isRelationField($tcaType, $tcaConfig) && !RelationCardinality::isHasOne($tcaConfig);
+    }
+
+    /** A column the serializer renders through RelationSerializer. */
+    private function isRelationField(string $tcaType, array $tcaConfig): bool
+    {
+        return \in_array($tcaType, ['inline', 'category', 'group'], true)
+            || ($tcaType === 'select' && isset($tcaConfig['foreign_table']));
     }
 
     private function hasWriteOperations(ApiDefinition $config): bool

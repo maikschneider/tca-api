@@ -330,6 +330,52 @@ final class OpenApiSchemasBuilderTest extends TestCase
         self::assertSame(['type' => 'integer'], $readProps['tags']['items']['oneOf'][1]);
     }
 
+    #[Test]
+    public function selectWithMaxitemsOneButNoRelationshipIsAList(): void
+    {
+        $GLOBALS['TCA']['test_table'] = [
+            'ctrl' => [],
+            'columns' => [
+                'color_id' => ['config' => ['type' => 'select', 'renderType' => 'selectMultipleSideBySide', 'foreign_table' => 'tx_color', 'maxitems' => 1]],
+            ],
+        ];
+
+        $readProps = $this->builder->build([$this->makeConfig(['color_id' => ['groups' => ['list', 'show']]])])['TestRead']['properties'];
+
+        self::assertSame('array', $readProps['color_id']['type']);
+    }
+
+    #[Test]
+    public function categoryWithOneToOneRelationshipIsOneRecord(): void
+    {
+        $GLOBALS['TCA']['test_table'] = [
+            'ctrl' => [],
+            'columns' => [
+                'parent' => ['config' => ['type' => 'category', 'relationship' => 'oneToOne']],
+            ],
+        ];
+
+        $readProps = $this->builder->build([$this->makeConfig(['parent' => ['groups' => ['list', 'show']]])])['TestRead']['properties'];
+
+        self::assertArrayHasKey('oneOf', $readProps['parent']);
+        self::assertContains(['type' => 'null'], $readProps['parent']['oneOf']);
+    }
+
+    #[Test]
+    public function selectSingleWithMmIsAList(): void
+    {
+        $GLOBALS['TCA']['test_table'] = [
+            'ctrl' => [],
+            'columns' => [
+                'color_id' => ['config' => ['type' => 'select', 'renderType' => 'selectSingle', 'foreign_table' => 'tx_color', 'MM' => 'tx_test_color_mm']],
+            ],
+        ];
+
+        $readProps = $this->builder->build([$this->makeConfig(['color_id' => ['groups' => ['list', 'show']]])])['TestRead']['properties'];
+
+        self::assertSame('array', $readProps['color_id']['type']);
+    }
+
     // ── File field schema ──────────────────────────────────────────────────────
 
     #[Test]
