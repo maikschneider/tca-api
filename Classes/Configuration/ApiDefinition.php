@@ -131,6 +131,16 @@ final readonly class ApiDefinition
         return $this->hasOperation('show');
     }
 
+    /**
+     * This resource without its item endpoint: serialized with the same columns, but
+     * referenced by uid and embedded without @id, e.g. on a site whose
+     * tca_api.allowedResources doesn't include it.
+     */
+    public function withoutItemEndpoint(): self
+    {
+        return new self(...['operations' => array_values(array_diff($this->operations, ['show']))] + get_object_vars($this));
+    }
+
     public function isUserInfo(): bool
     {
         return $this->type === 'userinfo';

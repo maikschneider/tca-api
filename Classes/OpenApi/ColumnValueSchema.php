@@ -40,8 +40,10 @@ final class ColumnValueSchema
             'link' => self::nullableIf(['type' => 'string'], true),
             'text', 'folder' => self::nullableIf(['type' => 'string'], true),
             'input', 'email', 'color', 'slug', 'uuid', 'country' => self::nullableIf(['type' => 'string'], $nullable),
-            // No type array ("type": ["object", "array"]): Spectral 6 crashes on it.
-            'json', 'imageManipulation' => ['oneOf' => [['type' => 'object'], ['type' => 'array', 'items' => new \stdClass()], ['type' => 'null']]],
+            // Any decoded JSON value: object, list or scalar.
+            'json' => ['description' => 'Decoded JSON value, or null'],
+            // No type array ("type": ["object", "null"]): Spectral 6 crashes on it.
+            'imageManipulation' => ['oneOf' => [['type' => 'object'], ['type' => 'null']]],
             'flex' => self::nullableIf(['type' => 'object'], true),
             'radio' => self::radioSchema($tcaConfig),
             'select' => isset($tcaConfig['foreign_table']) ? null : self::staticSelectSchema($tcaConfig),

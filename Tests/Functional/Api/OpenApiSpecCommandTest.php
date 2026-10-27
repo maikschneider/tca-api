@@ -39,7 +39,7 @@ final class OpenApiSpecCommandTest extends ApiFunctionalTestCase
 
         $response = $this->executeApiRequest('/_api/openapi.json');
         self::assertSame(200, $response->getStatusCode());
-        self::assertSame(trim((string)$response->getBody()), trim($tester->getDisplay()));
+        self::assertSame((string)$response->getBody(), $tester->getDisplay());
     }
 
     public function testSiteMayBeOmittedWhenThereIsOnlyOne(): void
@@ -57,7 +57,8 @@ final class OpenApiSpecCommandTest extends ApiFunctionalTestCase
 
         self::assertSame(Command::SUCCESS, $tester->execute(['site' => 'main', '--output' => $file]));
         self::assertSame('', $tester->getDisplay());
-        self::assertArrayHasKey('paths', json_decode((string)file_get_contents($file), true, 512, JSON_THROW_ON_ERROR));
+        $response = $this->executeApiRequest('/_api/openapi.json');
+        self::assertSame((string)$response->getBody(), file_get_contents($file));
     }
 
     public function testUnknownSiteFails(): void
