@@ -52,7 +52,7 @@ final class ContractMatrixTest extends ApiFunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/sys_categories.csv');
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/sys_file.csv');
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/sys_file_metadata.csv');
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/contract_records.csv');
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/Extensions/test_contract/Tests/contract_records.csv');
     }
 
     public function testEveryPageAndRecordMatchesTheSpec(): void
