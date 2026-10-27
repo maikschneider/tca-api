@@ -70,7 +70,7 @@ jobs:
         run: ddev init-typo3
 
       - name: Run functional tests
-        run: ddev exec vendor/bin/phpunit --testsuite Functional
+        run: ddev exec CI=true vendor/bin/phpunit --testsuite Functional
 
   coverage:
     name: Coverage
@@ -109,7 +109,7 @@ jobs:
         run: ddev exec XDEBUG_MODE=coverage vendor/bin/phpunit --testsuite Unit --coverage-clover coverage.unit.xml
 
       - name: Run functional tests with coverage
-        run: ddev exec XDEBUG_MODE=coverage vendor/bin/phpunit --testsuite Functional --coverage-clover coverage.functional.xml
+        run: ddev exec CI=true XDEBUG_MODE=coverage vendor/bin/phpunit --testsuite Functional --coverage-clover coverage.functional.xml
 
       - name: Upload unit coverage to Codecov
         uses: codecov/codecov-action@v5.5.5
