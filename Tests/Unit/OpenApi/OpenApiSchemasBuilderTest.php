@@ -476,7 +476,7 @@ final class OpenApiSchemasBuilderTest extends TestCase
     }
 
     #[Test]
-    public function jsonFieldProducesNullableObjectOrArraySchema(): void
+    public function jsonFieldAcceptsAnyDecodedValue(): void
     {
         $GLOBALS['TCA']['test_table'] = [
             'ctrl' => [],
@@ -490,7 +490,9 @@ final class OpenApiSchemasBuilderTest extends TestCase
         $readProps = $schemas['TestRead']['properties'];
 
         self::assertArrayHasKey('meta', $readProps);
-        self::assertEquals([['type' => 'object'], ['type' => 'array', 'items' => new \stdClass()], ['type' => 'null']], $readProps['meta']['oneOf']);
+        // Any decoded JSON value, scalars included: no type constraint.
+        self::assertArrayNotHasKey('type', $readProps['meta']);
+        self::assertArrayNotHasKey('oneOf', $readProps['meta']);
     }
 
     // ── Scalar columns without a declared type ─────────────────────────────────
@@ -528,7 +530,7 @@ final class OpenApiSchemasBuilderTest extends TestCase
         self::assertSame(['type' => 'integer'], $readProps['layout']);
         self::assertSame(['type' => 'string'], $readProps['ctype']);
         self::assertSame(['type' => 'integer'], $readProps['orient']);
-        self::assertEquals(['oneOf' => [['type' => 'object'], ['type' => 'array', 'items' => new \stdClass()], ['type' => 'null']]], $readProps['crop']);
+        self::assertSame($nullable(['type' => 'object']), $readProps['crop']);
     }
 
     #[Test]
@@ -576,6 +578,32 @@ final class OpenApiSchemasBuilderTest extends TestCase
         ])])['TestRead']['properties'];
 
         self::assertSame(['oneOf' => [['type' => 'string'], ['type' => 'null']]], $readProps['website']);
+    }
+
+    #[Test]
+    public function nullableRecordTypeFieldGetsAnEnumOfItsValueType(): void
+    {
+        $GLOBALS['TCA']['test_table'] = [
+            'ctrl' => ['type' => 'record_type'],
+            'columns' => [
+                'record_type' => ['config' => ['type' => 'select', 'renderType' => 'selectSingle', 'items' => [
+                    ['label' => 'None', 'value' => null], ['label' => 'One', 'value' => 1], ['label' => 'Two', 'value' => 2],
+                ]]],
+            ],
+            'types' => ['1' => ['showitem' => 'record_type'], '2' => ['showitem' => 'record_type']],
+        ];
+
+        foreach (['type', 'table'] as $schemaMode) {
+            $config = ApiDefinition::fromArray([
+                'general' => ['table' => 'test_table', 'resourceName' => 'tests', 'resourceType' => 'Test', 'recordTypes' => ['include' => ['1', '2'], 'schema' => $schemaMode]],
+            ]);
+            $schemas = $this->builder->build([$config]);
+
+            $read = $schemaMode === 'type' ? $schemas['Test1Read'] : $schemas['TestRead'];
+            self::assertSame('integer', $read['properties']['record_type']['type'], $schemaMode);
+            self::assertArrayNotHasKey('oneOf', $read['properties']['record_type'], $schemaMode);
+            self::assertSame($schemaMode === 'type' ? [1] : [1, 2], $read['properties']['record_type']['enum'], $schemaMode);
+        }
     }
 
     // ── Virtual properties ─────────────────────────────────────────────────────
