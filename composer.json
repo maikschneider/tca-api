@@ -36,6 +36,7 @@
 		"friendsofphp/php-cs-fixer": "^3.12",
 		"georgringer/news": "^14.0",
 		"helmich/typo3-typoscript-lint": "^3.3",
+		"maikschneider/api-key": "^1.0",
 		"move-elevator/composer-translation-validator": "^1.3",
 		"phpstan/extension-installer": "^1.3",
 		"saschaegerer/phpstan-typo3": "^3.0",
@@ -51,6 +52,7 @@
 		"typo3/cms-core": "13.4.33 || 14.3.5"
 	},
 	"suggest": {
+		"maikschneider/api-key": "Stateless API key authentication: scripts and integrations call protected endpoints with X-API-Key or Authorization: Bearer",
 		"typo3/cms-lowlevel": "Provides the Configuration module in TYPO3 backend where the TCA API configuration tree is displayed"
 	},
 	"autoload": {
