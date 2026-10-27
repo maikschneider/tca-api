@@ -217,8 +217,9 @@ as well, because tca_api reads the resulting session:
      - Notes
    * - `kuhschnappel/authtoken <https://extensions.typo3.org/extension/authtoken>`__
      - Tokens for frontend users, sent in an ``X-User-Token`` header. Supports
-       TYPO3 up to v13.4. It relies on ``FE_alwaysFetchUser``, with the side
-       effects described in :ref:`authentication-auth-service`.
+       TYPO3 up to v13.4. It relies on ``FE_alwaysFetchUser``, so every
+       cookie-less request creates an ``fe_sessions`` row and sends
+       ``Set-Cookie``.
    * - `r3h6/oauth2-server <https://packagist.org/packages/r3h6/oauth2-server>`__
      - An OAuth2 server for frontend users. Supports TYPO3 up to v13.4.
 
@@ -234,139 +235,16 @@ OpenID Connect login providers for the backend, apply to browsers, not to
 scripts: the frontend only restores a backend user when the backend session
 cookie is present.
 
-..  _authentication-auth-service:
-
-Developer corner: a minimal auth service
-========================================
-
-If neither ``api_key`` nor an existing extension fits, a TYPO3 authentication
-service can map a request header to a frontend user. tca_api reads the
-resulting session like any other login.
-
-..  code-block:: php
-    :caption: EXT:my_extension/Classes/Authentication/PartnerTokenAuthenticationService.php
-
-    namespace MyVendor\MyExtension\Authentication;
-
-    use TYPO3\CMS\Core\Authentication\AbstractAuthenticationService;
-    use TYPO3\CMS\Core\Database\ConnectionPool;
-    use TYPO3\CMS\Core\Utility\GeneralUtility;
-
-    final class PartnerTokenAuthenticationService extends AbstractAuthenticationService
-    {
-        public function getUser(): array|false
-        {
-            $tokenHash = $this->getTokenHash();
-            if ($tokenHash === null) {
-                return false;
-            }
-
-            $connection = GeneralUtility::makeInstance(ConnectionPool::class)
-                ->getConnectionForTable('fe_users');
-
-            return $this->fetchUserRecord(
-                '',
-                'tx_myextension_token_hash = ' . $connection->quote($tokenHash)
-            );
-        }
-
-        public function authUser(array $user): int
-        {
-            $tokenHash = $this->getTokenHash();
-            if ($tokenHash === null) {
-                // Not responsible: let the next service (e.g. the password check) decide
-                return 100;
-            }
-
-            return hash_equals((string)($user['tx_myextension_token_hash'] ?? ''), $tokenHash) ? 200 : 0;
-        }
-
-        private function getTokenHash(): ?string
-        {
-            $token = $this->authInfo['request']->getHeaderLine('X-Partner-Token');
-
-            return $token !== '' ? hash('sha256', $token) : null;
-        }
-    }
-
-The service stores only a hash of the token in an additional ``fe_users``
-column. Register it with a priority above the core service (``50``), and make
-the frontend ask it on every request:
-
-..  code-block:: php
-    :caption: EXT:my_extension/ext_localconf.php
-
-    use MyVendor\MyExtension\Authentication\PartnerTokenAuthenticationService;
-    use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
-
-    ExtensionManagementUtility::addService(
-        'my_extension',
-        'auth',
-        PartnerTokenAuthenticationService::class,
-        [
-            'title' => 'Partner token authentication',
-            'description' => 'Authenticates frontend users by the X-Partner-Token header',
-            'subtype' => 'getUserFE,authUserFE',
-            'available' => true,
-            'priority' => 60,
-            'quality' => 50,
-            'os' => '',
-            'exec' => '',
-            'className' => PartnerTokenAuthenticationService::class,
-        ]
-    );
-
-    $GLOBALS['TYPO3_CONF_VARS']['SVCONF']['auth']['setup']['FE_alwaysFetchUser'] = true;
-
-Without ``FE_alwaysFetchUser``, TYPO3 only asks authentication services when a
-login form is submitted. Remember to add ``X-Partner-Token`` to
-``tca_api.corsAllowHeaders`` when browsers send it cross-origin.
-
-..  warning::
-
-    This approach is **not stateless**. TYPO3 treats every cookie-less request
-    as a new login: it creates a new ``fe_sessions`` row, sends a
-    ``Set-Cookie`` header and updates ``fe_users.lastlogin``. The service also
-    runs on every frontend request, not only on API calls.
-
-    That is fine for low-volume integrations. For scripts that call the API
-    often, use :ref:`api_key <authentication-api-key>` or an
-    :ref:`authenticator <authenticators>`, which authenticate the request
-    without a session.
-
 ..  _authentication-swagger-ui:
 
 Swagger UI
 ==========
 
-The OpenAPI document lists every way a client can authenticate, and each
-operation names the schemes that satisfy its access role (see
-:ref:`Documenting the scheme in OpenAPI <authenticators>`). Swagger UI at
-``{apiPrefix}swagger-ui`` turns them into its **Authorize** button:
+Swagger UI at ``{apiPrefix}swagger-ui`` offers the authentication schemes of
+the OpenAPI document in its **Authorize** dialog:
 
-.. list-table::
-   :header-rows: 1
-   :widths: 30 70
-
-   * - Scheme
-     - How to use it in Swagger UI
-   * - ``FrontendSession``, ``BackendSession``
-     - Log in on the website or in the backend in the same browser, then
-       reload Swagger UI. The browser sends the session cookie by itself;
-       entering a value in the dialog has no effect, because browsers do not
-       let scripts set the ``Cookie`` header.
-   * - ``ApiKey``, ``ApiKeyBearer``
-     - Click **Authorize** and paste a key into one of the two fields. Only
-       present with the ``api_key`` extension installed.
-
-Swagger UI keeps the entered key across reloads in the browser's local
-storage, separately for every Swagger UI page. Click **Logout** in the dialog
-to remove it, and do not paste production keys into Swagger UI on shared
-machines.
-
-..  note::
-
-    Swagger UI loads ``{apiPrefix}openapi.json`` before you can authorize, so
-    the request carries cookies but no API key. With
-    ``tca_api.openApiExposed: API_KEY`` the spec is therefore available to
-    scripts only, and Swagger UI cannot load it.
+-  **Sessions** (``FrontendSession``, ``BackendSession``): log in on the
+   website or in the backend in the same browser and reload Swagger UI. The
+   browser sends the session cookie by itself.
+-  **API keys** (``ApiKey``, ``ApiKeyBearer``): click **Authorize** and paste
+   a key. The key is kept across reloads until you click **Logout**.
