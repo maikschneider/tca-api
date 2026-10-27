@@ -338,7 +338,7 @@ final readonly class OpenApiSchemasBuilder
      * The type field restricted to record types. A nullable column is a oneOf with
      * null; the type field always holds a type, so its non-null branch is used.
      *
-     * @param list<string> $recordTypes
+     * @param array<int, string> $recordTypes
      */
     private static function recordTypeEnum(array $property, array $recordTypes): array
     {
