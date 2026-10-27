@@ -77,7 +77,7 @@ logged in through `felogin <https://docs.typo3.org/c/typo3/cms-felogin/main/en-u
 holds a frontend session cookie, and every API request that carries the cookie
 acts as that user. A backend editor who is logged in to the TYPO3 backend in
 the same browser also carries the backend session cookie and satisfies
-``BE_USER`` and ``BE_ADMIN``.
+``BE_USER``, and ``BE_ADMIN`` for administrators.
 
 On the same origin nothing has to be configured: ``fetch()`` sends the cookies
 of the own origin by default.
