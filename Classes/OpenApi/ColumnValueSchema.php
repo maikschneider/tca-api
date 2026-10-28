@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\OpenApi;
 
+use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Utility\MathUtility;
 
 /**
@@ -38,12 +39,12 @@ final class ColumnValueSchema
             ),
             'datetime' => self::nullableIf(['type' => 'string', 'format' => 'date-time'], true),
             'link' => self::nullableIf(['type' => 'string'], true),
-            'text', 'folder' => self::nullableIf(['type' => 'string'], true),
-            'input', 'email', 'color', 'slug', 'uuid', 'country' => self::nullableIf(['type' => 'string'], $nullable),
-            // Any decoded JSON value: object, list or scalar.
-            'json' => ['description' => 'Decoded JSON value, or null'],
-            // No type array ("type": ["object", "null"]): Spectral 6 crashes on it.
-            'imageManipulation' => ['oneOf' => [['type' => 'object'], ['type' => 'null']]],
+            'text', 'folder', 'slug' => self::nullableIf(['type' => 'string'], true),
+            'country' => self::nullableIf(['type' => 'string'], (new Typo3Version())->getMajorVersion() >= 14 || $nullable),
+            'input', 'email', 'color', 'uuid' => self::nullableIf(['type' => 'string'], $nullable),
+            // Both use the same decoder: object, list, scalar, null, or the raw
+            // string on invalid JSON. Do not reject the serializer's fallback.
+            'json', 'imageManipulation' => ['description' => 'Decoded JSON value, or null; raw string if decoding fails'],
             'flex' => self::nullableIf(['type' => 'object'], true),
             'radio' => self::radioSchema($tcaConfig),
             'select' => isset($tcaConfig['foreign_table']) ? null : self::staticSelectSchema($tcaConfig),
@@ -68,18 +69,21 @@ final class ColumnValueSchema
     private static function staticSelectSchema(array $tcaConfig): array
     {
         $items        = \is_array($tcaConfig['items'] ?? null) ? $tcaConfig['items'] : [];
-        $containsNull = \in_array(null, array_column($items, 'value'), true);
+        // TYPO3 14.2 (#105441) made null select items nullable and allowed them
+        // alongside integer items. TYPO3 13 stores that list as a non-null string.
+        $supportsNullItems = (new Typo3Version())->getMajorVersion() >= 14;
+        $containsNull = $supportsNullItems && \in_array(null, array_column($items, 'value'), true);
         $isSingle     = ($tcaConfig['renderType'] ?? '') === 'selectSingle' || ($tcaConfig['maxitems'] ?? 0) === 1;
         $checksItems  = ($tcaConfig['itemsProcFunc'] ?? '') === '' || ($tcaConfig['itemsProcessors'] ?? []) !== [];
 
         if ($checksItems && $isSingle) {
-            $isInteger = $items !== [] && !\is_array($tcaConfig['fileFolderConfig'] ?? false) && self::itemsAreIntegers($items);
+            $isInteger = $items !== [] && !\is_array($tcaConfig['fileFolderConfig'] ?? false) && self::itemsAreIntegers($items, $supportsNullItems);
 
             return self::nullableIf(['type' => $isInteger ? 'integer' : 'string'], $containsNull);
         }
 
         // A comma-separated list of values, nullable for an integer item list.
-        if ($checksItems && self::itemsAreIntegers($items)) {
+        if ($checksItems && self::itemsAreIntegers($items, $supportsNullItems)) {
             return self::nullableIf(['type' => 'string'], true);
         }
 
@@ -87,11 +91,11 @@ final class ColumnValueSchema
     }
 
     /** @param array<array-key, mixed> $items */
-    private static function itemsAreIntegers(array $items): bool
+    private static function itemsAreIntegers(array $items, bool $allowNull = false): bool
     {
         foreach ($items as $item) {
             $value = \is_array($item) ? ($item['value'] ?? null) : null;
-            if ($value !== null && !MathUtility::canBeInterpretedAsInteger($value)) {
+            if (!($allowNull && $value === null) && !MathUtility::canBeInterpretedAsInteger($value)) {
                 return false;
             }
         }
