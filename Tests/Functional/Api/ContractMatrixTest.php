@@ -101,6 +101,12 @@ final class ContractMatrixTest extends ApiFunctionalTestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertSame(1, $this->decodeResponseBody($response)['hydra:totalItems']);
+
+        $spec       = $this->decodeResponseBody($this->executeApiRequest('/_api/openapi.json'));
+        $parameters = array_column($spec['paths']['/_api/contract-records']['get']['parameters'], null, 'name');
+        self::assertSame('deepObject', $parameters['starts_at']['style']);
+        self::assertTrue($parameters['starts_at']['explode']);
+        self::assertSame('object', $parameters['starts_at']['schema']['type']);
     }
 
     public function testEmbeddedRecordsMatchTheSpec(): void
@@ -113,5 +119,13 @@ final class ContractMatrixTest extends ApiFunctionalTestCase
         foreach ([1, 2] as $uid) {
             self::assertSame(200, $this->executeApiRequest('/_api/contract-records/' . $uid)->getStatusCode());
         }
+
+        // An embedded object also validates against "object or IRI", so the schema itself is checked (#267).
+        $spec       = $this->decodeResponseBody($this->executeApiRequest('/_api/openapi.json'));
+        $properties = $spec['components']['schemas']['ContractRecordRead']['properties'];
+        self::assertSame('object', $properties['main_category']['oneOf'][0]['type']);
+        self::assertSame(['type' => 'null'], $properties['main_category']['oneOf'][1]);
+        self::assertSame('object', $properties['parent']['items']['oneOf'][0]['type']);
+        self::assertSame('iri-reference', $properties['parent']['items']['oneOf'][1]['format']);
     }
 }
