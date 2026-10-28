@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Backend module: "Authorize" button and authorization dialog are reachable again.** The module hid Swagger UI's whole scheme container to drop the redundant "Servers" select, but that container also holds the "Authorize" button and renders the dialog the operation lock icons open. Only the servers select is hidden now.
 - **The TER package contains `Configuration/` again.** Tailor matches excluded directories as a case-insensitive prefix, so excluding `config` also dropped `Configuration/`, and TER releases up to 2.2.0 shipped without services, middlewares and site set. Composer installs were not affected.
 - **The API middleware is declared after core's frontend and backend authentication.** It ran after them only because of how the other constraints happened to sort, so a third-party middleware could reorder the stack and leave `frontend.user` and `BE_USER` unset during access checks ([#243](https://github.com/maikschneider/tca-api/issues/243)).
 - **A `type=group` column holding one record is serialized.** `pages.shortcut` (`relationship => manyToOne`, one allowed table) rendered as `null`, because the single-relation path only read `foreign_table`. It now links to the target record, and OpenAPI and Hydra describe it as one relation instead of a list ([#222](https://github.com/maikschneider/tca-api/issues/222), [#119](https://github.com/maikschneider/tca-api/issues/119)).

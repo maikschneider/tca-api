@@ -7,18 +7,34 @@
  * light backend. Restore a readable colour whenever dark mode is not active;
  * in dark mode Swagger's own grey is correct and left untouched.
  *
- * The `.scheme-container` (Swagger's "Servers" box) is hidden: it would hold a
- * single, fixed server entry — the current site's API base — which is redundant
- * with the docheader site switcher and only introduced a stray box-shadow and a
- * label/select overlap. Hiding it does not change behaviour: Swagger keeps
- * servers[0] selected as the "Try it out" base regardless of the box's visibility.
+ * Swagger's "Servers" select is hidden: it would hold a single, fixed server
+ * entry — the current site's API base — which is redundant with the docheader
+ * site switcher. Hiding it does not change behaviour: Swagger keeps servers[0]
+ * selected as the "Try it out" base regardless of the select's visibility.
+ * Only the select goes; its `.scheme-container` also hosts the "Authorize"
+ * button and renders the authorization dialog inside itself, so hiding the
+ * whole container would make both unreachable. The container is flattened to
+ * drop the stray box-shadow and the padding left around the lone button. The
+ * selectors match the specificity of the bundle's own (including its
+ * `html.dark-mode` variants), so this later-loaded file wins.
  */
 .swagger-ui .topbar {
     display: none;
 }
 
-.swagger-ui .scheme-container {
+.swagger-ui .scheme-container .schemes > .schemes-server-container {
     display: none;
+}
+
+.swagger-ui .scheme-container,
+html.dark-mode .swagger-ui .scheme-container {
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+}
+
+.swagger-ui .scheme-container .schemes {
+    justify-content: flex-end;
 }
 
 .swagger-ui .info {
