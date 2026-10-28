@@ -11,6 +11,7 @@ use MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface;
 use MaikSchneider\TcaApi\Serializer\Processing\PreloadingProcessorInterface;
 use MaikSchneider\TcaApi\Serializer\Processing\ProcessorGuard;
 use MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor;
+use MaikSchneider\TcaApi\Tca\RelationCardinality;
 use TYPO3\CMS\Core\Schema\Field\FileFieldType;
 use TYPO3\CMS\Core\Schema\Field\FlexFormFieldType;
 use TYPO3\CMS\Core\Schema\Field\JsonFieldType;
@@ -161,9 +162,7 @@ final class ResourceSerializer
                 continue;
             }
 
-            // A group over several tables stays a list of prefixed references, as the schema describes it.
-            $fieldConfig = $field->getConfiguration();
-            if ($field->getRelationshipType()->hasOne() && (($fieldConfig['type'] ?? '') !== 'group' || RelationSerializer::hasOneForeignTable($fieldConfig) !== null)) {
+            if (RelationCardinality::isHasOne($field->getConfiguration())) {
                 $result[$column] = $this->relationSerializer->serializeHasOne($column, $columnDef, $config, $row, $field, $preloaded, $remainingDepth, $visited, $operation, $apiPrefix, $this);
                 continue;
             }

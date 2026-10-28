@@ -330,6 +330,52 @@ final class OpenApiSchemasBuilderTest extends TestCase
         self::assertSame(['type' => 'integer'], $readProps['tags']['items']['oneOf'][1]);
     }
 
+    #[Test]
+    public function selectWithMaxitemsOneButNoRelationshipIsAList(): void
+    {
+        $GLOBALS['TCA']['test_table'] = [
+            'ctrl' => [],
+            'columns' => [
+                'color_id' => ['config' => ['type' => 'select', 'renderType' => 'selectMultipleSideBySide', 'foreign_table' => 'tx_color', 'maxitems' => 1]],
+            ],
+        ];
+
+        $readProps = $this->builder->build([$this->makeConfig(['color_id' => ['groups' => ['list', 'show']]])])['TestRead']['properties'];
+
+        self::assertSame('array', $readProps['color_id']['type']);
+    }
+
+    #[Test]
+    public function categoryWithOneToOneRelationshipIsOneRecord(): void
+    {
+        $GLOBALS['TCA']['test_table'] = [
+            'ctrl' => [],
+            'columns' => [
+                'parent' => ['config' => ['type' => 'category', 'relationship' => 'oneToOne']],
+            ],
+        ];
+
+        $readProps = $this->builder->build([$this->makeConfig(['parent' => ['groups' => ['list', 'show']]])])['TestRead']['properties'];
+
+        self::assertArrayHasKey('oneOf', $readProps['parent']);
+        self::assertContains(['type' => 'null'], $readProps['parent']['oneOf']);
+    }
+
+    #[Test]
+    public function selectSingleWithMmIsAList(): void
+    {
+        $GLOBALS['TCA']['test_table'] = [
+            'ctrl' => [],
+            'columns' => [
+                'color_id' => ['config' => ['type' => 'select', 'renderType' => 'selectSingle', 'foreign_table' => 'tx_color', 'MM' => 'tx_test_color_mm']],
+            ],
+        ];
+
+        $readProps = $this->builder->build([$this->makeConfig(['color_id' => ['groups' => ['list', 'show']]])])['TestRead']['properties'];
+
+        self::assertSame('array', $readProps['color_id']['type']);
+    }
+
     // ── File field schema ──────────────────────────────────────────────────────
 
     #[Test]
@@ -441,6 +487,32 @@ final class OpenApiSchemasBuilderTest extends TestCase
 
         self::assertArrayHasKey('displayName', $readProps);
         self::assertSame('string', $readProps['displayName']['type']);
+    }
+
+    #[Test]
+    public function virtualPropertyOverAFileColumnIsDescribedLikeTheColumn(): void
+    {
+        $GLOBALS['TCA']['test_table'] = ['ctrl' => [], 'columns' => [
+            'media' => ['config' => ['type' => 'file']],
+            'photo' => ['config' => ['type' => 'file', 'maxitems' => 1]],
+        ]];
+
+        $config = ApiDefinition::fromArray([
+            'general' => ['table' => 'test_table', 'resourceName' => 'tests', 'resourceType' => 'Test'],
+            'columns' => [],
+            'virtualProperties' => [
+                'teaserImage' => ['groups' => ['list', 'show'], 'column' => 'media', 'image' => ['cropVariant' => 'teaser']],
+                'teaserPhoto' => ['groups' => ['list', 'show'], 'column' => 'photo'],
+                'mediaCount'  => ['groups' => ['list', 'show'], 'column' => 'media', 'type' => 'integer', 'callback' => ['SomeClass', 'someMethod']],
+            ],
+        ]);
+
+        $readProps = $this->builder->build([$config])['TestRead']['properties'];
+
+        self::assertSame(['type' => 'array', 'items' => ['$ref' => '#/components/schemas/FileObject']], $readProps['teaserImage']);
+        self::assertSame([['$ref' => '#/components/schemas/FileObject'], ['type' => 'null']], $readProps['teaserPhoto']['oneOf']);
+        // A callback replaces the value, so its declared type wins.
+        self::assertSame(['type' => 'integer'], $readProps['mediaCount']);
     }
 
     #[Test]
@@ -581,6 +653,76 @@ final class OpenApiSchemasBuilderTest extends TestCase
             ['@type', 'variable', 'property', 'required'],
             array_keys($search['properties']['hydra:mapping']['items']['properties']),
         );
+    }
+
+    // ── Schema names ───────────────────────────────────────────────────────────
+
+    #[Test]
+    public function resourcesSharingAResourceTypeGetSeparateSchemas(): void
+    {
+        $public = ApiDefinition::fromArray([
+            'general' => ['table' => 'test_table', 'resourceName' => 'tests', 'resourceType' => 'Test', 'operations' => ['list', 'show', 'update']],
+            'columns' => ['title' => ['groups' => ['list', 'show']]],
+        ]);
+        $internal = ApiDefinition::fromArray([
+            'general' => ['table' => 'test_table', 'resourceName' => 'internal-tests', 'resourceType' => 'Test', 'operations' => ['list', 'show', 'update']],
+            'columns' => ['title' => ['groups' => ['list', 'show']], 'secret' => ['groups' => ['list', 'show']]],
+        ]);
+
+        $schemas = $this->builder->build([$public, $internal]);
+
+        // The first resource keeps the plain name, so its clients' types don't change.
+        self::assertArrayNotHasKey('secret', $schemas['TestRead']['properties']);
+        self::assertArrayHasKey('secret', $schemas['TestInternalTestsRead']['properties']);
+        self::assertArrayHasKey('TestInternalTestsWrite', $schemas);
+        self::assertSame(
+            '#/components/schemas/TestInternalTestsRead',
+            $schemas['TestInternalTestsCollection']['properties']['hydra:member']['items']['$ref'],
+        );
+        self::assertSame('#/components/schemas/TestRead', $schemas['TestCollection']['properties']['hydra:member']['items']['$ref']);
+    }
+
+    #[Test]
+    public function generatedSchemaNameNeverTakesALaterResourcesPlainName(): void
+    {
+        $make = static fn (string $name, string $type): ApiDefinition => ApiDefinition::fromArray([
+            'general' => ['table' => 'test_table', 'resourceName' => $name, 'resourceType' => $type, 'operations' => ['list', 'show']],
+            'columns' => ['title' => ['groups' => ['list', 'show']]],
+        ]);
+
+        $schemas = $this->builder->build([
+            $make('tests', 'Test'),
+            $make('internal-tests', 'Test'),
+            $make('specials', 'TestInternalTests'),
+        ]);
+
+        // The later resource keeps its declared name; the duplicate gets a counter.
+        self::assertSame('#/components/schemas/TestInternalTestsRead', $schemas['TestInternalTestsCollection']['properties']['hydra:member']['items']['$ref']);
+        self::assertSame('#/components/schemas/TestInternalTests2Read', $schemas['TestInternalTests2Collection']['properties']['hydra:member']['items']['$ref']);
+    }
+
+    #[Test]
+    public function recordTypeSchemaNamesAreUniqueAcrossResources(): void
+    {
+        $GLOBALS['TCA']['test_table'] = [
+            'ctrl' => ['type' => 'record_type'],
+            'columns' => ['record_type' => ['config' => ['type' => 'select']], 'title' => ['config' => ['type' => 'input']]],
+            'types' => ['foo-bar' => ['showitem' => 'title'], 'bar' => ['showitem' => 'title'], 'baz' => ['showitem' => 'title']],
+        ];
+        $make = static fn (string $name, array $recordTypes): ApiDefinition => ApiDefinition::fromArray([
+            'general' => ['table' => 'test_table', 'resourceName' => $name, 'resourceType' => 'Item', 'recordTypes' => $recordTypes],
+        ]);
+
+        // "Item" + "FooBar" and "Item" + "Foo" (resource name) + "Bar" would both be ItemFooBarRead.
+        $schemas = $this->builder->build([$make('items', ['foo-bar', 'baz']), $make('foo', ['bar', 'baz'])]);
+
+        $mapping = static fn (string $read): array => (array)$schemas[$read]['discriminator']['mapping'];
+        $refs = [...array_values($mapping('ItemRead')), ...array_values($mapping('ItemFooRead'))];
+        self::assertCount(4, array_unique($refs));
+        foreach ($refs as $ref) {
+            self::assertArrayHasKey(substr($ref, \strlen('#/components/schemas/')), $schemas);
+        }
+        self::assertSame(['bar'], $schemas[substr($mapping('ItemFooRead')['bar'], \strlen('#/components/schemas/'))]['properties']['record_type']['enum']);
     }
 
     // ── Helper ─────────────────────────────────────────────────────────────────

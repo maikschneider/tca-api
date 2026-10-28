@@ -204,8 +204,9 @@ final class EmbedColumnsTest extends ApiFunctionalTestCase
         $schemas = $spec['components']['schemas'];
 
         self::assertSame(['type' => 'array', 'items' => ['type' => 'integer']], $schemas['EcArticleRead']['properties']['categories']);
+        // sys_category.parent is oneToOne: one reference, as the serializer renders it (#262).
         self::assertSame(
-            ['type' => 'array', 'items' => ['type' => 'string', 'format' => 'iri-reference']],
+            ['oneOf' => [['type' => 'string', 'format' => 'iri-reference'], ['type' => 'null']]],
             $schemas['EcArticleNestedRead']['properties']['categories']['items']['oneOf'][0]['properties']['parent'],
         );
 
