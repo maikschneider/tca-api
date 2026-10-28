@@ -37,6 +37,12 @@ html.dark-mode .swagger-ui .scheme-container {
     justify-content: flex-end;
 }
 
+/* Swagger's dark theme paints its own page background over the backend's. */
+html.dark-mode,
+html.dark-mode .swagger-ui {
+    background: transparent;
+}
+
 .swagger-ui .info {
     margin: 20px 0;
 }
