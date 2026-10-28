@@ -185,6 +185,22 @@ Access to both endpoints is controlled by the ``tca_api.openApiExposed`` and
 ``tca_api.swaggerUiEnabled`` site settings respectively. Both default to
 ``PUBLIC``.
 
+Generating the spec on the command line
+---------------------------------------
+
+The spec only depends on the TCA, the resource configs and the site settings,
+so it can be written without a running site or a database, for example in a
+CI build stage that generates client types before anything is deployed:
+
+.. code-block:: bash
+
+   vendor/bin/typo3 tca-api:openapi main --output openapi.json
+
+The argument is the site identifier and may be omitted when there is only one
+site. Without ``--output`` the spec is written to stdout. The output is the
+same as the response of ``{apiPrefix}openapi.json``, independent of
+``tca_api.openApiExposed``.
+
 Backend module (TYPO3 v14+)
 ---------------------------
 
