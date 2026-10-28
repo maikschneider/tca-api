@@ -12,6 +12,7 @@ use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use TYPO3\CMS\Core\Information\Typo3Version;
 
 final class OpenApiSchemasBuilderTest extends TestCase
 {
@@ -481,6 +482,8 @@ final class OpenApiSchemasBuilderTest extends TestCase
             'bodytext'  => ['config' => ['type' => 'text']],
             'title'     => ['config' => ['type' => 'input']],
             'subtitle'  => ['config' => ['type' => 'input', 'nullable' => true]],
+            'slug'      => ['config' => ['type' => 'slug']],
+            'country'   => ['config' => ['type' => 'country']],
             'layout'    => ['config' => ['type' => 'select', 'renderType' => 'selectSingle', 'items' => [['label' => 'A', 'value' => 0], ['label' => 'B', 'value' => 1]]]],
             'ctype'     => ['config' => ['type' => 'select', 'renderType' => 'selectSingle', 'items' => [['label' => 'Text', 'value' => 'text']]]],
             'orient'    => ['config' => ['type' => 'radio', 'items' => [['label' => 'A', 'value' => 0], ['label' => 'B', 'value' => 8]]]],
@@ -499,10 +502,13 @@ final class OpenApiSchemasBuilderTest extends TestCase
         self::assertSame($nullable(['type' => 'string']), $readProps['bodytext']);
         self::assertSame(['type' => 'string'], $readProps['title']);
         self::assertSame($nullable(['type' => 'string']), $readProps['subtitle']);
+        self::assertSame($nullable(['type' => 'string']), $readProps['slug']);
+        self::assertSame((new Typo3Version())->getMajorVersion() >= 14 ? $nullable(['type' => 'string']) : ['type' => 'string'], $readProps['country']);
         self::assertSame(['type' => 'integer'], $readProps['layout']);
         self::assertSame(['type' => 'string'], $readProps['ctype']);
         self::assertSame(['type' => 'integer'], $readProps['orient']);
-        self::assertSame($nullable(['type' => 'object']), $readProps['crop']);
+        self::assertArrayNotHasKey('type', $readProps['crop']);
+        self::assertArrayNotHasKey('oneOf', $readProps['crop']);
     }
 
     #[Test]
@@ -572,9 +578,11 @@ final class OpenApiSchemasBuilderTest extends TestCase
             $schemas = $this->builder->build([$config]);
 
             $read = $schemaMode === 'type' ? $schemas['Test1Read'] : $schemas['TestRead'];
-            self::assertSame('integer', $read['properties']['record_type']['type'], $schemaMode);
+            $isInteger = (new Typo3Version())->getMajorVersion() >= 14;
+            self::assertSame($isInteger ? 'integer' : 'string', $read['properties']['record_type']['type'], $schemaMode);
             self::assertArrayNotHasKey('oneOf', $read['properties']['record_type'], $schemaMode);
-            self::assertSame($schemaMode === 'type' ? [1] : [1, 2], $read['properties']['record_type']['enum'], $schemaMode);
+            $expectedEnum = $schemaMode === 'type' ? [1] : [1, 2];
+            self::assertSame($isInteger ? $expectedEnum : array_map(strval(...), $expectedEnum), $read['properties']['record_type']['enum'], $schemaMode);
         }
     }
 
