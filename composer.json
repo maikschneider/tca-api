@@ -38,6 +38,7 @@
 		"helmich/typo3-typoscript-lint": "^3.3",
 		"maikschneider/api-key": "^1.0",
 		"move-elevator/composer-translation-validator": "^1.3",
+		"opis/json-schema": "^2.4",
 		"phpstan/extension-installer": "^1.3",
 		"saschaegerer/phpstan-typo3": "^3.0",
 		"symfony/translation": "^7.2",
@@ -123,6 +124,11 @@
 			"@language:lint",
 			"@typoscript:lint",
 			"@yaml:lint"
+		],
+		"test:contract-baseline": [
+			"rm -f var/openapi-contract-mismatches.txt && mkdir -p var",
+			"TCA_API_CONTRACT_COLLECT=\"$PWD/var/openapi-contract-mismatches.txt\" phpunit --testsuite Functional",
+			"@php Tests/Functional/Contract/write-baseline.php var/openapi-contract-mismatches.txt"
 		],
 		"typoscript:lint": "typoscript-lint",
 		"yaml:lint": "find ./ ! -path './vendor/*' ! -path '*/node_modules/*' \\( -name '*.yaml' -o -name '*.yml' \\) | xargs -r yaml-lint"

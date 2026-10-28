@@ -66,6 +66,21 @@ final class OpenApiSchemasBuilderTest extends TestCase
         self::assertSame('integer', $props['fileSize']['type']);
     }
 
+    #[Test]
+    public function fileObjectDescribesTheImageProcessorFields(): void
+    {
+        $props = $this->builder->build([])['FileObject']['properties'];
+
+        self::assertSame([['type' => 'string'], ['type' => 'null']], $props['publicUrl']['oneOf']);
+        self::assertSame(['title', 'alternative', 'description', 'copyright'], array_keys($props['metadata']['properties']));
+        self::assertSame('integer', $props['width']['type']);
+        self::assertSame('integer', $props['height']['type']);
+        self::assertSame(
+            ['publicUrl', 'width', 'height'],
+            array_keys($props['cropVariants']['additionalProperties']['properties']),
+        );
+    }
+
     // ── HasOne relation schema ─────────────────────────────────────────────────
 
     #[Test]
@@ -539,6 +554,33 @@ final class OpenApiSchemasBuilderTest extends TestCase
         self::assertArrayHasKey('fe_user_id', $readProps);
         self::assertArrayNotHasKey('fe_user', $readProps);
         self::assertSame('integer', $readProps['fe_user_id']['type']);
+    }
+
+    // ── Collection schema ──────────────────────────────────────────────────────
+
+    #[Test]
+    public function collectionPagingLinksAreNullable(): void
+    {
+        $view = $this->builder->build([$this->makeConfig([])])['TestCollection']['properties']['hydra:view']['properties'];
+
+        foreach (['hydra:previous', 'hydra:next'] as $link) {
+            self::assertSame([['type' => 'string'], ['type' => 'null']], $view[$link]['oneOf'], $link);
+        }
+        self::assertSame('string', $view['hydra:first']['type']);
+        self::assertSame('string', $view['hydra:last']['type']);
+    }
+
+    #[Test]
+    public function collectionDescribesTheSearchTemplate(): void
+    {
+        $search = $this->builder->build([$this->makeConfig([])])['TestCollection']['properties']['hydra:search'];
+
+        self::assertSame('object', $search['type']);
+        self::assertSame(['@type', 'hydra:template', 'hydra:variableRepresentation', 'hydra:mapping'], array_keys($search['properties']));
+        self::assertSame(
+            ['@type', 'variable', 'property', 'required'],
+            array_keys($search['properties']['hydra:mapping']['items']['properties']),
+        );
     }
 
     // ── Helper ─────────────────────────────────────────────────────────────────

@@ -26,20 +26,38 @@ final readonly class OpenApiSchemasBuilder
                 ],
                 'required' => ['@id', '@type', 'uid'],
             ],
+            // What FileProcessor writes, plus the fields ImageProcessor adds: alternative and
+            // copyright, and either width/height (with a cropVariant) or cropVariants.
             'FileObject' => [
                 'type' => 'object',
                 'properties' => [
                     'uid'       => ['type' => 'integer'],
                     'name'      => ['type' => 'string'],
                     'extension' => ['type' => 'string'],
-                    'publicUrl' => ['type' => 'string'],
+                    // null for a file in a non-public storage
+                    'publicUrl' => ['oneOf' => [['type' => 'string'], ['type' => 'null']]],
                     'mimeType'  => ['type' => 'string'],
                     'fileSize'  => ['type' => 'integer'],
                     'metadata'  => [
                         'type' => 'object',
                         'properties' => [
                             'title'       => ['oneOf' => [['type' => 'string'], ['type' => 'null']]],
+                            'alternative' => ['oneOf' => [['type' => 'string'], ['type' => 'null']]],
                             'description' => ['oneOf' => [['type' => 'string'], ['type' => 'null']]],
+                            'copyright'   => ['oneOf' => [['type' => 'string'], ['type' => 'null']]],
+                        ],
+                    ],
+                    'width'        => ['type' => 'integer'],
+                    'height'       => ['type' => 'integer'],
+                    'cropVariants' => [
+                        'type' => 'object',
+                        'additionalProperties' => [
+                            'type' => 'object',
+                            'properties' => [
+                                'publicUrl' => ['type' => 'string'],
+                                'width'     => ['type' => 'integer'],
+                                'height'    => ['type' => 'integer'],
+                            ],
                         ],
                     ],
                 ],
@@ -590,8 +608,30 @@ final readonly class OpenApiSchemasBuilder
                         '@type' => ['type' => 'string'],
                         'hydra:first' => ['type' => 'string'],
                         'hydra:last' => ['type' => 'string'],
-                        'hydra:previous' => ['type' => 'string'],
-                        'hydra:next' => ['type' => 'string'],
+                        // null on the first and the last page
+                        'hydra:previous' => ['oneOf' => [['type' => 'string'], ['type' => 'null']]],
+                        'hydra:next' => ['oneOf' => [['type' => 'string'], ['type' => 'null']]],
+                    ],
+                ],
+                // Only present when the resource has public filters or orderings.
+                'hydra:search' => [
+                    'type' => 'object',
+                    'properties' => [
+                        '@type' => ['type' => 'string', 'example' => 'hydra:IriTemplate'],
+                        'hydra:template' => ['type' => 'string'],
+                        'hydra:variableRepresentation' => ['type' => 'string', 'example' => 'BasicRepresentation'],
+                        'hydra:mapping' => [
+                            'type' => 'array',
+                            'items' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    '@type' => ['type' => 'string', 'example' => 'IriTemplateMapping'],
+                                    'variable' => ['type' => 'string'],
+                                    'property' => ['type' => 'string'],
+                                    'required' => ['type' => 'boolean'],
+                                ],
+                            ],
+                        ],
                     ],
                 ],
             ],
