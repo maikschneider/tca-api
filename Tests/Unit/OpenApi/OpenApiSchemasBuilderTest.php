@@ -118,6 +118,28 @@ final class OpenApiSchemasBuilderTest extends TestCase
         self::assertContains('iri-reference', $formats);
     }
 
+    #[Test]
+    public function relationIriNamesItsTargetResource(): void
+    {
+        $GLOBALS['TCA']['test_table'] = [
+            'ctrl' => [],
+            'columns' => [
+                'page' => ['config' => ['type' => 'select', 'renderType' => 'selectSingle', 'foreign_table' => 'pages']],
+            ],
+        ];
+
+        $schemas = $this->builder->build([
+            $this->makeConfig(['page' => ['groups' => ['list', 'show']]]),
+            self::makeTarget('pages', 'web-pages', ['list', 'show']),
+        ]);
+        $iri = $schemas['TestRead']['properties']['page']['oneOf'][0];
+
+        self::assertSame('web-pages', $iri['x-resource']);
+        self::assertSame('/web-pages/[0-9]+$', $iri['pattern']);
+        self::assertSame(1, preg_match('#' . $iri['pattern'] . '#u', '/de/_api/web-pages/186'));
+        self::assertSame(0, preg_match('#' . $iri['pattern'] . '#u', '/_api/articles/186'));
+    }
+
     /** @return iterable<string, array{list<ApiDefinition>}> */
     public static function nonAddressableTargetProvider(): iterable
     {
@@ -180,9 +202,9 @@ final class OpenApiSchemasBuilderTest extends TestCase
         self::assertArrayHasKey('author_id', $readProps);
         $schema = $readProps['author_id'];
         self::assertArrayHasKey('oneOf', $schema);
-        self::assertSame('object', $schema['oneOf'][0]['oneOf'][0]['type']);
-        self::assertSame('Author', $schema['oneOf'][0]['oneOf'][0]['properties']['@type']['example']);
-        self::assertSame(['type' => 'integer'], $schema['oneOf'][0]['oneOf'][1]);
+        // An author can't embed the test record back, so it is never cut short to a reference.
+        self::assertSame('object', $schema['oneOf'][0]['type']);
+        self::assertSame('Author', $schema['oneOf'][0]['properties']['@type']['example']);
         self::assertSame(['type' => 'null'], $schema['oneOf'][1]);
     }
 
@@ -328,9 +350,37 @@ final class OpenApiSchemasBuilderTest extends TestCase
         $readProps = $schemas['TestRead']['properties'];
 
         self::assertSame('array', $readProps['tags']['type']);
-        self::assertSame('object', $readProps['tags']['items']['oneOf'][0]['type']);
-        self::assertSame('Tag', $readProps['tags']['items']['oneOf'][0]['properties']['@type']['example']);
-        self::assertSame(['type' => 'integer'], $readProps['tags']['items']['oneOf'][1]);
+        self::assertSame('object', $readProps['tags']['items']['type']);
+        self::assertSame('Tag', $readProps['tags']['items']['properties']['@type']['example']);
+    }
+
+    #[Test]
+    public function embedThatCanHitACycleAllowsAReference(): void
+    {
+        $GLOBALS['TCA']['test_table'] = [
+            'ctrl' => [],
+            'columns' => [
+                'parent' => ['config' => ['type' => 'select', 'renderType' => 'selectSingle', 'foreign_table' => 'test_table']],
+                'children' => ['config' => ['type' => 'inline', 'foreign_table' => 'test_table', 'foreign_field' => 'parent']],
+            ],
+        ];
+
+        $readProps = $this->builder->build([$this->makeConfig([
+            'parent'   => ['groups' => ['list', 'show'], 'embed' => ['depth' => 2]],
+            'children' => ['groups' => ['list', 'show'], 'embed' => true],
+        ])])['TestRead']['properties'];
+
+        // To-one: the root record isn't on the path yet, so its parent is always embedded …
+        $parent = $readProps['parent']['oneOf'][0];
+        self::assertSame('object', $parent['type']);
+        // … but the grandparent may be the root record again, cut short to its IRI.
+        $grandparent = $parent['properties']['parent']['oneOf'][0];
+        self::assertSame('object', $grandparent['oneOf'][0]['type']);
+        self::assertSame('iri-reference', $grandparent['oneOf'][1]['format']);
+
+        // To-many: the record itself is on the path, so a child may be a reference.
+        self::assertSame('object', $readProps['children']['items']['oneOf'][0]['type']);
+        self::assertSame('iri-reference', $readProps['children']['items']['oneOf'][1]['format']);
     }
 
     #[Test]
