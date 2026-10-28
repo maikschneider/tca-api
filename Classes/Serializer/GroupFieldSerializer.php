@@ -177,7 +177,7 @@ final readonly class GroupFieldSerializer
 
         if ($effectiveDepth <= 0) {
             return array_map(
-                fn (array $item): string|array => $this->reference($relationSerializer->resolveRelatedConfig($item['table'], $config), $item['table'], $item['uid'], $apiPrefix),
+                fn (array $item): string|array => $this->reference($relationSerializer->resolveRelatedConfig($item['table'], $config, null, $preloaded), $item['table'], $item['uid'], $apiPrefix),
                 $items,
             );
         }
@@ -211,7 +211,7 @@ final readonly class GroupFieldSerializer
             $table   = $item['table'];
             $itemUid = $item['uid'];
 
-            $relatedConfig = $relationSerializer->resolveRelatedConfig($table, $config);
+            $relatedConfig = $relationSerializer->resolveRelatedConfig($table, $config, null, $preloaded);
             if ($relatedConfig === null) {
                 $relatedConfig = RelationSerializer::buildDefaultConfig($table);
             }

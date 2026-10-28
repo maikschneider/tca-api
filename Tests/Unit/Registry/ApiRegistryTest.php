@@ -72,6 +72,21 @@ final class ApiRegistryTest extends TestCase
         self::assertNull($this->registry->getByTable('tx_other_table'));
     }
 
+    // ── getRelated() ─────────────────────────────────────────────────────
+
+    #[Test]
+    public function getRelatedPrefersAnAllowedResourceOverAnEarlierBlockedOne(): void
+    {
+        $articles = self::makeDefinition('tx_ext_article', 'articles');
+        $internal = self::makeDefinition('tx_ext_color', 'internal-colors');
+        $colors   = self::makeDefinition('tx_ext_color', 'colors');
+        $this->registry->register('articles', $articles);
+        $this->registry->register('internal-colors', $internal);
+        $this->registry->register('colors', $colors);
+
+        self::assertSame($colors, $this->registry->getRelated('tx_ext_color', $articles, null, ['articles', 'colors']));
+    }
+
     // ── getAll() ─────────────────────────────────────────────────────────
 
     #[Test]

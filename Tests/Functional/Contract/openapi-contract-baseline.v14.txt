@@ -1,6 +1,5 @@
 # Known mismatches between API responses and the OpenAPI spec on TYPO3 14, one per line.
 # See README.md in this directory before editing.
-GET /_api/articles 200 /hydra:member/*/color_id: type (integer, got string)
 GET /_api/articles 404: status not documented
 GET /_api/articles/{uid} 404: empty body, documented application/ld+json
 GET /_api/content-header/{uid} 404: empty body, documented application/ld+json

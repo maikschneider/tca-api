@@ -82,7 +82,7 @@ final class RelationSerializer
         }
 
         $effectiveDepth = $remainingDepth >= 0 ? $remainingDepth : $columnDef->embedDepth();
-        $relatedConfig  = $this->resolveRelatedConfig($foreignTable, $config, $columnDef);
+        $relatedConfig  = $this->resolveRelatedConfig($foreignTable, $config, $columnDef, $preloaded);
 
         if ($relatedConfig === null && $effectiveDepth > 0 && !isset($visited[$foreignTable . ':' . $fkValue])) {
             $relatedConfig = self::buildDefaultConfig($foreignTable, $columnDef);
@@ -163,7 +163,7 @@ final class RelationSerializer
         string $apiPrefix,
         ResourceSerializer $serializer,
     ): array {
-        $relatedConfig = $this->resolveRelatedConfig($foreignTable, $config, $columnDef);
+        $relatedConfig = $this->resolveRelatedConfig($foreignTable, $config, $columnDef, $preloaded);
 
         if ($relatedConfig === null && $effectiveDepth > 0) {
             $relatedConfig = self::buildDefaultConfig($foreignTable, $columnDef);
@@ -265,10 +265,14 @@ final class RelationSerializer
 
     // ── Shared helpers ───────────────────────────────────────────────────────
 
-    /** Resolve the API config for a related table — see ApiRegistry::getRelated(). */
-    public function resolveRelatedConfig(string $foreignTable, ApiDefinition $config, ?ColumnDefinition $columnDef = null): ?ApiDefinition
+    /**
+     * Resolve the API config for a related table — see ApiRegistry::getRelated().
+     *
+     * @param array $preloaded as passed to the serializer; its "__allowedResources" limits the candidates to the site's resources
+     */
+    public function resolveRelatedConfig(string $foreignTable, ApiDefinition $config, ?ColumnDefinition $columnDef = null, array $preloaded = []): ?ApiDefinition
     {
-        return $this->apiRegistry->getRelated($foreignTable, $config, $columnDef?->resourceName);
+        return $this->apiRegistry->getRelated($foreignTable, $config, $columnDef?->resourceName, $preloaded['__allowedResources'] ?? []);
     }
 
     /**

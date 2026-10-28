@@ -81,8 +81,8 @@ final readonly class RequestContext
         );
     }
 
-    /** @return string[] */
-    private function allowedResourceNames(): array
+    /** @return list<string> the site's tca_api.allowedResources; empty = all resources */
+    public function allowedResourceNames(): array
     {
         return GeneralUtility::trimExplode(
             ',',

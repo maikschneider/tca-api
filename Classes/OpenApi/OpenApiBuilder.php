@@ -31,7 +31,7 @@ readonly class OpenApiBuilder
         }
 
         $schemes = $this->securityBuilder->collectSchemes($resources, $ctx);
-        $components = ['schemas' => $this->schemasBuilder->build($resources)];
+        $components = ['schemas' => $this->schemasBuilder->build($resources, $this->apiRegistry->getAll())];
         if ($schemes !== []) {
             $components['securitySchemes'] = $this->securityBuilder->buildComponents($schemes);
         }

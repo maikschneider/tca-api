@@ -27,6 +27,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 #[Autoconfigure(public: true)]
 class UpdateHandler implements OperationHandlerInterface
 {
+    use AllowedResourcesTrait;
     use ColumnFilterTrait;
     use FileUploadTrait;
     use WriteOperationTrait;
@@ -104,7 +105,7 @@ class UpdateHandler implements OperationHandlerInterface
         $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
         $baseUrl   = $apiPrefix . '/' . $config->resourceName;
 
-        $serialized = $this->serializer->serialize($row, $config, $baseUrl);
+        $serialized = $this->serializer->serialize($row, $config, $baseUrl, [], ['__allowedResources' => $this->allowedResourcesFromRequest($request)]);
 
         $event = new AfterOperationEvent('update', $serialized, $request, $config);
         $this->eventDispatcher->dispatch($event);

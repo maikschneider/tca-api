@@ -26,6 +26,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 #[Autoconfigure(public: true)]
 class GetUserInfoHandler implements OperationHandlerInterface
 {
+    use AllowedResourcesTrait;
     use LanguageAwareTrait;
 
     public function __construct(
@@ -70,7 +71,7 @@ class GetUserInfoHandler implements OperationHandlerInterface
                 ->withHeader('Content-Type', 'application/ld+json');
         }
 
-        $preloaded  = $this->embedPreloader->preload([$row], $config, $language, $fields);
+        $preloaded  = $this->embedPreloader->preload([$row], $config, $language, $fields, '', $this->allowedResourcesFromRequest($request));
         $serialized = $this->serializer->serialize($row, $config, $baseUrl, $fields, $preloaded);
 
         $event = new AfterOperationEvent('userinfo', $serialized, $request, $config);

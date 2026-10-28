@@ -16,8 +16,12 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final readonly class OpenApiSchemasBuilder
 {
-    /** @param ApiDefinition[] $resources */
-    public function build(array $resources): array
+    /**
+     * @param ApiDefinition[] $resources    the resources the spec documents
+     * @param ApiDefinition[] $allResources every registered resource; one the site doesn't serve is still
+     *                                      embedded with its own columns, as ApiRegistry::getRelated() resolves it
+     */
+    public function build(array $resources, array $allResources = []): array
     {
         $schemas = [
             'RelationStub' => [
@@ -97,12 +101,20 @@ final readonly class OpenApiSchemasBuilder
             ],
         ];
 
+        // Relations resolve among the documented resources first, then among blocked ones without item endpoint.
+        $related = array_values($resources);
+        foreach ($allResources as $resource) {
+            if (!\in_array($resource, $resources, true)) {
+                $related[] = $resource->withoutItemEndpoint();
+            }
+        }
+
         $names = new OpenApiSchemaNames($resources);
         foreach ($resources as $config) {
             $name = $names->of($config);
             $schemas += $config->typeSchemas
-                ? $this->buildTypeReadSchemas($config, $resources, $names, $schemas)
-                : [$name . 'Read' => $this->withRecordTypeEnum($this->buildReadSchema($config, $resources), $config, false)];
+                ? $this->buildTypeReadSchemas($config, $resources, $names, $schemas, $related)
+                : [$name . 'Read' => $this->withRecordTypeEnum($this->buildReadSchema($config, $related), $config, false)];
             if ($this->hasWriteOperations($config)) {
                 $schemas[$name . 'Write'] = $this->withRecordTypeEnum($this->buildWriteSchema($config), $config, true);
             }
@@ -194,9 +206,10 @@ final readonly class OpenApiSchemasBuilder
      *
      * @param ApiDefinition[]       $resources
      * @param array<string, mixed>  $built     component schemas built so far, whose names are taken
+     * @param ApiDefinition[]       $related   resources relations resolve among, see build()
      * @return array<string, array<string, mixed>>
      */
-    private function buildTypeReadSchemas(ApiDefinition $config, array $resources, OpenApiSchemaNames $names, array $built): array
+    private function buildTypeReadSchemas(ApiDefinition $config, array $resources, OpenApiSchemaNames $names, array $built, array $related): array
     {
         $field = (string)$config->recordTypeField;
         $recordTypes = $config->recordTypes ?? [];
@@ -214,7 +227,7 @@ final readonly class OpenApiSchemasBuilder
         }
         $suffixes = [];
         foreach ($recordTypes as $recordType) {
-            $schema = $this->buildReadSchema($config, $resources, -1, $recordType);
+            $schema = $this->buildReadSchema($config, $related, -1, $recordType);
             $schema['properties'][$field] = self::recordTypeEnum($schema['properties'][$field] ?? ['type' => 'string'], [$recordType]);
             $schema['required'] = [$field];
 
