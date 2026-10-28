@@ -6,10 +6,13 @@ namespace MaikSchneider\TcaApi\Tests\Unit\OpenApi;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\OpenApi\OpenApiSchemasBuilder;
+use MaikSchneider\TcaApi\Serializer\Processing\RouteEnhancerProcessor;
+use MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use TYPO3\CMS\Core\Information\Typo3Version;
 
 final class OpenApiSchemasBuilderTest extends TestCase
 {
@@ -428,7 +431,7 @@ final class OpenApiSchemasBuilderTest extends TestCase
     // ── FlexForm / JSON schema ─────────────────────────────────────────────────
 
     #[Test]
-    public function flexFormColumnProducesObjectSchema(): void
+    public function flexFormColumnProducesNullableObjectSchema(): void
     {
         $GLOBALS['TCA']['test_table'] = [
             'ctrl' => [],
@@ -442,11 +445,11 @@ final class OpenApiSchemasBuilderTest extends TestCase
         $readProps = $schemas['TestRead']['properties'];
 
         self::assertArrayHasKey('pi_flexform', $readProps);
-        self::assertSame('object', $readProps['pi_flexform']['type']);
+        self::assertSame([['type' => 'object'], ['type' => 'null']], $readProps['pi_flexform']['oneOf']);
     }
 
     #[Test]
-    public function jsonFieldProducesObjectSchema(): void
+    public function jsonFieldAcceptsAnyDecodedValue(): void
     {
         $GLOBALS['TCA']['test_table'] = [
             'ctrl' => [],
@@ -460,7 +463,127 @@ final class OpenApiSchemasBuilderTest extends TestCase
         $readProps = $schemas['TestRead']['properties'];
 
         self::assertArrayHasKey('meta', $readProps);
-        self::assertSame('object', $readProps['meta']['type']);
+        // Any decoded JSON value, scalars included: no type constraint.
+        self::assertArrayNotHasKey('type', $readProps['meta']);
+        self::assertArrayNotHasKey('oneOf', $readProps['meta']);
+    }
+
+    // ── Scalar columns without a declared type ─────────────────────────────────
+
+    #[Test]
+    public function untypedScalarColumnsAreDescribedAsTheyAreSent(): void
+    {
+        $GLOBALS['TCA']['test_table'] = ['ctrl' => [], 'columns' => [
+            'istopnews' => ['config' => ['type' => 'check']],
+            'count'     => ['config' => ['type' => 'number']],
+            'price'     => ['config' => ['type' => 'number', 'format' => 'decimal', 'nullable' => true]],
+            'event_at'  => ['config' => ['type' => 'datetime']],
+            'website'   => ['config' => ['type' => 'link']],
+            'bodytext'  => ['config' => ['type' => 'text']],
+            'title'     => ['config' => ['type' => 'input']],
+            'subtitle'  => ['config' => ['type' => 'input', 'nullable' => true]],
+            'slug'      => ['config' => ['type' => 'slug']],
+            'country'   => ['config' => ['type' => 'country']],
+            'layout'    => ['config' => ['type' => 'select', 'renderType' => 'selectSingle', 'items' => [['label' => 'A', 'value' => 0], ['label' => 'B', 'value' => 1]]]],
+            'ctype'     => ['config' => ['type' => 'select', 'renderType' => 'selectSingle', 'items' => [['label' => 'Text', 'value' => 'text']]]],
+            'orient'    => ['config' => ['type' => 'radio', 'items' => [['label' => 'A', 'value' => 0], ['label' => 'B', 'value' => 8]]]],
+            'crop'      => ['config' => ['type' => 'imageManipulation']],
+        ]];
+
+        $columns = array_fill_keys(array_keys($GLOBALS['TCA']['test_table']['columns']), ['groups' => ['list', 'show']]);
+        $readProps = $this->builder->build([$this->makeConfig($columns)])['TestRead']['properties'];
+        $nullable = static fn (array $schema): array => ['oneOf' => [$schema, ['type' => 'null']]];
+
+        self::assertSame(['type' => 'integer'], $readProps['istopnews']);
+        self::assertSame(['type' => 'integer'], $readProps['count']);
+        self::assertSame($nullable(['type' => 'string']), $readProps['price']);
+        self::assertSame($nullable(['type' => 'string', 'format' => 'date-time']), $readProps['event_at']);
+        self::assertSame($nullable(['type' => 'string']), $readProps['website']);
+        self::assertSame($nullable(['type' => 'string']), $readProps['bodytext']);
+        self::assertSame(['type' => 'string'], $readProps['title']);
+        self::assertSame($nullable(['type' => 'string']), $readProps['subtitle']);
+        self::assertSame($nullable(['type' => 'string']), $readProps['slug']);
+        self::assertSame((new Typo3Version())->getMajorVersion() >= 14 ? $nullable(['type' => 'string']) : ['type' => 'string'], $readProps['country']);
+        self::assertSame(['type' => 'integer'], $readProps['layout']);
+        self::assertSame(['type' => 'string'], $readProps['ctype']);
+        self::assertSame(['type' => 'integer'], $readProps['orient']);
+        self::assertArrayNotHasKey('type', $readProps['crop']);
+        self::assertArrayNotHasKey('oneOf', $readProps['crop']);
+    }
+
+    #[Test]
+    public function declaredTypeAndProcessorKeepTheConfiguredSchema(): void
+    {
+        $GLOBALS['TCA']['test_table'] = ['ctrl' => [], 'columns' => [
+            'istopnews' => ['config' => ['type' => 'check']],
+            'bodytext'  => ['config' => ['type' => 'text']],
+        ]];
+
+        $readProps = $this->builder->build([$this->makeConfig([
+            'istopnews' => ['groups' => ['list', 'show'], 'type' => 'boolean'],
+            'bodytext'  => ['groups' => ['list', 'show'], 'processor' => 'SomeProcessor'],
+        ])])['TestRead']['properties'];
+
+        self::assertSame(['type' => 'boolean'], $readProps['istopnews']);
+        self::assertSame(['type' => 'string'], $readProps['bodytext']);
+    }
+
+    #[Test]
+    public function passthroughColumnIsUnconstrainedAndRouteVirtualPropertyANullableString(): void
+    {
+        $GLOBALS['TCA']['test_table'] = ['ctrl' => [], 'columns' => ['raw' => ['config' => ['type' => 'passthrough']]]];
+
+        $config = ApiDefinition::fromArray([
+            'general' => ['table' => 'test_table', 'resourceName' => 'tests', 'resourceType' => 'Test'],
+            'columns' => ['raw' => ['groups' => ['list', 'show']]],
+            'virtualProperties' => [
+                'url' => ['groups' => ['list', 'show'], 'processor' => RouteEnhancerProcessor::class],
+            ],
+        ]);
+        $readProps = $this->builder->build([$config])['TestRead']['properties'];
+
+        self::assertArrayNotHasKey('type', $readProps['raw']);
+        self::assertSame(['oneOf' => [['type' => 'string'], ['type' => 'null']]], $readProps['url']);
+    }
+
+    #[Test]
+    public function typoLinkProcessorColumnIsANullableString(): void
+    {
+        $GLOBALS['TCA']['test_table'] = ['ctrl' => [], 'columns' => ['website' => ['config' => ['type' => 'input']]]];
+
+        $readProps = $this->builder->build([$this->makeConfig([
+            'website' => ['groups' => ['list', 'show'], 'processor' => TypoLinkProcessor::class],
+        ])])['TestRead']['properties'];
+
+        self::assertSame(['oneOf' => [['type' => 'string'], ['type' => 'null']]], $readProps['website']);
+    }
+
+    #[Test]
+    public function nullableRecordTypeFieldGetsAnEnumOfItsValueType(): void
+    {
+        $GLOBALS['TCA']['test_table'] = [
+            'ctrl' => ['type' => 'record_type'],
+            'columns' => [
+                'record_type' => ['config' => ['type' => 'select', 'renderType' => 'selectSingle', 'items' => [
+                    ['label' => 'None', 'value' => null], ['label' => 'One', 'value' => 1], ['label' => 'Two', 'value' => 2],
+                ]]],
+            ],
+            'types' => ['1' => ['showitem' => 'record_type'], '2' => ['showitem' => 'record_type']],
+        ];
+
+        foreach (['type', 'table'] as $schemaMode) {
+            $config = ApiDefinition::fromArray([
+                'general' => ['table' => 'test_table', 'resourceName' => 'tests', 'resourceType' => 'Test', 'recordTypes' => ['include' => ['1', '2'], 'schema' => $schemaMode]],
+            ]);
+            $schemas = $this->builder->build([$config]);
+
+            $read = $schemaMode === 'type' ? $schemas['Test1Read'] : $schemas['TestRead'];
+            $isInteger = (new Typo3Version())->getMajorVersion() >= 14;
+            self::assertSame($isInteger ? 'integer' : 'string', $read['properties']['record_type']['type'], $schemaMode);
+            self::assertArrayNotHasKey('oneOf', $read['properties']['record_type'], $schemaMode);
+            $expectedEnum = $schemaMode === 'type' ? [1] : [1, 2];
+            self::assertSame($isInteger ? $expectedEnum : array_map(strval(...), $expectedEnum), $read['properties']['record_type']['enum'], $schemaMode);
+        }
     }
 
     // ── Virtual properties ─────────────────────────────────────────────────────
