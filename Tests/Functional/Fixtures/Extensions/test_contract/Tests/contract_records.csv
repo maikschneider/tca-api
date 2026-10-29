@@ -1,0 +1,11 @@
+"tx_testcontract_record"
+,"uid","pid","title","subtitle","email_address","color_value","path_segment","record_uuid","folder_path","amount","quantity","is_active","choice","mode","level","flags","starts_at","website","notes","settings","parent","tags","main_category","images","attachment","hidden","deleted","tstamp","crdate"
+,1,1,"Filled","A subtitle","info@example.org","#ff0000","/filled","5c7b6b8e-5f3a-4e2b-9a1d-1f2e3d4c5b6a","1:/user_upload/","12.50",3,1,1,"dark",2,"1,2",1704067200,"https://example.org","Some notes","{""a"":1}",2,1,1,1,1,0,0,1704067200,1704067200
+,2,1,"Empty",\NULL,"","","","","",\NULL,0,0,0,"light",0,"",0,"",\NULL,\NULL,0,0,0,0,0,0,0,1704067200,1704067200
+"tx_testcontract_record_color_mm"
+,"uid_local","uid_foreign","sorting","sorting_foreign"
+,1,1,1,0
+"sys_file_reference"
+,"uid","pid","uid_local","uid_foreign","tablenames","fieldname","sorting_foreign","title","description","alternative","link","crop","hidden","deleted"
+,90,1,1,1,"tx_testcontract_record","images",1,"Photo","A photo","Alt text","","{""default"":{""cropArea"":{""x"":0.1,""y"":0.1,""width"":0.8,""height"":0.8},""selectedRatio"":""NaN"",""focusArea"":null}}",0,0
+,91,1,2,1,"tx_testcontract_record","attachment",1,"","","","","",0,0

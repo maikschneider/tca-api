@@ -1,0 +1,14 @@
+{
+	"name": "maikschneider/tca-api-test-contract",
+	"description": "Functional test fixture: a table with a column of every TCA type, for the OpenAPI contract test",
+	"type": "typo3-cms-extension",
+	"license": "GPL-2.0-or-later",
+	"require": {
+		"maikschneider/tca-api": "*"
+	},
+	"extra": {
+		"typo3/cms": {
+			"extension-key": "test_contract"
+		}
+	}
+}

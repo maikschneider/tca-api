@@ -135,6 +135,14 @@ jobs:
       - name: Init TYPO3
         run: ddev init-typo3
 
+      # Types generated from the spec must fit typical client code: this catches
+      # schemas that are too loose, which response validation can't.
+      - name: Type-check a client generated from the spec
+        run: |
+          ddev exec mkdir -p Tests/Client/generated
+          ddev exec vendor/bin/typo3 tca-api:openapi main --output Tests/Client/generated/openapi.json
+          ddev exec npm run client:check
+
       - name: Enable Xdebug
         run: ddev xdebug on
 

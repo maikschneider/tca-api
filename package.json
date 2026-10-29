@@ -5,9 +5,12 @@
 		"swagger-ui-dist": "^5"
 	},
 	"devDependencies": {
-		"@stoplight/spectral-cli": "^6"
+		"@stoplight/spectral-cli": "^6",
+		"openapi-typescript": "^7.4.0",
+		"typescript": "^5.6.0"
 	},
 	"scripts": {
-		"build": "mkdir -p Resources/Public/SwaggerUI && cp node_modules/swagger-ui-dist/swagger-ui.css node_modules/swagger-ui-dist/swagger-ui-bundle.js node_modules/swagger-ui-dist/swagger-ui-standalone-preset.js Resources/Public/SwaggerUI/"
+		"build": "mkdir -p Resources/Public/SwaggerUI && cp node_modules/swagger-ui-dist/swagger-ui.css node_modules/swagger-ui-dist/swagger-ui-bundle.js node_modules/swagger-ui-dist/swagger-ui-standalone-preset.js Resources/Public/SwaggerUI/",
+		"client:check": "openapi-typescript Tests/Client/generated/openapi.json -o Tests/Client/generated/openapi.d.ts && tsc -p Tests/Client"
 	}
 }
