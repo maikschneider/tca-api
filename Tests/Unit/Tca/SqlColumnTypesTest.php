@@ -49,6 +49,13 @@ final class SqlColumnTypesTest extends TestCase
     }
 
     #[Test]
+    public function aColumnOfAnUnknownTcaTypeFollowsItsSqlDefinition(): void
+    {
+        self::assertNull(ColumnValueSchema::forTcaConfig(['type' => 'custom']));
+        self::assertSame(['type' => 'integer'], ColumnValueSchema::forTcaConfig(['type' => 'custom'], ['type' => 'integer']));
+    }
+
+    #[Test]
     public function aColumnTheSerializerFormatsKeepsItsFormat(): void
     {
         $schema = ColumnValueSchema::forTcaConfig(['type' => 'datetime'], ['type' => 'integer']);

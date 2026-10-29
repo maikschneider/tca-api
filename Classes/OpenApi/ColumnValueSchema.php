@@ -29,12 +29,12 @@ final class ColumnValueSchema
     /**
      * @param array<string, mixed>      $tcaConfig the column's TCA "config"
      * @param array<string, mixed>|null $sqlSchema the schema of the column an ext_tables.sql defines, if any
-     * @return array<string, mixed>|null null for a TCA type this class doesn't know
+     * @return array<string, mixed>|null null when neither the TCA type nor the SQL definition describes the value
      */
     public static function forTcaConfig(array $tcaConfig, ?array $sqlSchema = null): ?array
     {
         $schema = self::inferredFromTca($tcaConfig);
-        if ($schema === null || $sqlSchema === null || \in_array($tcaConfig['type'] ?? null, self::FORMATTED_TYPES, true)) {
+        if ($sqlSchema === null || \in_array($tcaConfig['type'] ?? null, self::FORMATTED_TYPES, true)) {
             return $schema;
         }
 
