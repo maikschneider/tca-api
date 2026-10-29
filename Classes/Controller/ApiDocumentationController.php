@@ -205,7 +205,7 @@ final readonly class ApiDocumentationController
      * backend-only override files that live next to it under Resources/Public/SwaggerUI/:
      *
      * - `swagger-ui-backend.css` — corrects the bundle's unconditional dark-mode title
-     *   colour (invisible on the light backend) and hides the redundant "Servers" box.
+     *   colour (invisible on the light backend) and hides the redundant "Servers" select.
      * - `swagger-ui-backend.js` — mirrors the backend's effective colour scheme onto a
      *   `dark-mode` class so Swagger's own (otherwise `html.dark-mode`-gated) dark theme
      *   activates. The backend never uses that class itself, so it only flips Swagger.
