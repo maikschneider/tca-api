@@ -1,0 +1,19 @@
+{
+	"name": "maikschneider/tca-api-test-hide-on-write",
+	"description": "Functional test fixture: hides records written through a tca_api resource",
+	"type": "typo3-cms-extension",
+	"license": "GPL-2.0-or-later",
+	"require": {
+		"maikschneider/tca-api": "*"
+	},
+	"autoload": {
+		"psr-4": {
+			"MaikSchneider\\TcaApiTestHideOnWrite\\": "Classes/"
+		}
+	},
+	"extra": {
+		"typo3/cms": {
+			"extension-key": "test_hide_on_write"
+		}
+	}
+}
