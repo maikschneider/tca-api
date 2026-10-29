@@ -61,6 +61,22 @@ final class OpenApiSpecCommandTest extends ApiFunctionalTestCase
         self::assertSame((string)$response->getBody(), file_get_contents($file));
     }
 
+    public function testASpecThatCannotBeEncodedFailsInsteadOfWritingNothing(): void
+    {
+        $this->registerResource('broken', [
+            'general' => [
+                'table'        => 'tx_myext_domain_model_article',
+                'resourceName' => 'broken',
+                'resourceType' => "Broken\xB1",
+                'operations'   => ['list'],
+            ],
+        ]);
+        $tester = new CommandTester($this->get(OpenApiSpecCommand::class));
+
+        $this->expectException(\JsonException::class);
+        $tester->execute(['site' => 'main']);
+    }
+
     public function testUnknownSiteFails(): void
     {
         $tester = new CommandTester($this->get(OpenApiSpecCommand::class));

@@ -50,7 +50,12 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
     /** @var array<string, true>|null */
     private static ?array $contractBaseline = null;
 
-    /** @var array<string, OpenApiResponseValidator> keyed by host and registry state */
+    /**
+     * Keyed by host and the object ids of the registered definitions; each entry holds
+     * those definitions so their ids cannot be reused while the key exists.
+     *
+     * @var array<string, array{validator: OpenApiResponseValidator, resources: array<string, ApiDefinition>}>
+     */
     private array $contractValidators = [];
 
     protected array $pathsToProvideInTestInstance = [
@@ -155,10 +160,13 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
 
         if (!isset($this->contractValidators[$key])) {
             $ctx = new RequestContext($site->getSettings(), $serverRequest->withAttribute('language', $routeResult->getLanguage()));
-            $this->contractValidators[$key] = new OpenApiResponseValidator($this->get(OpenApiBuilder::class)->build($ctx));
+            $this->contractValidators[$key] = [
+                'validator' => new OpenApiResponseValidator($this->get(OpenApiBuilder::class)->build($ctx)),
+                'resources' => $resources,
+            ];
         }
 
-        return [$this->contractValidators[$key], rtrim($routeResult->getLanguage()?->getBase()->getPath() ?? '', '/')];
+        return [$this->contractValidators[$key]['validator'], rtrim($routeResult->getLanguage()?->getBase()->getPath() ?? '', '/')];
     }
 
     /**

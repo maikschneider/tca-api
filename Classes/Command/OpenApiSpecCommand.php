@@ -64,7 +64,7 @@ final class OpenApiSpecCommand extends Command
         $spec = $this->openApiBuilder->build(new RequestContext($site->getSettings(), $request));
 
         // Same encoding as RequestDispatcher::serveOpenApiSpec(), so both outputs are identical.
-        $json = (string)json_encode($spec, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        $json = json_encode($spec, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 
         $file = $input->getOption('output');
         if (\is_string($file) && $file !== '') {

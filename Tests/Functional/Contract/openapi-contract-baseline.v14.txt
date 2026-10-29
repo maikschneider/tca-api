@@ -4,8 +4,6 @@ GET /_api/articles 404: status not documented
 GET /_api/articles/{uid} 404: empty body, documented application/ld+json
 GET /_api/content-header/{uid} 404: empty body, documented application/ld+json
 GET /_api/content/{uid} 404: empty body, documented application/ld+json
-GET /_api/crop-colors 200 /hydra:member/*/crop_settings: type (object, got string)
-GET /_api/crop-colors/{uid} 200 /crop_settings: type (object, got string)
 GET /_api/file-articles/{uid} 200 /mystery: type (string, got null)
 GET /_api/file-articles/{uid} 200 /noSource: type (string, got null)
 GET /_api/flex-articles/{uid} 200 /pi_flexform: type (object, got string)

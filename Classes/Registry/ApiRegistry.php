@@ -41,8 +41,7 @@ final class ApiRegistry
      * An explicit $resourceName selects that registration by name, also on the
      * same table; otherwise a self-referential relation keeps $config so its
      * embed definitions apply again.
-     */
-    /**
+     *
      * @param list<string> $allowedResourceNames the site's tca_api.allowedResources; empty = all.
      *                                           A resource the site doesn't serve keeps its columns,
      *                                           but loses its item endpoint, so it isn't linked.
