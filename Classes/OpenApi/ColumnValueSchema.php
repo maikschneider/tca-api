@@ -18,16 +18,34 @@ use TYPO3\CMS\Core\Utility\MathUtility;
  * an ISO 8601 string or null, link as a URL or null, json, flex and
  * imageManipulation as decoded JSON or null.
  *
- * A column defined differently in an ext_tables.sql can be sent differently; declare
- * its "type" in the resource config then.
+ * A column an ext_tables.sql defines keeps that type, so a column sent as the
+ * database value is described by its SQL schema when there is one.
  */
 final class ColumnValueSchema
 {
+    /** TCA types the serializer formats; their value doesn't follow the column type. */
+    private const FORMATTED_TYPES = ['datetime', 'link', 'json', 'imageManipulation', 'flex'];
+
     /**
-     * @param array<string, mixed> $tcaConfig the column's TCA "config"
+     * @param array<string, mixed>      $tcaConfig the column's TCA "config"
+     * @param array<string, mixed>|null $sqlSchema the schema of the column an ext_tables.sql defines, if any
      * @return array<string, mixed>|null null for a TCA type this class doesn't know
      */
-    public static function forTcaConfig(array $tcaConfig): ?array
+    public static function forTcaConfig(array $tcaConfig, ?array $sqlSchema = null): ?array
+    {
+        $schema = self::inferredFromTca($tcaConfig);
+        if ($schema === null || $sqlSchema === null || \in_array($tcaConfig['type'] ?? null, self::FORMATTED_TYPES, true)) {
+            return $schema;
+        }
+
+        return $sqlSchema;
+    }
+
+    /**
+     * @param array<string, mixed> $tcaConfig
+     * @return array<string, mixed>|null
+     */
+    private static function inferredFromTca(array $tcaConfig): ?array
     {
         $nullable = (bool)($tcaConfig['nullable'] ?? false);
 

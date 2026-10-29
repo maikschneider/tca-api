@@ -8,6 +8,7 @@ use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\OpenApi\OpenApiSchemasBuilder;
 use MaikSchneider\TcaApi\Serializer\Processing\RouteEnhancerProcessor;
 use MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor;
+use MaikSchneider\TcaApi\Tca\SqlColumnTypes;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -21,7 +22,7 @@ final class OpenApiSchemasBuilderTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->builder = new OpenApiSchemasBuilder();
+        $this->builder = new OpenApiSchemasBuilder(self::createStub(SqlColumnTypes::class));
 
         // Reset TcaColumnDiscovery static cache
         $reflection = new \ReflectionClass(TcaColumnDiscovery::class);
