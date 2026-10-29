@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+	<file source-language="en" target-language="de" datatype="plaintext" original="messages" date="2026-07-20T00:00:00Z" product-name="tca_api">
+		<header/>
+		<body>
+			<trans-unit id="mlang_tabs_tab" resname="mlang_tabs_tab">
+				<source>TCA API</source>
+				<target>TCA API</target>
+			</trans-unit>
+			<trans-unit id="mlang_labels_tablabel" resname="mlang_labels_tablabel">
+				<source>REST API documentation</source>
+				<target>REST-API-Dokumentation</target>
+			</trans-unit>
+			<trans-unit id="mlang_labels_tabdescr" resname="mlang_labels_tabdescr">
+				<source>Interactive OpenAPI documentation (Swagger UI) for the database tables exposed through the TCA API. Always available to administrators, independent of the frontend site settings.</source>
+				<target>Interaktive OpenAPI-Dokumentation (Swagger UI) für die Datenbanktabellen, die über die TCA API bereitgestellt werden. Für Administratoren immer verfügbar, unabhängig von den Frontend-Seiteneinstellungen.</target>
+			</trans-unit>
+			<trans-unit id="module.site.dropdown" resname="module.site.dropdown">
+				<source>Site</source>
+				<target>Site</target>
+			</trans-unit>
+			<trans-unit id="module.openInNewTab" resname="module.openInNewTab">
+				<source>Open in new tab</source>
+				<target>In neuem Tab öffnen</target>
+			</trans-unit>
+			<trans-unit id="module.download" resname="module.download">
+				<source>Download openapi.json</source>
+				<target>openapi.json herunterladen</target>
+			</trans-unit>
+			<trans-unit id="module.notEnabled.title" resname="module.notEnabled.title">
+				<source>TCA API not enabled</source>
+				<target>TCA API nicht aktiviert</target>
+			</trans-unit>
+			<trans-unit id="module.notEnabled.message" resname="module.notEnabled.message">
+				<source>No site has the TCA API enabled. Import the TCA API site set on a site and keep "Enable API" turned on to view its documentation here.</source>
+				<target>Für keine Site ist die TCA API aktiviert. Binden Sie das Site Set „TCA API“ in eine Site ein und lassen Sie „API aktivieren“ eingeschaltet, um hier die Dokumentation zu sehen.</target>
+			</trans-unit>
+		</body>
+	</file>
+</xliff>

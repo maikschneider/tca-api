@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+	<file source-language="en" datatype="plaintext" original="EXT:tca_api/Configuration/Sets/TcaApi/labels.xlf" date="2026-10-29T00:00:00Z" product-name="tca_api">
+		<header/>
+		<body>
+			<trans-unit id="label" resname="label">
+				<source>TCA API</source>
+			</trans-unit>
+			<trans-unit id="categories.TcaApi" resname="categories.TcaApi">
+				<source>TCA API</source>
+			</trans-unit>
+			<trans-unit id="categories.TcaApi.general" resname="categories.TcaApi.general">
+				<source>General</source>
+			</trans-unit>
+			<trans-unit id="categories.TcaApi.apiSpec" resname="categories.TcaApi.apiSpec">
+				<source>API Spec</source>
+			</trans-unit>
+			<trans-unit id="categories.TcaApi.cors" resname="categories.TcaApi.cors">
+				<source>CORS</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.enabled" resname="settings.tca_api.enabled">
+				<source>Enable API</source>
+			</trans-unit>
+			<trans-unit id="settings.description.tca_api.enabled" resname="settings.description.tca_api.enabled">
+				<source>Enable or disable the TCA API for this site.</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.apiPrefix" resname="settings.tca_api.apiPrefix">
+				<source>API Prefix</source>
+			</trans-unit>
+			<trans-unit id="settings.description.tca_api.apiPrefix" resname="settings.description.tca_api.apiPrefix">
+				<source>URL path prefix for all API endpoints. Must start and end with a slash. Required — the API is inactive until this is set.</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.defaultItemsPerPage" resname="settings.tca_api.defaultItemsPerPage">
+				<source>Default Items Per Page</source>
+			</trans-unit>
+			<trans-unit id="settings.description.tca_api.defaultItemsPerPage" resname="settings.description.tca_api.defaultItemsPerPage">
+				<source>Default number of items returned per page in collection responses.</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.allowedResources" resname="settings.tca_api.allowedResources">
+				<source>Allowed Resources</source>
+			</trans-unit>
+			<trans-unit id="settings.description.tca_api.allowedResources" resname="settings.description.tca_api.allowedResources">
+				<source>Comma-separated list of resource names exposed on this site. Leave empty to allow all registered resources.</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.debugMode" resname="settings.tca_api.debugMode">
+				<source>Debug Mode</source>
+			</trans-unit>
+			<trans-unit id="settings.description.tca_api.debugMode" resname="settings.description.tca_api.debugMode">
+				<source>Return verbose error details in API responses. Disable on production sites.</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.openApiExposed" resname="settings.tca_api.openApiExposed">
+				<source>OpenAPI Spec Access</source>
+			</trans-unit>
+			<trans-unit id="settings.description.tca_api.openApiExposed" resname="settings.description.tca_api.openApiExposed">
+				<source>Who may access the OpenAPI JSON spec at {apiPrefix}openapi.json.</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.openApiExposed.enum.PUBLIC" resname="settings.tca_api.openApiExposed.enum.PUBLIC">
+				<source>Public (everyone)</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.openApiExposed.enum.FE_USER" resname="settings.tca_api.openApiExposed.enum.FE_USER">
+				<source>Frontend users</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.openApiExposed.enum.BE_USER" resname="settings.tca_api.openApiExposed.enum.BE_USER">
+				<source>Backend users</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.openApiExposed.enum.BE_ADMIN" resname="settings.tca_api.openApiExposed.enum.BE_ADMIN">
+				<source>Backend admins</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.openApiExposed.enum.API_KEY" resname="settings.tca_api.openApiExposed.enum.API_KEY">
+				<source>Requests with an API key or token</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.openApiExposed.enum.NONE" resname="settings.tca_api.openApiExposed.enum.NONE">
+				<source>Disabled</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.apiSpecTitle" resname="settings.tca_api.apiSpecTitle">
+				<source>API Title</source>
+			</trans-unit>
+			<trans-unit id="settings.description.tca_api.apiSpecTitle" resname="settings.description.tca_api.apiSpecTitle">
+				<source>Title shown in the OpenAPI spec info block and Swagger UI header. Defaults to "TCA API".</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.apiSpecDescription" resname="settings.tca_api.apiSpecDescription">
+				<source>API Description</source>
+			</trans-unit>
+			<trans-unit id="settings.description.tca_api.apiSpecDescription" resname="settings.description.tca_api.apiSpecDescription">
+				<source>Short description shown in the OpenAPI spec info block and Swagger UI.</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.apiSpecVersion" resname="settings.tca_api.apiSpecVersion">
+				<source>API Version</source>
+			</trans-unit>
+			<trans-unit id="settings.description.tca_api.apiSpecVersion" resname="settings.description.tca_api.apiSpecVersion">
+				<source>Version string for the OpenAPI spec info block. Defaults to "1.0.0".</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.swaggerUiEnabled" resname="settings.tca_api.swaggerUiEnabled">
+				<source>Swagger UI Access</source>
+			</trans-unit>
+			<trans-unit id="settings.description.tca_api.swaggerUiEnabled" resname="settings.description.tca_api.swaggerUiEnabled">
+				<source>Who may access the interactive Swagger UI at {apiPrefix}swagger-ui.</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.swaggerUiEnabled.enum.PUBLIC" resname="settings.tca_api.swaggerUiEnabled.enum.PUBLIC">
+				<source>Public (everyone)</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.swaggerUiEnabled.enum.FE_USER" resname="settings.tca_api.swaggerUiEnabled.enum.FE_USER">
+				<source>Frontend users</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.swaggerUiEnabled.enum.BE_USER" resname="settings.tca_api.swaggerUiEnabled.enum.BE_USER">
+				<source>Backend users</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.swaggerUiEnabled.enum.BE_ADMIN" resname="settings.tca_api.swaggerUiEnabled.enum.BE_ADMIN">
+				<source>Backend admins</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.swaggerUiEnabled.enum.NONE" resname="settings.tca_api.swaggerUiEnabled.enum.NONE">
+				<source>Disabled</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.corsEnabled" resname="settings.tca_api.corsEnabled">
+				<source>Enable CORS</source>
+			</trans-unit>
+			<trans-unit id="settings.description.tca_api.corsEnabled" resname="settings.description.tca_api.corsEnabled">
+				<source>Add CORS headers to API responses.</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.corsOrigin" resname="settings.tca_api.corsOrigin">
+				<source>Allowed Origin</source>
+			</trans-unit>
+			<trans-unit id="settings.description.tca_api.corsOrigin" resname="settings.description.tca_api.corsOrigin">
+				<source>Value for the Access-Control-Allow-Origin header. Use * to allow all origins.</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.corsAllowHeaders" resname="settings.tca_api.corsAllowHeaders">
+				<source>Additional Allowed Headers</source>
+			</trans-unit>
+			<trans-unit id="settings.description.tca_api.corsAllowHeaders" resname="settings.description.tca_api.corsAllowHeaders">
+				<source>Comma-separated request headers added to Access-Control-Allow-Headers, e.g. X-API-Key. Content-Type, Authorization and X-Locale are always allowed.</source>
+			</trans-unit>
+			<trans-unit id="settings.tca_api.corsAllowCredentials" resname="settings.tca_api.corsAllowCredentials">
+				<source>Allow Credentials</source>
+			</trans-unit>
+			<trans-unit id="settings.description.tca_api.corsAllowCredentials" resname="settings.description.tca_api.corsAllowCredentials">
+				<source>Include Access-Control-Allow-Credentials: true in CORS responses. Required when the frontend sends cookies or Authorization headers with cross-origin requests.</source>
+			</trans-unit>
+		</body>
+	</file>
+</xliff>
