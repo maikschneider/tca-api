@@ -9,12 +9,12 @@ use MaikSchneider\TcaApi\Dispatcher\RequestContext;
 use MaikSchneider\TcaApi\Loader\ApiDefinitionLoader;
 use MaikSchneider\TcaApi\OpenApi\OpenApiBuilder;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
+use MaikSchneider\TcaApi\Tests\Functional\Contract\ContractBaseline;
 use MaikSchneider\TcaApi\Tests\Functional\Contract\OpenApiResponseValidator;
 use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Http\Stream;
 use TYPO3\CMS\Core\Http\UploadedFile;
-use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Routing\SiteMatcher;
 use TYPO3\CMS\Core\Routing\SiteRouteResult;
 use TYPO3\CMS\Core\Site\Entity\Site;
@@ -40,15 +40,6 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
      * Turn off only in tests that break the spec on purpose, e.g. with a broken resource config.
      */
     protected bool $validateResponsesAgainstOpenApi = true;
-
-    /** Known mismatches per TYPO3 major version (%d), whose core TCA differs. */
-    private const CONTRACT_BASELINE = __DIR__ . '/Contract/openapi-contract-baseline.v%d.txt';
-
-    /** Set to collect mismatches into this file instead of failing; see Tests/Functional/Contract/README.md. */
-    private const CONTRACT_COLLECT_ENV = 'TCA_API_CONTRACT_COLLECT';
-
-    /** @var array<string, true>|null */
-    private static ?array $contractBaseline = null;
 
     /**
      * Keyed by host and the object ids of the registered definitions; each entry holds
@@ -114,7 +105,7 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
         );
         $body->rewind();
 
-        $collectFile = getenv(self::CONTRACT_COLLECT_ENV);
+        $collectFile = getenv(ContractBaseline::COLLECT_ENV);
         if (\is_string($collectFile) && $collectFile !== '') {
             if ($mismatches !== []) {
                 file_put_contents($collectFile, implode("\n", $mismatches) . "\n", FILE_APPEND | LOCK_EX);
@@ -122,14 +113,7 @@ abstract class ApiFunctionalTestCase extends FunctionalTestCase
             return;
         }
 
-        self::$contractBaseline ??= array_fill_keys(
-            array_filter(
-                array_map('trim', file(sprintf(self::CONTRACT_BASELINE, (new Typo3Version())->getMajorVersion())) ?: []),
-                static fn (string $line): bool => $line !== '' && $line[0] !== '#',
-            ),
-            true,
-        );
-        $unexpected = array_values(array_filter($mismatches, static fn (string $mismatch): bool => !isset(self::$contractBaseline[$mismatch])));
+        $unexpected = array_values(array_filter($mismatches, static fn (string $mismatch): bool => !ContractBaseline::isKnown($mismatch)));
 
         self::assertSame(
             [],
