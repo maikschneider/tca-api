@@ -10,7 +10,6 @@ GET /_api/grp-articles/{uid} 200 /related_items/*: additionalProperties (@id, na
 GET /_api/grp-articles/{uid} 200 /related_items/*: additionalProperties (@id, title, related_colors, related_items)
 GET /_api/qc-articles 200 /hydra:member/*/related_items/*: additionalProperties (@id, name)
 GET /_api/rm-categories/{uid} 200 /items/*: additionalProperties (@id, title, color_id, categories, profile_photo, first_name, downloads, article_url)
-GET /_api/table-content/{uid} 200 /table_caption: type (string, got null)
 GET /_api/ur-articles/{uid} 200 /related_items/*: additionalProperties (@id, title, note_id, related_pages, related_items)
 GET /_api/ur-articles/{uid} 200 /related_items/*: additionalProperties (title)
 GET /api/fbu-articles 200 /hydra:member/*/related_items/*: additionalProperties (@id, name)
