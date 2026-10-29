@@ -12,10 +12,16 @@ use MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor;
 use MaikSchneider\TcaApi\Serializer\RelationSerializer;
 use MaikSchneider\TcaApi\Tca\RecordTypeFields;
 use MaikSchneider\TcaApi\Tca\RelationCardinality;
+use MaikSchneider\TcaApi\Tca\SqlColumnTypes;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final readonly class OpenApiSchemasBuilder
 {
+    public function __construct(
+        private SqlColumnTypes $sqlColumnTypes,
+    ) {
+    }
+
     /**
      * @param ApiDefinition[] $resources    the resources the spec documents
      * @param ApiDefinition[] $allResources every registered resource; one the site doesn't serve is still
@@ -144,7 +150,7 @@ final readonly class OpenApiSchemasBuilder
         if (!$config->isExplicitMode) {
             foreach ($config->columnMap($recordType) as $column => $columnDef) {
                 $tcaConfig = RecordTypeFields::columnDefinition($config->table, $column, $recordType)['config'] ?? null;
-                $properties[$column] = $this->buildReadPropertySchema($columnDef, $tcaConfig, $config, $resources, $remainingDepth, $ancestorTables);
+                $properties[$column] = $this->buildReadPropertySchema($column, $columnDef, $tcaConfig, $config, $resources, $remainingDepth, $ancestorTables);
             }
         } else {
             foreach ($config->columns as $column => $columnDef) {
@@ -155,7 +161,7 @@ final readonly class OpenApiSchemasBuilder
                     continue;
                 }
                 $tcaConfig = $GLOBALS['TCA'][$config->table]['columns'][$column]['config'] ?? null;
-                $properties[$column] = $this->buildReadPropertySchema($columnDef, $tcaConfig, $config, $resources, $remainingDepth, $ancestorTables);
+                $properties[$column] = $this->buildReadPropertySchema($column, $columnDef, $tcaConfig, $config, $resources, $remainingDepth, $ancestorTables);
             }
         }
 
@@ -280,7 +286,7 @@ final readonly class OpenApiSchemasBuilder
      * @param ApiDefinition[] $resources
      * @param list<string>    $ancestorTables
      */
-    private function buildReadPropertySchema(ColumnDefinition $columnDef, ?array $tcaConfig, ApiDefinition $config, array $resources, int $remainingDepth = -1, array $ancestorTables = []): array
+    private function buildReadPropertySchema(string $column, ColumnDefinition $columnDef, ?array $tcaConfig, ApiDefinition $config, array $resources, int $remainingDepth = -1, array $ancestorTables = []): array
     {
         // A column callback runs after everything else and replaces the value.
         if ($columnDef->callback !== null) {
@@ -311,7 +317,7 @@ final readonly class OpenApiSchemasBuilder
             }
             // A declared type wins, and any other processor's output is only known to its author.
             if ($columnDef->type === null && $columnDef->processor === null) {
-                $valueSchema = ColumnValueSchema::forTcaConfig($tcaConfig);
+                $valueSchema = ColumnValueSchema::forTcaConfig($tcaConfig, $this->sqlColumnTypes->schema($config->table, $column));
                 if ($valueSchema !== null) {
                     return $valueSchema;
                 }

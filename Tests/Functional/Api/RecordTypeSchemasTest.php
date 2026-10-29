@@ -300,6 +300,18 @@ final class RecordTypeSchemasTest extends ApiFunctionalTestCase
         self::assertInstanceOf(\stdClass::class, $specification->components->schemas->NumberedItemRead->discriminator->mapping);
     }
 
+    #[Test]
+    public function openApiDescribesAColumnByItsExtTablesSqlDefinition(): void
+    {
+        $schemas = $this->decodeResponseBody($this->executeApiRequest('/_api/openapi.json'))['components']['schemas'];
+
+        // colPos is an INT in ext_tables.sql, but its TCA is a select with an itemsProcFunc.
+        self::assertSame(['type' => 'integer'], $schemas['TypedContentHeaderRead']['properties']['colPos']);
+
+        $content = $this->decodeResponseBody($this->executeApiRequest('/_api/typed-content/602'));
+        self::assertIsInt($content['colPos']);
+    }
+
     private function schemaAt(array $schemas, string $ref): array
     {
         return $schemas[substr($ref, \strlen('#/components/schemas/'))];
