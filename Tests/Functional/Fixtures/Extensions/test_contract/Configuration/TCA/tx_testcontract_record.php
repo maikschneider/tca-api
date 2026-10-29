@@ -116,7 +116,7 @@ return [
             'label' => 'Settings',
             'config' => ['type' => 'json'],
         ],
-        // A list although maxitems is 1: no relationship, so TYPO3 treats it as a list (#262).
+        // A list although maxitems is 1: no relationship, so TYPO3 treats it as a list.
         'parent' => [
             'label' => 'Parent',
             'config' => [
@@ -126,7 +126,7 @@ return [
                 'maxitems' => 1,
             ],
         ],
-        // A list although it is a selectSingle: the MM makes it manyToMany (#262).
+        // A list although it is a selectSingle: the MM makes it manyToMany.
         'tags' => [
             'label' => 'Tags',
             'config' => [
@@ -136,7 +136,7 @@ return [
                 'MM' => 'tx_testcontract_record_color_mm',
             ],
         ],
-        // One record although it is a category field (#262).
+        // One record although it is a category field.
         'main_category' => [
             'label' => 'Main category',
             'config' => ['type' => 'category', 'relationship' => 'oneToOne'],

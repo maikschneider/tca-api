@@ -11,8 +11,8 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 /**
  * Serializes a record with a column of every TCA type and relation shape, filled
  * and empty, through list and show, and lets ApiFunctionalTestCase validate each
- * response against the OpenAPI spec (#271). A mismatch the baseline doesn't list
- * fails here, so this test pins what the spec fixes of #259 established.
+ * response against the OpenAPI spec. A mismatch the baseline doesn't list fails
+ * here, so this test pins the shapes the spec describes.
  *
  * Fixture table: tx_testcontract_record (extension test_contract).
  */
@@ -36,7 +36,7 @@ final class ContractMatrixTest extends ApiFunctionalTestCase
             'attachment' => ['processor' => FileProcessor::class],
         ],
         'virtualProperties' => [
-            // Serialized like the file column it reads (#263).
+            // Serialized like the file column it reads.
             'teaser' => ['column' => 'images'],
         ],
         'filters' => [
@@ -59,7 +59,7 @@ final class ContractMatrixTest extends ApiFunctionalTestCase
     {
         $this->registerResource('contract-records', self::RESOURCE);
 
-        // itemsPerPage 1: the first page has no previous link, the last no next link (#261).
+        // itemsPerPage 1: the first page has no previous link, the last no next link.
         foreach ([1, 2] as $page) {
             $response = $this->executeApiRequest('/_api/contract-records', ['page' => $page]);
             self::assertSame(200, $response->getStatusCode());
@@ -77,16 +77,16 @@ final class ContractMatrixTest extends ApiFunctionalTestCase
         $filled = $this->decodeResponseBody($this->executeApiRequest('/_api/contract-records/1'));
         $empty  = $this->decodeResponseBody($this->executeApiRequest('/_api/contract-records/2'));
 
-        // #265
+        // Untyped scalars as the serializer sends them.
         self::assertSame(1, $filled['is_active']);
         self::assertSame(2, $filled['level']);
         self::assertSame('dark', $filled['mode']);
         self::assertNull($empty['starts_at']);
-        // #262: lists although maxitems is 1 / renderType is selectSingle, one record for a oneToOne category
+        // Lists although maxitems is 1 / renderType is selectSingle, one record for a oneToOne category
         self::assertIsList($filled['parent']);
         self::assertIsList($filled['tags']);
         self::assertIsString($filled['main_category']);
-        // #263, #264
+        // A virtual property over a file column, and the ImageProcessor fields.
         self::assertIsList($filled['teaser']);
         self::assertSame('Alt text', $filled['images'][0]['metadata']['alternative']);
         self::assertArrayHasKey('width', $filled['images'][0]);
@@ -96,7 +96,7 @@ final class ContractMatrixTest extends ApiFunctionalTestCase
     {
         $this->registerResource('contract-records', self::RESOURCE);
 
-        // deepObject, as the spec documents the parameter (#260)
+        // deepObject, as the spec documents the parameter
         $response = $this->executeApiRequest('/_api/contract-records', ['starts_at' => ['gte' => 1700000000]]);
 
         self::assertSame(200, $response->getStatusCode());
@@ -120,7 +120,7 @@ final class ContractMatrixTest extends ApiFunctionalTestCase
             self::assertSame(200, $this->executeApiRequest('/_api/contract-records/' . $uid)->getStatusCode());
         }
 
-        // An embedded object also validates against "object or IRI", so the schema itself is checked (#267).
+        // An embedded object also validates against "object or IRI", so the schema itself is checked.
         $spec       = $this->decodeResponseBody($this->executeApiRequest('/_api/openapi.json'));
         $properties = $spec['components']['schemas']['ContractRecordRead']['properties'];
         self::assertSame('object', $properties['main_category']['oneOf'][0]['type']);
