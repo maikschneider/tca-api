@@ -1,60 +1,44 @@
 categories:
 
-  TcaApi:
-    label: 'TCA API'
+  TcaApi: ~
 
   TcaApi.general:
-    label: 'General'
     parent: TcaApi
 
   TcaApi.apiSpec:
-    label: 'API Spec'
     parent: TcaApi
 
   TcaApi.cors:
-    label: 'CORS'
     parent: TcaApi
 
 settings:
 
   tca_api.enabled:
-    label: 'Enable API'
-    description: 'Enable or disable the TCA API for this site.'
     category: TcaApi.general
     type: bool
     default: true
 
   tca_api.apiPrefix:
-    label: 'API Prefix'
-    description: 'URL path prefix for all API endpoints. Must start and end with a slash. Required — the API is inactive until this is set.'
     category: TcaApi.general
     type: string
     default: '/_api/'
 
   tca_api.defaultItemsPerPage:
-    label: 'Default Items Per Page'
-    description: 'Default number of items returned per page in collection responses.'
     category: TcaApi.general
     type: int
     default: 20
 
   tca_api.allowedResources:
-    label: 'Allowed Resources'
-    description: 'Comma-separated list of resource names exposed on this site. Leave empty to allow all registered resources.'
     category: TcaApi.general
     type: string
     default: ''
 
   tca_api.debugMode:
-    label: 'Debug Mode'
-    description: 'Return verbose error details in API responses. Disable on production sites.'
     category: TcaApi.general
     type: bool
     default: false
 
   tca_api.openApiExposed:
-    label: 'OpenAPI Spec Access'
-    description: 'Who may access the OpenAPI JSON spec at {apiPrefix}openapi.json.'
     category: TcaApi.apiSpec
     type: string
     enum:
@@ -67,29 +51,21 @@ settings:
     default: 'PUBLIC'
 
   tca_api.apiSpecTitle:
-    label: 'API Title'
-    description: 'Title shown in the OpenAPI spec info block and Swagger UI header. Defaults to "TCA API".'
     category: TcaApi.apiSpec
     type: string
     default: 'TCA API'
 
   tca_api.apiSpecDescription:
-    label: 'API Description'
-    description: 'Short description shown in the OpenAPI spec info block and Swagger UI.'
     category: TcaApi.apiSpec
     type: string
     default: ''
 
   tca_api.apiSpecVersion:
-    label: 'API Version'
-    description: 'Version string for the OpenAPI spec info block. Defaults to "1.0.0".'
     category: TcaApi.apiSpec
     type: string
     default: '1.0.0'
 
   tca_api.swaggerUiEnabled:
-    label: 'Swagger UI Access'
-    description: 'Who may access the interactive Swagger UI at {apiPrefix}swagger-ui.'
     category: TcaApi.apiSpec
     type: string
     enum:
@@ -101,29 +77,21 @@ settings:
     default: 'PUBLIC'
 
   tca_api.corsEnabled:
-    label: 'Enable CORS'
-    description: 'Add CORS headers to API responses.'
     category: TcaApi.cors
     type: bool
     default: false
 
   tca_api.corsOrigin:
-    label: 'Allowed Origin'
-    description: 'Value for the Access-Control-Allow-Origin header. Use * to allow all origins.'
     category: TcaApi.cors
     type: string
     default: '*'
 
   tca_api.corsAllowHeaders:
-    label: 'Additional Allowed Headers'
-    description: 'Comma-separated request headers added to Access-Control-Allow-Headers, e.g. X-API-Key. Content-Type, Authorization and X-Locale are always allowed.'
     category: TcaApi.cors
     type: string
     default: ''
 
   tca_api.corsAllowCredentials:
-    label: 'Allow Credentials'
-    description: 'Include Access-Control-Allow-Credentials: true in CORS responses. Required when the frontend sends cookies or Authorization headers with cross-origin requests.'
     category: TcaApi.cors
     type: bool
     default: false

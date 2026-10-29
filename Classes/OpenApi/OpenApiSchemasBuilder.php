@@ -7,14 +7,21 @@ namespace MaikSchneider\TcaApi\OpenApi;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Loader\TcaValidatorDeriver;
+use MaikSchneider\TcaApi\Serializer\Processing\RouteEnhancerProcessor;
+use MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor;
 use MaikSchneider\TcaApi\Serializer\RelationSerializer;
 use MaikSchneider\TcaApi\Tca\RecordTypeFields;
+use MaikSchneider\TcaApi\Tca\RelationCardinality;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final readonly class OpenApiSchemasBuilder
 {
-    /** @param ApiDefinition[] $resources */
-    public function build(array $resources): array
+    /**
+     * @param ApiDefinition[] $resources    the resources the spec documents
+     * @param ApiDefinition[] $allResources every registered resource; one the site doesn't serve is still
+     *                                      embedded with its own columns, as ApiRegistry::getRelated() resolves it
+     */
+    public function build(array $resources, array $allResources = []): array
     {
         $schemas = [
             'RelationStub' => [
@@ -26,20 +33,38 @@ final readonly class OpenApiSchemasBuilder
                 ],
                 'required' => ['@id', '@type', 'uid'],
             ],
+            // What FileProcessor writes, plus the fields ImageProcessor adds: alternative and
+            // copyright, and either width/height (with a cropVariant) or cropVariants.
             'FileObject' => [
                 'type' => 'object',
                 'properties' => [
                     'uid'       => ['type' => 'integer'],
                     'name'      => ['type' => 'string'],
                     'extension' => ['type' => 'string'],
-                    'publicUrl' => ['type' => 'string'],
+                    // null for a file in a non-public storage
+                    'publicUrl' => ['oneOf' => [['type' => 'string'], ['type' => 'null']]],
                     'mimeType'  => ['type' => 'string'],
                     'fileSize'  => ['type' => 'integer'],
                     'metadata'  => [
                         'type' => 'object',
                         'properties' => [
                             'title'       => ['oneOf' => [['type' => 'string'], ['type' => 'null']]],
+                            'alternative' => ['oneOf' => [['type' => 'string'], ['type' => 'null']]],
                             'description' => ['oneOf' => [['type' => 'string'], ['type' => 'null']]],
+                            'copyright'   => ['oneOf' => [['type' => 'string'], ['type' => 'null']]],
+                        ],
+                    ],
+                    'width'        => ['type' => 'integer'],
+                    'height'       => ['type' => 'integer'],
+                    'cropVariants' => [
+                        'type' => 'object',
+                        'additionalProperties' => [
+                            'type' => 'object',
+                            'properties' => [
+                                'publicUrl' => ['type' => 'string'],
+                                'width'     => ['type' => 'integer'],
+                                'height'    => ['type' => 'integer'],
+                            ],
                         ],
                     ],
                 ],
@@ -76,16 +101,26 @@ final readonly class OpenApiSchemasBuilder
             ],
         ];
 
-        foreach ($resources as $config) {
-            $schemas += $config->typeSchemas
-                ? $this->buildTypeReadSchemas($config, $resources)
-                : [$config->resourceType . 'Read' => $this->withRecordTypeEnum($this->buildReadSchema($config, $resources), $config, false)];
-            if ($this->hasWriteOperations($config)) {
-                $schemas[$config->resourceType . 'Write'] = $this->withRecordTypeEnum($this->buildWriteSchema($config), $config, true);
+        // Relations resolve among the documented resources first, then among blocked ones without item endpoint.
+        $related = array_values($resources);
+        foreach ($allResources as $resource) {
+            if (!\in_array($resource, $resources, true)) {
+                $related[] = $resource->withoutItemEndpoint();
             }
-            $schemas[$config->resourceType . 'Collection'] = $this->buildCollectionSchema($config->resourceType);
+        }
+
+        $names = new OpenApiSchemaNames($resources);
+        foreach ($resources as $config) {
+            $name = $names->of($config);
+            $schemas += $config->typeSchemas
+                ? $this->buildTypeReadSchemas($config, $resources, $names, $schemas, $related)
+                : [$name . 'Read' => $this->withRecordTypeEnum($this->buildReadSchema($config, $related), $config, false)];
+            if ($this->hasWriteOperations($config)) {
+                $schemas[$name . 'Write'] = $this->withRecordTypeEnum($this->buildWriteSchema($config), $config, true);
+            }
+            $schemas[$name . 'Collection'] = $this->buildCollectionSchema($name);
             if ($this->hasUploadColumns($config)) {
-                $schemas[$config->resourceType . 'WriteMultipart'] = $this->withRecordTypeEnum($this->buildMultipartWriteSchema($config), $config, true);
+                $schemas[$name . 'WriteMultipart'] = $this->withRecordTypeEnum($this->buildMultipartWriteSchema($config), $config, true);
             }
         }
 
@@ -96,8 +131,9 @@ final readonly class OpenApiSchemasBuilder
      * @param ApiDefinition[] $resources
      * @param int             $remainingDepth -1 for a resource's own schema, else the embed depth left, as in ResourceSerializer::serialize()
      * @param string|null     $recordType     on a resource with type schemas, the record type to describe; null = all types
+     * @param list<string>    $ancestorTables tables of the records this one is embedded in, outermost first
      */
-    private function buildReadSchema(ApiDefinition $config, array $resources, int $remainingDepth = -1, ?string $recordType = null): array
+    private function buildReadSchema(ApiDefinition $config, array $resources, int $remainingDepth = -1, ?string $recordType = null, array $ancestorTables = []): array
     {
         $properties = [
             '@type' => ['type' => 'string', 'example' => $config->resourceType],
@@ -108,7 +144,7 @@ final readonly class OpenApiSchemasBuilder
         if (!$config->isExplicitMode) {
             foreach ($config->columnMap($recordType) as $column => $columnDef) {
                 $tcaConfig = RecordTypeFields::columnDefinition($config->table, $column, $recordType)['config'] ?? null;
-                $properties[$column] = $this->buildReadPropertySchema($columnDef, $tcaConfig, $config, $resources, $remainingDepth);
+                $properties[$column] = $this->buildReadPropertySchema($columnDef, $tcaConfig, $config, $resources, $remainingDepth, $ancestorTables);
             }
         } else {
             foreach ($config->columns as $column => $columnDef) {
@@ -119,7 +155,7 @@ final readonly class OpenApiSchemasBuilder
                     continue;
                 }
                 $tcaConfig = $GLOBALS['TCA'][$config->table]['columns'][$column]['config'] ?? null;
-                $properties[$column] = $this->buildReadPropertySchema($columnDef, $tcaConfig, $config, $resources, $remainingDepth);
+                $properties[$column] = $this->buildReadPropertySchema($columnDef, $tcaConfig, $config, $resources, $remainingDepth, $ancestorTables);
             }
         }
 
@@ -127,10 +163,39 @@ final readonly class OpenApiSchemasBuilder
             if ($config->isExplicitMode && !$vpDef->isReadable()) {
                 continue;
             }
-            $properties[$vpName] = $this->buildPropertySchema($vpDef);
+            $properties[$vpName] = $this->buildVirtualPropertySchema($vpDef, $config);
         }
 
         return ['type' => 'object', 'properties' => $properties];
+    }
+
+    /**
+     * A virtual property over a file column is serialized like the column itself,
+     * unless a callback, which runs last, replaces the value.
+     */
+    private function buildVirtualPropertySchema(ColumnDefinition $vpDef, ApiDefinition $config): array
+    {
+        $sourceConfig = $vpDef->column !== null ? ($GLOBALS['TCA'][$config->table]['columns'][$vpDef->column]['config'] ?? null) : null;
+        if ($vpDef->callback === null && \is_array($sourceConfig) && ($sourceConfig['type'] ?? null) === 'file') {
+            return $this->buildFilePropertySchema($sourceConfig);
+        }
+        if ($vpDef->callback === null && $vpDef->type === null) {
+            return self::processorSchema($vpDef->processor) ?? $this->buildPropertySchema($vpDef);
+        }
+
+        return $this->buildPropertySchema($vpDef);
+    }
+
+    /**
+     * Output of the extension's own processors: TypoLinkProcessor (also applied to
+     * type=link columns without a processor) and RouteEnhancerProcessor send a URL,
+     * or null when there is none. Other processors' output is only known to their author.
+     */
+    private static function processorSchema(?string $processor): ?array
+    {
+        return \in_array($processor, [TypoLinkProcessor::class, RouteEnhancerProcessor::class], true)
+            ? ['oneOf' => [['type' => 'string'], ['type' => 'null']]]
+            : null;
     }
 
     /**
@@ -139,39 +204,49 @@ final readonly class OpenApiSchemasBuilder
      * Read schema; a multi-type resource's Read schema is a oneOf over the type
      * schemas with a discriminator on the type field.
      *
-     * @param ApiDefinition[] $resources
+     * @param ApiDefinition[]       $resources
+     * @param array<string, mixed>  $built     component schemas built so far, whose names are taken
+     * @param ApiDefinition[]       $related   resources relations resolve among, see build()
      * @return array<string, array<string, mixed>>
      */
-    private function buildTypeReadSchemas(ApiDefinition $config, array $resources): array
+    private function buildTypeReadSchemas(ApiDefinition $config, array $resources, OpenApiSchemaNames $names, array $built, array $related): array
     {
         $field = (string)$config->recordTypeField;
         $recordTypes = $config->recordTypes ?? [];
 
+        $base = $names->of($config);
         $schemas = [];
         $mapping = [];
-        // Another resource's own schema names win, e.g. those of resources split from this one.
-        $suffixes = [];
+        // Other resources' Read schemas and the schemas built so far keep their names,
+        // e.g. those of resources split from this one or type schemas of another resource.
+        $taken = array_fill_keys(array_keys($built), true);
         foreach ($resources as $resource) {
-            if ($resource !== $config && str_starts_with($resource->resourceType, $config->resourceType)) {
-                $suffixes[substr($resource->resourceType, \strlen($config->resourceType))] = true;
+            if ($resource !== $config) {
+                $taken[$names->of($resource) . 'Read'] = true;
             }
         }
+        $suffixes = [];
         foreach ($recordTypes as $recordType) {
-            $schema = $this->buildReadSchema($config, $resources, -1, $recordType);
-            $property = $schema['properties'][$field] ?? ['type' => 'string'];
-            $property['enum'] = [($property['type'] ?? null) === 'integer' ? (int)$recordType : $recordType];
-            $schema['properties'][$field] = $property;
+            $schema = $this->buildReadSchema($config, $related, -1, $recordType);
+            $schema['properties'][$field] = self::recordTypeEnum($schema['properties'][$field] ?? ['type' => 'string'], [$recordType]);
             $schema['required'] = [$field];
 
-            $name = \count($recordTypes) === 1
-                ? $config->resourceType . 'Read'
-                : $config->resourceType . self::uniqueRecordTypeSchemaSuffix($recordType, $suffixes) . 'Read';
+            $name = $base . 'Read';
+            if (\count($recordTypes) > 1) {
+                $suffix = self::uniqueRecordTypeSchemaSuffix($recordType, $suffixes);
+                for ($counter = 2, $unique = $suffix; isset($taken[$base . $unique . 'Read']); $counter++) {
+                    $unique = $suffix . $counter;
+                }
+                $suffixes[$unique] = true;
+                $name = $base . $unique . 'Read';
+            }
+            $taken[$name] = true;
             $schemas[$name] = $schema;
             $mapping[$recordType] = '#/components/schemas/' . $name;
         }
 
         if (\count($recordTypes) > 1) {
-            $schemas[$config->resourceType . 'Read'] = [
+            $schemas[$base . 'Read'] = [
                 'oneOf' => array_map(static fn (string $ref): array => ['$ref' => $ref], array_values($mapping)),
                 'discriminator' => ['propertyName' => $field, 'mapping' => (object)$mapping],
             ];
@@ -201,29 +276,45 @@ final readonly class OpenApiSchemasBuilder
         return $suffix;
     }
 
-    /** @param ApiDefinition[] $resources */
-    private function buildReadPropertySchema(ColumnDefinition $columnDef, ?array $tcaConfig, ApiDefinition $config, array $resources, int $remainingDepth = -1): array
+    /**
+     * @param ApiDefinition[] $resources
+     * @param list<string>    $ancestorTables
+     */
+    private function buildReadPropertySchema(ColumnDefinition $columnDef, ?array $tcaConfig, ApiDefinition $config, array $resources, int $remainingDepth = -1, array $ancestorTables = []): array
     {
+        // A column callback runs after everything else and replaces the value.
+        if ($columnDef->callback !== null) {
+            return $this->buildPropertySchema($columnDef);
+        }
+
         if ($tcaConfig !== null) {
             $tcaType = $tcaConfig['type'] ?? '';
 
             if ($tcaType === 'file') {
                 return $this->buildFilePropertySchema($tcaConfig);
             }
-            if ($tcaType === 'json' || $tcaType === 'flex') {
-                return ['type' => 'object'];
-            }
             if ($this->isHasManyField($tcaType, $tcaConfig)) {
-                $related = $this->relatedRecordSchema($tcaConfig, $columnDef, $config, $resources, $remainingDepth);
+                $related = $this->relatedRecordSchema($tcaConfig, $columnDef, $config, $resources, $remainingDepth, $ancestorTables, false);
                 return $related !== null
                     ? ['type' => 'array', 'items' => $related]
                     : $this->buildHasManySchema($columnDef, $this->referenceSchema($tcaConfig, $columnDef, $config, $resources));
             }
             if ($this->isHasOneField($tcaType, $tcaConfig)) {
-                $related = $this->relatedRecordSchema($tcaConfig, $columnDef, $config, $resources, $remainingDepth);
+                $related = $this->relatedRecordSchema($tcaConfig, $columnDef, $config, $resources, $remainingDepth, $ancestorTables, true);
                 return $related !== null
                     ? ['oneOf' => [$related, ['type' => 'null']]]
                     : $this->buildHasOneSchema($columnDef, $this->referenceSchema($tcaConfig, $columnDef, $config, $resources));
+            }
+            $processorSchema = $columnDef->type === null ? self::processorSchema($columnDef->processor) : null;
+            if ($processorSchema !== null) {
+                return $processorSchema;
+            }
+            // A declared type wins, and any other processor's output is only known to its author.
+            if ($columnDef->type === null && $columnDef->processor === null) {
+                $valueSchema = ColumnValueSchema::forTcaConfig($tcaConfig);
+                if ($valueSchema !== null) {
+                    return $valueSchema;
+                }
             }
         }
 
@@ -250,14 +341,31 @@ final readonly class OpenApiSchemasBuilder
             return $schema;
         }
 
-        $property = $properties[$field] ?? ['type' => 'string'];
-        $property['enum'] = ($property['type'] ?? null) === 'integer'
-            ? array_map('intval', $config->recordTypes)
-            : $config->recordTypes;
-        $properties[$field] = $property;
+        $properties[$field] = self::recordTypeEnum($properties[$field] ?? ['type' => 'string'], $config->recordTypes);
         $schema['properties'] = $properties;
 
         return $schema;
+    }
+
+    /**
+     * The type field restricted to record types. A nullable column is a oneOf with
+     * null; the type field always holds a type, so its non-null branch is used.
+     *
+     * @param array<int, string> $recordTypes
+     */
+    private static function recordTypeEnum(array $property, array $recordTypes): array
+    {
+        foreach ($property['oneOf'] ?? [] as $branch) {
+            if (($branch['type'] ?? null) !== 'null') {
+                $property = $branch;
+                break;
+            }
+        }
+        $property['enum'] = ($property['type'] ?? null) === 'integer'
+            ? array_map('intval', $recordTypes)
+            : array_values($recordTypes);
+
+        return $property;
     }
 
     private function buildPropertySchema(ColumnDefinition $columnDef): array
@@ -296,13 +404,19 @@ final readonly class OpenApiSchemasBuilder
      * Schema of one related record with the embed depth the serializer applies:
      * a reference once the depth is used up, and for a record embedded with
      * "embed.columns" the related resource's read schema cut down to those
-     * columns. Embedded objects also allow references because runtime cycle
-     * detection can stop embedding before the depth budget is exhausted.
-     * Null for polymorphic relations, handled by the existing group schemas.
+     * columns. Null for polymorphic relations, handled by the existing group schemas.
+     *
+     * An embedded record is cut short to a reference only when it is already on the
+     * embed path (RelationSerializer's $visited, keyed by table and uid), so the
+     * reference is allowed only when the related table is on the path: the
+     * ancestors for a to-one relation, the ancestors and this record for a to-many
+     * one. Categories embedded in an article are always objects; a parent article
+     * embedded in an article may be a reference.
      *
      * @param ApiDefinition[] $resources
+     * @param list<string>    $ancestorTables
      */
-    private function relatedRecordSchema(array $tcaConfig, ColumnDefinition $columnDef, ApiDefinition $config, array $resources, int $remainingDepth): ?array
+    private function relatedRecordSchema(array $tcaConfig, ColumnDefinition $columnDef, ApiDefinition $config, array $resources, int $remainingDepth, array $ancestorTables, bool $hasOne): ?array
     {
         $depth = $remainingDepth >= 0 ? $remainingDepth : $columnDef->embedDepth();
         if ($depth <= 0) {
@@ -314,8 +428,9 @@ final readonly class OpenApiSchemasBuilder
             return null;
         }
 
+        $embedPath  = [...$ancestorTables, $config->table];
         $related    = $this->relatedConfig($table, $columnDef, $config, $resources) ?? RelationSerializer::buildDefaultConfig($table, $columnDef);
-        $readSchema = $this->buildReadSchema($related, $resources, $depth - 1);
+        $readSchema = $this->buildReadSchema($related, $resources, $depth - 1, null, $embedPath);
         $properties = $columnDef->embedColumns() === []
             ? $readSchema['properties']
             : array_intersect_key(
@@ -326,10 +441,12 @@ final readonly class OpenApiSchemasBuilder
             unset($properties['@id']);
         }
 
-        return ['oneOf' => [
-            ['type' => 'object', 'properties' => $properties],
-            $this->referenceSchema($tcaConfig, $columnDef, $config, $resources),
-        ]];
+        $embedded = ['type' => 'object', 'properties' => $properties];
+        if (!\in_array($table, $hasOne ? $ancestorTables : $embedPath, true)) {
+            return $embedded;
+        }
+
+        return ['oneOf' => [$embedded, $this->referenceSchema($tcaConfig, $columnDef, $config, $resources)]];
     }
 
     /**
@@ -353,9 +470,23 @@ final readonly class OpenApiSchemasBuilder
             ]]];
         }
 
-        return $this->relatedConfig($table, $columnDef, $config, $resources)?->isAddressable() === true
-            ? $iri
-            : ['type' => 'integer'];
+        $related = $this->relatedConfig($table, $columnDef, $config, $resources);
+        if ($related?->isAddressable() !== true) {
+            return ['type' => 'integer'];
+        }
+
+        // Name the target, for generators (x-resource) and validators (pattern). The
+        // pattern matches the end of the IRI, whatever API or language prefix precedes it.
+        return $iri + [
+            'pattern'    => '/' . self::escapeRegex($related->resourceName) . '/[0-9]+$',
+            'x-resource' => $related->resourceName,
+        ];
+    }
+
+    /** Escapes for an ECMA-262 pattern; "-" stays as is, since an escaped "-" is invalid in unicode mode. */
+    private static function escapeRegex(string $value): string
+    {
+        return (string)preg_replace('/[.\\\\+*?^$()[\\]{}|\/]/', '\\\\$0', $value);
     }
 
     /** The single table a relation column points to, or null for a polymorphic group. */
@@ -409,31 +540,19 @@ final readonly class OpenApiSchemasBuilder
 
     private function isHasOneField(string $tcaType, array $tcaConfig): bool
     {
-        if ($tcaType === 'group') {
-            return $this->relatedTable($tcaConfig) !== null
-                && \in_array($tcaConfig['relationship'] ?? null, ['manyToOne', 'oneToOne'], true)
-                && !isset($tcaConfig['MM']);
-        }
-        if ($tcaType !== 'select' || !isset($tcaConfig['foreign_table'])) {
-            return false;
-        }
-        $renderType = $tcaConfig['renderType'] ?? '';
-        $maxItems   = $tcaConfig['maxitems'] ?? null;
-        return $renderType === 'selectSingle' || $maxItems === 1;
+        return $this->isRelationField($tcaType, $tcaConfig) && RelationCardinality::isHasOne($tcaConfig);
     }
 
     private function isHasManyField(string $tcaType, array $tcaConfig): bool
     {
-        if (\in_array($tcaType, ['inline', 'category'], true)) {
-            return true;
-        }
-        if ($tcaType === 'group') {
-            return !$this->isHasOneField($tcaType, $tcaConfig);
-        }
-        // select with foreign_table that is not hasOne (e.g. selectMultipleSideBySide)
-        return $tcaType === 'select'
-            && isset($tcaConfig['foreign_table'])
-            && !$this->isHasOneField($tcaType, $tcaConfig);
+        return $this->isRelationField($tcaType, $tcaConfig) && !RelationCardinality::isHasOne($tcaConfig);
+    }
+
+    /** A column the serializer renders through RelationSerializer. */
+    private function isRelationField(string $tcaType, array $tcaConfig): bool
+    {
+        return \in_array($tcaType, ['inline', 'category', 'group'], true)
+            || ($tcaType === 'select' && isset($tcaConfig['foreign_table']));
     }
 
     private function hasWriteOperations(ApiDefinition $config): bool
@@ -571,7 +690,7 @@ final readonly class OpenApiSchemasBuilder
         return substr($phpPattern, 1, $lastDelimiter - 1);
     }
 
-    private function buildCollectionSchema(string $resourceType): array
+    private function buildCollectionSchema(string $schemaName): array
     {
         return [
             'type' => 'object',
@@ -582,7 +701,7 @@ final readonly class OpenApiSchemasBuilder
                 'hydra:totalItems' => ['type' => 'integer'],
                 'hydra:member' => [
                     'type' => 'array',
-                    'items' => ['$ref' => '#/components/schemas/' . $resourceType . 'Read'],
+                    'items' => ['$ref' => '#/components/schemas/' . $schemaName . 'Read'],
                 ],
                 'hydra:view' => [
                     'type' => 'object',
@@ -590,8 +709,30 @@ final readonly class OpenApiSchemasBuilder
                         '@type' => ['type' => 'string'],
                         'hydra:first' => ['type' => 'string'],
                         'hydra:last' => ['type' => 'string'],
-                        'hydra:previous' => ['type' => 'string'],
-                        'hydra:next' => ['type' => 'string'],
+                        // null on the first and the last page
+                        'hydra:previous' => ['oneOf' => [['type' => 'string'], ['type' => 'null']]],
+                        'hydra:next' => ['oneOf' => [['type' => 'string'], ['type' => 'null']]],
+                    ],
+                ],
+                // Only present when the resource has public filters or orderings.
+                'hydra:search' => [
+                    'type' => 'object',
+                    'properties' => [
+                        '@type' => ['type' => 'string', 'example' => 'hydra:IriTemplate'],
+                        'hydra:template' => ['type' => 'string'],
+                        'hydra:variableRepresentation' => ['type' => 'string', 'example' => 'BasicRepresentation'],
+                        'hydra:mapping' => [
+                            'type' => 'array',
+                            'items' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    '@type' => ['type' => 'string', 'example' => 'IriTemplateMapping'],
+                                    'variable' => ['type' => 'string'],
+                                    'property' => ['type' => 'string'],
+                                    'required' => ['type' => 'boolean'],
+                                ],
+                            ],
+                        ],
                     ],
                 ],
             ],

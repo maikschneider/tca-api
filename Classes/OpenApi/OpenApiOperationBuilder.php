@@ -8,14 +8,15 @@ use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Filter\FilterDefinition;
 use MaikSchneider\TcaApi\Filter\MultiValueFilterInterface;
+use MaikSchneider\TcaApi\Filter\RangeFilter;
 use MaikSchneider\TcaApi\Filter\RelationPathFilter;
 
 final readonly class OpenApiOperationBuilder
 {
-    public function buildListOperation(string $resourceName, string $resourceType, ApiDefinition $config): array
+    public function buildListOperation(string $resourceName, string $schemaName, ApiDefinition $config): array
     {
         return [
-            'summary' => 'List ' . $resourceType . ' collection',
+            'summary' => 'List ' . $config->resourceType . ' collection',
             'operationId' => 'list' . $this->toPascalCase($resourceName),
             'tags' => [$config->tagName()],
             'x-typo3-access-role' => $this->accessRoleValue($config->securityRole('list')),
@@ -25,7 +26,7 @@ final readonly class OpenApiOperationBuilder
                     'description' => 'Successful response',
                     'content' => [
                         'application/ld+json' => [
-                            'schema' => ['$ref' => '#/components/schemas/' . $resourceType . 'Collection'],
+                            'schema' => ['$ref' => '#/components/schemas/' . $schemaName . 'Collection'],
                         ],
                     ],
                 ],
@@ -36,10 +37,10 @@ final readonly class OpenApiOperationBuilder
         ];
     }
 
-    public function buildShowOperation(string $resourceName, string $resourceType, ApiDefinition $config): array
+    public function buildShowOperation(string $resourceName, string $schemaName, ApiDefinition $config): array
     {
         return [
-            'summary' => 'Get single ' . $resourceType,
+            'summary' => 'Get single ' . $config->resourceType,
             'operationId' => 'show' . $this->toPascalCase($resourceName),
             'tags' => [$config->tagName()],
             'x-typo3-access-role' => $this->accessRoleValue($config->securityRole('show')),
@@ -57,7 +58,7 @@ final readonly class OpenApiOperationBuilder
                     'description' => 'Successful response',
                     'content' => [
                         'application/ld+json' => [
-                            'schema' => ['$ref' => '#/components/schemas/' . $resourceType . 'Read'],
+                            'schema' => ['$ref' => '#/components/schemas/' . $schemaName . 'Read'],
                         ],
                     ],
                 ],
@@ -68,21 +69,21 @@ final readonly class OpenApiOperationBuilder
         ];
     }
 
-    public function buildCreateOperation(string $resourceName, string $resourceType, ApiDefinition $config): array
+    public function buildCreateOperation(string $resourceName, string $schemaName, ApiDefinition $config): array
     {
         $content = [
             'application/json' => [
-                'schema' => $this->createSchema($resourceType . 'Write', $config),
+                'schema' => $this->createSchema($schemaName . 'Write', $config),
             ],
         ];
         if ($this->hasUploadColumns($config, 'create')) {
             $content['multipart/form-data'] = [
-                'schema' => $this->createSchema($resourceType . 'WriteMultipart', $config),
+                'schema' => $this->createSchema($schemaName . 'WriteMultipart', $config),
             ];
         }
 
         return [
-            'summary' => 'Create ' . $resourceType,
+            'summary' => 'Create ' . $config->resourceType,
             'operationId' => 'create' . $this->toPascalCase($resourceName),
             'tags' => [$config->tagName()],
             'x-typo3-access-role' => $this->accessRoleValue($config->securityRole('create')),
@@ -98,7 +99,7 @@ final readonly class OpenApiOperationBuilder
                     ],
                     'content' => [
                         'application/ld+json' => [
-                            'schema' => ['$ref' => '#/components/schemas/' . $resourceType . 'Read'],
+                            'schema' => ['$ref' => '#/components/schemas/' . $schemaName . 'Read'],
                         ],
                     ],
                 ],
@@ -118,22 +119,22 @@ final readonly class OpenApiOperationBuilder
         ];
     }
 
-    public function buildUpdateOperation(string $resourceName, string $resourceType, ApiDefinition $config, bool $partial): array
+    public function buildUpdateOperation(string $resourceName, string $schemaName, ApiDefinition $config, bool $partial): array
     {
         $method = $partial ? 'Partially update' : 'Update';
         $content = [
             'application/json' => [
-                'schema' => ['$ref' => '#/components/schemas/' . $resourceType . 'Write'],
+                'schema' => ['$ref' => '#/components/schemas/' . $schemaName . 'Write'],
             ],
         ];
         if ($this->hasUploadColumns($config, 'update')) {
             $content['multipart/form-data'] = [
-                'schema' => ['$ref' => '#/components/schemas/' . $resourceType . 'WriteMultipart'],
+                'schema' => ['$ref' => '#/components/schemas/' . $schemaName . 'WriteMultipart'],
             ];
         }
 
         return [
-            'summary' => $method . ' ' . $resourceType,
+            'summary' => $method . ' ' . $config->resourceType,
             'operationId' => ($partial ? 'patch' : 'update') . $this->toPascalCase($resourceName),
             'tags' => [$config->tagName()],
             'x-typo3-access-role' => $this->accessRoleValue($config->securityRole('update')),
@@ -146,7 +147,7 @@ final readonly class OpenApiOperationBuilder
                     'description' => 'Updated',
                     'content' => [
                         'application/ld+json' => [
-                            'schema' => ['$ref' => '#/components/schemas/' . $resourceType . 'Read'],
+                            'schema' => ['$ref' => '#/components/schemas/' . $schemaName . 'Read'],
                         ],
                     ],
                 ],
@@ -218,6 +219,22 @@ final readonly class OpenApiOperationBuilder
             // so keep advertising them top-level.
             $paramName = str_contains($field, '.') ? 'filters[' . $field . ']' : $field;
             $description = 'Filter by ' . $field . ' (' . $shortName . ')';
+            if ($this->isRangeFilter($filterConfig)) {
+                $params[] = [
+                    'name' => $paramName,
+                    'in' => 'query',
+                    'required' => false,
+                    'description' => $description . '. Supply one or more bounds as ' . $paramName . '[gte]=…, [lte], [gt] or [lt].',
+                    'style' => 'deepObject',
+                    'explode' => true,
+                    'schema' => [
+                        'type' => 'object',
+                        'properties' => array_fill_keys(['gte', 'lte', 'gt', 'lt'], ['type' => 'string']),
+                        'additionalProperties' => false,
+                    ],
+                ];
+                continue;
+            }
             $multiple = $this->acceptsMultipleValues($filterConfig);
             if ($multiple) {
                 $paramName .= '[]';
@@ -276,6 +293,16 @@ final readonly class OpenApiOperationBuilder
         }
 
         return is_a($filterConfig->filterClass, MultiValueFilterInterface::class, true);
+    }
+
+    /** RangeFilter reads a map of operators, also as the leaf of a relation path. */
+    private function isRangeFilter(FilterDefinition $filterConfig): bool
+    {
+        $filterClass = $filterConfig->filterClass === RelationPathFilter::class
+            ? $filterConfig->option('__leafFilter')
+            : $filterConfig->filterClass;
+
+        return \is_string($filterClass) && is_a($filterClass, RangeFilter::class, true);
     }
 
     /**

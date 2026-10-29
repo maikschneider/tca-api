@@ -70,7 +70,7 @@ jobs:
         run: ddev init-typo3
 
       - name: Run functional tests
-        run: ddev exec vendor/bin/phpunit --testsuite Functional
+        run: ddev exec CI=true vendor/bin/phpunit --testsuite Functional
 
   # maikschneider/api-key is only suggested; the extension must work without it.
   functional-tests-without-api-key:
@@ -135,6 +135,14 @@ jobs:
       - name: Init TYPO3
         run: ddev init-typo3
 
+      # Types generated from the spec must fit typical client code: this catches
+      # schemas that are too loose, which response validation can't.
+      - name: Type-check a client generated from the spec
+        run: |
+          ddev exec mkdir -p Tests/Client/generated
+          ddev exec vendor/bin/typo3 tca-api:openapi main --output Tests/Client/generated/openapi.json
+          ddev exec npm run client:check
+
       - name: Enable Xdebug
         run: ddev xdebug on
 
@@ -142,7 +150,7 @@ jobs:
         run: ddev exec XDEBUG_MODE=coverage vendor/bin/phpunit --testsuite Unit --coverage-clover coverage.unit.xml
 
       - name: Run functional tests with coverage
-        run: ddev exec XDEBUG_MODE=coverage vendor/bin/phpunit --testsuite Functional --coverage-clover coverage.functional.xml
+        run: ddev exec CI=true XDEBUG_MODE=coverage vendor/bin/phpunit --testsuite Functional --coverage-clover coverage.functional.xml
 
       - name: Upload unit coverage to Codecov
         uses: codecov/codecov-action@v5.5.5

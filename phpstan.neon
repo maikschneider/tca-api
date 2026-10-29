@@ -35,3 +35,4 @@ parameters:
 						tca_api.language: TYPO3\CMS\Core\Site\Entity\SiteLanguage|null
 						tca_api.language_id: int|null
 						tca_api.request_prefix: string|null
+						tca_api.allowed_resources: array|null

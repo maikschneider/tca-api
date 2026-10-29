@@ -37,7 +37,7 @@ final class OpenApiOperationBuilderTest extends TestCase
     }
 
     #[Test]
-    public function filtersWithoutListSupportKeepTheirExistingSchemas(): void
+    public function rangeFiltersAreDeepObjectsOfOperators(): void
     {
         $config = $this->makeConfigWithFilters([
             'year' => new FilterDefinition(RangeFilter::class, 'tx_test', 'year'),
@@ -48,9 +48,10 @@ final class OpenApiOperationBuilderTest extends TestCase
         $parameters = array_column($operation['parameters'], null, 'name');
         foreach (['year', 'filters[categories.uid]'] as $name) {
             self::assertArrayHasKey($name, $parameters);
-            self::assertSame(['type' => 'string'], $parameters[$name]['schema']);
-            self::assertArrayNotHasKey('style', $parameters[$name]);
-            self::assertArrayNotHasKey('explode', $parameters[$name]);
+            self::assertSame('deepObject', $parameters[$name]['style']);
+            self::assertTrue($parameters[$name]['explode']);
+            self::assertSame('object', $parameters[$name]['schema']['type']);
+            self::assertSame(['gte', 'lte', 'gt', 'lt'], array_keys($parameters[$name]['schema']['properties']));
             self::assertArrayNotHasKey($name . '[]', $parameters);
         }
     }

@@ -7,13 +7,14 @@ namespace MaikSchneider\TcaApi\Tests\Functional\Api\Serialization;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 use MaikSchneider\TcaApi\Tests\Functional\Fixtures\TestEchoProcessor;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Functional tests for type=imageManipulation serialization.
  *
  * Fixture records (colors_image_manipulation.csv):
  *   200 → crop_settings = valid JSON crop string  (should decode to array)
- *   201 → crop_settings = ''                      (empty string; raw fallback)
+ *   201 → crop_settings = ''                      (empty string becomes null)
  *   202 → crop_settings = 'not-valid-json'        (invalid JSON; raw fallback)
  */
 final class ImageManipulationTest extends ApiFunctionalTestCase
@@ -103,7 +104,7 @@ final class ImageManipulationTest extends ApiFunctionalTestCase
 
     // ── empty string ─────────────────────────────────────────────────────────
 
-    public function testEmptyStringReturnsRawValue(): void
+    public function testEmptyStringReturnsNull(): void
     {
         $this->registerResource('crop-colors', self::BASE_CONFIG);
 
@@ -112,8 +113,8 @@ final class ImageManipulationTest extends ApiFunctionalTestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertArrayHasKey('crop_settings', $body);
-        // Empty string is not valid JSON → raw fallback (empty string returned)
-        self::assertSame('', $body['crop_settings']);
+        // An empty column is null, as for flex columns and as the spec describes it
+        self::assertNull($body['crop_settings']);
     }
 
     // ── invalid JSON ─────────────────────────────────────────────────────────
@@ -129,6 +130,32 @@ final class ImageManipulationTest extends ApiFunctionalTestCase
         self::assertArrayHasKey('crop_settings', $body);
         self::assertIsString($body['crop_settings']);
         self::assertSame('not-valid-json', $body['crop_settings']);
+    }
+
+    /** @return iterable<string, array{string, mixed}> */
+    public static function decodedJsonValues(): iterable
+    {
+        yield 'list' => ['[1,2]', [1, 2]];
+        yield 'empty object becomes an array' => ['{}', []];
+        yield 'string' => ['"crop"', 'crop'];
+        yield 'boolean' => ['true', true];
+        yield 'number' => ['3.5', 3.5];
+    }
+
+    #[DataProvider('decodedJsonValues')]
+    public function testDecodedJsonValuesMatchTheResponseContract(string $storedValue, mixed $expected): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('tx_myext_domain_model_color')->update(
+            'tx_myext_domain_model_color',
+            ['crop_settings' => $storedValue],
+            ['uid' => 200],
+        );
+        $this->registerResource('crop-colors', self::BASE_CONFIG);
+
+        $response = $this->executeApiRequest('/_api/crop-colors/200');
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame($expected, $this->decodeResponseBody($response)['crop_settings']);
     }
 
     // ── processor bypass ─────────────────────────────────────────────────────

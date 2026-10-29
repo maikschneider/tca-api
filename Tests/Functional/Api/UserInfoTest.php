@@ -101,4 +101,26 @@ final class UserInfoTest extends ApiFunctionalTestCase
         self::assertSame(2, $body['uid']);
         self::assertSame('other', $body['username']);
     }
+
+    public function testUserOutsideTheReadStoragePidsGetsAHydraNotFound(): void
+    {
+        $this->registerResource('me', [
+            'general' => [
+                'type'            => 'userinfo',
+                'table'           => 'fe_users',
+                'resourceName'    => 'me',
+                'resourceType'    => 'FeUser',
+                'operations'      => [],
+                'readStoragePids' => [99],
+            ],
+            'columns' => [
+                'username' => ['groups' => ['list', 'show']],
+            ],
+        ]);
+
+        $response = $this->executeApiRequestAs('/_api/me', 1);
+
+        self::assertSame(404, $response->getStatusCode());
+        self::assertSame('hydra:Error', $this->decodeResponseBody($response)['@type']);
+    }
 }

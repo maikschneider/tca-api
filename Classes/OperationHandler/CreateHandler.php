@@ -28,6 +28,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 #[Autoconfigure(public: true)]
 class CreateHandler implements OperationHandlerInterface
 {
+    use AllowedResourcesTrait;
     use ColumnFilterTrait;
     use FileUploadTrait;
     use WriteOperationTrait;
@@ -122,12 +123,19 @@ class CreateHandler implements OperationHandlerInterface
 
         $this->eventDispatcher->dispatch(new AfterWriteEvent($config->table, 'create', $uid, $request, $config));
 
-        $row       = $this->dataRepository->findById($config->table, $uid, $config);
+        // Write responses include the saved record regardless of its publication status.
+        $row = $this->dataRepository->findById(
+            table: $config->table,
+            uid: $uid,
+            config: $config,
+            ignoreEnableFields: true,
+        );
+
         $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
         $baseUrl   = $apiPrefix . '/' . $config->resourceName;
         $location  = $baseUrl . '/' . $uid;
 
-        $serialized = $this->serializer->serialize($row, $config, $baseUrl);
+        $serialized = $this->serializer->serialize($row, $config, $baseUrl, [], ['__allowedResources' => $this->allowedResourcesFromRequest($request)]);
 
         $event = new AfterOperationEvent('create', $serialized, $request, $config);
         $this->eventDispatcher->dispatch($event);

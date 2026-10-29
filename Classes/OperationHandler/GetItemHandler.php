@@ -11,7 +11,6 @@ use MaikSchneider\TcaApi\Event\AfterOperationEvent;
 use MaikSchneider\TcaApi\Serializer\HydraResponseBuilder;
 use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
 use Psr\EventDispatcher\EventDispatcherInterface;
-use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
@@ -19,13 +18,13 @@ use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 #[Autoconfigure(public: true)]
 class GetItemHandler implements OperationHandlerInterface
 {
+    use AllowedResourcesTrait;
     use LanguageAwareTrait;
 
     public function __construct(
         private readonly DataRepository $dataRepository,
         private readonly ResourceSerializer $serializer,
         private readonly HydraResponseBuilder $hydraResponseBuilder,
-        private readonly ResponseFactoryInterface $responseFactory,
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly EmbedPreloader $embedPreloader,
     ) {
@@ -57,11 +56,10 @@ class GetItemHandler implements OperationHandlerInterface
 
         $row = $this->dataRepository->findById($config->table, $uid, $config, $language);
         if ($row === null) {
-            return $this->responseFactory->createResponse(404)
-                ->withHeader('Content-Type', 'application/ld+json');
+            return $this->hydraResponseBuilder->buildError(404, 'Resource not found', 'Not Found');
         }
 
-        $preloaded  = $this->embedPreloader->preload([$row], $config, $language, $fields, 'show');
+        $preloaded  = $this->embedPreloader->preload([$row], $config, $language, $fields, 'show', $this->allowedResourcesFromRequest($request));
         $serialized = $this->serializer->serialize($row, $config, $baseUrl, $fields, $preloaded, -1, [], 'show');
 
         $event = new AfterOperationEvent('show', $serialized, $request, $config);

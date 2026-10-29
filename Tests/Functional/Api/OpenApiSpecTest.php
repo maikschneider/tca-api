@@ -8,7 +8,7 @@ use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 
 /**
  * Validates the generated OpenAPI spec against the 3.1.0 specification
- * using @stoplight/spectral-cli. Skips if spectral is not installed.
+ * using @stoplight/spectral-cli. Skips if spectral is not installed, but fails in CI.
  */
 final class OpenApiSpecTest extends ApiFunctionalTestCase
 {
@@ -23,6 +23,10 @@ final class OpenApiSpecTest extends ApiFunctionalTestCase
         $projectRoot = realpath(__DIR__ . '/../../..');
         $spectralBin = $projectRoot . '/node_modules/.bin/spectral';
         if (!$projectRoot || !is_file($spectralBin)) {
+            // CI must never lose spec validation silently, e.g. after a failed npm install.
+            if (getenv('CI') !== false && getenv('CI') !== '') {
+                self::fail('spectral not installed — run npm install');
+            }
             self::markTestSkipped('spectral not installed — run npm install');
         }
 

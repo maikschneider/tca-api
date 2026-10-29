@@ -19,6 +19,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 #[Autoconfigure(public: true)]
 class GetCollectionHandler implements OperationHandlerInterface
 {
+    use AllowedResourcesTrait;
     use LanguageAwareTrait;
 
     public function __construct(
@@ -75,7 +76,7 @@ class GetCollectionHandler implements OperationHandlerInterface
         $language  = $this->languageFromRequest($request);
         $total     = $this->dataRepository->count($config->table, $safeFilters, $config, $language);
         $rows      = $this->dataRepository->findCollection($config->table, $safeFilters, $itemsPerPage, $offset, $safeOrder, $config, $language);
-        $preloaded = $this->embedPreloader->preload($rows, $config, $language, $fields, 'list');
+        $preloaded = $this->embedPreloader->preload($rows, $config, $language, $fields, 'list', $this->allowedResourcesFromRequest($request));
         $members   = $this->serializer->serializeCollection($rows, $config, $baseUrl, $fields, $preloaded, 'list');
 
         $event = new AfterOperationEvent('list', $members, $request, $config);

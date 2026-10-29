@@ -41,18 +41,39 @@ final class ApiRegistry
      * An explicit $resourceName selects that registration by name, also on the
      * same table; otherwise a self-referential relation keeps $config so its
      * embed definitions apply again.
+     *
+     * @param list<string> $allowedResourceNames the site's tca_api.allowedResources; empty = all.
+     *                                           A resource the site doesn't serve keeps its columns,
+     *                                           but loses its item endpoint, so it isn't linked.
      */
-    public function getRelated(string $foreignTable, ApiDefinition $config, ?string $resourceName = null): ?ApiDefinition
+    public function getRelated(string $foreignTable, ApiDefinition $config, ?string $resourceName = null, array $allowedResourceNames = []): ?ApiDefinition
     {
+        $isAllowed = static fn (string $name): bool => $allowedResourceNames === [] || \in_array($name, $allowedResourceNames, true);
+
         if ($resourceName !== null) {
-            return $this->get($resourceName);
+            $resource = $this->get($resourceName);
+            return $resource !== null && !$isAllowed($resourceName) ? $resource->withoutItemEndpoint() : $resource;
         }
 
         if ($foreignTable === $config->table) {
             return $config;
         }
 
-        return $this->getByTable($foreignTable);
+        if ($allowedResourceNames === []) {
+            return $this->getByTable($foreignTable);
+        }
+        $blocked = null;
+        foreach (self::$resources as $name => $resource) {
+            if ($resource->table !== $foreignTable) {
+                continue;
+            }
+            if ($isAllowed($name)) {
+                return $resource;
+            }
+            $blocked ??= $resource;
+        }
+
+        return $blocked?->withoutItemEndpoint();
     }
 
     /** @return array<string, ApiDefinition> */

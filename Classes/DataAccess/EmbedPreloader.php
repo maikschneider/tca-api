@@ -49,10 +49,11 @@ final class EmbedPreloader
     }
 
     /**
-     * @param array  $fields    Partial-response column list, as passed to the serializer
-     * @param string $operation Operation the serializer will run for, as passed to it
+     * @param array        $fields               Partial-response column list, as passed to the serializer
+     * @param string       $operation            Operation the serializer will run for, as passed to it
+     * @param list<string> $allowedResourceNames The site's allowed resources (request attribute tca_api.allowed_resources)
      */
-    public function preload(array $rows, ApiDefinition $config, ?SiteLanguage $language = null, array $fields = [], string $operation = ''): array
+    public function preload(array $rows, ApiDefinition $config, ?SiteLanguage $language = null, array $fields = [], string $operation = '', array $allowedResourceNames = []): array
     {
         $preloaded = [
             'rows'                => [],
@@ -61,6 +62,8 @@ final class EmbedPreloader
             'files'               => [],
             // Serializer slow paths read the language from here.
             '__language'          => ($config->languageMode !== 'ignore') ? $language : null,
+            // The serializer resolves related resources among these only.
+            '__allowedResources'  => $allowedResourceNames,
         ];
 
         $this->preloadRows($preloaded, $rows, $config, -1, $fields, $operation);
@@ -208,8 +211,8 @@ final class EmbedPreloader
             foreach ($children as $childTable => $uidSet) {
                 // Same config resolution as RelationSerializer and GroupFieldSerializer.
                 $childConfig = $polymorphic
-                    ? ($this->apiRegistry->getRelated($childTable, $config) ?? RelationSerializer::buildDefaultConfig($childTable))
-                    : ($this->apiRegistry->getRelated($childTable, $config, $columnDef->resourceName) ?? RelationSerializer::buildDefaultConfig($childTable, $columnDef));
+                    ? ($this->apiRegistry->getRelated($childTable, $config, null, $preloaded['__allowedResources']) ?? RelationSerializer::buildDefaultConfig($childTable))
+                    : ($this->apiRegistry->getRelated($childTable, $config, $columnDef->resourceName, $preloaded['__allowedResources']) ?? RelationSerializer::buildDefaultConfig($childTable, $columnDef));
 
                 $childRows = array_values(array_intersect_key($preloaded['rows'][$childTable] ?? [], $uidSet));
 

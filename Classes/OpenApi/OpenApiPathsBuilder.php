@@ -23,6 +23,7 @@ final readonly class OpenApiPathsBuilder
     public function build(array $resources, RequestContext $ctx, array $schemes = []): array
     {
         $paths = [];
+        $names = new OpenApiSchemaNames($resources);
 
         foreach ($resources as $resourceName => $config) {
             $collectionPath = $ctx->prefix . '/' . $resourceName;
@@ -30,10 +31,10 @@ final readonly class OpenApiPathsBuilder
 
             $collectionItem = [];
             if ($config->hasOperation('list')) {
-                $collectionItem['get'] = $this->withSecurity($this->operationBuilder->buildListOperation($resourceName, $config->resourceType, $config), $config, 'list', $schemes);
+                $collectionItem['get'] = $this->withSecurity($this->operationBuilder->buildListOperation($resourceName, $names->of($config), $config), $config, 'list', $schemes);
             }
             if ($config->hasOperation('create')) {
-                $collectionItem['post'] = $this->withSecurity($this->operationBuilder->buildCreateOperation($resourceName, $config->resourceType, $config), $config, 'create', $schemes);
+                $collectionItem['post'] = $this->withSecurity($this->operationBuilder->buildCreateOperation($resourceName, $names->of($config), $config), $config, 'create', $schemes);
             }
             if ($collectionItem !== []) {
                 $paths[$collectionPath] = $collectionItem;
@@ -41,11 +42,11 @@ final readonly class OpenApiPathsBuilder
 
             $itemItem = [];
             if ($config->hasOperation('show')) {
-                $itemItem['get'] = $this->withSecurity($this->operationBuilder->buildShowOperation($resourceName, $config->resourceType, $config), $config, 'show', $schemes);
+                $itemItem['get'] = $this->withSecurity($this->operationBuilder->buildShowOperation($resourceName, $names->of($config), $config), $config, 'show', $schemes);
             }
             if ($config->hasOperation('update')) {
-                $itemItem['put'] = $this->withSecurity($this->operationBuilder->buildUpdateOperation($resourceName, $config->resourceType, $config, partial: false), $config, 'update', $schemes);
-                $itemItem['patch'] = $this->withSecurity($this->operationBuilder->buildUpdateOperation($resourceName, $config->resourceType, $config, partial: true), $config, 'update', $schemes);
+                $itemItem['put'] = $this->withSecurity($this->operationBuilder->buildUpdateOperation($resourceName, $names->of($config), $config, partial: false), $config, 'update', $schemes);
+                $itemItem['patch'] = $this->withSecurity($this->operationBuilder->buildUpdateOperation($resourceName, $names->of($config), $config, partial: true), $config, 'update', $schemes);
             }
             if ($config->hasOperation('delete')) {
                 $itemItem['delete'] = $this->withSecurity($this->operationBuilder->buildDeleteOperation($resourceName, $config), $config, 'delete', $schemes);

@@ -6,10 +6,13 @@ namespace MaikSchneider\TcaApi\Tests\Unit\OpenApi;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\OpenApi\OpenApiSchemasBuilder;
+use MaikSchneider\TcaApi\Serializer\Processing\RouteEnhancerProcessor;
+use MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor;
 use MaikSchneider\TcaApi\Utility\TcaColumnDiscovery;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use TYPO3\CMS\Core\Information\Typo3Version;
 
 final class OpenApiSchemasBuilderTest extends TestCase
 {
@@ -66,6 +69,21 @@ final class OpenApiSchemasBuilderTest extends TestCase
         self::assertSame('integer', $props['fileSize']['type']);
     }
 
+    #[Test]
+    public function fileObjectDescribesTheImageProcessorFields(): void
+    {
+        $props = $this->builder->build([])['FileObject']['properties'];
+
+        self::assertSame([['type' => 'string'], ['type' => 'null']], $props['publicUrl']['oneOf']);
+        self::assertSame(['title', 'alternative', 'description', 'copyright'], array_keys($props['metadata']['properties']));
+        self::assertSame('integer', $props['width']['type']);
+        self::assertSame('integer', $props['height']['type']);
+        self::assertSame(
+            ['publicUrl', 'width', 'height'],
+            array_keys($props['cropVariants']['additionalProperties']['properties']),
+        );
+    }
+
     // ── HasOne relation schema ─────────────────────────────────────────────────
 
     #[Test]
@@ -98,6 +116,28 @@ final class OpenApiSchemasBuilderTest extends TestCase
         self::assertContains('null', $types);
         $formats = array_column($schema['oneOf'], 'format');
         self::assertContains('iri-reference', $formats);
+    }
+
+    #[Test]
+    public function relationIriNamesItsTargetResource(): void
+    {
+        $GLOBALS['TCA']['test_table'] = [
+            'ctrl' => [],
+            'columns' => [
+                'page' => ['config' => ['type' => 'select', 'renderType' => 'selectSingle', 'foreign_table' => 'pages']],
+            ],
+        ];
+
+        $schemas = $this->builder->build([
+            $this->makeConfig(['page' => ['groups' => ['list', 'show']]]),
+            self::makeTarget('pages', 'web-pages', ['list', 'show']),
+        ]);
+        $iri = $schemas['TestRead']['properties']['page']['oneOf'][0];
+
+        self::assertSame('web-pages', $iri['x-resource']);
+        self::assertSame('/web-pages/[0-9]+$', $iri['pattern']);
+        self::assertSame(1, preg_match('#' . $iri['pattern'] . '#u', '/de/_api/web-pages/186'));
+        self::assertSame(0, preg_match('#' . $iri['pattern'] . '#u', '/_api/articles/186'));
     }
 
     /** @return iterable<string, array{list<ApiDefinition>}> */
@@ -162,9 +202,9 @@ final class OpenApiSchemasBuilderTest extends TestCase
         self::assertArrayHasKey('author_id', $readProps);
         $schema = $readProps['author_id'];
         self::assertArrayHasKey('oneOf', $schema);
-        self::assertSame('object', $schema['oneOf'][0]['oneOf'][0]['type']);
-        self::assertSame('Author', $schema['oneOf'][0]['oneOf'][0]['properties']['@type']['example']);
-        self::assertSame(['type' => 'integer'], $schema['oneOf'][0]['oneOf'][1]);
+        // An author can't embed the test record back, so it is never cut short to a reference.
+        self::assertSame('object', $schema['oneOf'][0]['type']);
+        self::assertSame('Author', $schema['oneOf'][0]['properties']['@type']['example']);
         self::assertSame(['type' => 'null'], $schema['oneOf'][1]);
     }
 
@@ -310,9 +350,83 @@ final class OpenApiSchemasBuilderTest extends TestCase
         $readProps = $schemas['TestRead']['properties'];
 
         self::assertSame('array', $readProps['tags']['type']);
-        self::assertSame('object', $readProps['tags']['items']['oneOf'][0]['type']);
-        self::assertSame('Tag', $readProps['tags']['items']['oneOf'][0]['properties']['@type']['example']);
-        self::assertSame(['type' => 'integer'], $readProps['tags']['items']['oneOf'][1]);
+        self::assertSame('object', $readProps['tags']['items']['type']);
+        self::assertSame('Tag', $readProps['tags']['items']['properties']['@type']['example']);
+    }
+
+    #[Test]
+    public function embedThatCanHitACycleAllowsAReference(): void
+    {
+        $GLOBALS['TCA']['test_table'] = [
+            'ctrl' => [],
+            'columns' => [
+                'parent' => ['config' => ['type' => 'select', 'renderType' => 'selectSingle', 'foreign_table' => 'test_table']],
+                'children' => ['config' => ['type' => 'inline', 'foreign_table' => 'test_table', 'foreign_field' => 'parent']],
+            ],
+        ];
+
+        $readProps = $this->builder->build([$this->makeConfig([
+            'parent'   => ['groups' => ['list', 'show'], 'embed' => ['depth' => 2]],
+            'children' => ['groups' => ['list', 'show'], 'embed' => true],
+        ])])['TestRead']['properties'];
+
+        // To-one: the root record isn't on the path yet, so its parent is always embedded …
+        $parent = $readProps['parent']['oneOf'][0];
+        self::assertSame('object', $parent['type']);
+        // … but the grandparent may be the root record again, cut short to its IRI.
+        $grandparent = $parent['properties']['parent']['oneOf'][0];
+        self::assertSame('object', $grandparent['oneOf'][0]['type']);
+        self::assertSame('iri-reference', $grandparent['oneOf'][1]['format']);
+
+        // To-many: the record itself is on the path, so a child may be a reference.
+        self::assertSame('object', $readProps['children']['items']['oneOf'][0]['type']);
+        self::assertSame('iri-reference', $readProps['children']['items']['oneOf'][1]['format']);
+    }
+
+    #[Test]
+    public function selectWithMaxitemsOneButNoRelationshipIsAList(): void
+    {
+        $GLOBALS['TCA']['test_table'] = [
+            'ctrl' => [],
+            'columns' => [
+                'color_id' => ['config' => ['type' => 'select', 'renderType' => 'selectMultipleSideBySide', 'foreign_table' => 'tx_color', 'maxitems' => 1]],
+            ],
+        ];
+
+        $readProps = $this->builder->build([$this->makeConfig(['color_id' => ['groups' => ['list', 'show']]])])['TestRead']['properties'];
+
+        self::assertSame('array', $readProps['color_id']['type']);
+    }
+
+    #[Test]
+    public function categoryWithOneToOneRelationshipIsOneRecord(): void
+    {
+        $GLOBALS['TCA']['test_table'] = [
+            'ctrl' => [],
+            'columns' => [
+                'parent' => ['config' => ['type' => 'category', 'relationship' => 'oneToOne']],
+            ],
+        ];
+
+        $readProps = $this->builder->build([$this->makeConfig(['parent' => ['groups' => ['list', 'show']]])])['TestRead']['properties'];
+
+        self::assertArrayHasKey('oneOf', $readProps['parent']);
+        self::assertContains(['type' => 'null'], $readProps['parent']['oneOf']);
+    }
+
+    #[Test]
+    public function selectSingleWithMmIsAList(): void
+    {
+        $GLOBALS['TCA']['test_table'] = [
+            'ctrl' => [],
+            'columns' => [
+                'color_id' => ['config' => ['type' => 'select', 'renderType' => 'selectSingle', 'foreign_table' => 'tx_color', 'MM' => 'tx_test_color_mm']],
+            ],
+        ];
+
+        $readProps = $this->builder->build([$this->makeConfig(['color_id' => ['groups' => ['list', 'show']]])])['TestRead']['properties'];
+
+        self::assertSame('array', $readProps['color_id']['type']);
     }
 
     // ── File field schema ──────────────────────────────────────────────────────
@@ -367,7 +481,7 @@ final class OpenApiSchemasBuilderTest extends TestCase
     // ── FlexForm / JSON schema ─────────────────────────────────────────────────
 
     #[Test]
-    public function flexFormColumnProducesObjectSchema(): void
+    public function flexFormColumnProducesNullableObjectSchema(): void
     {
         $GLOBALS['TCA']['test_table'] = [
             'ctrl' => [],
@@ -381,11 +495,11 @@ final class OpenApiSchemasBuilderTest extends TestCase
         $readProps = $schemas['TestRead']['properties'];
 
         self::assertArrayHasKey('pi_flexform', $readProps);
-        self::assertSame('object', $readProps['pi_flexform']['type']);
+        self::assertSame([['type' => 'object'], ['type' => 'null']], $readProps['pi_flexform']['oneOf']);
     }
 
     #[Test]
-    public function jsonFieldProducesObjectSchema(): void
+    public function jsonFieldAcceptsAnyDecodedValue(): void
     {
         $GLOBALS['TCA']['test_table'] = [
             'ctrl' => [],
@@ -399,7 +513,127 @@ final class OpenApiSchemasBuilderTest extends TestCase
         $readProps = $schemas['TestRead']['properties'];
 
         self::assertArrayHasKey('meta', $readProps);
-        self::assertSame('object', $readProps['meta']['type']);
+        // Any decoded JSON value, scalars included: no type constraint.
+        self::assertArrayNotHasKey('type', $readProps['meta']);
+        self::assertArrayNotHasKey('oneOf', $readProps['meta']);
+    }
+
+    // ── Scalar columns without a declared type ─────────────────────────────────
+
+    #[Test]
+    public function untypedScalarColumnsAreDescribedAsTheyAreSent(): void
+    {
+        $GLOBALS['TCA']['test_table'] = ['ctrl' => [], 'columns' => [
+            'istopnews' => ['config' => ['type' => 'check']],
+            'count'     => ['config' => ['type' => 'number']],
+            'price'     => ['config' => ['type' => 'number', 'format' => 'decimal', 'nullable' => true]],
+            'event_at'  => ['config' => ['type' => 'datetime']],
+            'website'   => ['config' => ['type' => 'link']],
+            'bodytext'  => ['config' => ['type' => 'text']],
+            'title'     => ['config' => ['type' => 'input']],
+            'subtitle'  => ['config' => ['type' => 'input', 'nullable' => true]],
+            'slug'      => ['config' => ['type' => 'slug']],
+            'country'   => ['config' => ['type' => 'country']],
+            'layout'    => ['config' => ['type' => 'select', 'renderType' => 'selectSingle', 'items' => [['label' => 'A', 'value' => 0], ['label' => 'B', 'value' => 1]]]],
+            'ctype'     => ['config' => ['type' => 'select', 'renderType' => 'selectSingle', 'items' => [['label' => 'Text', 'value' => 'text']]]],
+            'orient'    => ['config' => ['type' => 'radio', 'items' => [['label' => 'A', 'value' => 0], ['label' => 'B', 'value' => 8]]]],
+            'crop'      => ['config' => ['type' => 'imageManipulation']],
+        ]];
+
+        $columns = array_fill_keys(array_keys($GLOBALS['TCA']['test_table']['columns']), ['groups' => ['list', 'show']]);
+        $readProps = $this->builder->build([$this->makeConfig($columns)])['TestRead']['properties'];
+        $nullable = static fn (array $schema): array => ['oneOf' => [$schema, ['type' => 'null']]];
+
+        self::assertSame(['type' => 'integer'], $readProps['istopnews']);
+        self::assertSame(['type' => 'integer'], $readProps['count']);
+        self::assertSame($nullable(['type' => 'string']), $readProps['price']);
+        self::assertSame($nullable(['type' => 'string', 'format' => 'date-time']), $readProps['event_at']);
+        self::assertSame($nullable(['type' => 'string']), $readProps['website']);
+        self::assertSame($nullable(['type' => 'string']), $readProps['bodytext']);
+        self::assertSame(['type' => 'string'], $readProps['title']);
+        self::assertSame($nullable(['type' => 'string']), $readProps['subtitle']);
+        self::assertSame($nullable(['type' => 'string']), $readProps['slug']);
+        self::assertSame((new Typo3Version())->getMajorVersion() >= 14 ? $nullable(['type' => 'string']) : ['type' => 'string'], $readProps['country']);
+        self::assertSame(['type' => 'integer'], $readProps['layout']);
+        self::assertSame(['type' => 'string'], $readProps['ctype']);
+        self::assertSame(['type' => 'integer'], $readProps['orient']);
+        self::assertArrayNotHasKey('type', $readProps['crop']);
+        self::assertArrayNotHasKey('oneOf', $readProps['crop']);
+    }
+
+    #[Test]
+    public function declaredTypeAndProcessorKeepTheConfiguredSchema(): void
+    {
+        $GLOBALS['TCA']['test_table'] = ['ctrl' => [], 'columns' => [
+            'istopnews' => ['config' => ['type' => 'check']],
+            'bodytext'  => ['config' => ['type' => 'text']],
+        ]];
+
+        $readProps = $this->builder->build([$this->makeConfig([
+            'istopnews' => ['groups' => ['list', 'show'], 'type' => 'boolean'],
+            'bodytext'  => ['groups' => ['list', 'show'], 'processor' => 'SomeProcessor'],
+        ])])['TestRead']['properties'];
+
+        self::assertSame(['type' => 'boolean'], $readProps['istopnews']);
+        self::assertSame(['type' => 'string'], $readProps['bodytext']);
+    }
+
+    #[Test]
+    public function passthroughColumnIsUnconstrainedAndRouteVirtualPropertyANullableString(): void
+    {
+        $GLOBALS['TCA']['test_table'] = ['ctrl' => [], 'columns' => ['raw' => ['config' => ['type' => 'passthrough']]]];
+
+        $config = ApiDefinition::fromArray([
+            'general' => ['table' => 'test_table', 'resourceName' => 'tests', 'resourceType' => 'Test'],
+            'columns' => ['raw' => ['groups' => ['list', 'show']]],
+            'virtualProperties' => [
+                'url' => ['groups' => ['list', 'show'], 'processor' => RouteEnhancerProcessor::class],
+            ],
+        ]);
+        $readProps = $this->builder->build([$config])['TestRead']['properties'];
+
+        self::assertArrayNotHasKey('type', $readProps['raw']);
+        self::assertSame(['oneOf' => [['type' => 'string'], ['type' => 'null']]], $readProps['url']);
+    }
+
+    #[Test]
+    public function typoLinkProcessorColumnIsANullableString(): void
+    {
+        $GLOBALS['TCA']['test_table'] = ['ctrl' => [], 'columns' => ['website' => ['config' => ['type' => 'input']]]];
+
+        $readProps = $this->builder->build([$this->makeConfig([
+            'website' => ['groups' => ['list', 'show'], 'processor' => TypoLinkProcessor::class],
+        ])])['TestRead']['properties'];
+
+        self::assertSame(['oneOf' => [['type' => 'string'], ['type' => 'null']]], $readProps['website']);
+    }
+
+    #[Test]
+    public function nullableRecordTypeFieldGetsAnEnumOfItsValueType(): void
+    {
+        $GLOBALS['TCA']['test_table'] = [
+            'ctrl' => ['type' => 'record_type'],
+            'columns' => [
+                'record_type' => ['config' => ['type' => 'select', 'renderType' => 'selectSingle', 'items' => [
+                    ['label' => 'None', 'value' => null], ['label' => 'One', 'value' => 1], ['label' => 'Two', 'value' => 2],
+                ]]],
+            ],
+            'types' => ['1' => ['showitem' => 'record_type'], '2' => ['showitem' => 'record_type']],
+        ];
+
+        foreach (['type', 'table'] as $schemaMode) {
+            $config = ApiDefinition::fromArray([
+                'general' => ['table' => 'test_table', 'resourceName' => 'tests', 'resourceType' => 'Test', 'recordTypes' => ['include' => ['1', '2'], 'schema' => $schemaMode]],
+            ]);
+            $schemas = $this->builder->build([$config]);
+
+            $read = $schemaMode === 'type' ? $schemas['Test1Read'] : $schemas['TestRead'];
+            $isInteger = (new Typo3Version())->getMajorVersion() >= 14;
+            self::assertSame($isInteger ? 'integer' : 'string', $read['properties']['record_type']['type'], $schemaMode);
+            self::assertArrayNotHasKey('oneOf', $read['properties']['record_type'], $schemaMode);
+            $expectedEnum = $schemaMode === 'type' ? [1] : [1, 2];
+            self::assertSame($isInteger ? $expectedEnum : array_map(strval(...), $expectedEnum), $read['properties']['record_type']['enum'], $schemaMode);
+        }
     }
 
     // ── Virtual properties ─────────────────────────────────────────────────────
@@ -426,6 +660,32 @@ final class OpenApiSchemasBuilderTest extends TestCase
 
         self::assertArrayHasKey('displayName', $readProps);
         self::assertSame('string', $readProps['displayName']['type']);
+    }
+
+    #[Test]
+    public function virtualPropertyOverAFileColumnIsDescribedLikeTheColumn(): void
+    {
+        $GLOBALS['TCA']['test_table'] = ['ctrl' => [], 'columns' => [
+            'media' => ['config' => ['type' => 'file']],
+            'photo' => ['config' => ['type' => 'file', 'maxitems' => 1]],
+        ]];
+
+        $config = ApiDefinition::fromArray([
+            'general' => ['table' => 'test_table', 'resourceName' => 'tests', 'resourceType' => 'Test'],
+            'columns' => [],
+            'virtualProperties' => [
+                'teaserImage' => ['groups' => ['list', 'show'], 'column' => 'media', 'image' => ['cropVariant' => 'teaser']],
+                'teaserPhoto' => ['groups' => ['list', 'show'], 'column' => 'photo'],
+                'mediaCount'  => ['groups' => ['list', 'show'], 'column' => 'media', 'type' => 'integer', 'callback' => ['SomeClass', 'someMethod']],
+            ],
+        ]);
+
+        $readProps = $this->builder->build([$config])['TestRead']['properties'];
+
+        self::assertSame(['type' => 'array', 'items' => ['$ref' => '#/components/schemas/FileObject']], $readProps['teaserImage']);
+        self::assertSame([['$ref' => '#/components/schemas/FileObject'], ['type' => 'null']], $readProps['teaserPhoto']['oneOf']);
+        // A callback replaces the value, so its declared type wins.
+        self::assertSame(['type' => 'integer'], $readProps['mediaCount']);
     }
 
     #[Test]
@@ -539,6 +799,103 @@ final class OpenApiSchemasBuilderTest extends TestCase
         self::assertArrayHasKey('fe_user_id', $readProps);
         self::assertArrayNotHasKey('fe_user', $readProps);
         self::assertSame('integer', $readProps['fe_user_id']['type']);
+    }
+
+    // ── Collection schema ──────────────────────────────────────────────────────
+
+    #[Test]
+    public function collectionPagingLinksAreNullable(): void
+    {
+        $view = $this->builder->build([$this->makeConfig([])])['TestCollection']['properties']['hydra:view']['properties'];
+
+        foreach (['hydra:previous', 'hydra:next'] as $link) {
+            self::assertSame([['type' => 'string'], ['type' => 'null']], $view[$link]['oneOf'], $link);
+        }
+        self::assertSame('string', $view['hydra:first']['type']);
+        self::assertSame('string', $view['hydra:last']['type']);
+    }
+
+    #[Test]
+    public function collectionDescribesTheSearchTemplate(): void
+    {
+        $search = $this->builder->build([$this->makeConfig([])])['TestCollection']['properties']['hydra:search'];
+
+        self::assertSame('object', $search['type']);
+        self::assertSame(['@type', 'hydra:template', 'hydra:variableRepresentation', 'hydra:mapping'], array_keys($search['properties']));
+        self::assertSame(
+            ['@type', 'variable', 'property', 'required'],
+            array_keys($search['properties']['hydra:mapping']['items']['properties']),
+        );
+    }
+
+    // ── Schema names ───────────────────────────────────────────────────────────
+
+    #[Test]
+    public function resourcesSharingAResourceTypeGetSeparateSchemas(): void
+    {
+        $public = ApiDefinition::fromArray([
+            'general' => ['table' => 'test_table', 'resourceName' => 'tests', 'resourceType' => 'Test', 'operations' => ['list', 'show', 'update']],
+            'columns' => ['title' => ['groups' => ['list', 'show']]],
+        ]);
+        $internal = ApiDefinition::fromArray([
+            'general' => ['table' => 'test_table', 'resourceName' => 'internal-tests', 'resourceType' => 'Test', 'operations' => ['list', 'show', 'update']],
+            'columns' => ['title' => ['groups' => ['list', 'show']], 'secret' => ['groups' => ['list', 'show']]],
+        ]);
+
+        $schemas = $this->builder->build([$public, $internal]);
+
+        // The first resource keeps the plain name, so its clients' types don't change.
+        self::assertArrayNotHasKey('secret', $schemas['TestRead']['properties']);
+        self::assertArrayHasKey('secret', $schemas['TestInternalTestsRead']['properties']);
+        self::assertArrayHasKey('TestInternalTestsWrite', $schemas);
+        self::assertSame(
+            '#/components/schemas/TestInternalTestsRead',
+            $schemas['TestInternalTestsCollection']['properties']['hydra:member']['items']['$ref'],
+        );
+        self::assertSame('#/components/schemas/TestRead', $schemas['TestCollection']['properties']['hydra:member']['items']['$ref']);
+    }
+
+    #[Test]
+    public function generatedSchemaNameNeverTakesALaterResourcesPlainName(): void
+    {
+        $make = static fn (string $name, string $type): ApiDefinition => ApiDefinition::fromArray([
+            'general' => ['table' => 'test_table', 'resourceName' => $name, 'resourceType' => $type, 'operations' => ['list', 'show']],
+            'columns' => ['title' => ['groups' => ['list', 'show']]],
+        ]);
+
+        $schemas = $this->builder->build([
+            $make('tests', 'Test'),
+            $make('internal-tests', 'Test'),
+            $make('specials', 'TestInternalTests'),
+        ]);
+
+        // The later resource keeps its declared name; the duplicate gets a counter.
+        self::assertSame('#/components/schemas/TestInternalTestsRead', $schemas['TestInternalTestsCollection']['properties']['hydra:member']['items']['$ref']);
+        self::assertSame('#/components/schemas/TestInternalTests2Read', $schemas['TestInternalTests2Collection']['properties']['hydra:member']['items']['$ref']);
+    }
+
+    #[Test]
+    public function recordTypeSchemaNamesAreUniqueAcrossResources(): void
+    {
+        $GLOBALS['TCA']['test_table'] = [
+            'ctrl' => ['type' => 'record_type'],
+            'columns' => ['record_type' => ['config' => ['type' => 'select']], 'title' => ['config' => ['type' => 'input']]],
+            'types' => ['foo-bar' => ['showitem' => 'title'], 'bar' => ['showitem' => 'title'], 'baz' => ['showitem' => 'title']],
+        ];
+        $make = static fn (string $name, array $recordTypes): ApiDefinition => ApiDefinition::fromArray([
+            'general' => ['table' => 'test_table', 'resourceName' => $name, 'resourceType' => 'Item', 'recordTypes' => $recordTypes],
+        ]);
+
+        // "Item" + "FooBar" and "Item" + "Foo" (resource name) + "Bar" would both be ItemFooBarRead.
+        $schemas = $this->builder->build([$make('items', ['foo-bar', 'baz']), $make('foo', ['bar', 'baz'])]);
+
+        $mapping = static fn (string $read): array => (array)$schemas[$read]['discriminator']['mapping'];
+        $refs = [...array_values($mapping('ItemRead')), ...array_values($mapping('ItemFooRead'))];
+        self::assertCount(4, array_unique($refs));
+        foreach ($refs as $ref) {
+            self::assertArrayHasKey(substr($ref, \strlen('#/components/schemas/')), $schemas);
+        }
+        self::assertSame(['bar'], $schemas[substr($mapping('ItemFooRead')['bar'], \strlen('#/components/schemas/'))]['properties']['record_type']['enum']);
     }
 
     // ── Helper ─────────────────────────────────────────────────────────────────

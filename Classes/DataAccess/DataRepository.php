@@ -14,6 +14,7 @@ use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
+use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\Site\Entity\SiteLanguage;
 
 final class DataRepository
@@ -100,9 +101,17 @@ final class DataRepository
         return $indexed;
     }
 
-    public function findById(string $table, int $uid, ApiDefinition $config, ?SiteLanguage $language = null): ?array
+    /**
+     * @param bool $ignoreEnableFields Also return a hidden or scheduled record (enable fields
+     *                                 hidden, starttime, endtime); deleted records stay excluded.
+     *                                 Used to read a record back after a write, which may hide it.
+     */
+    public function findById(string $table, int $uid, ApiDefinition $config, ?SiteLanguage $language = null, bool $ignoreEnableFields = false): ?array
     {
         $qb = $this->connectionPool->getQueryBuilderForTable($table);
+        if ($ignoreEnableFields) {
+            $qb->getRestrictions()->removeAll()->add(new DeletedRestriction());
+        }
         $qb->select('*')
             ->from($table)
             ->where(
