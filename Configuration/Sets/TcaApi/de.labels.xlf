@@ -71,30 +71,6 @@
 				<source>Who may access the OpenAPI JSON spec at {apiPrefix}openapi.json.</source>
 				<target>Wer auf die OpenAPI-JSON-Spezifikation unter {apiPrefix}openapi.json zugreifen darf.</target>
 			</trans-unit>
-			<trans-unit id="settings.tca_api.openApiExposed.enum.PUBLIC" resname="settings.tca_api.openApiExposed.enum.PUBLIC">
-				<source>Public (everyone)</source>
-				<target>Öffentlich (alle)</target>
-			</trans-unit>
-			<trans-unit id="settings.tca_api.openApiExposed.enum.FE_USER" resname="settings.tca_api.openApiExposed.enum.FE_USER">
-				<source>Frontend users</source>
-				<target>Frontend-Benutzer</target>
-			</trans-unit>
-			<trans-unit id="settings.tca_api.openApiExposed.enum.BE_USER" resname="settings.tca_api.openApiExposed.enum.BE_USER">
-				<source>Backend users</source>
-				<target>Backend-Benutzer</target>
-			</trans-unit>
-			<trans-unit id="settings.tca_api.openApiExposed.enum.BE_ADMIN" resname="settings.tca_api.openApiExposed.enum.BE_ADMIN">
-				<source>Backend admins</source>
-				<target>Backend-Administratoren</target>
-			</trans-unit>
-			<trans-unit id="settings.tca_api.openApiExposed.enum.API_KEY" resname="settings.tca_api.openApiExposed.enum.API_KEY">
-				<source>Requests with an API key or token</source>
-				<target>Anfragen mit API-Schlüssel oder Token</target>
-			</trans-unit>
-			<trans-unit id="settings.tca_api.openApiExposed.enum.NONE" resname="settings.tca_api.openApiExposed.enum.NONE">
-				<source>Disabled</source>
-				<target>Deaktiviert</target>
-			</trans-unit>
 			<trans-unit id="settings.tca_api.apiSpecTitle" resname="settings.tca_api.apiSpecTitle">
 				<source>API Title</source>
 				<target>API-Titel</target>
@@ -126,26 +102,6 @@
 			<trans-unit id="settings.description.tca_api.swaggerUiEnabled" resname="settings.description.tca_api.swaggerUiEnabled">
 				<source>Who may access the interactive Swagger UI at {apiPrefix}swagger-ui.</source>
 				<target>Wer auf die interaktive Swagger UI unter {apiPrefix}swagger-ui zugreifen darf.</target>
-			</trans-unit>
-			<trans-unit id="settings.tca_api.swaggerUiEnabled.enum.PUBLIC" resname="settings.tca_api.swaggerUiEnabled.enum.PUBLIC">
-				<source>Public (everyone)</source>
-				<target>Öffentlich (alle)</target>
-			</trans-unit>
-			<trans-unit id="settings.tca_api.swaggerUiEnabled.enum.FE_USER" resname="settings.tca_api.swaggerUiEnabled.enum.FE_USER">
-				<source>Frontend users</source>
-				<target>Frontend-Benutzer</target>
-			</trans-unit>
-			<trans-unit id="settings.tca_api.swaggerUiEnabled.enum.BE_USER" resname="settings.tca_api.swaggerUiEnabled.enum.BE_USER">
-				<source>Backend users</source>
-				<target>Backend-Benutzer</target>
-			</trans-unit>
-			<trans-unit id="settings.tca_api.swaggerUiEnabled.enum.BE_ADMIN" resname="settings.tca_api.swaggerUiEnabled.enum.BE_ADMIN">
-				<source>Backend admins</source>
-				<target>Backend-Administratoren</target>
-			</trans-unit>
-			<trans-unit id="settings.tca_api.swaggerUiEnabled.enum.NONE" resname="settings.tca_api.swaggerUiEnabled.enum.NONE">
-				<source>Disabled</source>
-				<target>Deaktiviert</target>
 			</trans-unit>
 			<trans-unit id="settings.tca_api.corsEnabled" resname="settings.tca_api.corsEnabled">
 				<source>Enable CORS</source>

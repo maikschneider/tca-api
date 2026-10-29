@@ -42,12 +42,12 @@ settings:
     category: TcaApi.apiSpec
     type: string
     enum:
-      - PUBLIC
-      - FE_USER
-      - BE_USER
-      - BE_ADMIN
-      - API_KEY
-      - NONE
+      PUBLIC: 'Public (everyone)'
+      FE_USER: 'Frontend users'
+      BE_USER: 'Backend users'
+      BE_ADMIN: 'Backend admins'
+      API_KEY: 'Requests with an API key or token'
+      NONE: 'Disabled'
     default: 'PUBLIC'
 
   tca_api.apiSpecTitle:
@@ -69,11 +69,11 @@ settings:
     category: TcaApi.apiSpec
     type: string
     enum:
-      - PUBLIC
-      - FE_USER
-      - BE_USER
-      - BE_ADMIN
-      - NONE
+      PUBLIC: 'Public (everyone)'
+      FE_USER: 'Frontend users'
+      BE_USER: 'Backend users'
+      BE_ADMIN: 'Backend admins'
+      NONE: 'Disabled'
     default: 'PUBLIC'
 
   tca_api.corsEnabled:
