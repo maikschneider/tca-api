@@ -13,6 +13,13 @@ baselines hold the mismatches known when the check was introduced
 ([#259](https://github.com/maikschneider/tca-api/issues/259)). They may only
 shrink: a fix removes its lines, new code adds none.
 
+A line that no response produces anymore would keep allowing its mismatch, so
+a later regression of exactly that case would pass. A complete functional run
+in CI (`CI` set, `--testsuite Functional`, no filter, group or path) therefore
+fails with a PHPUnit warning that lists every baseline line no response
+matched (`UnmatchedBaselineExtension`). Remove those lines, or regenerate the
+baseline. Filtered and local runs skip the check, since they can't tell.
+
 Besides the body, the check reports a status code the operation doesn't
 document, an empty body or a non-JSON content type where a JSON body is
 documented.
