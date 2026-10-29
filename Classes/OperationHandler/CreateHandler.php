@@ -123,8 +123,14 @@ class CreateHandler implements OperationHandlerInterface
 
         $this->eventDispatcher->dispatch(new AfterWriteEvent($config->table, 'create', $uid, $request, $config));
 
-        // The writer gets the record back even if the write hid it (hidden, starttime, endtime).
-        $row       = $this->dataRepository->findById($config->table, $uid, $config, ignoreEnableFields: true);
+        // Write responses include the saved record regardless of its publication status.
+        $row = $this->dataRepository->findById(
+            table: $config->table,
+            uid: $uid,
+            config: $config,
+            ignoreEnableFields: true,
+        );
+
         $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
         $baseUrl   = $apiPrefix . '/' . $config->resourceName;
         $location  = $baseUrl . '/' . $uid;
