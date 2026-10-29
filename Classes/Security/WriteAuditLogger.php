@@ -38,6 +38,7 @@ final class WriteAuditLogger
             'actor_username' => $context->actorUsername,
             'credential' => $context->credential,
             'write_mode' => $context->mode->value,
+            'workspace' => $context->workspaceId,
         ]);
     }
 
@@ -54,6 +55,7 @@ final class WriteAuditLogger
             'actor_username' => $context->actorUsername,
             'credential' => $context->credential,
             'write_mode' => $context->mode->value,
+            'workspace' => $context->workspaceId,
             'reason' => $reason,
         ]);
     }

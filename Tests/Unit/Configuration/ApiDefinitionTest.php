@@ -1121,4 +1121,98 @@ final class ApiDefinitionTest extends TestCase
 
         ApiDefinition::fromArray(self::typeSchemaConfig(['schema' => 'record']));
     }
+
+    // ── workspace ───────────────────────────────────────────────────────
+
+    /**
+     * A create-only resource on a versioned table, with the given workspace options.
+     *
+     * @param array<string, mixed> $workspaceOptions
+     */
+    private static function workspaceConfig(array $workspaceOptions, bool $versioned = true): array
+    {
+        $GLOBALS['TCA']['tx_test'] = ['ctrl' => ['versioningWS' => $versioned], 'columns' => []];
+
+        $cfg = self::minimalConfig();
+        $cfg['general']['operations'] = ['create'];
+        $cfg['general'] = array_replace($cfg['general'], $workspaceOptions);
+
+        return $cfg;
+    }
+
+    #[Test]
+    public function resourceWritesLiveByDefault(): void
+    {
+        $def = ApiDefinition::fromArray(self::minimalConfig());
+
+        self::assertNull($def->workspace);
+        self::assertNull($def->workspaceSetting);
+        self::assertNull($def->workspaceStage);
+        self::assertSame('', $def->workspaceStageComment);
+        self::assertFalse($def->writesToWorkspace());
+    }
+
+    #[Test]
+    public function workspaceOptionsAreParsed(): void
+    {
+        $def = ApiDefinition::fromArray(self::workspaceConfig([
+            'workspace'             => '2',
+            'workspaceStage'        => -10,
+            'workspaceStageComment' => 'Created via API',
+        ]));
+
+        self::assertSame(2, $def->workspace);
+        self::assertNull($def->workspaceSetting);
+        self::assertSame(-10, $def->workspaceStage);
+        self::assertSame('Created via API', $def->workspaceStageComment);
+        self::assertTrue($def->writesToWorkspace());
+    }
+
+    #[Test]
+    public function workspaceAcceptsASiteSettingPlaceholder(): void
+    {
+        $def = ApiDefinition::fromArray(self::workspaceConfig(['workspace' => '{$tenant.workspace}']));
+
+        self::assertNull($def->workspace);
+        self::assertSame('tenant.workspace', $def->workspaceSetting);
+        self::assertNull($def->workspaceStage);
+        self::assertTrue($def->writesToWorkspace());
+    }
+
+    #[Test]
+    public function workspaceZeroWritesLive(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['workspace'] = 0;
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertSame(0, $def->workspace);
+        self::assertFalse($def->writesToWorkspace());
+    }
+
+    #[Test]
+    #[DataProvider('invalidWorkspaceConfigurations')]
+    public function invalidWorkspaceConfigurationThrows(array $workspaceOptions, string $message, bool $versioned = true): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage($message);
+
+        ApiDefinition::fromArray(self::workspaceConfig($workspaceOptions, $versioned));
+    }
+
+    /** @return iterable<string, array{0: array<string, mixed>, 1: string, 2?: bool}> */
+    public static function invalidWorkspaceConfigurations(): iterable
+    {
+        yield 'neither uid nor placeholder' => [['workspace' => 'drafts'], 'general.workspace must be a workspace uid or a {$site.setting} placeholder'];
+        yield 'negative uid' => [['workspace' => -1], 'general.workspace must be a workspace uid or a {$site.setting} placeholder'];
+        yield 'boolean' => [['workspace' => true], 'general.workspace must be a workspace uid or a {$site.setting} placeholder'];
+        yield 'table without versioning' => [['workspace' => 1], 'general.workspace requires a table with ctrl.versioningWS', false];
+        yield 'with update' => [['workspace' => 1, 'operations' => ['create', 'update']], 'general.workspace supports the create operation only'];
+        yield 'with delete' => [['workspace' => 1, 'operations' => ['create', 'delete']], 'general.workspace supports the create operation only'];
+        yield 'stage without workspace' => [['workspaceStage' => -10], 'general.workspaceStage and general.workspaceStageComment require general.workspace'];
+        yield 'comment without workspace' => [['workspaceStageComment' => 'x'], 'general.workspaceStage and general.workspaceStageComment require general.workspace'];
+        yield 'stage with live workspace' => [['workspace' => 0, 'workspaceStage' => -10], 'general.workspaceStage and general.workspaceStageComment require general.workspace'];
+        yield 'stage not an integer' => [['workspace' => 1, 'workspaceStage' => 'ready'], 'general.workspaceStage must be an integer stage'];
+        yield 'comment not a string' => [['workspace' => 1, 'workspaceStageComment' => ['x']], 'general.workspaceStageComment must be a string'];
+    }
 }

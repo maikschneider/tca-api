@@ -27,6 +27,7 @@ final class WriteAuditLoggerTest extends TestCase
                 'actor_username' => 'johndoe',
                 'credential' => '',
                 'write_mode' => 'acting_user',
+                'workspace' => 0,
             ]);
 
         $auditLogger = new WriteAuditLogger($logger);
@@ -49,6 +50,7 @@ final class WriteAuditLoggerTest extends TestCase
                 'actor_username' => 'johndoe',
                 'credential' => '',
                 'write_mode' => 'acting_user',
+                'workspace' => 0,
                 'reason' => 'Table blocked by access control policy',
             ]);
 
@@ -73,11 +75,28 @@ final class WriteAuditLoggerTest extends TestCase
                 'actor_username' => '_tca_api_system',
                 'credential' => '',
                 'write_mode' => 'system_admin',
+                'workspace' => 0,
             ]);
 
         $auditLogger = new WriteAuditLogger($logger);
         $context = WriteContext::forSystem();
 
         $auditLogger->logWrite('delete', 'tx_myext_domain_model_article', 5, $context);
+    }
+
+    #[Test]
+    public function logWriteRecordsTheWorkspace(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::once())
+            ->method('info')
+            ->with('TCA API write operation', self::callback(
+                static fn (array $context): bool => $context['workspace'] === 3,
+            ));
+
+        $auditLogger = new WriteAuditLogger($logger);
+        $context = WriteContext::forFrontendUser(42, 'johndoe')->withWorkspace(3);
+
+        $auditLogger->logWrite('create', 'tx_myext_domain_model_article', 'NEW_primary', $context);
     }
 }

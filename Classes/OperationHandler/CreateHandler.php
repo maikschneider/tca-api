@@ -6,6 +6,7 @@ namespace MaikSchneider\TcaApi\OperationHandler;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\StoragePidResolver;
+use MaikSchneider\TcaApi\Configuration\WorkspaceResolver;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\DataWriteService;
 use MaikSchneider\TcaApi\DataAccess\FileReferenceInputResolver;
@@ -102,7 +103,10 @@ class CreateHandler implements OperationHandlerInterface
         // propagate uid_foreign to sys_file_reference for type=file columns.
         $primaryKey   = 'NEW_primary';
         $dataMap      = array_replace_recursive([$config->table => [$primaryKey => $data]], $resolved->extraDataMap);
-        $writeContext = $this->writeContextFactory->fromRequest($request, $config->writeMode);
+        // A resource with a workspace creates a new version there instead of a live record;
+        // related records and file references created with it are versioned the same way.
+        $writeContext = $this->writeContextFactory->fromRequest($request, $config->writeMode)
+            ->withWorkspace(WorkspaceResolver::workspaceId($config));
         $substMap     = $this->writeService->processDataMap($dataMap, $writeContext);
         $uid          = (int)($substMap[$primaryKey] ?? 0);
 
@@ -119,6 +123,10 @@ class CreateHandler implements OperationHandlerInterface
         // sets uid_foreign correctly and updates the column count.
         if ($storedFiles !== []) {
             $this->attachFileReferences($storedFiles, $config, $uid, $writeContext);
+        }
+
+        if ($writeContext->workspaceId > 0 && ($config->workspaceStage ?? 0) !== 0) {
+            $this->writeService->setStage($config->table, $uid, (int)$config->workspaceStage, $config->workspaceStageComment, $writeContext);
         }
 
         $this->eventDispatcher->dispatch(new AfterWriteEvent($config->table, 'create', $uid, $request, $config));

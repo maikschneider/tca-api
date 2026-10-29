@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\DataAccess;
 
 use MaikSchneider\TcaApi\Enum\WriteMode;
+use MaikSchneider\TcaApi\Exception\WorkspaceResolutionException;
 use MaikSchneider\TcaApi\Security\TableAccessControl;
 use MaikSchneider\TcaApi\Security\WriteAuditLogger;
 use MaikSchneider\TcaApi\Security\WriteContext;
@@ -100,6 +101,29 @@ final class DataWriteService
     }
 
     /**
+     * Send a workspace version to a stage through EXT:workspaces, which also
+     * writes the stage history and sends the workspace's stage notifications.
+     *
+     * @param WriteContext $context  Actor context; its workspace must be the version's workspace
+     */
+    public function setStage(string $table, int $uid, int $stageId, string $comment, WriteContext $context): void
+    {
+        $this->auditLogger->logWrite('setStage', $table, $uid, $context);
+
+        $adminUser = $this->makeWriteUser($context);
+        $this->withGlobalBackendUser($adminUser, function () use ($table, $uid, $stageId, $comment, $adminUser): void {
+            $cmdMap = [$table => [$uid => ['version' => ['action' => 'setStage', 'stageId' => $stageId, 'comment' => $comment]]]];
+            $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+            $dataHandler->start([], $cmdMap, $adminUser);
+            $dataHandler->process_cmdmap();
+
+            if ($dataHandler->errorLog) {
+                throw new \RuntimeException('DataHandler setStage failed: ' . implode(', ', $dataHandler->errorLog));
+            }
+        });
+    }
+
+    /**
      * Execute a callback with the given backend user set as $GLOBALS['BE_USER'].
      *
      * TYPO3 v14 DataHandler logging calls BackendUserAuthentication::isSystemMaintainer()
@@ -134,6 +158,9 @@ final class DataWriteService
      * tables that typically lack per-user BE permissions.
      *
      * In SYSTEM_ADMIN mode the synthetic system user is used with no user identity.
+     *
+     * A context with a workspace puts the user into that workspace, so DataHandler
+     * creates workspace versions instead of live records.
      */
     private function makeWriteUser(WriteContext $context): BackendUserAuthentication
     {
@@ -152,6 +179,18 @@ final class DataWriteService
         }
 
         $user->workspace = 0;
+        if ($context->workspaceId > 0) {
+            // Public pieces of setTemporaryWorkspace(), which is internal to the core.
+            $workspaceRecord = $user->checkWorkspace($context->workspaceId);
+            if ($workspaceRecord === false) {
+                throw new WorkspaceResolutionException(sprintf(
+                    'Workspace %d does not exist or EXT:workspaces is not loaded.',
+                    $context->workspaceId,
+                ), 1761700001);
+            }
+            $user->workspace = $context->workspaceId;
+            $user->workspaceRec = $workspaceRecord;
+        }
         $user->initializeUserSessionManager();
         return $user;
     }
