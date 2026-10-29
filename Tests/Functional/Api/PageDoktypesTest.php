@@ -48,6 +48,8 @@ final class PageDoktypesTest extends ApiFunctionalTestCase
                 'resourceType' => 'WebPage',
                 'recordTypes'  => [1, 3, 4],
             ],
+            // A relation links through a resource scoped to record types only when it names it.
+            'columns'  => ['shortcut' => ['resourceName' => 'web-pages']],
             'security' => ['list' => AccessRole::PUBLIC, 'show' => AccessRole::PUBLIC],
             'order'    => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
@@ -116,7 +118,7 @@ final class PageDoktypesTest extends ApiFunctionalTestCase
             ->insert('tx_testrecordtypes_item', ['uid' => 710, 'pid' => 1, 'item_type' => 'article', 'title' => 'Item', 'target_page' => '500']);
         $this->registerResource('items', [
             'general'  => ['table' => 'tx_testrecordtypes_item', 'resourceName' => 'items', 'resourceType' => 'Item'],
-            'columns'  => ['target_page' => ['groups' => ['show']]],
+            'columns'  => ['target_page' => ['groups' => ['show'], 'resourceName' => 'web-pages']],
             'security' => ['list' => AccessRole::PUBLIC, 'show' => AccessRole::PUBLIC],
         ]);
 
@@ -146,6 +148,7 @@ final class PageDoktypesTest extends ApiFunctionalTestCase
         $schema = $this->decodeResponseBody($this->executeApiRequest('/_api/openapi.json'))['components']['schemas']['ItemRead']['properties']['target'];
 
         self::assertSame('array', $schema['type']);
-        self::assertSame(['/_api/web-pages/500'], $target);
+        // A polymorphic group names no resource, and web-pages serves only some doktypes.
+        self::assertSame([['@type' => 'WebPage', 'uid' => 500]], $target);
     }
 }

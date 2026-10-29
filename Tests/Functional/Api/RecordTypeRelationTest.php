@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api;
 
+use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Enum\AccessRole;
+use MaikSchneider\TcaApi\OpenApi\OpenApiSchemasBuilder;
+use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -44,6 +47,30 @@ final class RecordTypeRelationTest extends ApiFunctionalTestCase
 
         self::assertSame('/_api/related-header/601', $item['tx_related_content']['@id']);
         self::assertSame('RelatedHeader', $item['tx_related_content']['@type']);
+    }
+
+    #[Test]
+    public function aRelationLinksThroughAResourceServingEveryTypeOrRendersTheUid(): void
+    {
+        $this->registerLinkingContent();
+        // Serialized directly: a sub-request reloads the configured definitions.
+        $pages = ApiDefinition::fromArray([
+            'general' => ['table' => 'pages', 'resourceName' => 'related-pages', 'resourceType' => 'RelatedPage', 'operations' => ['list', 'show']],
+            'columns' => ['tx_related_content' => ['groups' => ['list', 'show']]],
+        ]);
+        $this->getConnectionPool()->getConnectionForTable('pages')->update('pages', ['tx_related_content' => 600], ['uid' => 1]);
+        $row = $this->getConnectionPool()->getConnectionForTable('pages')->select(['*'], 'pages', ['uid' => 1])->fetchAssociative();
+        self::assertIsArray($row);
+        $serialize = fn (array $allowed): mixed => $this->get(ResourceSerializer::class)
+            ->serialize($row, $pages, '/_api/related-pages', [], ['__allowedResources' => ['related-pages', ...$allowed]])['tx_related_content'];
+
+        // 600 is a textmedia element: /_api/related-header/600 answers 404.
+        self::assertSame(600, $serialize(['related-header']));
+        self::assertSame('/_api/linking-content/600', $serialize(['related-header', 'linking-content']));
+
+        $registry = $this->getApiRegistry();
+        $schemas  = $this->get(OpenApiSchemasBuilder::class)->build([$pages, $registry->get('related-header')], $registry->getAll());
+        self::assertSame(['oneOf' => [['type' => 'integer'], ['type' => 'null']]], $schemas['RelatedPageRead']['properties']['tx_related_content']);
     }
 
     #[Test]

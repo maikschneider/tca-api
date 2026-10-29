@@ -7,6 +7,7 @@ namespace MaikSchneider\TcaApi\OpenApi;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Loader\TcaValidatorDeriver;
+use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Serializer\Processing\RouteEnhancerProcessor;
 use MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor;
 use MaikSchneider\TcaApi\Serializer\RelationSerializer;
@@ -515,17 +516,23 @@ final readonly class OpenApiSchemasBuilder
      */
     private function relatedConfig(string $table, ColumnDefinition $columnDef, ApiDefinition $config, array $resources): ?ApiDefinition
     {
-        if ($table === $config->table && $columnDef->resourceName === null) {
-            return $config;
-        }
-
-        foreach ($resources as $resource) {
-            if ($columnDef->resourceName !== null ? $resource->resourceName === $columnDef->resourceName : $resource->table === $table) {
-                return $resource;
+        if ($columnDef->resourceName !== null) {
+            foreach ($resources as $resource) {
+                if ($resource->resourceName === $columnDef->resourceName) {
+                    return $resource;
+                }
             }
+            return null;
         }
 
-        return null;
+        if ($table === $config->table) {
+            return ApiRegistry::pickRelated([$config]);
+        }
+
+        return ApiRegistry::pickRelated(array_values(array_filter(
+            $resources,
+            static fn (ApiDefinition $resource): bool => $resource->table === $table,
+        )));
     }
 
     /**

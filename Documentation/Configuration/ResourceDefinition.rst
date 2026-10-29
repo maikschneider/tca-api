@@ -227,6 +227,25 @@ types. Unknown types, tables without ``ctrl.type`` and foreign-field types
     renders them regardless of ``recordTypes``, as it does for
     ``storagePid``.
 
+Relations into a scoped resource
+--------------------------------
+
+A reference to a related record carries its uid, not its type, so the API
+cannot tell whether a resource scoped to record types serves it. A relation
+that resolves its resource on its own therefore prefers a resource of the
+table that serves every type. When all of them are scoped, it renders the
+related records by uid (and embeds them without ``@id``) instead of linking
+to an IRI that may answer ``404``.
+
+To link anyway, name the resource on the relation column. Records of a type
+the resource doesn't serve then answer ``404`` behind their link:
+
+..  code-block:: php
+
+    'columns' => [
+        'shortcut' => ['resourceName' => 'web-pages'],
+    ],
+
 Recipe: pages
 -------------
 

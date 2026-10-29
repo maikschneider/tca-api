@@ -278,7 +278,7 @@ final class HydraApiDocumentationBuilder
             return null;
         }
         if ($foreignTable === $config->table) {
-            return $config->isAddressable() ? $config->resourceType : null;
+            return ApiRegistry::pickRelated([$config])?->isAddressable() === true ? $config->resourceType : null;
         }
 
         return $this->allowedTypeMap[$foreignTable] ?? null;
@@ -305,12 +305,17 @@ final class HydraApiDocumentationBuilder
      */
     private function buildAllowedTypeMap(array $resources): array
     {
-        $map = [];
+        $byTable = [];
         foreach ($resources as $definition) {
-            // Without a show endpoint the relation renders uids, not links.
-            if ($definition->isAddressable()) {
-                // The first registration wins, as in ApiRegistry::getByTable().
-                $map[$definition->table] ??= $definition->resourceType;
+            $byTable[$definition->table][] = $definition;
+        }
+
+        $map = [];
+        foreach ($byTable as $table => $candidates) {
+            // Resolved as ApiRegistry::getRelated() does; without a show endpoint the relation renders uids, not links.
+            $related = ApiRegistry::pickRelated($candidates);
+            if ($related?->isAddressable() === true) {
+                $map[$table] = $related->resourceType;
             }
         }
         return $map;
