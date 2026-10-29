@@ -8,6 +8,9 @@ The ``security`` section assigns an access role to each operation. Access is
 checked by the :php:`AccessController` before the request reaches the operation
 handler.
 
+How a client authenticates as a frontend user, a backend user or with an API
+key is described in :ref:`authentication`.
+
 Default access roles
 ====================
 
@@ -278,6 +281,9 @@ Denied access
 
 When access is denied, the API returns:
 
--  **401 Unauthorized** — when no user is authenticated but one is required.
--  **403 Forbidden** — when the authenticated user does not have sufficient
-   privileges.
+-  **401 Unauthorized** — when the request carries credentials that are
+   invalid, e.g. a wrong, expired or revoked API key.
+-  **403 Forbidden** — when the caller is anonymous or does not have
+   sufficient privileges.
+
+See :ref:`authentication-identity`.
