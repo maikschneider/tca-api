@@ -47,12 +47,23 @@ final class UnmatchedBaselineExtension implements Extension
     {
         $ci      = getenv('CI');
         $collect = getenv(ContractBaseline::COLLECT_ENV);
-        $suite   = $configuration->includeTestSuite() !== '' ? $configuration->includeTestSuite() : $configuration->defaultTestSuite();
+        if (!\is_string($ci) || $ci === '' || (\is_string($collect) && $collect !== '')) {
+            return false;
+        }
 
-        return \is_string($ci) && $ci !== ''
-            && ($collect === false || $collect === '')
-            && $suite === 'Functional'
-            && $configuration->excludeTestSuite() === ''
+        // PHPUnit 13 replaced includeTestSuite()/excludeTestSuite() with list variants.
+        $included = method_exists($configuration, 'includeTestSuites') // @phpstan-ignore function.impossibleType
+            ? $configuration->includeTestSuites()
+            : array_filter([$configuration->includeTestSuite()]);
+        $excluded = method_exists($configuration, 'excludeTestSuites') // @phpstan-ignore function.impossibleType
+            ? $configuration->excludeTestSuites()
+            : array_filter([$configuration->excludeTestSuite()]);
+        if ($included === [] && $configuration->hasDefaultTestSuite()) {
+            $included = [$configuration->defaultTestSuite()];
+        }
+
+        return $included === ['Functional']
+            && $excluded === []
             && !$configuration->hasCliArguments()
             && !$configuration->hasFilter()
             && !$configuration->hasExcludeFilter()
