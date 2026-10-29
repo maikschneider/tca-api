@@ -224,7 +224,7 @@ final readonly class OpenApiSchemasBuilder
         $schemas = [];
         $mapping = [];
         // Other resources' Read schemas and the schemas built so far keep their names,
-        // e.g. those of resources split from this one or type schemas of another resource.
+        // e.g. type schemas of another resource.
         $taken = array_fill_keys(array_keys($built), true);
         foreach ($resources as $resource) {
             if ($resource !== $config) {

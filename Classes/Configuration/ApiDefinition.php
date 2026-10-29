@@ -611,9 +611,7 @@ final readonly class ApiDefinition
      * Accepted shapes: a list, a comma-separated string, or '*' for every type in
      * $TCA[table]['types'] — or an options array with those under 'include'
      * (default '*') and 'schema' ('type' = columns per record type, the default;
-     * 'table' = all table columns). The split options (split, namePattern,
-     * keepBase) are applied by {@see \MaikSchneider\TcaApi\Loader\RecordTypeSplitter}
-     * before definitions are built. Values are compared as strings because TCA
+     * 'table' = all table columns). Values are compared as strings because TCA
      * type keys are a mix of strings (CType) and integers (doktype).
      *
      * @return array{0: ?string, 1: ?list<string>, 2: string} type field, allowed types (both null when unset) and schema mode
@@ -625,10 +623,10 @@ final readonly class ApiDefinition
         }
 
         if (\is_array($raw) && array_filter(array_keys($raw), \is_string(...)) !== []) {
-            $unknown = array_diff(array_keys($raw), ['include', 'schema', 'split', 'namePattern', 'keepBase']);
+            $unknown = array_diff(array_keys($raw), ['include', 'schema']);
             if ($unknown !== []) {
                 throw new InvalidApiDefinitionException(sprintf(
-                    'TcaApi config for "%s": general.recordTypes has unknown option(s) "%s". Allowed: include, schema, split, namePattern, keepBase',
+                    'TcaApi config for "%s": general.recordTypes has unknown option(s) "%s". Allowed: include, schema',
                     $table,
                     implode('", "', $unknown),
                 ));
@@ -706,18 +704,6 @@ final readonly class ApiDefinition
         }
 
         return [$typeField, array_values(array_unique($types)), 'type'];
-    }
-
-    /**
-     * The record types a general.recordTypes value allows on $table, in any of its
-     * accepted forms; null when the value is null.
-     *
-     * @return list<string>|null
-     * @throws InvalidApiDefinitionException when the value is invalid for the table
-     */
-    public static function recordTypeList(mixed $recordTypes, string $table): ?array
-    {
-        return self::resolveRecordTypes($recordTypes, $table)[1];
     }
 
     /**
