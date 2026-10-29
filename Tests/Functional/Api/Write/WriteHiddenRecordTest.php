@@ -95,12 +95,13 @@ final class WriteHiddenRecordTest extends ApiFunctionalTestCase
         self::assertNotNull($config);
 
         $repository = $this->get(DataRepository::class);
-        self::assertNull($repository->findById(
+        $deletedRecord = $repository->findById(
             table: self::ARTICLE_TABLE,
             uid: $uid,
             config: $config,
             ignoreEnableFields: true,
-        ));
+        );
+        self::assertNull($deletedRecord);
 
         $connection->update(self::ARTICLE_TABLE, ['deleted' => 0], ['uid' => $uid]);
         $record = $repository->findById(
