@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\Tests\Functional\Api\Write;
 
+use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 use MaikSchneider\TcaApiTestHideOnWrite\HideOnWriteListener;
@@ -78,6 +79,38 @@ final class WriteHiddenRecordTest extends ApiFunctionalTestCase
         self::assertSame(200, $response->getStatusCode());
         self::assertSame('Updated Article', $body['title']);
         self::assertSame(1, $this->fetchHidden(1));
+    }
+
+    public function testFindByIdIgnoringEnableFieldsExcludesDeletedRecords(): void
+    {
+        $connection = $this->getConnectionPool()->getConnectionForTable(self::ARTICLE_TABLE);
+        $connection->insert(self::ARTICLE_TABLE, [
+            'pid' => 1,
+            'title' => 'Deleted Article',
+            'hidden' => 1,
+            'deleted' => 1,
+        ]);
+        $uid = (int)$connection->lastInsertId();
+        $config = $this->getApiRegistry()->get(HideOnWriteListener::RESOURCE_NAME);
+        self::assertNotNull($config);
+
+        $repository = $this->get(DataRepository::class);
+        self::assertNull($repository->findById(
+            table: self::ARTICLE_TABLE,
+            uid: $uid,
+            config: $config,
+            ignoreEnableFields: true,
+        ));
+
+        $connection->update(self::ARTICLE_TABLE, ['deleted' => 0], ['uid' => $uid]);
+        $record = $repository->findById(
+            table: self::ARTICLE_TABLE,
+            uid: $uid,
+            config: $config,
+            ignoreEnableFields: true,
+        );
+        self::assertNotNull($record);
+        self::assertSame('Deleted Article', $record['title']);
     }
 
     private function fetchHidden(int $uid): int
