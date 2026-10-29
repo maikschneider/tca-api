@@ -65,6 +65,7 @@
 		"psr-4": {
 			"MaikSchneider\\TcaApiTestAuthenticator\\": "Tests/Functional/Fixtures/Extensions/test_authenticator/Classes",
 			"MaikSchneider\\TcaApiTestEvents\\": "Tests/Functional/Fixtures/Extensions/test_events/Classes",
+			"MaikSchneider\\TcaApiTestHideOnWrite\\": "Tests/Functional/Fixtures/Extensions/test_hide_on_write/Classes",
 			"MaikSchneider\\TcaApi\\Tests\\": "Tests"
 		}
 	},

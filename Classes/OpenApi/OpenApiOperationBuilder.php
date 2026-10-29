@@ -82,8 +82,13 @@ final readonly class OpenApiOperationBuilder
             ];
         }
 
+        $description = $config->writesToWorkspace()
+            ? ['description' => 'Creates the record as a draft in a workspace. It is not public until an editor publishes it.']
+            : [];
+
         return [
             'summary' => 'Create ' . $config->resourceType,
+            ...$description,
             'operationId' => 'create' . $this->toPascalCase($resourceName),
             'tags' => [$config->tagName()],
             'x-typo3-access-role' => $this->accessRoleValue($config->securityRole('create')),

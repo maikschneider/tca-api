@@ -47,6 +47,12 @@ final readonly class ApiDefinition
      *                                                                null = compute on demand
      * @param bool                            $typeSchemas     whether each record exposes only its record type's columns
      * @param array<string, array<string, ColumnDefinition>>|null $resolvedTypeColumnMaps precomputed columnMap() per record type
+     * @param int|null                        $workspace       workspace create writes new versions into; null = live
+     * @param string|null                     $workspaceSetting site setting key holding the workspace uid, when
+     *                                                          workspace is a {$…} placeholder (workspace is null then)
+     * @param int|null                        $workspaceStage  stage a new version is sent to after create;
+     *                                                          null = stays in the "editing" stage
+     * @param string                          $workspaceStageComment comment of that stage change
      */
     public function __construct(
         public readonly string $table,
@@ -79,7 +85,19 @@ final readonly class ApiDefinition
         public readonly bool $typeSchemas = false,
         private readonly ?array $resolvedTypeColumnMaps = null,
         public readonly ?string $storagePidSetting = null,
+        public readonly ?int $workspace = null,
+        public readonly ?string $workspaceSetting = null,
+        public readonly ?int $workspaceStage = null,
+        public readonly string $workspaceStageComment = '',
     ) {
+    }
+
+    /**
+     * Whether create writes new records as versions into a workspace.
+     */
+    public function writesToWorkspace(): bool
+    {
+        return $this->workspaceSetting !== null || ($this->workspace ?? 0) > 0;
     }
 
     public function isRecordTypeScoped(): bool
@@ -550,6 +568,12 @@ final readonly class ApiDefinition
 
         [$storagePid, $storagePidSetting] = self::resolveStoragePid($general['storagePid'] ?? null, $label);
 
+        [$workspace, $workspaceSetting, $workspaceStage, $workspaceStageComment] = self::resolveWorkspace(
+            $general,
+            $general['operations'] ?? self::READ_OPERATIONS,
+            $label,
+        );
+
         // ── group (OpenAPI tag) ──────────────────────────────────────────
         // Accepted shapes:
         //   'group' => 'Editorial'                                  — tag name only
@@ -602,6 +626,10 @@ final readonly class ApiDefinition
             typeSchemas:            $typeSchemas,
             resolvedTypeColumnMaps: $typeColumnMaps,
             storagePidSetting:      $storagePidSetting,
+            workspace:              $workspace,
+            workspaceSetting:       $workspaceSetting,
+            workspaceStage:         $workspaceStage,
+            workspaceStageComment:  $workspaceStageComment,
         );
     }
 
@@ -911,6 +939,82 @@ final readonly class ApiDefinition
         }
 
         return [null, $setting];
+    }
+
+    /**
+     * general.workspace, general.workspaceStage and general.workspaceStageComment.
+     *
+     * The workspace is an integer uid or a {$site.setting} placeholder resolved per
+     * request; 0 means live. Only create is supported in a workspace: updating or
+     * deleting a draft (or versioning a live record) needs draft-aware reads first.
+     *
+     * @param array<string, mixed> $general
+     * @param array<mixed>         $operations
+     * @return array{0: ?int, 1: ?string, 2: ?int, 3: string} workspace, setting key, stage, stage comment
+     */
+    private static function resolveWorkspace(array $general, array $operations, string $label): array
+    {
+        $raw = $general['workspace'] ?? null;
+        $workspace = null;
+        $setting = null;
+        if ($raw !== null) {
+            if (!\is_bool($raw) && MathUtility::canBeInterpretedAsInteger($raw) && (int)$raw >= 0) {
+                $workspace = (int)$raw;
+            } else {
+                $setting = self::siteSettingKey($raw);
+                if ($setting === null) {
+                    throw new \InvalidArgumentException(sprintf(
+                        'TcaApi config for "%s": general.workspace must be a workspace uid or a {$site.setting} placeholder.',
+                        $label,
+                    ));
+                }
+            }
+        }
+        $inWorkspace = $setting !== null || ($workspace ?? 0) > 0;
+
+        $rawStage = $general['workspaceStage'] ?? null;
+        $rawComment = $general['workspaceStageComment'] ?? null;
+        if (!$inWorkspace) {
+            if ($rawStage !== null || $rawComment !== null) {
+                throw new \InvalidArgumentException(sprintf(
+                    'TcaApi config for "%s": general.workspaceStage and general.workspaceStageComment require general.workspace.',
+                    $label,
+                ));
+            }
+            return [$workspace, null, null, ''];
+        }
+
+        if (array_intersect($operations, ['update', 'delete']) !== []) {
+            throw new \InvalidArgumentException(sprintf(
+                'TcaApi config for "%s": general.workspace supports the create operation only, not update or delete.',
+                $label,
+            ));
+        }
+        if (!($GLOBALS['TCA'][$general['table']]['ctrl']['versioningWS'] ?? false)) {
+            throw new \InvalidArgumentException(sprintf(
+                'TcaApi config for "%s": general.workspace requires a table with ctrl.versioningWS.',
+                $label,
+            ));
+        }
+
+        $stage = null;
+        if ($rawStage !== null) {
+            if (\is_bool($rawStage) || !MathUtility::canBeInterpretedAsInteger($rawStage)) {
+                throw new \InvalidArgumentException(sprintf(
+                    'TcaApi config for "%s": general.workspaceStage must be an integer stage (0, -10 or a sys_workspace_stage uid).',
+                    $label,
+                ));
+            }
+            $stage = (int)$rawStage;
+        }
+        if ($rawComment !== null && !\is_string($rawComment)) {
+            throw new \InvalidArgumentException(sprintf(
+                'TcaApi config for "%s": general.workspaceStageComment must be a string.',
+                $label,
+            ));
+        }
+
+        return [$workspace, $setting, $stage, $rawComment ?? ''];
     }
 
     /** '{$myext.storagePid}' → 'myext.storagePid'; null for anything else */

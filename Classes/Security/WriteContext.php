@@ -22,6 +22,7 @@ final readonly class WriteContext
      * @param string      $actorUsername  Human-readable actor identifier for audit
      * @param string      $credential     Safe-to-log identifier of the credential the
      *                                    request carried, e.g. an API key; empty for sessions
+     * @param int         $workspaceId    Workspace the write goes into; 0 = live
      */
     public function __construct(
         public WriteMode $mode,
@@ -29,7 +30,23 @@ final readonly class WriteContext
         public int $actorUid,
         public string $actorUsername,
         public string $credential = '',
+        public int $workspaceId = 0,
     ) {
+    }
+
+    /**
+     * The same actor writing into the given workspace (0 = live).
+     */
+    public function withWorkspace(int $workspaceId): self
+    {
+        return new self(
+            mode: $this->mode,
+            actorType: $this->actorType,
+            actorUid: $this->actorUid,
+            actorUsername: $this->actorUsername,
+            credential: $this->credential,
+            workspaceId: $workspaceId,
+        );
     }
 
     /**

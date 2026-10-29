@@ -1,0 +1,6 @@
+services:
+  MaikSchneider\TcaApiTestHideOnWrite\HideOnWriteListener:
+    public: true
+    tags:
+      - name: event.listener
+        event: MaikSchneider\TcaApi\Event\BeforeWriteEvent

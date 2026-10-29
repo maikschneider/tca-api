@@ -66,4 +66,25 @@ final class WriteContextTest extends TestCase
         self::assertSame('be_user', $context->actorType);
         self::assertTrue($context->isSystemMode());
     }
+
+    #[Test]
+    public function contextWritesLiveByDefault(): void
+    {
+        self::assertSame(0, WriteContext::forFrontendUser(42, 'johndoe')->workspaceId);
+    }
+
+    #[Test]
+    public function withWorkspaceKeepsTheActor(): void
+    {
+        $context = WriteContext::forFrontendUser(42, 'johndoe', WriteMode::ACTING_USER, 'key:7');
+        $workspaceContext = $context->withWorkspace(3);
+
+        self::assertSame(3, $workspaceContext->workspaceId);
+        self::assertSame(0, $context->workspaceId);
+        self::assertSame('fe_user', $workspaceContext->actorType);
+        self::assertSame(42, $workspaceContext->actorUid);
+        self::assertSame('johndoe', $workspaceContext->actorUsername);
+        self::assertSame('key:7', $workspaceContext->credential);
+        self::assertSame(WriteMode::ACTING_USER, $workspaceContext->mode);
+    }
 }

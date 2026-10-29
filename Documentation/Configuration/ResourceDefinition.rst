@@ -84,6 +84,18 @@ The ``general`` key defines the basic resource properties:
        purposes. ``system_admin`` — uses a synthetic backend-admin context,
        bypassing all TYPO3 ACL boundaries. Only enable for fully trusted,
        internal-only APIs.
+   * - ``workspace``
+     - Workspace uid ``create`` writes new records into as drafts, or a
+       ``{$site.setting}`` placeholder. ``0`` or omitted writes live. Requires
+       EXT:workspaces, a table with ``ctrl.versioningWS`` and a create-only
+       resource — see :ref:`workspace-creates`.
+   * - ``workspaceStage``
+     - Stage a draft is sent to after ``create``: ``-10`` (ready to publish)
+       or the uid of a custom ``sys_workspace_stage``. Omitted or ``0`` leaves
+       it in the editing stage. Requires ``workspace``.
+   * - ``workspaceStageComment``
+     - Comment of that stage change, shown in the workspace history and the
+       stage notification. Requires ``workspace``.
    * - ``group``
      - OpenAPI tag grouping this resource's operations in Swagger UI. A string
        (``'Editorial'``) or an array with a ``name`` and optional
@@ -184,6 +196,58 @@ constraint.
 Response caching includes the site and its resolved read pages. Changing a
 storage-page setting cannot reuse a response from the previous scope, and
 an invalid setting fails even when a response was previously cached.
+
+..  _workspace-creates:
+
+Workspaces: moderated creates
+=============================
+
+A resource can create records as drafts in a workspace instead of live, so
+editors review them before they go public. Set ``workspace`` and, optionally,
+the stage the draft is sent to:
+
+..  code-block:: php
+
+    'general' => [
+        'table'                 => 'tx_myext_domain_model_event',
+        'resourceName'          => 'event-proposals',
+        'resourceType'          => 'EventProposal',
+        'operations'            => ['create'],
+        'storagePid'            => 42,
+        'workspace'             => 1,                // or '{$myext.workspace}'
+        'workspaceStage'        => -10,              // ready to publish
+        'workspaceStageComment' => 'Submitted via the API',
+    ],
+    'security' => [
+        'create' => AccessRole::FE_USER,
+    ],
+
+``create`` then writes a new version into the workspace (``t3ver_wsid`` is the
+workspace, ``t3ver_state`` marks a new record) on the storage page. Related
+records created in the same request (categories, inline children, file
+references) belong to the draft as well. With ``workspaceStage`` the draft is
+sent to that stage through EXT:workspaces, which records the stage change in
+the workspace history and sends the workspace's stage notifications. Editors
+publish the draft in the backend as usual.
+
+The response carries the created draft. Like ``storagePid``, a placeholder is
+resolved from the settings of the request's site and fails closed with
+``500``; so does a workspace that does not exist.
+
+Requirements and limits:
+
+-  EXT:workspaces must be installed, and the table must be workspace-aware
+   (``ctrl.versioningWS``); otherwise the configuration fails at boot.
+-  The resource may only offer ``create`` (besides ``list`` and ``show``):
+   ``update`` and ``delete`` in a workspace are not supported yet and fail at
+   boot.
+-  Tables of records created inline with the draft must be workspace-aware
+   too, or allow live editing; DataHandler rejects them otherwise and the
+   request answers ``500``.
+-  Reads are not workspace-aware: ``list`` and ``show`` return live records
+   and drafts alike. Add a private filter on ``t3ver_wsid`` to a public
+   resource over a versioned table to serve live records only:
+   ``'t3ver_wsid' => [ExactFilter::class, ['default' => '0', 'private' => true]]``.
 
 ..  _record-types:
 

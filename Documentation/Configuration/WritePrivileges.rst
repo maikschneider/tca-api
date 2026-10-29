@@ -153,6 +153,7 @@ A permitted write is logged at ``info`` level as ``TCA API write operation``:
     actor_uid:      42
     actor_username: johndoe
     write_mode:     acting_user
+    workspace:      0
 
 A write refused by the table policy is logged at ``warning`` level as
 ``TCA API write denied``, with the same actor context plus a ``reason``:
@@ -165,7 +166,12 @@ A write refused by the table policy is logged at ``warning`` level as
     actor_uid:      42
     actor_username: johndoe
     write_mode:     acting_user
+    workspace:      0
     reason:         Table blocked by access control policy
 
 The ``uid`` of a create is the DataHandler placeholder (``NEW_…``) rather than
 the final record uid, because the entry is written before persistence.
+
+``workspace`` is the workspace the write went into, ``0`` for live (see
+:ref:`workspace-creates`). Sending a draft to a stage is logged as operation
+``setStage`` with the record uid.

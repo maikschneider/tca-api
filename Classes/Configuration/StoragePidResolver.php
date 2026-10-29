@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Configuration;
 
 use MaikSchneider\TcaApi\Exception\StoragePidResolutionException;
-use Psr\Http\Message\ServerRequestInterface;
-use TYPO3\CMS\Core\Site\Entity\Site;
-use TYPO3\CMS\Core\Utility\MathUtility;
 
 /**
  * Resolves the storage pids of a resource for the current request: integers as
@@ -51,39 +48,6 @@ final class StoragePidResolver
 
     private static function resolveSetting(string $setting, ApiDefinition $config, string $option): int
     {
-        $request = $GLOBALS['TYPO3_REQUEST'] ?? null;
-        $site = $request instanceof ServerRequestInterface ? $request->getAttribute('site') : null;
-        if (!$site instanceof Site) {
-            throw new StoragePidResolutionException(sprintf(
-                'Resource "%s": general.%s uses the site setting "%s", but the request has no site.',
-                $config->resourceName,
-                $option,
-                $setting,
-            ), 1760800001);
-        }
-
-        $value = $site->getSettings()->get($setting);
-        // MathUtility treats true as integer 1.
-        if (!\is_bool($value) && MathUtility::canBeInterpretedAsInteger($value) && (int)$value >= 0) {
-            return (int)$value;
-        }
-
-        throw new StoragePidResolutionException(sprintf(
-            'Resource "%s": general.%s uses the site setting "%s", which is %s on site "%s" instead of a pid.',
-            $config->resourceName,
-            $option,
-            $setting,
-            self::describe($value),
-            $site->getIdentifier(),
-        ), 1760800002);
-    }
-
-    private static function describe(mixed $value): string
-    {
-        if ($value === null || $value === '') {
-            return 'empty';
-        }
-
-        return \is_scalar($value) ? '"' . $value . '"' : get_debug_type($value);
+        return SiteSettingValue::nonNegativeInt($setting, $config, $option, 'a pid', StoragePidResolutionException::class, 1760800000);
     }
 }
