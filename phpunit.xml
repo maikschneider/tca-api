@@ -41,6 +41,9 @@
             <directory>Tests/Functional/Loader</directory>
         </testsuite>
     </testsuites>
+    <extensions>
+        <bootstrap class="MaikSchneider\TcaApi\Tests\Functional\Contract\UnmatchedBaselineExtension"/>
+    </extensions>
     <php>
         <!-- Database connection for DDEV environment -->
         <env name="typo3DatabaseDriver" value="pdo_mysql"/>
