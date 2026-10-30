@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.3.0] - 2026-10-30
 
 ### Added
 
@@ -46,7 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A `type=group` column holding one record is serialized.** `pages.shortcut` (`relationship => manyToOne`, one allowed table) rendered as `null`, because the single-relation path only read `foreign_table`. It now links to the target record, and OpenAPI and Hydra describe it as one relation instead of a list ([#222](https://github.com/maikschneider/tca-api/issues/222), [#119](https://github.com/maikschneider/tca-api/issues/119)).
 - **Nested creates respect the child resource's record types.** A record created through a relation into a resource with `recordTypes` kept whatever type the client sent, so a child could be created as a type the target resource does not serve. A single-type child resource now sets its type, and any other value is rejected with `422`, `INVALID_RECORD_TYPE`.
 - **Nested creates into the parent's own table are no longer dropped.** The child records were merged into the DataHandler datamap with `+`, which discards entries for a table already present, so the parent was saved without them.
-- **An explicit `resourceName` on a relation into the same table is honoured.** Embedded records of a self-relation were serialized with the parent resource's identity and columns even when the column named another resource. Hydra relation ranges now also follow the runtime choice: the resource itself for a self-relation, otherwise the first resource registered for the table.
+- **An explicit `resourceName` on a relation into the same table is honoured.** Embedded records of a self-relation were serialized with the parent resource's identity and columns even when the column named another resource. Hydra relation ranges now also follow the runtime choice: the resource itself for a self-relation, otherwise a resource the site serves, one serving every record type ahead of one scoped to `general.recordTypes`.
 - **Cached responses are no longer shared between sites.** The cache key did not include the site, so two sites exposing the same resource served each other's cached responses, including links with the other site's API prefix ([#38](https://github.com/maikschneider/tca-api/issues/38)).
 - **Hydra docs no longer describe file columns as integers.** The 2.2.0 change that documents relations without an item endpoint as uids keyed off `foreign_table`, which TYPO3 also sets on `type=file` columns (`sys_file_reference`), so every file column got `"range": "xsd:integer"` although it still serializes as file objects. API Platform Admin guessed a number field from that and crashed rendering the file objects. File columns are described as `xsd:string` again ([#215](https://github.com/maikschneider/tca-api/issues/215)).
 
