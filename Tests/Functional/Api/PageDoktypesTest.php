@@ -161,7 +161,7 @@ final class PageDoktypesTest extends ApiFunctionalTestCase
         }
     }
 
-    public function testHydraDescribesAnEmbeddedGroupOverOneTableWithoutALinkAsAResource(): void
+    public function testHydraDescribesAnEmbeddedGroupOverOneTableWithoutALinkAsItsResourceClass(): void
     {
         $this->getConnectionPool()->getConnectionForTable('tx_testrecordtypes_item')
             ->insert('tx_testrecordtypes_item', ['uid' => 710, 'pid' => 1, 'item_type' => 'article', 'title' => 'Item', 'target_page' => '500']);
@@ -171,15 +171,27 @@ final class PageDoktypesTest extends ApiFunctionalTestCase
             'security' => ['list' => AccessRole::PUBLIC, 'show' => AccessRole::PUBLIC],
         ]);
 
+        // web-pages serves only some doktypes: the record is embedded without @id, still as a WebPage.
         $target = $this->decodeResponseBody($this->executeApiRequest('/_api/items/710'))['target_page'];
         self::assertSame(['WebPage', 500], [$target['@type'], $target['uid']]);
         self::assertArrayNotHasKey('@id', $target);
+        self::assertSame(['@type' => 'rdf:Property', 'range' => '#WebPage'], $this->hydraTargetPage());
 
+        // Without a resource for pages there is no class to name.
+        $registry = $this->getApiRegistry();
+        $registry->replaceAll(array_diff_key($registry->getAll(), ['web-pages' => true]));
+        self::assertSame('Pages', $this->decodeResponseBody($this->executeApiRequest('/_api/items/710'))['target_page']['@type']);
+        self::assertSame(['@type' => 'rdf:Property', 'range' => 'rdfs:Resource'], $this->hydraTargetPage());
+    }
+
+    /** @return array{'@type': mixed, range: mixed} */
+    private function hydraTargetPage(): array
+    {
         $hydra    = $this->decodeResponseBody($this->executeApiRequest('/_api/docs.jsonld'));
         $class    = array_values(array_filter($hydra['hydra:supportedClass'], static fn (array $class): bool => $class['hydra:title'] === 'Item'))[0];
         $property = array_values(array_filter($class['hydra:supportedProperty'], static fn (array $property): bool => $property['hydra:title'] === 'target_page'))[0];
-        self::assertSame('rdf:Property', $property['hydra:property']['@type']);
-        self::assertSame('rdfs:Resource', $property['hydra:property']['range']);
+
+        return ['@type' => $property['hydra:property']['@type'], 'range' => $property['hydra:property']['range']];
     }
 
     public function testAManyToOneGroupOverSeveralTablesKeepsItsRecord(): void

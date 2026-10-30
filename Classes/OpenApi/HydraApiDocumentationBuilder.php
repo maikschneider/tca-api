@@ -13,8 +13,8 @@ use MaikSchneider\TcaApi\Tca\RelationCardinality;
 
 final class HydraApiDocumentationBuilder
 {
-    /** @var array<string, string>|null Maps table name → resourceType; built from allowed resources. */
-    private ?array $allowedTypeMap = null;
+    /** @var array<string, ApiDefinition>|null Maps table name → the resource relations to it resolve to; built from allowed resources. */
+    private ?array $relatedByTable = null;
 
     /** @var list<string>|null Resource names present in the allowed set. */
     private ?array $allowedResourceNames = null;
@@ -26,7 +26,7 @@ final class HydraApiDocumentationBuilder
     public function build(RequestContext $ctx): array
     {
         $resources = $ctx->filterAllowedResources($this->apiRegistry->getAll());
-        $this->allowedTypeMap = $this->buildAllowedTypeMap($resources);
+        $this->relatedByTable = $this->buildRelatedByTable($resources);
         $this->allowedResourceNames = array_keys($resources);
 
         $context = [
@@ -219,15 +219,15 @@ final class HydraApiDocumentationBuilder
             // getFieldNameFromSchema() resolves the human-readable display field.
             $schemaId = ($name === $tcaLabelColumn) ? 'schema:name' : 'schema:' . $name;
 
-            $relatedType = $this->findRelatedResourceType($config, $name, $column);
+            $related = $this->findRelatedResource($config, $name, $column);
 
-            if ($relatedType !== null) {
+            if ($related?->isAddressable() === true) {
                 $hydraProperty = [
                     '@id' => $schemaId,
                     '@type' => ['hydra:Link'],
                     'rdfs:label' => $name,
                     'domain' => '#' . $config->resourceType,
-                    'range' => '#' . $relatedType,
+                    'range' => '#' . $related->resourceType,
                 ];
 
                 if ($this->isSingleRelation($config->table, $name)) {
@@ -239,7 +239,7 @@ final class HydraApiDocumentationBuilder
                     '@type' => 'rdf:Property',
                     'rdfs:label' => $name,
                     'domain' => '#' . $config->resourceType,
-                    'range' => $this->unlinkedRelationRange($config, $name, $column)
+                    'range' => $this->unlinkedRelationRange($config, $name, $column, $related)
                         ?? 'xsd:' . $this->columnTypeToXsdType($column->type ?? ''),
                 ];
             }
@@ -257,7 +257,12 @@ final class HydraApiDocumentationBuilder
         return $properties;
     }
 
-    private function findRelatedResourceType(ApiDefinition $config, string $column, ColumnDefinition $columnDef): ?string
+    /**
+     * The documented resource a relation column serializes with, as ApiRegistry::getRelated()
+     * resolves it, whether or not it has an item endpoint; null when no documented
+     * resource covers the related table.
+     */
+    private function findRelatedResource(ApiDefinition $config, string $column, ColumnDefinition $columnDef): ?ApiDefinition
     {
         // Explicit resourceName on the column takes priority — avoids ambiguity when
         // multiple resources share the same foreign table.
@@ -265,8 +270,7 @@ final class HydraApiDocumentationBuilder
             if (!\in_array($columnDef->resourceName, $this->allowedResourceNames, true)) {
                 return null;
             }
-            $resource = $this->apiRegistry->get($columnDef->resourceName);
-            return $resource?->isAddressable() === true ? $resource->resourceType : null;
+            return $this->apiRegistry->get($columnDef->resourceName);
         }
 
         $tcaConfig = $GLOBALS['TCA'][$config->table]['columns'][$column]['config'] ?? [];
@@ -277,10 +281,10 @@ final class HydraApiDocumentationBuilder
             return null;
         }
         if ($foreignTable === $config->table) {
-            return ApiRegistry::pickRelated([$config])?->isAddressable() === true ? $config->resourceType : null;
+            return ApiRegistry::pickRelated([$config]);
         }
 
-        return $this->allowedTypeMap[$foreignTable] ?? null;
+        return $this->relatedByTable[$foreignTable] ?? null;
     }
 
     private function isSingleRelation(string $table, string $column): bool
@@ -300,35 +304,29 @@ final class HydraApiDocumentationBuilder
 
     /**
      * @param array<string, ApiDefinition> $resources Already-filtered allowed resources.
-     * @return array<string, string> Maps table → resourceType for O(1) auto-detected relation lookup.
+     * @return array<string, ApiDefinition> Maps table → the resource an auto-detected relation resolves to,
+     *                                      as ApiRegistry::getRelated() picks it.
      */
-    private function buildAllowedTypeMap(array $resources): array
+    private function buildRelatedByTable(array $resources): array
     {
         $byTable = [];
         foreach ($resources as $definition) {
             $byTable[$definition->table][] = $definition;
         }
 
-        $map = [];
-        foreach ($byTable as $table => $candidates) {
-            // Resolved as ApiRegistry::getRelated() does; without a show endpoint the relation renders uids, not links.
-            $related = ApiRegistry::pickRelated($candidates);
-            if ($related?->isAddressable() === true) {
-                $map[$table] = $related->resourceType;
-            }
-        }
-        return $map;
+        return array_filter(array_map(ApiRegistry::pickRelated(...), $byTable));
     }
 
     /**
      * Range of a relation that isn't linked: the embedded record when the column
-     * embeds it on read, its uid otherwise; null for a column that isn't a relation.
+     * embeds it on read, typed by its documented resource if there is one, and its
+     * uid otherwise; null for a column that isn't a relation.
      *
      * TYPO3 sets foreign_table on type=file columns too, but those serialize
      * as file objects, never as records. A group holding one record of one table,
      * such as pages.shortcut, names that table in allowed instead.
      */
-    private function unlinkedRelationRange(ApiDefinition $config, string $column, ColumnDefinition $columnDef): ?string
+    private function unlinkedRelationRange(ApiDefinition $config, string $column, ColumnDefinition $columnDef, ?ApiDefinition $related): ?string
     {
         $tcaConfig = $GLOBALS['TCA'][$config->table]['columns'][$column]['config'] ?? [];
         if (($tcaConfig['type'] ?? '') === 'file') {
@@ -342,7 +340,11 @@ final class HydraApiDocumentationBuilder
 
         $embedsOnRead = $columnDef->embedDepth() > 0 && (!$config->isExplicitMode || $columnDef->isReadable());
 
-        return $embedsOnRead ? 'rdfs:Resource' : 'xsd:integer';
+        if (!$embedsOnRead) {
+            return 'xsd:integer';
+        }
+
+        return $related !== null ? '#' . $related->resourceType : 'rdfs:Resource';
     }
 
     private function columnTypeToXsdType(string $type): string
