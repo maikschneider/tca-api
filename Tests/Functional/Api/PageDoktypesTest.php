@@ -48,6 +48,8 @@ final class PageDoktypesTest extends ApiFunctionalTestCase
                 'resourceType' => 'WebPage',
                 'recordTypes'  => [1, 3, 4],
             ],
+            // A relation links through a resource scoped to record types only when it names it.
+            'columns'  => ['shortcut' => ['resourceName' => 'web-pages']],
             'security' => ['list' => AccessRole::PUBLIC, 'show' => AccessRole::PUBLIC],
             'order'    => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
         ]);
@@ -116,7 +118,7 @@ final class PageDoktypesTest extends ApiFunctionalTestCase
             ->insert('tx_testrecordtypes_item', ['uid' => 710, 'pid' => 1, 'item_type' => 'article', 'title' => 'Item', 'target_page' => '500']);
         $this->registerResource('items', [
             'general'  => ['table' => 'tx_testrecordtypes_item', 'resourceName' => 'items', 'resourceType' => 'Item'],
-            'columns'  => ['target_page' => ['groups' => ['show']]],
+            'columns'  => ['target_page' => ['groups' => ['show'], 'resourceName' => 'web-pages']],
             'security' => ['list' => AccessRole::PUBLIC, 'show' => AccessRole::PUBLIC],
         ]);
 
@@ -130,6 +132,66 @@ final class PageDoktypesTest extends ApiFunctionalTestCase
             ['type' => 'null'],
         ], $schema['oneOf']);
         self::assertArrayNotHasKey('items', $schema);
+    }
+
+    public function testHydraDescribesAGroupOverOneTableWithoutALinkAsAnInteger(): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('tx_testrecordtypes_item')
+            ->insert('tx_testrecordtypes_item', ['uid' => 710, 'pid' => 1, 'item_type' => 'article', 'title' => 'Item', 'target_page' => '500']);
+        $this->registerResource('items', [
+            'general'  => ['table' => 'tx_testrecordtypes_item', 'resourceName' => 'items', 'resourceType' => 'Item'],
+            'columns'  => ['target_page' => ['groups' => ['show']]],
+            'security' => ['list' => AccessRole::PUBLIC, 'show' => AccessRole::PUBLIC],
+        ]);
+        $this->registerResource('web-pages', [
+            'general'  => ['table' => 'pages', 'resourceName' => 'web-pages', 'resourceType' => 'WebPage', 'recordTypes' => [1, 3, 4]],
+            'security' => ['list' => AccessRole::PUBLIC, 'show' => AccessRole::PUBLIC],
+        ]);
+
+        // web-pages serves only some doktypes, so neither relation links through it.
+        self::assertSame(500, $this->decodeResponseBody($this->executeApiRequest('/_api/items/710'))['target_page']);
+        self::assertSame(500, $this->decodeResponseBody($this->executeApiRequest('/_api/web-pages/521'))['shortcut']);
+
+        $hydra = $this->decodeResponseBody($this->executeApiRequest('/_api/docs.jsonld'));
+        foreach (['Item' => 'target_page', 'WebPage' => 'shortcut'] as $type => $column) {
+            $class    = array_values(array_filter($hydra['hydra:supportedClass'], static fn (array $class): bool => $class['hydra:title'] === $type))[0];
+            $property = array_values(array_filter($class['hydra:supportedProperty'], static fn (array $property): bool => $property['hydra:title'] === $column))[0];
+            self::assertSame('rdf:Property', $property['hydra:property']['@type'], $type . '.' . $column);
+            self::assertSame('xsd:integer', $property['hydra:property']['range'], $type . '.' . $column);
+        }
+    }
+
+    public function testHydraDescribesAnEmbeddedGroupOverOneTableWithoutALinkAsItsResourceClass(): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('tx_testrecordtypes_item')
+            ->insert('tx_testrecordtypes_item', ['uid' => 710, 'pid' => 1, 'item_type' => 'article', 'title' => 'Item', 'target_page' => '500']);
+        $this->registerResource('items', [
+            'general'  => ['table' => 'tx_testrecordtypes_item', 'resourceName' => 'items', 'resourceType' => 'Item'],
+            'columns'  => ['target_page' => ['groups' => ['show'], 'embed' => true]],
+            'security' => ['list' => AccessRole::PUBLIC, 'show' => AccessRole::PUBLIC],
+        ]);
+
+        // web-pages serves only some doktypes: the record is embedded without @id, still as a WebPage.
+        $target = $this->decodeResponseBody($this->executeApiRequest('/_api/items/710'))['target_page'];
+        self::assertSame(['WebPage', 500], [$target['@type'], $target['uid']]);
+        self::assertArrayNotHasKey('@id', $target);
+        self::assertSame(['@type' => 'rdf:Property', 'range' => '#WebPage'], $this->hydraTargetPage());
+
+        // Without a resource for pages there is no class to name.
+        $registry = $this->getApiRegistry();
+        $registry->replaceAll(array_diff_key($registry->getAll(), ['web-pages' => true]));
+        self::assertSame('Pages', $this->decodeResponseBody($this->executeApiRequest('/_api/items/710'))['target_page']['@type']);
+        self::assertSame(['@type' => 'rdf:Property', 'range' => 'rdfs:Resource'], $this->hydraTargetPage());
+    }
+
+    /** @return array{'@type': mixed, range: mixed} */
+    private function hydraTargetPage(): array
+    {
+        $hydra    = $this->decodeResponseBody($this->executeApiRequest('/_api/docs.jsonld'));
+        $class    = array_values(array_filter($hydra['hydra:supportedClass'], static fn (array $class): bool => $class['hydra:title'] === 'Item'))[0];
+        $property = array_values(array_filter($class['hydra:supportedProperty'], static fn (array $property): bool => $property['hydra:title'] === 'target_page'))[0];
+
+        return ['@type' => $property['hydra:property']['@type'], 'range' => $property['hydra:property']['range']];
     }
 
     public function testAManyToOneGroupOverSeveralTablesKeepsItsRecord(): void
@@ -146,6 +208,7 @@ final class PageDoktypesTest extends ApiFunctionalTestCase
         $schema = $this->decodeResponseBody($this->executeApiRequest('/_api/openapi.json'))['components']['schemas']['ItemRead']['properties']['target'];
 
         self::assertSame('array', $schema['type']);
-        self::assertSame(['/_api/web-pages/500'], $target);
+        // A polymorphic group names no resource, and web-pages serves only some doktypes.
+        self::assertSame([['@type' => 'WebPage', 'uid' => 500]], $target);
     }
 }

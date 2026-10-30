@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 defined('TYPO3') or die();
 
-$GLOBALS['TCA']['tt_content']['columns']['tx_split_content'] = [
+$GLOBALS['TCA']['tt_content']['columns']['tx_related_content'] = [
     'label'  => 'Content element',
     'config' => [
         'type'          => 'select',

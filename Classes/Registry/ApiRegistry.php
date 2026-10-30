@@ -40,7 +40,7 @@ final class ApiRegistry
      * The config a relation from $config to $foreignTable serializes with.
      * An explicit $resourceName selects that registration by name, also on the
      * same table; otherwise a self-referential relation keeps $config so its
-     * embed definitions apply again.
+     * embed definitions apply again, and other relations follow pickRelated().
      *
      * @param list<string> $allowedResourceNames the site's tca_api.allowedResources; empty = all.
      *                                           A resource the site doesn't serve keeps its columns,
@@ -56,24 +56,52 @@ final class ApiRegistry
         }
 
         if ($foreignTable === $config->table) {
-            return $config;
+            return self::pickRelated([$config]);
         }
 
-        if ($allowedResourceNames === []) {
-            return $this->getByTable($foreignTable);
-        }
-        $blocked = null;
+        $allowed = $blocked = [];
         foreach (self::$resources as $name => $resource) {
             if ($resource->table !== $foreignTable) {
                 continue;
             }
             if ($isAllowed($name)) {
-                return $resource;
+                $allowed[] = $resource;
+            } else {
+                $blocked[] = $resource->withoutItemEndpoint();
             }
-            $blocked ??= $resource;
         }
 
-        return $blocked?->withoutItemEndpoint();
+        return self::pickRelated($allowed, $blocked);
+    }
+
+    /**
+     * The resource an automatically resolved relation uses among the candidates for
+     * the related table, given in tiers: a tier counts only when every earlier one is
+     * empty, so a resource the site serves wins over one it doesn't.
+     *
+     * A resource scoped to record types answers 404 for a record of another type, and
+     * a reference carries only the uid, not the type. So within a tier a resource
+     * serving every type is preferred, and a scoped one is used without its item
+     * endpoint: its records are referenced by uid instead of an IRI that might not
+     * dereference.
+     *
+     * @param list<ApiDefinition> ...$tiers
+     */
+    public static function pickRelated(array ...$tiers): ?ApiDefinition
+    {
+        foreach ($tiers as $candidates) {
+            if ($candidates === []) {
+                continue;
+            }
+            foreach ($candidates as $candidate) {
+                if (!$candidate->isRecordTypeScoped()) {
+                    return $candidate;
+                }
+            }
+            return $candidates[0]->withoutItemEndpoint();
+        }
+
+        return null;
     }
 
     /** @return array<string, ApiDefinition> */

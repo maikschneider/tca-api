@@ -7,6 +7,7 @@ namespace MaikSchneider\TcaApi\OpenApi;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use MaikSchneider\TcaApi\Loader\TcaValidatorDeriver;
+use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Serializer\Processing\RouteEnhancerProcessor;
 use MaikSchneider\TcaApi\Serializer\Processing\TypoLinkProcessor;
 use MaikSchneider\TcaApi\Serializer\RelationSerializer;
@@ -108,12 +109,13 @@ final readonly class OpenApiSchemasBuilder
         ];
 
         // Relations resolve among the documented resources first, then among blocked ones without item endpoint.
-        $related = array_values($resources);
+        $blocked = [];
         foreach ($allResources as $resource) {
             if (!\in_array($resource, $resources, true)) {
-                $related[] = $resource->withoutItemEndpoint();
+                $blocked[] = $resource->withoutItemEndpoint();
             }
         }
+        $related = [array_values($resources), $blocked];
 
         $names = new OpenApiSchemaNames($resources);
         foreach ($resources as $config) {
@@ -134,10 +136,10 @@ final readonly class OpenApiSchemasBuilder
     }
 
     /**
-     * @param ApiDefinition[] $resources
-     * @param int             $remainingDepth -1 for a resource's own schema, else the embed depth left, as in ResourceSerializer::serialize()
-     * @param string|null     $recordType     on a resource with type schemas, the record type to describe; null = all types
-     * @param list<string>    $ancestorTables tables of the records this one is embedded in, outermost first
+     * @param list<list<ApiDefinition>> $resources      resources relations resolve among, in tiers, see build()
+     * @param int                       $remainingDepth -1 for a resource's own schema, else the embed depth left, as in ResourceSerializer::serialize()
+     * @param string|null               $recordType     on a resource with type schemas, the record type to describe; null = all types
+     * @param list<string>              $ancestorTables tables of the records this one is embedded in, outermost first
      */
     private function buildReadSchema(ApiDefinition $config, array $resources, int $remainingDepth = -1, ?string $recordType = null, array $ancestorTables = []): array
     {
@@ -212,7 +214,7 @@ final readonly class OpenApiSchemasBuilder
      *
      * @param ApiDefinition[]       $resources
      * @param array<string, mixed>  $built     component schemas built so far, whose names are taken
-     * @param ApiDefinition[]       $related   resources relations resolve among, see build()
+     * @param list<list<ApiDefinition>> $related resources relations resolve among, in tiers, see build()
      * @return array<string, array<string, mixed>>
      */
     private function buildTypeReadSchemas(ApiDefinition $config, array $resources, OpenApiSchemaNames $names, array $built, array $related): array
@@ -224,7 +226,7 @@ final readonly class OpenApiSchemasBuilder
         $schemas = [];
         $mapping = [];
         // Other resources' Read schemas and the schemas built so far keep their names,
-        // e.g. those of resources split from this one or type schemas of another resource.
+        // e.g. type schemas of another resource.
         $taken = array_fill_keys(array_keys($built), true);
         foreach ($resources as $resource) {
             if ($resource !== $config) {
@@ -283,8 +285,8 @@ final readonly class OpenApiSchemasBuilder
     }
 
     /**
-     * @param ApiDefinition[] $resources
-     * @param list<string>    $ancestorTables
+     * @param list<list<ApiDefinition>> $resources
+     * @param list<string>              $ancestorTables
      */
     private function buildReadPropertySchema(string $column, ColumnDefinition $columnDef, ?array $tcaConfig, ApiDefinition $config, array $resources, int $remainingDepth = -1, array $ancestorTables = []): array
     {
@@ -419,8 +421,8 @@ final readonly class OpenApiSchemasBuilder
      * one. Categories embedded in an article are always objects; a parent article
      * embedded in an article may be a reference.
      *
-     * @param ApiDefinition[] $resources
-     * @param list<string>    $ancestorTables
+     * @param list<list<ApiDefinition>> $resources
+     * @param list<string>              $ancestorTables
      */
     private function relatedRecordSchema(array $tcaConfig, ColumnDefinition $columnDef, ApiDefinition $config, array $resources, int $remainingDepth, array $ancestorTables, bool $hasOne): ?array
     {
@@ -461,7 +463,7 @@ final readonly class OpenApiSchemasBuilder
      * item endpoint, its uid otherwise. Polymorphic groups can hold either, with
      * the uid wrapped in a node naming its type.
      *
-     * @param ApiDefinition[] $resources
+     * @param list<list<ApiDefinition>> $resources
      */
     private function referenceSchema(array $tcaConfig, ColumnDefinition $columnDef, ApiDefinition $config, array $resources): array
     {
@@ -511,21 +513,30 @@ final readonly class OpenApiSchemasBuilder
     /**
      * Same resolution as ApiRegistry::getRelated(), over the resources this spec documents.
      *
-     * @param ApiDefinition[] $resources
+     * @param list<list<ApiDefinition>> $resources
      */
     private function relatedConfig(string $table, ColumnDefinition $columnDef, ApiDefinition $config, array $resources): ?ApiDefinition
     {
-        if ($table === $config->table && $columnDef->resourceName === null) {
-            return $config;
-        }
-
-        foreach ($resources as $resource) {
-            if ($columnDef->resourceName !== null ? $resource->resourceName === $columnDef->resourceName : $resource->table === $table) {
-                return $resource;
+        if ($columnDef->resourceName !== null) {
+            foreach (array_merge(...$resources) as $resource) {
+                if ($resource->resourceName === $columnDef->resourceName) {
+                    return $resource;
+                }
             }
+            return null;
         }
 
-        return null;
+        if ($table === $config->table) {
+            return ApiRegistry::pickRelated([$config]);
+        }
+
+        return ApiRegistry::pickRelated(...array_map(
+            static fn (array $tier): array => array_values(array_filter(
+                $tier,
+                static fn (ApiDefinition $resource): bool => $resource->table === $table,
+            )),
+            $resources,
+        ));
     }
 
     /**
