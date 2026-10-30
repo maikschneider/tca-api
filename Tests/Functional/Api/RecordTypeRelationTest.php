@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Functional\Api;
 
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
+use MaikSchneider\TcaApi\DataAccess\EmbedPreloader;
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\OpenApi\OpenApiSchemasBuilder;
 use MaikSchneider\TcaApi\Serializer\ResourceSerializer;
@@ -71,6 +72,34 @@ final class RecordTypeRelationTest extends ApiFunctionalTestCase
         $registry = $this->getApiRegistry();
         $schemas  = $this->get(OpenApiSchemasBuilder::class)->build([$pages, $registry->get('related-header')], $registry->getAll());
         self::assertSame(['oneOf' => [['type' => 'integer'], ['type' => 'null']]], $schemas['RelatedPageRead']['properties']['tx_related_content']);
+    }
+
+    #[Test]
+    public function anEmbeddedRelationPrefersAScopedResourceTheSiteServesOverOneItDoesNot(): void
+    {
+        $this->registerLinkingContent();
+        $pages = ApiDefinition::fromArray([
+            'general' => ['table' => 'pages', 'resourceName' => 'related-pages', 'resourceType' => 'RelatedPage', 'operations' => ['list', 'show']],
+            'columns' => ['tx_related_content' => ['groups' => ['list', 'show'], 'embed' => true]],
+        ]);
+        $this->getConnectionPool()->getConnectionForTable('pages')->update('pages', ['tx_related_content' => 601], ['uid' => 1]);
+        $row = $this->getConnectionPool()->getConnectionForTable('pages')->select(['*'], 'pages', ['uid' => 1])->fetchAssociative();
+        self::assertIsArray($row);
+        // linking-content serves every type but is blocked; related-header is served but scoped.
+        $allowed   = ['related-pages', 'related-header'];
+        $preloaded = $this->get(EmbedPreloader::class)->preload([$row], $pages, null, [], 'show', $allowed);
+
+        $embedded = $this->get(ResourceSerializer::class)->serialize($row, $pages, '/_api/related-pages', [], $preloaded, -1, [], 'show')['tx_related_content'];
+
+        self::assertSame('RelatedHeader', $embedded['@type']);
+        self::assertArrayNotHasKey('@id', $embedded);
+        self::assertArrayNotHasKey('tx_related_content', $embedded);
+
+        $registry = $this->getApiRegistry();
+        $schemas  = $this->get(OpenApiSchemasBuilder::class)->build([$pages, $registry->get('related-header')], $registry->getAll());
+        $schema   = $schemas['RelatedPageRead']['properties']['tx_related_content']['oneOf'][0];
+        self::assertSame('RelatedHeader', $schema['properties']['@type']['example']);
+        self::assertArrayNotHasKey('tx_related_content', $schema['properties']);
     }
 
     #[Test]

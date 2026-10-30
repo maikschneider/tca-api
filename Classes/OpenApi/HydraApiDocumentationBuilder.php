@@ -323,13 +323,18 @@ final class HydraApiDocumentationBuilder
 
     /**
      * TYPO3 sets foreign_table on type=file columns too, but those serialize
-     * as file objects, never as uids.
+     * as file objects, never as uids. A group holding one record of one table,
+     * such as pages.shortcut, names that table in allowed instead.
      */
     private function rendersAsUid(string $table, string $column): bool
     {
         $tcaConfig = $GLOBALS['TCA'][$table]['columns'][$column]['config'] ?? [];
+        if (($tcaConfig['type'] ?? '') === 'file') {
+            return false;
+        }
 
-        return isset($tcaConfig['foreign_table']) && ($tcaConfig['type'] ?? '') !== 'file';
+        return isset($tcaConfig['foreign_table'])
+            || (self::isSingleGroupRelation($tcaConfig) && RelationSerializer::hasOneForeignTable($tcaConfig) !== null);
     }
 
     private function columnTypeToXsdType(string $type): string

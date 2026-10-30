@@ -71,29 +71,37 @@ final class ApiRegistry
             }
         }
 
-        return self::pickRelated([...$allowed, ...$blocked]);
+        return self::pickRelated($allowed, $blocked);
     }
 
     /**
      * The resource an automatically resolved relation uses among the candidates for
-     * the related table, those the site serves first.
+     * the related table, given in tiers: a tier counts only when every earlier one is
+     * empty, so a resource the site serves wins over one it doesn't.
      *
      * A resource scoped to record types answers 404 for a record of another type, and
-     * a reference carries only the uid, not the type. So a resource serving every type
-     * is preferred, and a scoped one is used without its item endpoint: its records
-     * are referenced by uid instead of an IRI that might not dereference.
+     * a reference carries only the uid, not the type. So within a tier a resource
+     * serving every type is preferred, and a scoped one is used without its item
+     * endpoint: its records are referenced by uid instead of an IRI that might not
+     * dereference.
      *
-     * @param list<ApiDefinition> $candidates
+     * @param list<ApiDefinition> ...$tiers
      */
-    public static function pickRelated(array $candidates): ?ApiDefinition
+    public static function pickRelated(array ...$tiers): ?ApiDefinition
     {
-        foreach ($candidates as $candidate) {
-            if (!$candidate->isRecordTypeScoped()) {
-                return $candidate;
+        foreach ($tiers as $candidates) {
+            if ($candidates === []) {
+                continue;
             }
+            foreach ($candidates as $candidate) {
+                if (!$candidate->isRecordTypeScoped()) {
+                    return $candidate;
+                }
+            }
+            return $candidates[0]->withoutItemEndpoint();
         }
 
-        return isset($candidates[0]) ? $candidates[0]->withoutItemEndpoint() : null;
+        return null;
     }
 
     /** @return array<string, ApiDefinition> */
