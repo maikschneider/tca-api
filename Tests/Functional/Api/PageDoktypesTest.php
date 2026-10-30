@@ -161,6 +161,27 @@ final class PageDoktypesTest extends ApiFunctionalTestCase
         }
     }
 
+    public function testHydraDescribesAnEmbeddedGroupOverOneTableWithoutALinkAsAResource(): void
+    {
+        $this->getConnectionPool()->getConnectionForTable('tx_testrecordtypes_item')
+            ->insert('tx_testrecordtypes_item', ['uid' => 710, 'pid' => 1, 'item_type' => 'article', 'title' => 'Item', 'target_page' => '500']);
+        $this->registerResource('items', [
+            'general'  => ['table' => 'tx_testrecordtypes_item', 'resourceName' => 'items', 'resourceType' => 'Item'],
+            'columns'  => ['target_page' => ['groups' => ['show'], 'embed' => true]],
+            'security' => ['list' => AccessRole::PUBLIC, 'show' => AccessRole::PUBLIC],
+        ]);
+
+        $target = $this->decodeResponseBody($this->executeApiRequest('/_api/items/710'))['target_page'];
+        self::assertSame(['WebPage', 500], [$target['@type'], $target['uid']]);
+        self::assertArrayNotHasKey('@id', $target);
+
+        $hydra    = $this->decodeResponseBody($this->executeApiRequest('/_api/docs.jsonld'));
+        $class    = array_values(array_filter($hydra['hydra:supportedClass'], static fn (array $class): bool => $class['hydra:title'] === 'Item'))[0];
+        $property = array_values(array_filter($class['hydra:supportedProperty'], static fn (array $property): bool => $property['hydra:title'] === 'target_page'))[0];
+        self::assertSame('rdf:Property', $property['hydra:property']['@type']);
+        self::assertSame('rdfs:Resource', $property['hydra:property']['range']);
+    }
+
     public function testAManyToOneGroupOverSeveralTablesKeepsItsRecord(): void
     {
         $this->getConnectionPool()->getConnectionForTable('tx_testrecordtypes_item')

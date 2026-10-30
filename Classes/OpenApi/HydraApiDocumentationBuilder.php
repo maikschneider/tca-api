@@ -239,9 +239,8 @@ final class HydraApiDocumentationBuilder
                     '@type' => 'rdf:Property',
                     'rdfs:label' => $name,
                     'domain' => '#' . $config->resourceType,
-                    'range' => $this->rendersAsUid($config->table, $name)
-                        ? 'xsd:integer'
-                        : 'xsd:' . $this->columnTypeToXsdType($column->type ?? ''),
+                    'range' => $this->unlinkedRelationRange($config, $name, $column)
+                        ?? 'xsd:' . $this->columnTypeToXsdType($column->type ?? ''),
                 ];
             }
 
@@ -322,19 +321,28 @@ final class HydraApiDocumentationBuilder
     }
 
     /**
+     * Range of a relation that isn't linked: the embedded record when the column
+     * embeds it on read, its uid otherwise; null for a column that isn't a relation.
+     *
      * TYPO3 sets foreign_table on type=file columns too, but those serialize
-     * as file objects, never as uids. A group holding one record of one table,
+     * as file objects, never as records. A group holding one record of one table,
      * such as pages.shortcut, names that table in allowed instead.
      */
-    private function rendersAsUid(string $table, string $column): bool
+    private function unlinkedRelationRange(ApiDefinition $config, string $column, ColumnDefinition $columnDef): ?string
     {
-        $tcaConfig = $GLOBALS['TCA'][$table]['columns'][$column]['config'] ?? [];
+        $tcaConfig = $GLOBALS['TCA'][$config->table]['columns'][$column]['config'] ?? [];
         if (($tcaConfig['type'] ?? '') === 'file') {
-            return false;
+            return null;
+        }
+        if (!isset($tcaConfig['foreign_table'])
+            && !(self::isSingleGroupRelation($tcaConfig) && RelationSerializer::hasOneForeignTable($tcaConfig) !== null)
+        ) {
+            return null;
         }
 
-        return isset($tcaConfig['foreign_table'])
-            || (self::isSingleGroupRelation($tcaConfig) && RelationSerializer::hasOneForeignTable($tcaConfig) !== null);
+        $embedsOnRead = $columnDef->embedDepth() > 0 && (!$config->isExplicitMode || $columnDef->isReadable());
+
+        return $embedsOnRead ? 'rdfs:Resource' : 'xsd:integer';
     }
 
     private function columnTypeToXsdType(string $type): string
