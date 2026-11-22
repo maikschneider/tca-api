@@ -149,22 +149,12 @@ final readonly class OpenApiSchemasBuilder
             'uid' => ['type' => 'integer'],
         ];
 
-        if (!$config->isExplicitMode) {
-            foreach ($config->columnMap($recordType) as $column => $columnDef) {
-                $tcaConfig = RecordTypeFields::columnDefinition($config->table, $column, $recordType)['config'] ?? null;
-                $properties[$column] = $this->buildReadPropertySchema($column, $columnDef, $tcaConfig, $config, $resources, $remainingDepth, $ancestorTables);
+        foreach ($config->columnMap($recordType) as $column => $columnDef) {
+            if ($config->isExplicitMode && (!$columnDef->isReadable() || self::isPasswordColumn($config->table, $column))) {
+                continue;
             }
-        } else {
-            foreach ($config->columns as $column => $columnDef) {
-                if (!$columnDef->isReadable()) {
-                    continue;
-                }
-                if (self::isPasswordColumn($config->table, $column)) {
-                    continue;
-                }
-                $tcaConfig = $GLOBALS['TCA'][$config->table]['columns'][$column]['config'] ?? null;
-                $properties[$column] = $this->buildReadPropertySchema($column, $columnDef, $tcaConfig, $config, $resources, $remainingDepth, $ancestorTables);
-            }
+            $tcaConfig = RecordTypeFields::columnDefinition($config->table, $column, $recordType)['config'] ?? null;
+            $properties[$column] = $this->buildReadPropertySchema($column, $columnDef, $tcaConfig, $config, $resources, $remainingDepth, $ancestorTables);
         }
 
         foreach ($config->virtualProperties as $vpName => $vpDef) {
