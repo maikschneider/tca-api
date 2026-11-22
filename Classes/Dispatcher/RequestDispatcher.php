@@ -115,7 +115,7 @@ final class RequestDispatcher
         }
 
         $config = $this->apiRegistry->get($ctx->resource);
-        if ($config === null) {
+        if ($config === null || !$ctx->isDefinitionEnabled($config)) {
             return $this->notFound();
         }
 
@@ -152,7 +152,7 @@ final class RequestDispatcher
         $request = $this->withRequestAttributes($request, $method, $ctx->uid, $operation, $config, $siteSettings, $ctx->language)
             ->withAttribute('tca_api.existing_record', $existingRecord)
             // Relations to resources outside this list render as uids, not IRIs this site would answer with 404.
-            ->withAttribute('tca_api.allowed_resources', $ctx->allowedResourceNames());
+            ->withAttribute('tca_api.allowed_resources', $ctx->servedResourceNames($this->apiRegistry->getAll()));
 
         // ── Cache: check for hit on cacheable read operations ────────────
         $cacheKey = null;

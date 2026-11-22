@@ -88,6 +88,11 @@ The ``general`` key defines the basic resource properties:
        (``'Editorial'``) or an array with a ``name`` and optional
        ``description``. Defaults to ``resourceType`` — see
        :ref:`endpoint-grouping`.
+   * - ``enabledSetting``
+     - Name of a boolean site setting (``'myext.enabled'``) that enables the
+       resource per site. Sites where the setting is not ``true`` don't serve
+       or document the resource. When omitted, every site serves it — see
+       :ref:`enabled-setting`.
 
 Write mode
 ==========
@@ -183,6 +188,61 @@ constraint.
 Response caching includes the site and its resolved read pages. Changing a
 storage-page setting cannot reuse a response from the previous scope, and
 an invalid setting fails even when a response was previously cached.
+
+..  _enabled-setting:
+
+Enabling a resource per site
+============================
+
+Resource definitions are registered for every site. An extension can ship
+resources that only some sites serve: it names a boolean site setting in
+``enabledSetting`` and defines that setting in its site set, ``false`` by
+default:
+
+..  code-block:: php
+    :caption: EXT:my_ext/Configuration/TcaApi/Events.php
+
+    'general' => [
+        'table'          => 'tx_myext_event',
+        'resourceName'   => 'events',
+        'resourceType'   => 'Event',
+        'enabledSetting' => 'myext.api.enabled',
+    ],
+
+..  code-block:: yaml
+    :caption: EXT:my_ext/Configuration/Sets/MyExt/settings.definitions.yaml
+
+    settings:
+      myext.api.enabled:
+        label: 'Serve the events API'
+        type: bool
+        default: false
+
+A site opts in by depending on the set and setting the value to ``true``,
+in the backend settings editor or in its configuration:
+
+..  code-block:: yaml
+    :caption: config/sites/main/settings.yaml
+
+    myext:
+      api:
+        enabled: true
+
+On a site where the setting is ``false`` or not defined (the site doesn't use
+the set), the resource doesn't exist:
+
+*   Every operation answers ``404`` with the body of an unknown resource,
+    before a record is read, an event is dispatched or the response cache is
+    consulted.
+*   OpenAPI, the Hydra entrypoint and documentation, ``tca-api:openapi`` and
+    the backend module leave it out.
+*   Relations to it render the uid instead of an IRI, as for resources outside
+    ``tca_api.allowedResources`` (see :ref:`site-settings`).
+
+``enabledSetting`` adds to ``tca_api.allowedResources``: a resource must pass
+both. Only the boolean ``true`` enables a resource, so declare the setting with
+``type: bool``. An :ref:`override <configuration-overrides>` can set
+``enabledSetting`` on a resource of another extension.
 
 ..  _record-types:
 
