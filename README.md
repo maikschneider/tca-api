@@ -60,7 +60,7 @@ That is a complete, read-only API at `/_api/articles`, including an OpenAPI spec
 
 **[Extensibility](https://docs.typo3.org/p/maikschneider/tca-api/main/en-us/Developer/Index.html)** — Every layer is replaceable
 * [Custom operation handlers](https://docs.typo3.org/p/maikschneider/tca-api/main/en-us/Developer/CustomHandlers.html), [filters](https://docs.typo3.org/p/maikschneider/tca-api/main/en-us/Configuration/Filters.html#custom-filters), validators and column processors
-* [PSR-14 events](https://docs.typo3.org/p/maikschneider/tca-api/main/en-us/Developer/Events.html) around every operation and every write
+* [PSR-14 events](https://docs.typo3.org/p/maikschneider/tca-api/main/en-us/Developer/Events.html) around every operation and every write, and one to extend the OpenAPI document
 
 ## 🔥 Installation
 

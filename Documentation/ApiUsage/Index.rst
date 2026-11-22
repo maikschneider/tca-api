@@ -185,6 +185,10 @@ Access to both endpoints is controlled by the ``tca_api.openApiExposed`` and
 ``tca_api.swaggerUiEnabled`` site settings respectively. Both default to
 ``PUBLIC``.
 
+Output the spec can't infer from the TCA, such as keys an
+``AfterOperationEvent`` listener adds, is described by a
+``ModifyOpenApiDocumentEvent`` listener, see :ref:`events-modify-openapi-document`.
+
 Generating the spec on the command line
 ---------------------------------------
 
