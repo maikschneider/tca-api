@@ -296,8 +296,8 @@ field processing use the type's configuration.
 Declared ``columns`` keep their configuration but count only for the types
 whose form contains them. Their TCA-derived validation follows the type's
 ``columnsOverrides`` too, while an explicit ``required`` or validator of the
-same kind still takes precedence. Explicit mode is unaffected: declared columns are
-the columns.
+same kind still takes precedence. Explicit mode keeps one column map for every
+type: declared columns are the columns, see :ref:`record-types-explicit-mode`.
 
 To scope a resource without changing its columns, use the options form with
 ``'schema' => 'table'``:
@@ -308,6 +308,64 @@ To scope a resource without changing its columns, use the options form with
         'include' => ['textmedia', 'header'],   // default: '*'
         'schema'  => 'table',                   // default: 'type'
     ],
+
+..  _record-types-explicit-mode:
+
+Columns per record type in explicit mode
+----------------------------------------
+
+In explicit mode (a column declares ``groups``), every record carries all
+declared columns and the OpenAPI spec has one ``Read`` schema, whatever its
+type. ``'typeColumns' => true`` gives each record only the declared columns
+of **its type's form** instead:
+
+..  code-block:: php
+
+    'general' => [
+        'table'        => 'tt_content',
+        'resourceName' => 'content',
+        'resourceType' => 'Content',
+        'recordTypes'  => [
+            'include'     => ['text', 'image', 'uploads'],
+            'typeColumns' => true,
+        ],
+    ],
+    'columns' => [
+        'CType'    => ['groups' => ['list', 'show']],
+        'header'   => ['groups' => ['list', 'show']],
+        'bodytext' => ['groups' => ['list', 'show']],
+        'image'    => ['groups' => ['list', 'show']],
+        'media'    => ['groups' => ['list', 'show']],
+    ],
+
+A ``text`` element carries ``CType``, ``header`` and ``bodytext``, an
+``image`` element ``image`` instead of ``bodytext``. The form is read as in
+default mode (``showitem``, palettes unpacked, ``columnsOverrides`` applied),
+but only declared columns count, system fields included: a declared ``hidden``
+is exposed for the types whose form shows it. A declared column that no form
+contains is not exposed. A virtual property over a ``column`` follows that
+column: it is exposed only for the types that expose the column. The OpenAPI ``Read`` schema is a ``oneOf`` over one
+schema per type with a ``discriminator`` on the type field, as in default mode.
+
+The option is checked at boot and fails with an
+``InvalidApiDefinitionException`` when:
+
+*   the resource is not in explicit mode, or uses ``'schema' => 'table'``.
+*   the type field (``CType`` above) is not a declared column in the groups
+    ``list`` and ``show``. The discriminator needs it in every response,
+    also when the record is embedded by a ``list`` or ``show`` of another
+    resource.
+*   the resource has a ``create`` or ``update`` operation. Writing columns per
+    type is not supported yet; ``delete`` is allowed.
+
+Without ``typeColumns``, explicit configs keep their flat shape, including
+``'schema' => 'type'`` in the options form.
+
+``typeColumns`` shapes the responses; it is not an access boundary. Filters,
+search and ``order`` apply to the table column for all records, and TYPO3
+keeps the value of a column when the type of a record changes. Don't make a
+column filterable, searchable or sortable when its values must stay hidden on
+some types.
 
 ..  _endpoint-grouping:
 

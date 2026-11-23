@@ -1121,4 +1121,132 @@ final class ApiDefinitionTest extends TestCase
 
         ApiDefinition::fromArray(self::typeSchemaConfig(['schema' => 'record']));
     }
+
+    #[Test]
+    public function explicitModeKeepsTheFlatColumnMapWithSchemaType(): void
+    {
+        $cfg = self::typeSchemaConfig(['include' => ['news', 'event'], 'schema' => 'type']);
+        $cfg['columns'] = ['title' => ['groups' => ['list']], 'teaser' => ['groups' => ['list']]];
+
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertFalse($def->typeSchemas);
+        self::assertSame(['title', 'teaser'], array_keys($def->columnMap('event')));
+        self::assertNull($def->recordTypeOf(['record_type' => 'event']));
+    }
+
+    // ── recordTypes: typeColumns ────────────────────────────────────────
+
+    /**
+     * @param array<string, array<string, mixed>> $columns
+     */
+    private static function typeColumnsConfig(array $columns, array $recordTypeOptions = []): array
+    {
+        $cfg = self::typeSchemaConfig(['include' => ['news', 'event'], 'typeColumns' => true] + $recordTypeOptions);
+        $cfg['columns'] = $columns;
+
+        return $cfg;
+    }
+
+    private const READ = ['groups' => ['list', 'show']];
+
+    #[Test]
+    public function typeColumnsExposeTheDeclaredColumnsOfEachTypesForm(): void
+    {
+        $def = ApiDefinition::fromArray(self::typeColumnsConfig([
+            'record_type' => self::READ,
+            'teaser'      => self::READ,
+            'location'    => self::READ,
+            'hidden'      => self::READ,
+        ]));
+
+        self::assertTrue($def->typeSchemas);
+        self::assertSame(['record_type', 'teaser'], array_keys($def->columnMap('news')));
+        self::assertSame(['record_type', 'hidden', 'location'], array_keys($def->columnMap('event')));
+        self::assertSame(['record_type', 'teaser', 'hidden', 'location'], array_keys($def->columnMap()));
+        self::assertSame('event', $def->recordTypeOf(['record_type' => 'event']));
+    }
+
+    #[Test]
+    public function typeColumnsDropADeclaredColumnNoFormContains(): void
+    {
+        $def = ApiDefinition::fromArray(self::typeColumnsConfig([
+            'record_type' => self::READ,
+            'unknown'     => self::READ,
+        ]));
+
+        self::assertSame(['record_type'], array_keys($def->columnMap()));
+    }
+
+    #[Test]
+    public function typeColumnsWithFalseKeepTheFlatColumnMap(): void
+    {
+        $cfg = self::typeColumnsConfig(['title' => self::READ]);
+        $cfg['general']['recordTypes']['typeColumns'] = false;
+
+        $def = ApiDefinition::fromArray($cfg);
+
+        self::assertFalse($def->typeSchemas);
+        self::assertSame(['title'], array_keys($def->columnMap('news')));
+    }
+
+    #[Test]
+    public function typeColumnsMustBeABoolean(): void
+    {
+        $cfg = self::typeColumnsConfig(['record_type' => self::READ]);
+        $cfg['general']['recordTypes']['typeColumns'] = 'yes';
+
+        $this->expectException(InvalidApiDefinitionException::class);
+        $this->expectExceptionMessage('general.recordTypes.typeColumns must be a boolean');
+
+        ApiDefinition::fromArray($cfg);
+    }
+
+    #[Test]
+    public function typeColumnsInDefaultModeThrow(): void
+    {
+        $this->expectException(InvalidApiDefinitionException::class);
+        $this->expectExceptionMessage('general.recordTypes.typeColumns requires explicit mode');
+
+        ApiDefinition::fromArray(self::typeColumnsConfig(['record_type' => []]));
+    }
+
+    #[Test]
+    public function typeColumnsWithTableSchemaThrow(): void
+    {
+        $this->expectException(InvalidApiDefinitionException::class);
+        $this->expectExceptionMessage('general.recordTypes.typeColumns cannot be combined with schema "table"');
+
+        ApiDefinition::fromArray(self::typeColumnsConfig(['record_type' => self::READ], ['schema' => 'table']));
+    }
+
+    #[Test]
+    public function typeColumnsWithoutADeclaredTypeFieldThrow(): void
+    {
+        $this->expectException(InvalidApiDefinitionException::class);
+        $this->expectExceptionMessage('general.recordTypes.typeColumns requires the type field "record_type" as a column in the groups list and show');
+
+        ApiDefinition::fromArray(self::typeColumnsConfig(['title' => self::READ]));
+    }
+
+    #[Test]
+    public function typeColumnsWithATypeFieldMissingFromAReadGroupThrow(): void
+    {
+        $this->expectException(InvalidApiDefinitionException::class);
+        $this->expectExceptionMessage('general.recordTypes.typeColumns requires the type field "record_type" as a column in the groups list and show');
+
+        ApiDefinition::fromArray(self::typeColumnsConfig(['record_type' => ['groups' => ['show']]]));
+    }
+
+    #[Test]
+    public function typeColumnsWithWriteOperationsThrow(): void
+    {
+        $cfg = self::typeColumnsConfig(['record_type' => self::READ]);
+        $cfg['general']['operations'] = ['list', 'show', 'update', 'delete'];
+
+        $this->expectException(InvalidApiDefinitionException::class);
+        $this->expectExceptionMessage('general.recordTypes.typeColumns does not support the operations "update" yet');
+
+        ApiDefinition::fromArray($cfg);
+    }
 }
