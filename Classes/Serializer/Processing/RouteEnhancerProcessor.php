@@ -8,7 +8,6 @@ use MaikSchneider\TcaApi\Configuration\ColumnDefinition;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Core\Routing\RouterInterface;
 use TYPO3\CMS\Core\Site\Entity\Site;
-use TYPO3\CMS\Core\Site\Entity\SiteLanguage;
 use TYPO3\CMS\Core\Site\Entity\SiteSettings;
 use TYPO3\CMS\Core\Site\SiteFinder;
 
@@ -43,6 +42,7 @@ final class RouteEnhancerProcessor implements ColumnProcessorInterface
     public function __construct(
         private readonly SiteFinder $siteFinder,
         private readonly PlaceholderResolver $placeholderResolver,
+        private readonly LinkLanguageResolver $linkLanguageResolver,
     ) {
     }
 
@@ -54,7 +54,7 @@ final class RouteEnhancerProcessor implements ColumnProcessorInterface
         }
 
         $rawRow   = \is_array($context['rawRow'] ?? null) ? $context['rawRow'] : [];
-        $request  = $this->currentRequest();
+        $request  = LinkLanguageResolver::contextRequest($context);
         $settings = $this->currentSiteSettings($request);
 
         // 1. Resolve the target page id.
@@ -86,16 +86,15 @@ final class RouteEnhancerProcessor implements ColumnProcessorInterface
             $queryParams[$route->extbaseNamespace()] = $extbaseArgs;
         }
 
-        // 4. Tell the router which language base to use, if known.
-        $language = $this->currentLanguage($request);
-        if ($language instanceof SiteLanguage) {
-            $queryParams['_language'] = $language;
-        }
-
-        // 5. Hand off to the site router. RouteEnhancers attached to the page
+        // 4. Hand off to the site router. RouteEnhancers attached to the page
         //    handle the speaking-URL transformation themselves.
         try {
             $site = $this->siteFinder->getSiteByPageId($pageId);
+            $language = $this->linkLanguageResolver->resolve($site, $request);
+            if ($language !== null && !$this->linkLanguageResolver->isPageAvailable($pageId, $language)) {
+                return null;
+            }
+            $queryParams['_language'] = $language;
             $uri  = $site->getRouter()->generateUri(
                 $pageId,
                 $queryParams,
@@ -107,29 +106,6 @@ final class RouteEnhancerProcessor implements ColumnProcessorInterface
         } catch (\Exception) {
             return null;
         }
-    }
-
-    private function currentRequest(): ?ServerRequestInterface
-    {
-        $request = $GLOBALS['TYPO3_REQUEST'] ?? null;
-        return $request instanceof ServerRequestInterface ? $request : null;
-    }
-
-    private function currentLanguage(?ServerRequestInterface $request): ?SiteLanguage
-    {
-        if ($request === null) {
-            return null;
-        }
-        // Prefer the API dispatcher's resolved language (which honors X-Locale
-        // overrides), then fall back to the standard PSR-7 attribute set by
-        // the TYPO3 frontend SiteResolver.
-        foreach (['tca_api.language', 'language'] as $attr) {
-            $value = $request->getAttribute($attr);
-            if ($value instanceof SiteLanguage) {
-                return $value;
-            }
-        }
-        return null;
     }
 
     private function currentSiteSettings(?ServerRequestInterface $request): ?SiteSettings

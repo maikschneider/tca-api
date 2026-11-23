@@ -112,7 +112,7 @@ class UpdateHandler implements OperationHandlerInterface
         $apiPrefix = (string)$request->getAttribute('tca_api.api_prefix', '/_api');
         $baseUrl   = $apiPrefix . '/' . $config->resourceName;
 
-        $serialized = $this->serializer->serialize($row, $config, $baseUrl, [], ['__allowedResources' => $this->allowedResourcesFromRequest($request)]);
+        $serialized = $this->serializer->serialize($row, $config, $baseUrl, [], ['__allowedResources' => $this->allowedResourcesFromRequest($request), '__request' => $request]);
 
         $event = new AfterOperationEvent('update', $serialized, $request, $config);
         $this->eventDispatcher->dispatch($event);

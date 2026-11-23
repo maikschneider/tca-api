@@ -59,7 +59,7 @@ final class ResourceSerializer
     /**
      * Serialize a single raw DB row.
      *
-     * @param array  $preloaded      ['rows' => [foreignTable => [uid => row]], 'relations' => [table => [column => [parentUid => [uid, ...]]]], 'files' => [table => PreloadedFileReferences]]
+     * @param array  $preloaded      ['rows' => [foreignTable => [uid => row]], 'relations' => [table => [column => [parentUid => [uid, ...]]]], 'files' => [table => PreloadedFileReferences], '__request' => the API request, handed to column processors]
      * @param int    $remainingDepth -1 = top level (use per-column embed config); ≥0 = recursive budget from parent embed
      * @param array  $visited        ['table:uid' => true] cycle-prevention guard
      * @param string $operation      Current operation context: 'list', 'show', 'create', 'update', or '' for default
@@ -148,7 +148,7 @@ final class ResourceSerializer
                     $processor = $this->processorGuard->instantiate(TypoLinkProcessor::class, $config->table, $column, $uid);
                     $result[$column] = $processor instanceof TypoLinkProcessor
                         ? $this->processorGuard->run(
-                            static fn () => $processor->process($value, $columnDef, ['serializedRow' => $result, 'rawRow' => $row]),
+                            static fn () => $processor->process($value, $columnDef, ['serializedRow' => $result, 'rawRow' => $row, 'request' => $preloaded['__request'] ?? null]),
                             TypoLinkProcessor::class,
                             $config->table,
                             $column,
@@ -158,7 +158,7 @@ final class ResourceSerializer
                     continue;
                 }
 
-                $result[$column] = $this->applyColumnProcessor($value, $columnDef, $result, $row, $config, $column, $uid);
+                $result[$column] = $this->applyColumnProcessor($value, $columnDef, $result, $row, $config, $column, $uid, $preloaded);
                 continue;
             }
 
@@ -211,7 +211,7 @@ final class ResourceSerializer
                 $result[$virtualPropertyName] = $this->fileFieldSerializer->serialize($columnRef, $columnField, $virtualPropDef, $config->table, $uid, $preloadedFiles);
             } elseif ($virtualPropDef->processor !== null) {
                 $value = $columnRef !== null ? ($row[$columnRef] ?? null) : null;
-                $result[$virtualPropertyName] = $this->applyColumnProcessor($value, $virtualPropDef, $result, $row, $config, $virtualPropertyName, $uid);
+                $result[$virtualPropertyName] = $this->applyColumnProcessor($value, $virtualPropDef, $result, $row, $config, $virtualPropertyName, $uid, $preloaded);
             }
 
             // A callback, when present, always runs last
@@ -344,6 +344,7 @@ final class ResourceSerializer
         ApiDefinition $apiConfig,
         string $column,
         int $uid,
+        array $preloaded,
     ): mixed {
         if ($columnDef->processor === null) {
             return $value;
@@ -361,7 +362,7 @@ final class ResourceSerializer
         }
 
         return $this->processorGuard->run(
-            static fn () => $processor->process($value, $columnDef, ['serializedRow' => $serializedRow, 'rawRow' => $rawRow]),
+            static fn () => $processor->process($value, $columnDef, ['serializedRow' => $serializedRow, 'rawRow' => $rawRow, 'request' => $preloaded['__request'] ?? null]),
             $processorClass,
             $apiConfig->table,
             $column,

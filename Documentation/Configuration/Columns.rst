@@ -216,7 +216,11 @@ built-in processors:
        ],
 
 ``TypoLinkProcessor``
-   Resolves TYPO3 typolinks to full URLs.
+   Resolves TYPO3 typolinks to full URLs. Page links follow the language of the
+   API request (``/de/_api/…`` links to the German page), mapped to the target
+   site like ``RouteEnhancerProcessor`` does, and is ``null`` for an
+   untranslated page the frontend doesn't serve in that language. A language
+   in the link itself (``_language`` or ``L``) wins.
 
    ..  code-block:: php
 
@@ -405,6 +409,11 @@ built-in processors:
 Custom processors must implement
 :php:`MaikSchneider\TcaApi\Serializer\Processing\ColumnProcessorInterface`
 (or :php:`FileProcessorInterface` for file columns).
+
+:php:`process()` receives the serialized and the raw row in ``$context``
+(``serializedRow``, ``rawRow``) and the API request as ``request``. Read the
+language (``tca_api.language``) or the site from that request rather than from
+``$GLOBALS['TYPO3_REQUEST']``.
 
 Constructor dependency injection works out of the box. Processors are named by
 class-string and built with :php:`GeneralUtility::makeInstance()`, which injects
