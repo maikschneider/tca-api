@@ -93,7 +93,12 @@ final class EmbedPreloader
         $schema   = $this->schemaFactory->get($table);
         $language = $preloaded['__language'];
 
-        $files = $this->fileReferencePreloader->preload($config, $parentUids);
+        // A translation owns its file references, stored against its own uid.
+        $fileOwnerUids = array_values(array_unique(array_map(
+            static fn (array $row): int => (int)($row['_LOCALIZED_UID'] ?? $row['uid']),
+            $rows,
+        )));
+        $files = $this->fileReferencePreloader->preload($config, $fileOwnerUids);
         $preloaded['files'][$table] = isset($preloaded['files'][$table]) ? $preloaded['files'][$table]->merge($files) : $files;
 
         // Collect UIDs for all UID-based fetches (hasOne FKs + UID-list hasMany + group UID-list).

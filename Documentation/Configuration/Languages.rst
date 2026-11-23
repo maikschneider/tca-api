@@ -102,6 +102,16 @@ when the response payload contains the translated values. A German consumer of
 
 The translation row's own UID (e.g. ``51``) is never exposed.
 
+File references
+---------------
+
+A translated record returns its own file references, as the frontend does:
+the ``sys_file_reference`` rows stored against the translation's UID, with their
+translated title, alternative text and crop. Localizing a record copies the
+references, so a translation shows the default-language files until an editor
+changes them; a translation whose files were removed returns none. Records
+without a translation (``fallback``) return the default-language files.
+
 Opt-out per resource
 ====================
 

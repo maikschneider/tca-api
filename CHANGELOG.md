@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Page links follow the request language.** `TypoLinkProcessor` (auto-applied to `type: link` columns) generated every page link in the default language, so `GET /de/_api/pages/1` linked `t3://page?uid=2` to `/about` instead of `/de/ueber-uns`. Page links now use the language of the request. A target page on another site gets that site's language with the same id, else the first fallback of the request language it has, else its default language; a page that is not translated is not linked when the language has the fallback type `strict` or the page hides untranslated versions, as in the frontend; `RouteEnhancerProcessor` maps cross-site routes the same way instead of using the request site's language base. A language in the link wins: `_language`, and now also `L`, which was appended as `?L=` before. Responses on non-default languages change, so flush the TCA API cache after updating. Column processors receive the API request as `$context['request']`; both processors read it from there, and from `$GLOBALS['TYPO3_REQUEST']` when a caller passes none ([#313](https://github.com/maikschneider/tca-api/issues/313)).
 
+### Fixed
+
+- **Translated records return their own file references.** The overlay dropped the uid of the translation, so file columns (and virtual properties sourcing them) were loaded for the default-language record: `GET /de/_api/content/1` returned the English image references with their English title, alternative text and crop. They now come from the `sys_file_reference` rows of the translation, as in the frontend, on `show`, `list` and embedded records. `uid` and `@id` stay the default-language uid. A translation whose references were removed now returns no files instead of the default-language ones. Responses on non-default languages change, so flush the TCA API cache after updating ([#314](https://github.com/maikschneider/tca-api/issues/314)).
+
 ## [2.3.0] - 2026-10-30
 
 ### Added
