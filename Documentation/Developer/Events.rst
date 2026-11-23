@@ -32,6 +32,10 @@ Available events
    * - ``ModifyOpenApiSecuritySchemesEvent``
      - While the OpenAPI document is built
      - Declare how clients authenticate, see :ref:`authenticators`.
+   * - ``ModifyOpenApiDocumentEvent``
+     - Once the OpenAPI document is finished
+     - Describe output tca-api can't infer, see
+       :ref:`events-modify-openapi-document`.
 
 The operation and write events are stoppable: call ``stopPropagation()`` to
 abort further processing.
@@ -148,6 +152,25 @@ Event API reference
    * - ``getContext(): RequestContext``
      - Site settings and URLs of the document being built.
 
+``ModifyOpenApiDocumentEvent``
+------------------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 35 65
+
+   * - Method
+     - Description
+   * - ``getDocument(): array``
+     - The finished OpenAPI document as an array.
+   * - ``setDocument(array $document): void``
+     - Replace the document. ``{apiPrefix}openapi.json``, ``tca-api:openapi``
+       and the backend module serve the result.
+   * - ``getResources(): array<string, ApiDefinition>``
+     - The resources the document describes.
+   * - ``getContext(): RequestContext``
+     - Site settings and URLs of the document being built.
+
 Registering a listener
 ======================
 
@@ -224,5 +247,74 @@ than ``getTable()`` to target a single resource:
                 'uid'       => $event->getUid(),
                 'user'      => $feUser?->user['uid'] ?? null,
             ]);
+        }
+    }
+
+..  _events-modify-openapi-document:
+
+Describing custom output in the OpenAPI document
+================================================
+
+The OpenAPI document is generated from the TCA and the resource configs. Keys an
+``AfterOperationEvent`` listener adds, the output of custom processors and the
+query parameters of custom operation handlers are missing from it or typed as
+``string``, so generated clients don't type them.
+
+``ModifyOpenApiDocumentEvent`` is dispatched once with the finished document.
+``{apiPrefix}openapi.json``, ``vendor/bin/typo3 tca-api:openapi`` and the
+backend module serve what the listeners return; the backend module sets
+``servers`` to the site base afterwards. The Hydra API documentation
+(``docs.jsonld``) is not affected by the event.
+
+The command and the backend module build the document without a frontend
+request, so a listener must not make it depend on the current user or request.
+
+The document is already reduced to the resources the site serves
+(``tca_api.allowedResources``), so a listener only extends what it finds:
+
+*   Add schemas and edit operations that exist in the document, and check
+    before editing. On a site that doesn't serve a resource, its schemas and
+    paths are missing, and writing to them creates an incomplete entry.
+*   Don't add paths for resources the site doesn't serve.
+*   Return the full document: removing top-level keys such as ``paths``
+    breaks Swagger UI and generated clients.
+*   ``getResources()`` lists the resources the document describes, and
+    ``getContext()`` carries the site settings, e.g. for a feature flag.
+
+..  caution::
+
+    The document is public by default (``tca_api.openApiExposed`` is
+    ``PUBLIC``). Don't describe internal or hidden fields, and don't edit
+    ``security`` or ``securitySchemes`` here; use
+    ``ModifyOpenApiSecuritySchemesEvent`` for authentication schemes. The
+    document only describes the API: it never changes what the API serves or
+    enforces.
+
+The listener edits plain arrays, so validate the result, e.g. with Spectral or
+against real responses. The following listener describes a ``readingTime`` key
+another listener adds to every article:
+
+..  code-block:: php
+
+    namespace My\Extension\EventListener;
+
+    use MaikSchneider\TcaApi\Event\ModifyOpenApiDocumentEvent;
+    use TYPO3\CMS\Core\Attribute\AsEventListener;
+
+    #[AsEventListener('my-extension/article-reading-time')]
+    final class DescribeArticleReadingTime
+    {
+        public function __invoke(ModifyOpenApiDocumentEvent $event): void
+        {
+            $document = $event->getDocument();
+            if (!isset($document['components']['schemas']['ArticleRead']['properties'])) {
+                return; // the site doesn't serve articles
+            }
+
+            $document['components']['schemas']['ArticleRead']['properties']['readingTime'] = [
+                'type'        => 'integer',
+                'description' => 'Estimated reading time in minutes.',
+            ];
+            $event->setDocument($document);
         }
     }

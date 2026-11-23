@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\OpenApi;
 
 use MaikSchneider\TcaApi\Dispatcher\RequestContext;
+use MaikSchneider\TcaApi\Event\ModifyOpenApiDocumentEvent;
 use MaikSchneider\TcaApi\Registry\ApiRegistry;
+use Psr\EventDispatcher\EventDispatcherInterface;
 
 readonly class OpenApiBuilder
 {
@@ -14,6 +16,7 @@ readonly class OpenApiBuilder
         private OpenApiPathsBuilder $pathsBuilder,
         private OpenApiSchemasBuilder $schemasBuilder,
         private OpenApiSecurityBuilder $securityBuilder,
+        private EventDispatcherInterface $eventDispatcher,
     ) {
     }
 
@@ -48,7 +51,10 @@ readonly class OpenApiBuilder
             $document['tags'] = $tags;
         }
 
-        return $document;
+        $event = new ModifyOpenApiDocumentEvent($document, $resources, $ctx);
+        $this->eventDispatcher->dispatch($event);
+
+        return $event->getDocument();
     }
 
     /**
