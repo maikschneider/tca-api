@@ -511,6 +511,8 @@ final class DataRepository
 
         $overlaid = [];
         foreach ($rows as $row) {
+            // Records flagged "all languages" (sys_language_uid = -1) are visible in every
+            // language and are never translated — exempt from strict drop and overlay.
             if (isset($row[$languageField]) && (int)$row[$languageField] === -1) {
                 $overlaid[] = $row;
                 continue;
@@ -519,6 +521,7 @@ final class DataRepository
             $parentUid = (int)$row['uid'];
             if (isset($translations[$parentUid])) {
                 $row = array_merge($row, $translations[$parentUid]);
+                $row['_LOCALIZED_UID'] = (int)$translations[$parentUid]['uid'];
                 $row['uid'] = $parentUid;
                 $overlaid[] = $row;
                 continue;
@@ -540,45 +543,11 @@ final class DataRepository
      */
     private function applyLanguageOverlay(array $rows, ApiDefinition $config, ?SiteLanguage $language): array
     {
-        if ($config->languageMode === 'ignore' || $language === null || $language->getLanguageId() === 0 || $rows === []) {
+        if ($config->languageMode === 'ignore' || $language === null || $language->getLanguageId() === 0) {
             return $rows;
         }
 
-        $languageField = $this->languageField($config->table);
-        $parentField = $this->translationParentField($config->table);
-        if ($languageField === null || $parentField === null) {
-            return $rows;
-        }
-
-        $parentUids = array_values(array_unique(array_map(static fn (array $row): int => (int)$row['uid'], $rows)));
-        $translations = $this->fetchTranslations($config->table, $languageField, $parentField, $language->getLanguageId(), $parentUids);
-        $fallbackType = $language->getFallbackType();
-
-        $overlaid = [];
-        foreach ($rows as $row) {
-            // Records flagged "all languages" (sys_language_uid = -1) are visible in every
-            // language and are never translated — exempt from strict drop and overlay.
-            if (isset($row[$languageField]) && (int)$row[$languageField] === -1) {
-                $overlaid[] = $row;
-                continue;
-            }
-
-            $parentUid = (int)$row['uid'];
-            if (isset($translations[$parentUid])) {
-                $row = array_merge($row, $translations[$parentUid]);
-                $row['uid'] = $parentUid;
-                $overlaid[] = $row;
-                continue;
-            }
-
-            if ($fallbackType === 'strict') {
-                continue;
-            }
-
-            $overlaid[] = $row;
-        }
-
-        return $overlaid;
+        return $this->applyLanguageOverlayForTable($rows, $config->table, $language);
     }
 
     /**

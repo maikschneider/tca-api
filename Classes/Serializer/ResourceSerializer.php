@@ -75,6 +75,8 @@ final class ResourceSerializer
         string $operation = '',
     ): array {
         $uid           = (int)$row['uid'];
+        // A translation owns its file references, stored against its own uid.
+        $fileOwnerUid  = (int)($row['_LOCALIZED_UID'] ?? $uid);
         $schema        = $this->getSchema($config->table);
         $recordType    = $config->recordTypeOf($row);
         $columnMap     = $config->columnMap($recordType);
@@ -116,7 +118,7 @@ final class ResourceSerializer
             }
 
             if ($field instanceof FileFieldType) {
-                $result[$column] = $this->fileFieldSerializer->serialize($column, $field, $columnDef, $config->table, $uid, $preloadedFiles);
+                $result[$column] = $this->fileFieldSerializer->serialize($column, $field, $columnDef, $config->table, $fileOwnerUid, $preloadedFiles);
                 continue;
             }
 
@@ -208,7 +210,7 @@ final class ResourceSerializer
 
             // Establish the base value from a file column or processor, if defined.
             if ($columnField instanceof FileFieldType) {
-                $result[$virtualPropertyName] = $this->fileFieldSerializer->serialize($columnRef, $columnField, $virtualPropDef, $config->table, $uid, $preloadedFiles);
+                $result[$virtualPropertyName] = $this->fileFieldSerializer->serialize($columnRef, $columnField, $virtualPropDef, $config->table, $fileOwnerUid, $preloadedFiles);
             } elseif ($virtualPropDef->processor !== null) {
                 $value = $columnRef !== null ? ($row[$columnRef] ?? null) : null;
                 $result[$virtualPropertyName] = $this->applyColumnProcessor($value, $virtualPropDef, $result, $row, $config, $virtualPropertyName, $uid, $preloaded);
