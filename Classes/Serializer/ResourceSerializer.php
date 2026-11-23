@@ -192,6 +192,10 @@ final class ResourceSerializer
             if ($config->isExplicitMode && !$virtualPropDef->isReadable($operation)) {
                 continue;
             }
+            // With per-type columns, a virtual property over a column follows that column.
+            if ($config->typeSchemas && $virtualPropDef->column !== null && !isset($columnMap[$virtualPropDef->column])) {
+                continue;
+            }
             if ($fields !== [] && !\in_array($virtualPropertyName, $fields, true)) {
                 continue;
             }

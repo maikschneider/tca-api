@@ -151,8 +151,9 @@ final readonly class ApiDefinition
      *
      * Explicit mode: the declared columns as-is (callers still check isReadable()/isWritable()).
      * Default mode: every exposable TCA column, using the declared column config where set.
-     * With type schemas: the exposable columns of $recordType's form in showitem order, or
-     * without a type the union over all allowed types (what any record may carry).
+     * With type schemas: the columns of $recordType's form in showitem order (in explicit
+     * mode only the declared ones), or without a type the union over all allowed types
+     * (what any record may carry).
      *
      * @return array<string, ColumnDefinition>
      */
@@ -180,7 +181,7 @@ final readonly class ApiDefinition
     /** @return array<string, array<string, ColumnDefinition>> */
     private function typeColumnMaps(): array
     {
-        return $this->resolvedTypeColumnMaps ?? self::buildTypeColumnMaps($this->table, (string)$this->recordTypeField, $this->recordTypes ?? [], $this->columns);
+        return $this->resolvedTypeColumnMaps ?? self::buildTypeColumnMaps($this->table, (string)$this->recordTypeField, $this->recordTypes ?? [], $this->columns, [], $this->isExplicitMode);
     }
 
     public function getColumn(string $name): ?ColumnDefinition
@@ -556,8 +557,11 @@ final readonly class ApiDefinition
         //   'group' => ['name' => 'Editorial', 'description' => …]  — tag name + description
         [$group, $groupDescription] = self::resolveGroup($general['group'] ?? null, $label);
 
-        [$recordTypeField, $recordTypes, $recordTypeSchema] = self::resolveRecordTypes($general['recordTypes'] ?? null, $general['table']);
-        $typeSchemas    = $recordTypes !== null && !$isExplicitMode && $recordTypeSchema === 'type';
+        [$recordTypeField, $recordTypes, $recordTypeSchema, $typeColumnsOption] = self::resolveRecordTypes($general['recordTypes'] ?? null, $general['table']);
+        if ($typeColumnsOption) {
+            self::validateTypeColumns($label, (string)$recordTypeField, $recordTypeSchema, $isExplicitMode, $columns, $general['operations'] ?? self::READ_OPERATIONS);
+        }
+        $typeSchemas    = $recordTypes !== null && $recordTypeSchema === 'type' && (!$isExplicitMode || $typeColumnsOption);
         $typeColumnMaps = $typeSchemas ? self::buildTypeColumnMaps(
             $general['table'],
             (string)$recordTypeField,
@@ -567,6 +571,7 @@ final readonly class ApiDefinition
                 static fn (array $typeColumns): array => array_map(ColumnDefinition::fromArray(...), $typeColumns),
                 $recordTypeColumns,
             ),
+            $isExplicitMode,
         ) : null;
 
         return new self(
@@ -610,23 +615,24 @@ final readonly class ApiDefinition
      *
      * Accepted shapes: a list, a comma-separated string, or '*' for every type in
      * $TCA[table]['types'] — or an options array with those under 'include'
-     * (default '*') and 'schema' ('type' = columns per record type, the default;
-     * 'table' = all table columns). Values are compared as strings because TCA
+     * (default '*'), 'schema' ('type' = columns per record type, the default;
+     * 'table' = all table columns) and 'typeColumns' (columns per record type in
+     * explicit mode, default false). Values are compared as strings because TCA
      * type keys are a mix of strings (CType) and integers (doktype).
      *
-     * @return array{0: ?string, 1: ?list<string>, 2: string} type field, allowed types (both null when unset) and schema mode
+     * @return array{0: ?string, 1: ?list<string>, 2: string, 3: bool} type field, allowed types (both null when unset), schema mode and typeColumns
      */
     private static function resolveRecordTypes(mixed $raw, string $table): array
     {
         if ($raw === null) {
-            return [null, null, 'type'];
+            return [null, null, 'type', false];
         }
 
         if (\is_array($raw) && array_filter(array_keys($raw), \is_string(...)) !== []) {
-            $unknown = array_diff(array_keys($raw), ['include', 'schema']);
+            $unknown = array_diff(array_keys($raw), ['include', 'schema', 'typeColumns']);
             if ($unknown !== []) {
                 throw new InvalidApiDefinitionException(sprintf(
-                    'TcaApi config for "%s": general.recordTypes has unknown option(s) "%s". Allowed: include, schema',
+                    'TcaApi config for "%s": general.recordTypes has unknown option(s) "%s". Allowed: include, schema, typeColumns',
                     $table,
                     implode('", "', $unknown),
                 ));
@@ -638,9 +644,16 @@ final readonly class ApiDefinition
                     $table,
                 ));
             }
+            $typeColumns = $raw['typeColumns'] ?? false;
+            if (!\is_bool($typeColumns)) {
+                throw new InvalidApiDefinitionException(sprintf(
+                    'TcaApi config for "%s": general.recordTypes.typeColumns must be a boolean.',
+                    $table,
+                ));
+            }
             [$typeField, $types] = self::resolveRecordTypes($raw['include'] ?? '*', $table);
 
-            return [$typeField, $types, $schema];
+            return [$typeField, $types, $schema, $typeColumns];
         }
 
         $typeField = $GLOBALS['TCA'][$table]['ctrl']['type'] ?? null;
@@ -661,7 +674,7 @@ final readonly class ApiDefinition
         $definedTypes = array_map('strval', array_keys($GLOBALS['TCA'][$table]['types'] ?? []));
 
         if ($raw === '*') {
-            return [$typeField, $definedTypes, 'type'];
+            return [$typeField, $definedTypes, 'type', false];
         }
 
         if (!\is_array($raw) && !\is_string($raw)) {
@@ -703,22 +716,65 @@ final readonly class ApiDefinition
             ));
         }
 
-        return [$typeField, array_values(array_unique($types)), 'type'];
+        return [$typeField, array_values(array_unique($types)), 'type', false];
     }
 
     /**
-     * Default-mode column map per record type: the type field, then the type's
-     * form fields that are exposable (palettes also carry system fields such as
-     * hidden or starttime), using the declared column config where set. The type
-     * field is part of every map, as a record carries its type even when its form
-     * does not show it.
+     * Explicit mode with typeColumns: each record type exposes the declared
+     * columns of its form. Its Read schema discriminates the types by the type
+     * field, so every record must carry it, also when embedded with the
+     * operation of another resource. Create and update are not supported yet.
+     *
+     * @param array<string, ColumnDefinition> $columns
+     * @param array<string>                   $operations
+     */
+    private static function validateTypeColumns(string $label, string $recordTypeField, string $schema, bool $isExplicitMode, array $columns, array $operations): void
+    {
+        if (!$isExplicitMode) {
+            throw new InvalidApiDefinitionException(sprintf(
+                'TcaApi config for "%s": general.recordTypes.typeColumns requires explicit mode (columns with "groups"); in default mode records already expose the columns of their type.',
+                $label,
+            ));
+        }
+        if ($schema === 'table') {
+            throw new InvalidApiDefinitionException(sprintf(
+                'TcaApi config for "%s": general.recordTypes.typeColumns cannot be combined with schema "table".',
+                $label,
+            ));
+        }
+        $typeColumn = $columns[$recordTypeField] ?? null;
+        if ($typeColumn === null || !$typeColumn->isReadable('list') || !$typeColumn->isReadable('show')) {
+            throw new InvalidApiDefinitionException(sprintf(
+                'TcaApi config for "%s": general.recordTypes.typeColumns requires the type field "%s" as a column in the groups list and show.',
+                $label,
+                $recordTypeField,
+            ));
+        }
+        $writeOperations = array_values(array_intersect($operations, ['create', 'update']));
+        if ($writeOperations !== []) {
+            throw new InvalidApiDefinitionException(sprintf(
+                'TcaApi config for "%s": general.recordTypes.typeColumns does not support the operations "%s" yet.',
+                $label,
+                implode('", "', $writeOperations),
+            ));
+        }
+    }
+
+    /**
+     * Column map per record type: the type field, then the type's form fields,
+     * using the declared column config where set. The type field is part of
+     * every map, as a record carries its type even when its form does not show it.
+     *
+     * Default mode takes the exposable form fields (palettes also carry system
+     * fields such as hidden or starttime); with $declaredOnly (explicit mode)
+     * only the declared ones.
      *
      * @param list<string>                                     $recordTypes
      * @param array<string, ColumnDefinition>                  $columns
      * @param array<string, array<string, ColumnDefinition>>   $typeColumns declared column configs by record type
      * @return array<string, array<string, ColumnDefinition>>
      */
-    private static function buildTypeColumnMaps(string $table, string $recordTypeField, array $recordTypes, array $columns, array $typeColumns = []): array
+    private static function buildTypeColumnMaps(string $table, string $recordTypeField, array $recordTypes, array $columns, array $typeColumns = [], bool $declaredOnly = false): array
     {
         $exposable = array_flip(TcaColumnDiscovery::getExposableColumnNames($table));
 
@@ -731,8 +787,9 @@ final readonly class ApiDefinition
 
             $maps[$recordType] = [];
             foreach ($fieldNames as $column) {
-                if (isset($exposable[$column])) {
-                    $maps[$recordType][$column] = $typeColumns[$recordType][$column] ?? $columns[$column] ?? new ColumnDefinition(groups: null);
+                $declared = $typeColumns[$recordType][$column] ?? $columns[$column] ?? null;
+                if ($declaredOnly ? $declared !== null : isset($exposable[$column])) {
+                    $maps[$recordType][$column] = $declared ?? new ColumnDefinition(groups: null);
                 }
             }
         }
