@@ -47,6 +47,8 @@ final readonly class ApiDefinition
      *                                                                null = compute on demand
      * @param bool                            $typeSchemas     whether each record exposes only its record type's columns
      * @param array<string, array<string, ColumnDefinition>>|null $resolvedTypeColumnMaps precomputed columnMap() per record type
+     * @param string|null                     $enabledSetting  boolean site setting that enables the resource on a site;
+     *                                                          null = enabled on every site
      */
     public function __construct(
         public readonly string $table,
@@ -79,6 +81,7 @@ final readonly class ApiDefinition
         public readonly bool $typeSchemas = false,
         private readonly ?array $resolvedTypeColumnMaps = null,
         public readonly ?string $storagePidSetting = null,
+        public readonly ?string $enabledSetting = null,
     ) {
     }
 
@@ -607,6 +610,7 @@ final readonly class ApiDefinition
             typeSchemas:            $typeSchemas,
             resolvedTypeColumnMaps: $typeColumnMaps,
             storagePidSetting:      $storagePidSetting,
+            enabledSetting:         self::resolveEnabledSetting($general['enabledSetting'] ?? null, $label),
         );
     }
 
@@ -954,6 +958,21 @@ final readonly class ApiDefinition
         }
 
         return [null, $setting];
+    }
+
+    private static function resolveEnabledSetting(mixed $raw, string $label): ?string
+    {
+        if ($raw === null) {
+            return null;
+        }
+        if (!\is_string($raw) || preg_match('/^[A-Za-z0-9_.-]+$/', $raw) !== 1) {
+            throw new \InvalidArgumentException(sprintf(
+                'TcaApi config for "%s": general.enabledSetting must be the name of a site setting, e.g. "myext.enabled".',
+                $label,
+            ));
+        }
+
+        return $raw;
     }
 
     /** '{$myext.storagePid}' → 'myext.storagePid'; null for anything else */

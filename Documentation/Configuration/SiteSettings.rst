@@ -36,7 +36,9 @@ General
     :default: *(empty — all)*
 
     Comma-separated list of resource names to expose on this site. Leave
-    empty to allow all registered resources.
+    empty to allow all registered resources. A resource with
+    ``enabledSetting`` also needs that setting to be ``true`` (see
+    :ref:`enabled-setting`).
 
 ..  confval:: tca_api.debugMode
     :type: bool

@@ -152,6 +152,43 @@ final class ApiDefinitionTest extends TestCase
     }
 
     #[Test]
+    public function enabledSettingIsNullWhenOmitted(): void
+    {
+        self::assertNull(ApiDefinition::fromArray(self::minimalConfig())->enabledSetting);
+    }
+
+    #[Test]
+    public function enabledSettingKeepsTheSettingName(): void
+    {
+        $cfg = self::minimalConfig();
+        $cfg['general']['enabledSetting'] = 'my_ext.api-enabled';
+
+        self::assertSame('my_ext.api-enabled', ApiDefinition::fromArray($cfg)->enabledSetting);
+    }
+
+    #[Test]
+    #[DataProvider('invalidEnabledSettings')]
+    public function enabledSettingThatIsNoSettingNameThrows(mixed $value): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('general.enabledSetting must be the name of a site setting');
+
+        $cfg = self::minimalConfig();
+        $cfg['general']['enabledSetting'] = $value;
+        ApiDefinition::fromArray($cfg);
+    }
+
+    /** @return iterable<string, array{mixed}> */
+    public static function invalidEnabledSettings(): iterable
+    {
+        yield 'empty string' => [''];
+        yield 'boolean' => [true];
+        yield 'list' => [['myext.enabled']];
+        yield 'placeholder' => ['{$myext.enabled}'];
+        yield 'whitespace' => ['myext enabled'];
+    }
+
+    #[Test]
     public function readStoragePidsAcceptsPlaceholdersNextToIntegers(): void
     {
         $cfg = self::minimalConfig();

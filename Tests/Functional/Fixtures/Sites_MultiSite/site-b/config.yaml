@@ -22,3 +22,4 @@ settings:
   tenant:
     storagePid: 802
     emptyPid: ''
+    extrasEnabled: false

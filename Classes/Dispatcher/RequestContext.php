@@ -56,6 +56,12 @@ final readonly class RequestContext
         );
     }
 
+    /** Without general.enabledSetting a resource is enabled on every site, otherwise only where that setting is true. */
+    public function isDefinitionEnabled(ApiDefinition $definition): bool
+    {
+        return $definition->enabledSetting === null || $this->settings->get($definition->enabledSetting) === true;
+    }
+
     public function isResourceAllowed(string $resource): bool
     {
         $allowed = $this->allowedResourceNames();
@@ -68,6 +74,7 @@ final readonly class RequestContext
      */
     public function filterAllowedResources(array $resources): array
     {
+        $resources = array_filter($resources, $this->isDefinitionEnabled(...));
         $allowed = $this->allowedResourceNames();
 
         if ($allowed === []) {
@@ -79,6 +86,22 @@ final readonly class RequestContext
             static fn (string $name): bool => \in_array($name, $allowed, true),
             ARRAY_FILTER_USE_KEY,
         );
+    }
+
+    /**
+     * The resources relations may link to, in the form of tca_api.allowedResources (empty = all):
+     * that setting, narrowed to the enabled resources when the site disables some of them.
+     *
+     * @param array<string, ApiDefinition> $resources
+     * @return list<string>
+     */
+    public function servedResourceNames(array $resources): array
+    {
+        if (array_filter($resources, $this->isDefinitionEnabled(...)) === $resources) {
+            return $this->allowedResourceNames();
+        }
+
+        return array_map(strval(...), array_keys($this->filterAllowedResources($resources)));
     }
 
     /** @return list<string> the site's tca_api.allowedResources; empty = all resources */
