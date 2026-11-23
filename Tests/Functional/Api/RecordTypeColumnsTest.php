@@ -6,6 +6,7 @@ namespace MaikSchneider\TcaApi\Tests\Functional\Api;
 
 use MaikSchneider\TcaApi\Enum\AccessRole;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
+use MaikSchneider\TcaApi\Tests\Functional\Fixtures\TestStaticValueProcessor;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -126,6 +127,28 @@ final class RecordTypeColumnsTest extends ApiFunctionalTestCase
         self::assertArrayHasKey('bodytext', $members[600]);
         self::assertArrayNotHasKey('bodytext', $members[601]);
         self::assertArrayNotHasKey('subheader', $members[602]);
+    }
+
+    #[Test]
+    public function aVirtualPropertyOverAColumnFollowsThatColumn(): void
+    {
+        $config = self::config('typed-columns', 'TypedColumns', [
+            'include'     => self::TYPES,
+            'typeColumns' => true,
+        ], ['list', 'show']);
+        $config['virtualProperties'] = [
+            'bodyCopy' => ['column' => 'bodytext', 'processor' => TestStaticValueProcessor::class, 'groups' => ['list', 'show']],
+        ];
+        $this->registerResource('typed-columns', $config);
+
+        $textmedia = $this->decodeResponseBody($this->executeApiRequest('/_api/typed-columns/600'));
+        $header    = $this->decodeResponseBody($this->executeApiRequest('/_api/typed-columns/601'));
+        $schemas   = $this->decodeResponseBody($this->executeApiRequest('/_api/openapi.json'))['components']['schemas'];
+
+        self::assertArrayHasKey('bodyCopy', $textmedia);
+        self::assertArrayNotHasKey('bodyCopy', $header);
+        self::assertArrayHasKey('bodyCopy', $schemas['TypedColumnsTextmediaRead']['properties']);
+        self::assertArrayNotHasKey('bodyCopy', $schemas['TypedColumnsHeaderRead']['properties']);
     }
 
     #[Test]

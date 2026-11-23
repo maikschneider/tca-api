@@ -343,7 +343,8 @@ A ``text`` element carries ``CType``, ``header`` and ``bodytext``, an
 default mode (``showitem``, palettes unpacked, ``columnsOverrides`` applied),
 but only declared columns count, system fields included: a declared ``hidden``
 is exposed for the types whose form shows it. A declared column that no form
-contains is not exposed. The OpenAPI ``Read`` schema is a ``oneOf`` over one
+contains is not exposed. A virtual property over a ``column`` follows that
+column: it is exposed only for the types that expose the column. The OpenAPI ``Read`` schema is a ``oneOf`` over one
 schema per type with a ``discriminator`` on the type field, as in default mode.
 
 The option is checked at boot and fails with an
@@ -359,6 +360,12 @@ The option is checked at boot and fails with an
 
 Without ``typeColumns``, explicit configs keep their flat shape, including
 ``'schema' => 'type'`` in the options form.
+
+``typeColumns`` shapes the responses; it is not an access boundary. Filters,
+search and ``order`` apply to the table column for all records, and TYPO3
+keeps the value of a column when the type of a record changes. Don't make a
+column filterable, searchable or sortable when its values must stay hidden on
+some types.
 
 ..  _endpoint-grouping:
 

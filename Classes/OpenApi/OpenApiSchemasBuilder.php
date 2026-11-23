@@ -157,8 +157,12 @@ final readonly class OpenApiSchemasBuilder
             $properties[$column] = $this->buildReadPropertySchema($column, $columnDef, $tcaConfig, $config, $resources, $remainingDepth, $ancestorTables);
         }
 
+        $columnMap = $config->columnMap($recordType);
         foreach ($config->virtualProperties as $vpName => $vpDef) {
             if ($config->isExplicitMode && !$vpDef->isReadable()) {
+                continue;
+            }
+            if ($config->typeSchemas && $recordType !== null && $vpDef->column !== null && !isset($columnMap[$vpDef->column])) {
                 continue;
             }
             $properties[$vpName] = $this->buildVirtualPropertySchema($vpDef, $config);
