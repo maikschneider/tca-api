@@ -235,9 +235,14 @@ Relative URL
 Language handling
 =================
 
-The processor reads the resolved ``SiteLanguage`` from the current request and
-passes it to the page router as ``_language``. The TYPO3 router then anchors
-the URL to the matching language base (``/de/...``, ``/fr/...``, …).
+The processor passes the language of the API request to the page router as
+``_language``, so the URL is anchored to the matching language base
+(``/de/...``, ``/fr/...``, …). A target page on another site gets that site's
+language with the same id, else the first of the request language's fallbacks
+the site has, else its default language. As in the frontend, no URL is
+generated (``null``) for a page that is not translated into that language when
+the language has the fallback type ``strict`` or the page is set to hide
+untranslated versions.
 
 For multi-language sites where the **detail page differs per language**, use
 TYPO3 site settings' language-aware overrides — the resolver picks up the
@@ -255,7 +260,7 @@ For each record, the processor:
    the target site's ``SiteSettings``.
 4. Composes the query parameters — wrapping Extbase arguments under
    ``tx_<ext>_<plugin>`` when Extbase routing is declared.
-5. Injects the current ``SiteLanguage`` as ``_language``.
+5. Passes the request language, mapped to the target site, as ``_language``.
 6. Delegates to ``$site->getRouter()->generateUri()`` — every
    ``routeEnhancer`` attached to the target page applies on the way out.
 

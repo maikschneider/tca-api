@@ -12,7 +12,8 @@ interface ColumnProcessorInterface
      * Process a column value into a serializable scalar or structure.
      *
      * @param mixed $value  Raw column value; null for virtual properties.
-     * @param array $context ['serializedRow' => [...], 'rawRow' => [...]]
+     * @param array $context ['serializedRow' => [...], 'rawRow' => [...], 'request' => ?ServerRequestInterface]
+     *                       The request is the API request being answered; null outside one.
      */
     public function process(mixed $value, ColumnDefinition $config, array $context): mixed;
 }

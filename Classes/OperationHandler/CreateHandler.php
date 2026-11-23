@@ -135,7 +135,7 @@ class CreateHandler implements OperationHandlerInterface
         $baseUrl   = $apiPrefix . '/' . $config->resourceName;
         $location  = $baseUrl . '/' . $uid;
 
-        $serialized = $this->serializer->serialize($row, $config, $baseUrl, [], ['__allowedResources' => $this->allowedResourcesFromRequest($request)]);
+        $serialized = $this->serializer->serialize($row, $config, $baseUrl, [], ['__allowedResources' => $this->allowedResourcesFromRequest($request), '__request' => $request]);
 
         $event = new AfterOperationEvent('create', $serialized, $request, $config);
         $this->eventDispatcher->dispatch($event);

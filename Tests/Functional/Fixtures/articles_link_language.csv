@@ -1,0 +1,9 @@
+"tx_myext_domain_model_article"
+,"uid","pid","title","article_url","hidden","deleted","tstamp","crdate"
+,7800,1,"Same-site link","t3://page?uid=900",0,0,1704067200,1704067200
+,7801,1,"Cross-site link","t3://page?uid=911",0,0,1704067200,1704067200
+,7802,1,"Link with _language","t3://page?uid=900&_language=0",0,0,1704067200,1704067200
+,7803,1,"Link with L=0","t3://page?uid=900&L=0",0,0,1704067200,1704067200
+,7804,1,"Link with L=1","t3://page?uid=900&L=1",0,0,1704067200,1704067200
+,7805,1,"Page hidden if untranslated","t3://page?uid=902",0,0,1704067200,1704067200
+,7806,1,"Untranslated page","t3://page?uid=903",0,0,1704067200,1704067200

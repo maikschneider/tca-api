@@ -89,8 +89,9 @@ final class TcaApiMiddleware implements MiddlewareInterface
 
         // The API middleware short-circuits the frontend RequestHandler, so
         // $GLOBALS['TYPO3_REQUEST'] is never populated for downstream code that
-        // expects the b/w-compat global (e.g. RouteEnhancerProcessor reading
-        // the current language). Mirror the frontend RequestHandler behavior.
+        // expects the b/w-compat global (e.g. StoragePidResolver, ProcessorGuard,
+        // or link processors called without a request in their context).
+        // Mirror the frontend RequestHandler behavior.
         $GLOBALS['TYPO3_REQUEST'] = $request;
 
         $response = $this->dispatcher->dispatch($request, $settings);

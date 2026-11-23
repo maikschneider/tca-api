@@ -1,0 +1,9 @@
+"pages"
+,"uid","pid","title","slug","doktype","is_siteroot","perms_everybody","sys_language_uid","l10n_parent","l18n_cfg"
+,900,1,"About","/about",1,0,1,0,0,0
+,901,1,"Über uns","/ueber-uns",1,0,1,1,900,0
+,902,1,"Imprint","/imprint",1,0,1,0,0,2
+,903,1,"Team","/team",1,0,1,0,0,0
+,910,0,"Other","/",1,1,1,0,0,0
+,911,910,"Contact","/contact",1,0,1,0,0,0
+,912,910,"Kontakt","/kontakt",1,0,1,1,911,0

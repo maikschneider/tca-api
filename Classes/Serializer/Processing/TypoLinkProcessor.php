@@ -14,6 +14,7 @@ final class TypoLinkProcessor implements ColumnProcessorInterface
     public function __construct(
         private readonly LinkService $linkService,
         private readonly SiteFinder $siteFinder,
+        private readonly LinkLanguageResolver $linkLanguageResolver,
     ) {
     }
 
@@ -33,12 +34,12 @@ final class TypoLinkProcessor implements ColumnProcessorInterface
             LinkService::TYPE_URL       => $linkDetails['url'] ?? $value,
             LinkService::TYPE_EMAIL     => !empty($linkDetails['email']) ? 'mailto:' . $linkDetails['email'] : null,
             LinkService::TYPE_TELEPHONE => !empty($linkDetails['telephone']) ? 'tel:' . $linkDetails['telephone'] : null,
-            LinkService::TYPE_PAGE      => $this->resolvePageUrl($linkDetails),
+            LinkService::TYPE_PAGE      => $this->resolvePageUrl($linkDetails, $context),
             default                     => $value,
         };
     }
 
-    private function resolvePageUrl(array $linkDetails): ?string
+    private function resolvePageUrl(array $linkDetails, array $context): ?string
     {
         $pageId = (int)($linkDetails['pageuid'] ?? 0);
         if ($pageId <= 0) {
@@ -52,6 +53,19 @@ final class TypoLinkProcessor implements ColumnProcessorInterface
             }
 
             $site = $this->siteFinder->getSiteByPageId($pageId);
+
+            // A language set in the link wins ("_language" over "L", as in the
+            // frontend typolink); otherwise the link follows the request language.
+            $linkLanguage = $queryParams['_language'] ?? $queryParams['L'] ?? null;
+            unset($queryParams['L']);
+            if ($linkLanguage === null) {
+                $linkLanguage = $this->linkLanguageResolver->resolve($site, LinkLanguageResolver::contextRequest($context));
+                if ($linkLanguage !== null && !$this->linkLanguageResolver->isPageAvailable($pageId, $linkLanguage)) {
+                    return null;
+                }
+            }
+            $queryParams['_language'] = $linkLanguage;
+
             $uri  = $site->getRouter()->generateUri(
                 $pageId,
                 $queryParams,

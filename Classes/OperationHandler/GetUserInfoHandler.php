@@ -68,7 +68,7 @@ class GetUserInfoHandler implements OperationHandlerInterface
             return $this->hydraResponseBuilder->buildError(404, 'Resource not found', 'Not Found');
         }
 
-        $preloaded  = $this->embedPreloader->preload([$row], $config, $language, $fields, '', $this->allowedResourcesFromRequest($request));
+        $preloaded  = $this->embedPreloader->preload([$row], $config, $language, $fields, '', $this->allowedResourcesFromRequest($request)) + ['__request' => $request];
         $serialized = $this->serializer->serialize($row, $config, $baseUrl, $fields, $preloaded);
 
         $event = new AfterOperationEvent('userinfo', $serialized, $request, $config);
