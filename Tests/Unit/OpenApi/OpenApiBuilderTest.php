@@ -57,22 +57,6 @@ final class OpenApiBuilderTest extends TestCase
     }
 
     #[Test]
-    public function buildsWithoutAnEventDispatcher(): void
-    {
-        $builder = new OpenApiBuilder(
-            new ApiRegistry(),
-            $this->pathsBuilder(),
-            new OpenApiSchemasBuilder(self::createStub(SqlColumnTypes::class)),
-            new OpenApiSecurityBuilder(self::createStub(EventDispatcherInterface::class)),
-        );
-
-        $document = $builder->build($this->context());
-
-        self::assertSame('3.1.0', $document['openapi']);
-        self::assertSame([], $document['paths']);
-    }
-
-    #[Test]
     public function aListenerReceivesOnlyTheResourcesOfTheSite(): void
     {
         $registry = new ApiRegistry();

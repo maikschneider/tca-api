@@ -5,19 +5,11 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Functional\Api;
 
 use MaikSchneider\TcaApi\Command\OpenApiSpecCommand;
-use MaikSchneider\TcaApi\Dispatcher\RequestContext;
-use MaikSchneider\TcaApi\OpenApi\OpenApiBuilder;
-use MaikSchneider\TcaApi\OpenApi\OpenApiPathsBuilder;
-use MaikSchneider\TcaApi\OpenApi\OpenApiSchemasBuilder;
-use MaikSchneider\TcaApi\OpenApi\OpenApiSecurityBuilder;
-use MaikSchneider\TcaApi\Registry\ApiRegistry;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 use MaikSchneider\TcaApi\Tests\Functional\QueryCounting\CountingDriverMiddleware;
 use MaikSchneider\TcaApi\Tests\Functional\QueryCounting\QueryCounter;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
-use TYPO3\CMS\Core\Http\ServerRequest;
-use TYPO3\CMS\Core\Site\SiteFinder;
 
 final class OpenApiSpecCommandTest extends ApiFunctionalTestCase
 {
@@ -56,26 +48,6 @@ final class OpenApiSpecCommandTest extends ApiFunctionalTestCase
 
         self::assertSame(Command::SUCCESS, $tester->execute([]));
         self::assertSame('3.1.0', json_decode($tester->getDisplay(), true, 512, JSON_THROW_ON_ERROR)['openapi']);
-    }
-
-    public function testWithoutListenersTheDocumentIsTheOneBuiltWithoutEventDispatcher(): void
-    {
-        $tester = new CommandTester($this->get(OpenApiSpecCommand::class));
-        $tester->execute(['site' => 'main']);
-
-        $builder = new OpenApiBuilder(
-            $this->get(ApiRegistry::class),
-            $this->get(OpenApiPathsBuilder::class),
-            $this->get(OpenApiSchemasBuilder::class),
-            $this->get(OpenApiSecurityBuilder::class),
-        );
-        $site    = $this->get(SiteFinder::class)->getSiteByIdentifier('main');
-        $request = (new ServerRequest($site->getDefaultLanguage()->getBase(), 'GET'))
-            ->withAttribute('site', $site)
-            ->withAttribute('language', $site->getDefaultLanguage());
-        $spec = $builder->build(new RequestContext($site->getSettings(), $request));
-
-        self::assertSame(json_encode($spec, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), $tester->getDisplay());
     }
 
     public function testWritesTheSpecToAFile(): void

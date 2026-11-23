@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **`ModifyOpenApiDocumentEvent` describes output tca-api can't infer.** Keys an `AfterOperationEvent` listener adds, the output of custom processors and the query parameters of custom operation handlers were missing from the OpenAPI document or typed as `string`. The event is dispatched once with the finished document, already reduced to the resources the site serves, so `/_api/openapi.json`, `tca-api:openapi` and the backend module serve the same result. Listeners extend existing components and operations only. Without a listener the document is unchanged ([#310](https://github.com/maikschneider/tca-api/issues/310)).
+- **`ModifyOpenApiDocumentEvent` describes output tca-api can't infer.** Keys an `AfterOperationEvent` listener adds, the output of custom processors and the query parameters of custom operation handlers were missing from the OpenAPI document or typed as `string`. The event is dispatched once with the finished document, already reduced to the resources the site serves, so `/_api/openapi.json`, `tca-api:openapi` and the backend module serve the same result. Listeners may add schemas and extend existing operations, but never add paths for resources the site doesn't serve. Without a listener the document is unchanged ([#310](https://github.com/maikschneider/tca-api/issues/310)).
 
 ## [2.3.0] - 2026-10-30
 

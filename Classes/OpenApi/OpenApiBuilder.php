@@ -16,7 +16,7 @@ readonly class OpenApiBuilder
         private OpenApiPathsBuilder $pathsBuilder,
         private OpenApiSchemasBuilder $schemasBuilder,
         private OpenApiSecurityBuilder $securityBuilder,
-        private ?EventDispatcherInterface $eventDispatcher = null,
+        private EventDispatcherInterface $eventDispatcher,
     ) {
     }
 
@@ -49,10 +49,6 @@ readonly class OpenApiBuilder
         $tags = $this->buildTags($resources);
         if ($tags !== []) {
             $document['tags'] = $tags;
-        }
-
-        if ($this->eventDispatcher === null) {
-            return $document;
         }
 
         $event = new ModifyOpenApiDocumentEvent($document, $resources, $ctx);

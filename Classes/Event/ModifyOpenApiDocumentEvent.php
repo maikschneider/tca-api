@@ -10,8 +10,10 @@ use MaikSchneider\TcaApi\Dispatcher\RequestContext;
 /**
  * Dispatched once with the finished OpenAPI document, already reduced to the
  * resources of the site. Extensions describe output tca-api can't infer, e.g.
- * keys an AfterOperationEvent listener adds. Listeners extend components and
- * operations that exist in the document; they never add resources.
+ * keys an AfterOperationEvent listener adds. Listeners may add schemas and
+ * extend existing operations; they never add paths for resources the site
+ * doesn't serve. The document only describes the API, it never changes what the
+ * API serves or enforces.
  */
 final class ModifyOpenApiDocumentEvent
 {

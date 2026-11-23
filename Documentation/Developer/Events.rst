@@ -262,17 +262,33 @@ query parameters of custom operation handlers are missing from it or typed as
 
 ``ModifyOpenApiDocumentEvent`` is dispatched once with the finished document.
 ``{apiPrefix}openapi.json``, ``vendor/bin/typo3 tca-api:openapi`` and the
-backend module serve what the listeners return.
+backend module serve what the listeners return; the backend module sets
+``servers`` to the site base afterwards. The Hydra API documentation
+(``docs.jsonld``) is not affected by the event.
+
+The command and the backend module build the document without a frontend
+request, so a listener must not make it depend on the current user or request.
 
 The document is already reduced to the resources the site serves
 (``tca_api.allowedResources``), so a listener only extends what it finds:
 
-*   Edit components and operations that exist in the document, and check
+*   Add schemas and edit operations that exist in the document, and check
     before editing. On a site that doesn't serve a resource, its schemas and
     paths are missing, and writing to them creates an incomplete entry.
-*   Don't add resources or their paths: the API doesn't serve them.
+*   Don't add paths for resources the site doesn't serve.
+*   Return the full document: removing top-level keys such as ``paths``
+    breaks Swagger UI and generated clients.
 *   ``getResources()`` lists the resources the document describes, and
     ``getContext()`` carries the site settings, e.g. for a feature flag.
+
+..  caution::
+
+    The document is public by default (``tca_api.openApiExposed`` is
+    ``PUBLIC``). Don't describe internal or hidden fields, and don't edit
+    ``security`` or ``securitySchemes`` here; use
+    ``ModifyOpenApiSecuritySchemesEvent`` for authentication schemes. The
+    document only describes the API: it never changes what the API serves or
+    enforces.
 
 The listener edits plain arrays, so validate the result, e.g. with Spectral or
 against real responses. The following listener describes a ``readingTime`` key
