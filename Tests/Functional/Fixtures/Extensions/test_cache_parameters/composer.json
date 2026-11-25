@@ -1,0 +1,19 @@
+{
+	"name": "maikschneider/tca-api-test-cache-parameters",
+	"description": "Functional test fixture for query-dependent responses",
+	"type": "typo3-cms-extension",
+	"license": "GPL-2.0-or-later",
+	"require": {
+		"maikschneider/tca-api": "*"
+	},
+	"autoload": {
+		"psr-4": {
+			"MaikSchneider\\TcaApiTestCacheParameters\\": "Classes/"
+		}
+	},
+	"extra": {
+		"typo3/cms": {
+			"extension-key": "test_cache_parameters"
+		}
+	}
+}

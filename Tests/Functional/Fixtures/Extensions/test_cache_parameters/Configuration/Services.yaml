@@ -1,0 +1,6 @@
+services:
+  MaikSchneider\TcaApiTestCacheParameters\QueryTitle:
+    tags:
+      - name: event.listener
+        event: MaikSchneider\TcaApi\Event\AfterOperationEvent
+        method: __invoke

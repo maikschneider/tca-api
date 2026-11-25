@@ -17,12 +17,14 @@ final readonly class CacheDefinition
     /**
      * @param bool     $enabled            Whether caching is enabled for this resource
      * @param int      $lifetime           Cache TTL in seconds
-     * @param string[] $parametersToIgnore  Query parameters that bypass caching entirely
+     * @param string[] $parametersToIgnore Query parameters that bypass caching entirely
+     * @param string[] $varyByParameters   Additional top-level query parameters included in the cache key
      */
     public function __construct(
         public bool $enabled = false,
         public int $lifetime = self::DEFAULT_LIFETIME,
         public array $parametersToIgnore = [],
+        public array $varyByParameters = [],
     ) {
     }
 
@@ -53,10 +55,21 @@ final readonly class CacheDefinition
             }
         }
 
+        $varyByParameters = $raw['varyByParameters'] ?? [];
+        if (!\is_array($varyByParameters)) {
+            throw new \InvalidArgumentException('cache.varyByParameters must be an array.');
+        }
+        foreach ($varyByParameters as $param) {
+            if (!\is_string($param) || $param === '') {
+                throw new \InvalidArgumentException('cache.varyByParameters entries must be non-empty strings.');
+            }
+        }
+
         return new self(
             enabled: $enabled,
             lifetime: $lifetime,
             parametersToIgnore: $parametersToIgnore,
+            varyByParameters: $varyByParameters,
         );
     }
 }

@@ -83,6 +83,10 @@ Event API reference
    * - ``stopPropagation(): void``
      - Prevents subsequent listeners from receiving the event.
 
+``AfterOperationEvent`` listeners are not run for response-cache hits. If a
+listener changes the response based on a query parameter, list its top-level
+name in the resource's ``cache.varyByParameters`` (see :ref:`caching`).
+
 ``BeforeWriteEvent``
 --------------------
 

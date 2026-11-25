@@ -52,7 +52,7 @@ That is a complete, read-only API at `/_api/articles`, including an OpenAPI spec
 
 **[Multi-language](https://docs.typo3.org/p/maikschneider/tca-api/main/en-us/Configuration/Languages.html) & [caching](https://docs.typo3.org/p/maikschneider/tca-api/main/en-us/Configuration/Caching.html)** — Production concerns handled
 * URL base segments and an `X-Locale` header resolve the `SiteLanguage`
-* Tag-based response caching, invalidated automatically by the DataHandler
+* Tag-based response caching, invalidated automatically by the DataHandler; `cache.varyByParameters` includes query inputs read by custom handlers and listeners
 
 **[OpenAPI](https://docs.typo3.org/p/maikschneider/tca-api/main/en-us/ApiUsage/Index.html#openapi-spec-swagger-ui)** — Spec and Swagger UI generated from the registered resources
 * Interactive Swagger UI at the API prefix, plus a backend module on TYPO3 v14

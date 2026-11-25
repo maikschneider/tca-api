@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Unit\Cache;
 
 use MaikSchneider\TcaApi\Cache\CacheDefinition;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -52,6 +53,32 @@ final class CacheDefinitionTest extends TestCase
         $def = CacheDefinition::fromArray([]);
 
         self::assertFalse($def->enabled);
+    }
+
+    #[Test]
+    public function varyByParametersIsLoaded(): void
+    {
+        self::assertSame([], CacheDefinition::fromArray([])->varyByParameters);
+        self::assertSame(['path', 'depth'], CacheDefinition::fromArray(['varyByParameters' => ['path', 'depth']])->varyByParameters);
+    }
+
+    /** @return iterable<string, array{mixed, string}> */
+    public static function invalidVaryByParameters(): iterable
+    {
+        yield 'string' => ['path', 'must be an array'];
+        yield 'boolean' => [false, 'must be an array'];
+        yield 'empty name' => [[''], 'entries must be non-empty strings'];
+        yield 'integer name' => [[42], 'entries must be non-empty strings'];
+        yield 'nested array' => [[['path']], 'entries must be non-empty strings'];
+    }
+
+    #[Test]
+    #[DataProvider('invalidVaryByParameters')]
+    public function invalidVaryByParametersThrows(mixed $value, string $message): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('cache.varyByParameters ' . $message);
+        CacheDefinition::fromArray(['varyByParameters' => $value]);
     }
 
     // ── Validation tests ────────────────────────────────────────────────
