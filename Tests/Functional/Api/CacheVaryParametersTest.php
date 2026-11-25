@@ -57,6 +57,22 @@ final class CacheVaryParametersTest extends ApiFunctionalTestCase
         self::assertSame((string)$miss->getBody(), (string)$hit->getBody());
     }
 
+    #[Test]
+    public function numericLookingMapKeysAreNormalised(): void
+    {
+        $this->registerCachedResource(['varyByParameters' => ['path']]);
+        $miss = $this->executeApiRequest('/_api/cached-vary-articles/1', [
+            'path' => ['01' => 'a', 1 => ['01' => 'b', 1 => 'c']],
+        ]);
+        $hit = $this->executeApiRequest('/_api/cached-vary-articles/1', [
+            'path' => [1 => [1 => 'c', '01' => 'b'], '01' => 'a'],
+        ]);
+
+        self::assertSame('MISS', $miss->getHeaderLine('X-TCA-API-Cache'));
+        self::assertSame('HIT', $hit->getHeaderLine('X-TCA-API-Cache'));
+        self::assertSame((string)$miss->getBody(), (string)$hit->getBody());
+    }
+
     /** @return iterable<string, array{array<string, mixed>, array<string, mixed>}> */
     public static function distinctValues(): iterable
     {
@@ -77,6 +93,31 @@ final class CacheVaryParametersTest extends ApiFunctionalTestCase
         self::assertSame('MISS', $miss->getHeaderLine('X-TCA-API-Cache'));
         self::assertSame('MISS', $other->getHeaderLine('X-TCA-API-Cache'));
         self::assertNotSame((string)$miss->getBody(), (string)$other->getBody());
+    }
+
+    /** @return iterable<string, array{mixed, mixed}> */
+    public static function rawByteParameters(): iterable
+    {
+        yield 'values' => ["\xFF", "\xFE"];
+        yield 'map keys' => [["\xFF" => 'a'], ["\xFE" => 'a']];
+        yield 'nested values' => [['nested' => ["\xFF"]], ['nested' => ["\xFE"]]];
+    }
+
+    #[Test]
+    #[DataProvider('rawByteParameters')]
+    public function rawBytesRemainDistinctAndCacheable(mixed $first, mixed $second): void
+    {
+        $this->registerCachedResource(['varyByParameters' => ['depth']]);
+        foreach ([$first, $second] as $value) {
+            $miss = $this->executeApiRequest('/_api/cached-vary-articles/1', ['depth' => $value]);
+            $hit = $this->executeApiRequest('/_api/cached-vary-articles/1', ['depth' => $value]);
+            self::assertSame(200, $miss->getStatusCode());
+            self::assertSame('MISS', $miss->getHeaderLine('X-TCA-API-Cache'));
+            self::assertSame('HIT', $hit->getHeaderLine('X-TCA-API-Cache'));
+            self::assertSame((string)$miss->getBody(), (string)$hit->getBody());
+        }
+        $connection = $this->get(ConnectionPool::class)->getConnectionForTable('cache_tca_api');
+        self::assertSame(2, (int)$connection->count('*', 'cache_tca_api', []));
     }
 
     #[Test]
