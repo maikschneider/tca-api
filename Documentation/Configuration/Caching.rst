@@ -93,7 +93,8 @@ Limiting the lifetime
 Every entry is stored with ``lifetime``. When a response changes at a known
 time, e.g. a record with a future ``starttime`` or ``endtime``, a listener or
 operation handler can shorten the lifetime of the entry it contributes to via
-``CacheTagCollector::limitLifetime()``:
+``CacheTagCollector::limitLifetime()``. This example targets a ``pages`` resource
+backed by the TYPO3 ``pages`` table, whose scheduling field is ``starttime``:
 
 ..  code-block:: php
 
@@ -114,6 +115,13 @@ operation handler can shorten the lifetime of the entry it contributes to via
 
         public function __invoke(AfterOperationEvent $event): void
         {
+            if ($event->getConfig()->resourceName !== 'pages'
+                || $event->getConfig()->table !== 'pages'
+                || !in_array($event->getOperation(), ['list', 'show'], true)
+            ) {
+                return;
+            }
+
             $nextStarttime = $this->findNextStarttime($event->getConfig()->table);
             if ($nextStarttime !== null) {
                 $this->cacheTagCollector->limitLifetime($nextStarttime - $GLOBALS['EXEC_TIME']);
