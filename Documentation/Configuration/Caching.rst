@@ -100,19 +100,41 @@ operation handler can shorten the lifetime of the entry it contributes to via
     use MaikSchneider\TcaApi\Cache\CacheTagCollector;
     use MaikSchneider\TcaApi\Event\AfterOperationEvent;
     use TYPO3\CMS\Core\Attribute\AsEventListener;
+    use TYPO3\CMS\Core\Database\Connection;
+    use TYPO3\CMS\Core\Database\ConnectionPool;
+    use TYPO3\CMS\Core\Database\Query\Restriction\StartTimeRestriction;
 
     #[AsEventListener('myext/limit-api-cache-lifetime')]
     final class LimitApiCacheLifetime
     {
         public function __construct(
             private readonly CacheTagCollector $cacheTagCollector,
+            private readonly ConnectionPool $connectionPool,
         ) {}
 
         public function __invoke(AfterOperationEvent $event): void
         {
-            foreach ($this->findUpcomingStarttimes($event) as $starttime) {
-                $this->cacheTagCollector->limitLifetime($starttime - $GLOBALS['EXEC_TIME']);
+            $nextStarttime = $this->findNextStarttime($event->getConfig()->table);
+            if ($nextStarttime !== null) {
+                $this->cacheTagCollector->limitLifetime($nextStarttime - $GLOBALS['EXEC_TIME']);
             }
+        }
+
+        private function findNextStarttime(string $table): ?int
+        {
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+            $queryBuilder->getRestrictions()->removeByType(StartTimeRestriction::class);
+            $next = $queryBuilder
+                ->selectLiteral($queryBuilder->expr()->min('starttime'))
+                ->from($table)
+                ->where($queryBuilder->expr()->gt(
+                    'starttime',
+                    $queryBuilder->createNamedParameter($GLOBALS['EXEC_TIME'], Connection::PARAM_INT),
+                ))
+                ->executeQuery()
+                ->fetchOne();
+
+            return $next === null || $next === false ? null : (int)$next;
         }
     }
 
