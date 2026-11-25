@@ -1,0 +1,19 @@
+{
+	"name": "maikschneider/tca-api-test-cache-lifetime",
+	"description": "Functional test fixture: limits the lifetime of cached responses from an AfterOperationEvent listener",
+	"type": "typo3-cms-extension",
+	"license": "GPL-2.0-or-later",
+	"require": {
+		"maikschneider/tca-api": "*"
+	},
+	"autoload": {
+		"psr-4": {
+			"MaikSchneider\\TcaApiTestCacheLifetime\\": "Classes/"
+		}
+	},
+	"extra": {
+		"typo3/cms": {
+			"extension-key": "test_cache_lifetime"
+		}
+	}
+}
