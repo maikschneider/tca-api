@@ -83,6 +83,9 @@ Event API reference
    * - ``stopPropagation(): void``
      - Prevents subsequent listeners from receiving the event.
 
+On a cache miss of ``list`` or ``show``, a listener can shorten the lifetime of
+the cached response, see :ref:`caching-limit-lifetime`.
+
 ``BeforeWriteEvent``
 --------------------
 
