@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\OperationHandler;
 
+use MaikSchneider\TcaApi\Cache\CacheTagCollector;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\EmbedPreloader;
@@ -27,6 +28,7 @@ class GetItemHandler implements OperationHandlerInterface
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly EmbedPreloader $embedPreloader,
+        private readonly CacheTagCollector $cacheTagCollector,
     ) {
     }
 
@@ -55,6 +57,12 @@ class GetItemHandler implements OperationHandlerInterface
         $language  = $this->languageFromRequest($request);
 
         $row = $this->dataRepository->findById($config->table, $uid, $config, $language);
+        if ($this->cacheTagCollector->isActive()) {
+            $transition = $this->dataRepository->findNextTimeTransition($config->table, [], $config, $language, $uid);
+            if ($transition !== null) {
+                $this->cacheTagCollector->limitLifetime($transition - $GLOBALS['EXEC_TIME']);
+            }
+        }
         if ($row === null) {
             return $this->hydraResponseBuilder->buildError(404, 'Resource not found', 'Not Found');
         }

@@ -46,8 +46,9 @@ Add a ``cache`` section to any resource definition:
    * - ``lifetime``
      - No
      - ``86400``
-     - Cache TTL in seconds. Listeners can shorten it per response, see
-       :ref:`caching-limit-lifetime`.
+     - Cache TTL in seconds. Shortened to the next ``starttime`` or
+       ``endtime`` of the served records (see :ref:`caching-scheduled-records`)
+       and by listeners (see :ref:`caching-limit-lifetime`).
    * - ``parametersToIgnore``
      - No
      - ``[]``
@@ -115,16 +116,37 @@ Response headers
      - Space-separated list of tags for the records in this response,
        e.g. ``tx_myext_domain_model_article_1 tx_myext_domain_model_article_2``
 
+..  _caching-scheduled-records:
+
+Scheduled records
+=================
+
+Like the TYPO3 page cache, an entry expires when a record of the resource's
+table starts or ends. If the table has a ``starttime`` or ``endtime`` field
+in ``ctrl.enablecolumns``, the entry lifetime on a cache miss is capped at the
+next future value:
+
+*   ``list``: of all records the request selects, ignoring their time window:
+    the same storage pages, record types, language and filters, on every
+    page of the result. Hidden and deleted records don't count.
+*   ``show``: of the record itself.
+*   On a non-default language, the translations in that language count too.
+
+This costs one query per cache miss. Tables without these fields and cache
+hits run no extra query. Related records (embedded relations, file references)
+are not taken into account; limit the lifetime for them yourself, see below.
+
 ..  _caching-limit-lifetime:
 
 Limiting the lifetime
 =====================
 
-Every entry is stored with ``lifetime``. When a response changes at a known
-time, e.g. a record with a future ``starttime`` or ``endtime``, a listener or
-operation handler can shorten the lifetime of the entry it contributes to via
-``CacheTagCollector::limitLifetime()``. This example targets a ``pages`` resource
-backed by the TYPO3 ``pages`` table, whose scheduling field is ``starttime``:
+Every entry is stored with ``lifetime``, capped at the next transition of the
+resource's own records (see :ref:`caching-scheduled-records`). When a response
+also changes at a time tca-api doesn't know, e.g. when the categories an
+``articles`` resource embeds have a ``starttime``, a listener or operation
+handler can shorten the lifetime of the entry it contributes to via
+``CacheTagCollector::limitLifetime()``:
 
 ..  code-block:: php
 
@@ -145,14 +167,13 @@ backed by the TYPO3 ``pages`` table, whose scheduling field is ``starttime``:
 
         public function __invoke(AfterOperationEvent $event): void
         {
-            if ($event->getConfig()->resourceName !== 'pages'
-                || $event->getConfig()->table !== 'pages'
-                || !in_array($event->getOperation(), ['list', 'show'], true)
+            if ($event->getConfig()->resourceName !== 'articles'
+                || !$this->cacheTagCollector->isActive()
             ) {
                 return;
             }
 
-            $nextStarttime = $this->findNextStarttime($event->getConfig()->table);
+            $nextStarttime = $this->findNextStarttime('sys_category');
             if ($nextStarttime !== null) {
                 $this->cacheTagCollector->limitLifetime($nextStarttime - $GLOBALS['EXEC_TIME']);
             }
@@ -167,7 +188,7 @@ backed by the TYPO3 ``pages`` table, whose scheduling field is ``starttime``:
                 ->from($table)
                 ->where($queryBuilder->expr()->gt(
                     'starttime',
-                    $queryBuilder->createNamedParameter($GLOBALS['EXEC_TIME'], Connection::PARAM_INT),
+                    $queryBuilder->createNamedParameter($GLOBALS['SIM_ACCESS_TIME'], Connection::PARAM_INT),
                 ))
                 ->executeQuery()
                 ->fetchOne();

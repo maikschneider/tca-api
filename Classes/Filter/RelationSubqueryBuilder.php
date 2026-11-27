@@ -7,6 +7,8 @@ namespace MaikSchneider\TcaApi\Filter;
 use Doctrine\DBAL\ParameterType;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
+use TYPO3\CMS\Core\Database\Query\Restriction\EndTimeRestriction;
+use TYPO3\CMS\Core\Database\Query\Restriction\StartTimeRestriction;
 
 /**
  * Resolves a dotted relation path and builds the `{uid} IN (subquery)` set that maps a
@@ -15,7 +17,8 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
  *
  * The subquery is built inside-out and de-duplicating, so pagination/counts stay correct,
  * and every hop is built through a table-bound QueryBuilder so enable-field restrictions
- * (deleted, hidden, start/end time, fe_group) apply at each level. All leaf parameters are
+ * (deleted, hidden, start/end time, fe_group) apply at each level. Only the resource rows'
+ * own time window is left to the outer query. All leaf parameters are
  * namespaced onto the outer query builder to avoid `:dcValue*` collisions.
  */
 final class RelationSubqueryBuilder
@@ -120,6 +123,11 @@ final class RelationSubqueryBuilder
     {
         $srcAlias = 'src' . $level;
         $sub      = $this->connectionPool->getQueryBuilderForTable($hop->sourceTable);
+        if ($level === 0) {
+            // The holder rows are the outer query's own rows: their time window is the outer
+            // query's business, which may lift it to look ahead at scheduled records.
+            $sub->getRestrictions()->removeByType(StartTimeRestriction::class)->removeByType(EndTimeRestriction::class);
+        }
         $sub->select($srcAlias . '.uid')->from($hop->sourceTable, $srcAlias);
 
         if ($hop->kind === RelationHop::KIND_MM) {
