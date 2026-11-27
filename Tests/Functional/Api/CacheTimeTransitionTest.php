@@ -15,6 +15,7 @@ use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Core\Cache\CacheManager;
 use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Context\DateTimeAspect;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
@@ -22,7 +23,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * records it is built from (tt_content_time_transitions.csv, relative to self::NOW):
  * 701 starts at +600, 702 ends at +1200, the German translation 707 of 706 starts
  * at +300. 703 (other pid), 704 (other CType) and 705 (hidden) start at +60.
- * Category 700 is assigned to 700 and 701.
+ * Category 700 is assigned to 700 and 701. The site sets tca_api.enabled and lacks tenant.undefined.
  */
 final class CacheTimeTransitionTest extends ApiFunctionalTestCase
 {
@@ -71,7 +72,13 @@ final class CacheTimeTransitionTest extends ApiFunctionalTestCase
             GeneralUtility::makeInstance(Context::class)->getAspect('date'),
         ];
 
-        foreach (['content' => true, 'uncached-content' => false] as $name => $cached) {
+        $caches = [
+            'content' => ['enabled' => true],
+            'uncached-content' => ['enabled' => false],
+            'content-setting-on' => ['enabled' => true, 'enabledSetting' => 'tca_api.enabled'],
+            'content-setting-off' => ['enabled' => true, 'enabledSetting' => 'tenant.undefined'],
+        ];
+        foreach ($caches as $name => $cache) {
             $this->registerResource($name, [
                 'general' => [
                     'table' => 'tt_content',
@@ -89,7 +96,7 @@ final class CacheTimeTransitionTest extends ApiFunctionalTestCase
                     'q' => [SearchFilter::class, ['columns' => ['categories.title']]],
                 ],
                 'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
-                'cache' => ['enabled' => $cached, 'lifetime' => 3600],
+                'cache' => $cache + ['lifetime' => 3600],
             ]);
         }
         foreach (['cached-articles' => true, 'uncached-articles' => false] as $name => $cached) {
@@ -241,6 +248,29 @@ final class CacheTimeTransitionTest extends ApiFunctionalTestCase
         self::assertSame($content - 1, $articles);
     }
 
+    #[Test]
+    public function aCacheEnabledBySiteSettingExpiresAtTheNextTransition(): void
+    {
+        self::assertSame(['MISS', [700, 702, 706]], $this->listAt('/api/content-setting-on?CType=text', 0));
+        self::assertSame(['HIT', [700, 702, 706]], $this->listAt('/api/content-setting-on?CType=text', 599));
+        self::assertSame(['MISS', [700, 701, 702, 706]], $this->listAt('/api/content-setting-on?CType=text', 601));
+
+        self::assertSame([200, 'MISS'], $this->showAt('/api/content-setting-on/702', 0));
+        self::assertSame([200, 'HIT'], $this->showAt('/api/content-setting-on/702', 1199));
+        self::assertSame([404, 'MISS'], $this->showAt('/api/content-setting-on/702', 1201));
+    }
+
+    #[Test]
+    public function aCacheDisabledBySiteSettingStoresNothingAndAddsNoTransitionQuery(): void
+    {
+        self::assertSame([200, ''], $this->showAt('/api/content-setting-off/702', 0));
+        self::assertSame(['', [700, 702, 706]], $this->listAt('/api/content-setting-off?CType=text', 0));
+        self::assertSame(0, $this->cacheEntryCount());
+
+        self::assertSame($this->queriesFor('/api/uncached-content/702'), $this->queriesFor('/api/content-setting-off/702'));
+        self::assertSame($this->queriesFor('/api/uncached-content?CType=text'), $this->queriesFor('/api/content-setting-off?CType=text'));
+    }
+
     /**
      * @return array{string, list<int>}
      */
@@ -278,6 +308,13 @@ final class CacheTimeTransitionTest extends ApiFunctionalTestCase
         $this->requestAt($path, 0);
 
         return QueryCounter::stop();
+    }
+
+    private function cacheEntryCount(): int
+    {
+        return (int)$this->get(ConnectionPool::class)
+            ->getConnectionForTable('cache_tca_api')
+            ->count('*', 'cache_tca_api', []);
     }
 
     private function requestAt(string $path, int $secondsLater): ResponseInterface
