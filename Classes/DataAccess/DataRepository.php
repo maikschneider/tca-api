@@ -15,6 +15,8 @@ use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
+use TYPO3\CMS\Core\Database\Query\Restriction\EndTimeRestriction;
+use TYPO3\CMS\Core\Database\Query\Restriction\StartTimeRestriction;
 use TYPO3\CMS\Core\Site\Entity\SiteLanguage;
 
 final class DataRepository
@@ -184,6 +186,66 @@ final class DataRepository
         }
 
         return (int)$qb->executeQuery()->fetchOne();
+    }
+
+    /**
+     * The next future starttime or endtime among the records that findCollection()
+     * (or findById() when $uid is given) would return regardless of their time window,
+     * including the translations overlaid in $language. Null when the table has no
+     * starttime/endtime enable column or no such transition is ahead.
+     */
+    public function findNextTimeTransition(string $table, array $constraints, ApiDefinition $config, ?SiteLanguage $language = null, ?int $uid = null): ?int
+    {
+        $timeFields = array_filter([
+            $GLOBALS['TCA'][$table]['ctrl']['enablecolumns']['starttime'] ?? null,
+            $GLOBALS['TCA'][$table]['ctrl']['enablecolumns']['endtime'] ?? null,
+        ]);
+        if ($timeFields === []) {
+            return null;
+        }
+
+        // The filters reference unqualified columns, so they get a query of their own: the
+        // records as findCollection() selects them, minus the time window.
+        $records = $this->connectionPool->getQueryBuilderForTable($table);
+        $records->getRestrictions()->removeByType(StartTimeRestriction::class)->removeByType(EndTimeRestriction::class);
+        $records->select('t.uid')->from($table, 't');
+        if ($uid !== null) {
+            $records->andWhere($records->expr()->eq('t.uid', $records->createNamedParameter($uid, Connection::PARAM_INT)));
+        }
+        $this->applyPidConstraint($records, $config, 't');
+        $this->applyRecordTypeConstraint($records, $config, 't');
+        $this->applyLanguageConstraint($records, $config, $language, 't');
+        foreach ($constraints as [$filterClass, $context]) {
+            $this->resolveFilter($filterClass)->apply($records, $context);
+        }
+
+        $qb = $this->connectionPool->getQueryBuilderForTable($table);
+        $qb->getRestrictions()->removeByType(StartTimeRestriction::class)->removeByType(EndTimeRestriction::class);
+        $qb->from($table, 'x')->setParameters($records->getParameters(), $records->getParameterTypes());
+
+        $scope = $qb->expr()->in('x.uid', $records->getSQL());
+        $languageField = $this->languageField($table);
+        $parentField = $this->translationParentField($table);
+        if ($config->languageMode !== 'ignore' && $language !== null && $language->getLanguageId() !== 0
+            && $languageField !== null && $parentField !== null
+        ) {
+            $scope = $qb->expr()->or($scope, $qb->expr()->and(
+                $qb->expr()->eq('x.' . $languageField, $language->getLanguageId()),
+                $qb->expr()->in('x.' . $parentField, $records->getSQL()),
+            ));
+        }
+        $qb->where($scope);
+
+        // Same "now" as core's StartTimeRestriction and EndTimeRestriction.
+        $now = (int)$GLOBALS['SIM_ACCESS_TIME'];
+        foreach (array_values($timeFields) as $i => $field) {
+            $column = $qb->quoteIdentifier('x.' . $field);
+            $qb->addSelectLiteral(sprintf('MIN(CASE WHEN %1$s > %2$d THEN %1$s END) AS %3$s', $column, $now, $qb->quoteIdentifier('next_' . $i)));
+        }
+
+        $transitions = array_filter((array)$qb->executeQuery()->fetchAssociative(), static fn (mixed $value): bool => $value !== null);
+
+        return $transitions === [] ? null : min(array_map('intval', $transitions));
     }
 
     /**

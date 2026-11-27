@@ -1,0 +1,10 @@
+"tt_content"
+,"uid","pid","CType","header","colPos","sorting","hidden","deleted","starttime","endtime","sys_language_uid","l18n_parent"
+,700,1,"text","Always visible",0,256,0,0,0,0,0,0
+,701,1,"text","Starts later",0,512,0,0,1893456600,0,0,0
+,702,1,"text","Ends later",0,768,0,0,0,1893457200,0,0
+,703,2,"text","Other page",0,1024,0,0,1893456060,0,0,0
+,704,1,"header","Other type",0,1280,0,0,1893456060,0,0,0
+,705,1,"text","Hidden",0,1536,1,0,1893456060,0,0,0
+,706,1,"text","Translated later",0,1792,0,0,0,0,0,0
+,707,1,"text","Später übersetzt",0,1792,0,0,1893456300,0,1,706

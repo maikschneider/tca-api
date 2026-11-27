@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MaikSchneider\TcaApi\OperationHandler;
 
+use MaikSchneider\TcaApi\Cache\CacheTagCollector;
 use MaikSchneider\TcaApi\Configuration\ApiDefinition;
 use MaikSchneider\TcaApi\DataAccess\DataRepository;
 use MaikSchneider\TcaApi\DataAccess\EmbedPreloader;
@@ -28,6 +29,7 @@ class GetCollectionHandler implements OperationHandlerInterface
         private readonly HydraResponseBuilder $hydraResponseBuilder,
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly EmbedPreloader $embedPreloader,
+        private readonly CacheTagCollector $cacheTagCollector,
     ) {
     }
 
@@ -76,6 +78,12 @@ class GetCollectionHandler implements OperationHandlerInterface
         $language  = $this->languageFromRequest($request);
         $total     = $this->dataRepository->count($config->table, $safeFilters, $config, $language);
         $rows      = $this->dataRepository->findCollection($config->table, $safeFilters, $itemsPerPage, $offset, $safeOrder, $config, $language);
+        if ($this->cacheTagCollector->isActive()) {
+            $transition = $this->dataRepository->findNextTimeTransition($config->table, $safeFilters, $config, $language);
+            if ($transition !== null) {
+                $this->cacheTagCollector->limitLifetime($transition - $GLOBALS['EXEC_TIME']);
+            }
+        }
         $preloaded = $this->embedPreloader->preload($rows, $config, $language, $fields, 'list', $this->allowedResourcesFromRequest($request)) + ['__request' => $request];
         $members   = $this->serializer->serializeCollection($rows, $config, $baseUrl, $fields, $preloaded, 'list');
 
