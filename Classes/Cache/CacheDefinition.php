@@ -19,12 +19,15 @@ final readonly class CacheDefinition
      * @param int      $lifetime           Cache TTL in seconds
      * @param string[] $parametersToIgnore Query parameters that bypass caching entirely
      * @param string[] $varyByParameters   Additional top-level query parameters included in the cache key
+     * @param string|null $enabledSetting  Boolean site setting that must be true for the cache to be used;
+     *                                      null = $enabled decides on every site
      */
     public function __construct(
         public bool $enabled = false,
         public int $lifetime = self::DEFAULT_LIFETIME,
         public array $parametersToIgnore = [],
         public array $varyByParameters = [],
+        public ?string $enabledSetting = null,
     ) {
     }
 
@@ -65,11 +68,17 @@ final readonly class CacheDefinition
             }
         }
 
+        $enabledSetting = $raw['enabledSetting'] ?? null;
+        if ($enabledSetting !== null && (!\is_string($enabledSetting) || preg_match('/^[A-Za-z0-9_.-]+$/', $enabledSetting) !== 1)) {
+            throw new \InvalidArgumentException('cache.enabledSetting must be the name of a site setting, e.g. "myext.cache.enabled".');
+        }
+
         return new self(
             enabled: $enabled,
             lifetime: $lifetime,
             parametersToIgnore: $parametersToIgnore,
             varyByParameters: $varyByParameters,
+            enabledSetting: $enabledSetting,
         );
     }
 }

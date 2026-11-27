@@ -59,6 +59,12 @@ Add a ``cache`` section to any resource definition:
      - ``[]``
      - Additional top-level query parameters included in the response cache key.
        An array of non-empty strings, validated when the definition loads.
+   * - ``enabledSetting``
+     - No
+     - *(none)*
+     - Name of a boolean site setting. The cache is used only on sites where
+       it is ``true``; without the key, ``enabled`` decides on every site. See
+       :ref:`cache-enabled-setting`.
 
 Vary by additional parameters
 =============================

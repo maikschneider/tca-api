@@ -39,6 +39,32 @@ final class RequestContextTest extends TestCase
     }
 
     #[Test]
+    #[DataProvider('cacheEnabledValues')]
+    public function theCacheIsEnabledByCacheEnabledAndTheSetting(array $cache, array $settings, bool $expected): void
+    {
+        $definition = ApiDefinition::fromArray([
+            'general' => ['table' => 'tx_test', 'resourceName' => 'articles', 'resourceType' => 'Test'],
+            'cache'   => $cache,
+        ]);
+
+        self::assertSame($expected, self::context($settings)->isCacheEnabled($definition));
+    }
+
+    /** @return iterable<string, array{array<string, mixed>, array<string, mixed>, bool}> */
+    public static function cacheEnabledValues(): iterable
+    {
+        $withSetting = ['enabled' => true, 'enabledSetting' => 'myext.cache'];
+
+        yield 'no cache section' => [[], [], false];
+        yield 'enabled without setting key' => [['enabled' => true], [], true];
+        yield 'setting missing' => [$withSetting, [], false];
+        yield 'setting false' => [$withSetting, ['myext.cache' => false], false];
+        yield 'setting true' => [$withSetting, ['myext.cache' => true], true];
+        yield 'setting string 1' => [$withSetting, ['myext.cache' => '1'], false];
+        yield 'disabled with setting true' => [['enabled' => false, 'enabledSetting' => 'myext.cache'], ['myext.cache' => true], false];
+    }
+
+    #[Test]
     public function filterAllowedResourcesDropsDisabledDefinitions(): void
     {
         $resources = self::resources();

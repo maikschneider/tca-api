@@ -7,6 +7,10 @@ Site Settings
 The following settings are configurable per site in the TYPO3 backend under
 :guilabel:`Site Management → Sites → Settings` in the **TCA_API** category.
 
+Resource definitions can also name settings of their own extension: one that
+enables the resource (:ref:`enabled-setting`) and one that enables its
+response cache (:ref:`cache-enabled-setting`).
+
 General
 =======
 

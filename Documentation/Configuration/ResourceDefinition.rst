@@ -32,7 +32,9 @@ listeners to the cache key:
 strings; invalid values fail when the definition loads. The named top-level
 query parameters are normalised with sorted map keys, preserving list order
 and distinguishing missing from empty values. Without this option, keys stay
-unchanged. See :ref:`caching` for all cache options and bypass behaviour.
+unchanged. ``enabledSetting`` switches the cache per site, see
+:ref:`cache-enabled-setting`. See :ref:`caching` for all cache options and
+bypass behaviour.
 
 General section
 ===============
@@ -263,6 +265,38 @@ the set), the resource doesn't exist:
 both. Only the boolean ``true`` enables a resource, so declare the setting with
 ``type: bool``. An :ref:`override <configuration-overrides>` can set
 ``enabledSetting`` on a resource of another extension.
+
+..  _cache-enabled-setting:
+
+Enabling the response cache per site
+====================================
+
+``cache.enabled`` applies to every site. To let each site decide, name a
+boolean site setting in ``cache.enabledSetting``:
+
+..  code-block:: php
+    :caption: EXT:my_ext/Configuration/TcaApi/Events.php
+
+    'cache' => [
+        'enabled'        => true,
+        'enabledSetting' => 'myext.api.cache',
+    ],
+
+..  code-block:: yaml
+    :caption: EXT:my_ext/Configuration/Sets/MyExt/settings.definitions.yaml
+
+    settings:
+      myext.api.cache:
+        label: 'Cache API responses'
+        type: bool
+        default: false
+
+The response cache is used where ``cache.enabled`` is ``true`` and the setting
+is ``true``. Where the setting is ``false`` or not defined, ``list`` and
+``show`` neither read nor store cache entries and send no ``X-TCA-API-Cache``
+header. As with ``general.enabledSetting``, only the boolean ``true`` counts,
+and the value must be a setting name; invalid values fail when the definition
+loads. Without the key, ``cache.enabled`` decides on every site.
 
 ..  _record-types:
 
