@@ -14,6 +14,26 @@ Each file returns a PHP array with the resource configuration.
 To modify a resource defined by a third-party package, place an override file
 in :file:`Configuration/TcaApi/Overrides/` — see :ref:`configuration-overrides`.
 
+Cache section
+=============
+
+The optional ``cache`` section enables response caching for ``list`` and
+``show``. ``varyByParameters`` adds query inputs read by custom handlers or
+listeners to the cache key:
+
+..  code-block:: php
+
+    'cache' => [
+        'enabled'          => true,
+        'varyByParameters' => ['path', 'depth'],
+    ],
+
+``varyByParameters`` defaults to ``[]`` and must be an array of non-empty
+strings; invalid values fail when the definition loads. The named top-level
+query parameters are normalised with sorted map keys, preserving list order
+and distinguishing missing from empty values. Without this option, keys stay
+unchanged. See :ref:`caching` for all cache options and bypass behaviour.
+
 General section
 ===============
 

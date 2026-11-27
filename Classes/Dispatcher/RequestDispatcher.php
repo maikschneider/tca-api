@@ -444,7 +444,25 @@ final class RequestDispatcher
         sort($allowed);
         $allowedPart = ':allowed:' . json_encode($allowed, JSON_THROW_ON_ERROR);
 
-        return md5($sitePart . $operation . ':' . $config->resourceName . $uidPart . $languagePart . $pidPart . $allowedPart . ':' . json_encode($relevant, JSON_THROW_ON_ERROR));
+        $varyParameters = $this->normaliseCacheParameters(array_intersect_key($queryParams, array_flip($config->cache->varyByParameters)));
+        $varyPart = $varyParameters !== [] ? ':vary:' . serialize($varyParameters) : '';
+
+        return md5($sitePart . $operation . ':' . $config->resourceName . $uidPart . $languagePart . $pidPart . $allowedPart . ':' . json_encode($relevant, JSON_THROW_ON_ERROR) . $varyPart);
+    }
+
+    private function normaliseCacheParameters(array $parameters): array
+    {
+        if (!array_is_list($parameters)) {
+            ksort($parameters, SORT_STRING);
+        }
+        foreach ($parameters as &$value) {
+            if (\is_array($value)) {
+                $value = $this->normaliseCacheParameters($value);
+            }
+        }
+        unset($value);
+
+        return $parameters;
     }
 
     private function internalError(\RuntimeException $e, SiteSettings $siteSettings): ResponseInterface

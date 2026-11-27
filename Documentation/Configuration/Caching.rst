@@ -27,6 +27,7 @@ Add a ``cache`` section to any resource definition:
             'enabled'            => true,
             'lifetime'           => 3600,          // seconds; default: 86400
             'parametersToIgnore' => ['preview'],   // bypass cache when ?preview=… present
+            'varyByParameters'   => ['path', 'depth'],
         ],
     ];
 
@@ -53,6 +54,29 @@ Add a ``cache`` section to any resource definition:
      - Query parameters that bypass the cache entirely when present in the
        request (top-level or nested under ``filters[…]``). Useful for preview
        or debug parameters.
+   * - ``varyByParameters``
+     - No
+     - ``[]``
+     - Additional top-level query parameters included in the response cache key.
+       An array of non-empty strings, validated when the definition loads.
+
+Vary by additional parameters
+=============================
+
+By default the query inputs used for the key are ``page``, ``itemsPerPage``,
+``order``, ``fields`` and resolved filters. Custom handlers and
+``AfterOperationEvent`` listeners may read other parameters. List those names
+in ``cache.varyByParameters`` so their responses are cached separately:
+``?path=/about`` and ``?path=/access`` then each produce a MISS followed by
+HITs for the same value.
+
+Only the named top-level parameters are added; unrelated parameters continue
+to behave as before. Names and nested map keys are sorted recursively; list
+order and scalar values are preserved. A missing parameter differs from an
+empty string or ``'0'``. Omitting ``varyByParameters`` or setting it to ``[]``
+leaves existing keys unchanged. ``parametersToIgnore`` still takes precedence:
+a parameter listed there bypasses caching even if it also appears in
+``varyByParameters``.
 
 Cache flow
 ==========

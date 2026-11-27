@@ -106,11 +106,41 @@ final class CacheLifetimeTest extends ApiFunctionalTestCase
         self::assertSame('MISS', $this->requestAt($path, 0));
     }
 
-    private function requestAt(string $path, int $secondsLater): string
+    #[Test]
+    #[DataProvider('pathProvider')]
+    public function eachVariedEntryExpiresAfterTheLimit(string $path): void
+    {
+        $this->registerResource('cached-articles', [
+            'general' => [
+                'table' => 'tx_myext_domain_model_article',
+                'resourceName' => 'cached-articles',
+                'resourceType' => 'Article',
+                'operations' => ['list', 'show'],
+            ],
+            'columns' => [
+                'title' => ['type' => 'string', 'groups' => ['list', 'show']],
+            ],
+            'cache' => ['enabled' => true, 'lifetime' => 3600, 'varyByParameters' => ['path']],
+        ]);
+        LimitCacheLifetime::$limits = [60];
+
+        self::assertSame('MISS', $this->requestAt($path, 0, ['path' => '/about']));
+        self::assertSame('MISS', $this->requestAt($path, 0, ['path' => '/access']));
+        self::assertSame(2, $this->countCacheRows());
+        self::assertSame('HIT', $this->requestAt($path, 59, ['path' => '/about']));
+        self::assertSame('HIT', $this->requestAt($path, 59, ['path' => '/access']));
+        self::assertSame('MISS', $this->requestAt($path, 61, ['path' => '/about']));
+        self::assertSame('MISS', $this->requestAt($path, 61, ['path' => '/access']));
+    }
+
+    /**
+     * @param array<string, string> $queryParams
+     */
+    private function requestAt(string $path, int $secondsLater, array $queryParams = []): string
     {
         $GLOBALS['EXEC_TIME'] = $this->execTime + $secondsLater;
 
-        return $this->executeApiRequest($path)->getHeaderLine('X-TCA-API-Cache');
+        return $this->executeApiRequest($path, $queryParams)->getHeaderLine('X-TCA-API-Cache');
     }
 
     private function countCacheRows(): int
