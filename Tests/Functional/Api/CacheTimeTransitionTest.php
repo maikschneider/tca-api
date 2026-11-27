@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MaikSchneider\TcaApi\Tests\Functional\Api;
 
 use MaikSchneider\TcaApi\Filter\ExactFilter;
+use MaikSchneider\TcaApi\Filter\SearchFilter;
 use MaikSchneider\TcaApi\Tests\Functional\ApiFunctionalTestCase;
 use MaikSchneider\TcaApi\Tests\Functional\QueryCounting\CountingDriverMiddleware;
 use MaikSchneider\TcaApi\Tests\Functional\QueryCounting\QueryCounter;
@@ -21,6 +22,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * records it is built from (tt_content_time_transitions.csv, relative to self::NOW):
  * 701 starts at +600, 702 ends at +1200, the German translation 707 of 706 starts
  * at +300. 703 (other pid), 704 (other CType) and 705 (hidden) start at +60.
+ * Category 700 is assigned to 700 and 701.
  */
 final class CacheTimeTransitionTest extends ApiFunctionalTestCase
 {
@@ -79,7 +81,11 @@ final class CacheTimeTransitionTest extends ApiFunctionalTestCase
                 'columns' => [
                     'header' => ['groups' => ['list', 'show']],
                 ],
-                'filters' => ['CType' => ExactFilter::class],
+                'filters' => [
+                    'CType' => ExactFilter::class,
+                    'categories.title' => ExactFilter::class,
+                    'q' => [SearchFilter::class, ['columns' => ['categories.title']]],
+                ],
                 'order' => ['allowed' => ['uid'], 'default' => ['uid' => 'asc']],
                 'cache' => ['enabled' => $cached, 'lifetime' => 3600],
             ]);
@@ -132,6 +138,18 @@ final class CacheTimeTransitionTest extends ApiFunctionalTestCase
         self::assertSame(['MISS', [700, 702, 706]], $this->listAt('/api/content', 0));
         self::assertSame(['HIT', [700, 702, 706]], $this->listAt('/api/content', 59));
         self::assertSame(['MISS', [700, 702, 704, 706]], $this->listAt('/api/content', 61));
+    }
+
+    #[Test]
+    public function listWithARelationFilterExpiresWhenAMatchingRecordStarts(): void
+    {
+        foreach (['/api/content?filters[categories.title]=Scheduled', '/api/content?filters[q]=Sched'] as $path) {
+            $this->get(CacheManager::class)->getCache('tca_api')->flush();
+
+            self::assertSame(['MISS', [700]], $this->listAt($path, 0), $path);
+            self::assertSame(['HIT', [700]], $this->listAt($path, 599), $path);
+            self::assertSame(['MISS', [700, 701]], $this->listAt($path, 601), $path);
+        }
     }
 
     #[Test]
