@@ -55,7 +55,7 @@ final readonly class CacheDefinition
             }
         }
 
-        $varyByParameters = $raw['varyByParameters'] ?? [];
+        $varyByParameters = \array_key_exists('varyByParameters', $raw) ? $raw['varyByParameters'] : [];
         if (!\is_array($varyByParameters)) {
             throw new \InvalidArgumentException('cache.varyByParameters must be an array.');
         }

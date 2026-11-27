@@ -65,6 +65,7 @@ final class CacheDefinitionTest extends TestCase
     /** @return iterable<string, array{mixed, string}> */
     public static function invalidVaryByParameters(): iterable
     {
+        yield 'null' => [null, 'must be an array'];
         yield 'string' => ['path', 'must be an array'];
         yield 'boolean' => [false, 'must be an array'];
         yield 'empty name' => [[''], 'entries must be non-empty strings'];
