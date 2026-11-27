@@ -62,6 +62,32 @@ final class CacheDefinitionTest extends TestCase
         self::assertSame(['path', 'depth'], CacheDefinition::fromArray(['varyByParameters' => ['path', 'depth']])->varyByParameters);
     }
 
+    #[Test]
+    public function enabledSettingIsLoaded(): void
+    {
+        self::assertNull(CacheDefinition::fromArray([])->enabledSetting);
+        self::assertSame('my_ext.cache-enabled', CacheDefinition::fromArray(['enabledSetting' => 'my_ext.cache-enabled'])->enabledSetting);
+    }
+
+    /** @return iterable<string, array{mixed}> */
+    public static function invalidEnabledSettings(): iterable
+    {
+        yield 'empty string' => [''];
+        yield 'boolean' => [true];
+        yield 'list' => [['myext.cache.enabled']];
+        yield 'placeholder' => ['{$myext.cache.enabled}'];
+        yield 'whitespace' => ['myext cache'];
+    }
+
+    #[Test]
+    #[DataProvider('invalidEnabledSettings')]
+    public function invalidEnabledSettingThrows(mixed $value): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('cache.enabledSetting must be the name of a site setting');
+        CacheDefinition::fromArray(['enabledSetting' => $value]);
+    }
+
     /** @return iterable<string, array{mixed, string}> */
     public static function invalidVaryByParameters(): iterable
     {

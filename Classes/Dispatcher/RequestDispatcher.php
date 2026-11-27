@@ -156,7 +156,7 @@ final class RequestDispatcher
 
         // ── Cache: check for hit on cacheable read operations ────────────
         $cacheKey = null;
-        if ($config->cache->enabled && \in_array($operation, ['list', 'show'], true)) {
+        if ($ctx->isCacheEnabled($config) && \in_array($operation, ['list', 'show'], true)) {
             try {
                 $cacheKey = $this->buildCacheKey($operation, $config, $request);
             } catch (StoragePidResolutionException $e) {

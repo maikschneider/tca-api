@@ -62,6 +62,14 @@ final readonly class RequestContext
         return $definition->enabledSetting === null || $this->settings->get($definition->enabledSetting) === true;
     }
 
+    /** Without cache.enabledSetting cache.enabled decides, otherwise the cache is used only where that setting is true. */
+    public function isCacheEnabled(ApiDefinition $definition): bool
+    {
+        $setting = $definition->cache->enabledSetting;
+
+        return $definition->cache->enabled && ($setting === null || $this->settings->get($setting) === true);
+    }
+
     public function isResourceAllowed(string $resource): bool
     {
         $allowed = $this->allowedResourceNames();
