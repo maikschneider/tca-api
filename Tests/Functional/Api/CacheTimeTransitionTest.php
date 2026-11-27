@@ -60,6 +60,8 @@ final class CacheTimeTransitionTest extends ApiFunctionalTestCase
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/pages.csv');
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/articles.csv');
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/tt_content_time_transitions.csv');
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/sys_categories_time_transitions.csv');
+        $this->importCSVDataSet(__DIR__ . '/../Fixtures/sys_category_record_mm_time_transitions.csv');
         $this->get(CacheManager::class)->getCache('tca_api')->flush();
         LimitCacheLifetime::$limits = [];
         $this->clock = [

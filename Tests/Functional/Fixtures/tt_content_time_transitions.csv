@@ -8,10 +8,3 @@
 ,705,1,"text","Hidden",0,1536,1,0,1893456060,0,0,0
 ,706,1,"text","Translated later",0,1792,0,0,0,0,0,0
 ,707,1,"text","Später übersetzt",0,1792,0,0,1893456300,0,1,706
-"sys_category"
-,"uid","pid","title","hidden","deleted","parent"
-,700,0,"Scheduled",0,0,0
-"sys_category_record_mm"
-,"uid_local","uid_foreign","tablenames","fieldname","sorting","sorting_foreign"
-,700,700,"tt_content","categories",1,1
-,700,701,"tt_content","categories",1,2
