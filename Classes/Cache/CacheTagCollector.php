@@ -18,6 +18,8 @@ final class CacheTagCollector
     /** @var array<string, bool> */
     private array $tags = [];
 
+    private ?int $lifetimeLimit = null;
+
     /**
      * Activate tag collection for the current request.
      */
@@ -25,6 +27,7 @@ final class CacheTagCollector
     {
         $this->active = true;
         $this->tags = [];
+        $this->lifetimeLimit = null;
     }
 
     /**
@@ -46,6 +49,27 @@ final class CacheTagCollector
         return array_keys($this->tags);
     }
 
+    /**
+     * Limit the lifetime in seconds of the cache entry for the current request,
+     * e.g. to the next starttime or endtime of a record. The smallest limit wins;
+     * a limit below 1 skips storing the response.
+     * Only collected when the collector is active.
+     */
+    public function limitLifetime(int $seconds): void
+    {
+        if ($this->active) {
+            $this->lifetimeLimit = min($seconds, $this->lifetimeLimit ?? $seconds);
+        }
+    }
+
+    /**
+     * @return int|null Smallest collected lifetime limit, null when none was set
+     */
+    public function getLifetimeLimit(): ?int
+    {
+        return $this->lifetimeLimit;
+    }
+
     public function isActive(): bool
     {
         return $this->active;
@@ -58,5 +82,6 @@ final class CacheTagCollector
     {
         $this->active = false;
         $this->tags = [];
+        $this->lifetimeLimit = null;
     }
 }
