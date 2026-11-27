@@ -206,9 +206,12 @@ final class RequestDispatcher
         if ($cacheKey !== null) {
             $body = (string)$response->getBody();
             $tags = $this->cacheTagCollector->getTags();
+            $lifetime = min($config->cache->lifetime, $this->cacheTagCollector->getLifetimeLimit() ?? $config->cache->lifetime);
             $this->cacheTagCollector->reset();
 
-            $this->cache->set($cacheKey, $body, $tags, $config->cache->lifetime);
+            if ($lifetime > 0) {
+                $this->cache->set($cacheKey, $body, $tags, $lifetime);
+            }
 
             $response = $response->withHeader('X-TCA-API-Cache', 'MISS');
             if ($tags !== []) {

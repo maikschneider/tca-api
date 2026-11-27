@@ -74,6 +74,60 @@ final class CacheTagCollectorTest extends TestCase
     }
 
     #[Test]
+    public function lifetimeLimitIsNullByDefault(): void
+    {
+        $collector = new CacheTagCollector();
+        $collector->activate();
+
+        self::assertNull($collector->getLifetimeLimit());
+    }
+
+    #[Test]
+    public function smallestLifetimeLimitWins(): void
+    {
+        $collector = new CacheTagCollector();
+        $collector->activate();
+        $collector->limitLifetime(600);
+        $collector->limitLifetime(60);
+        $collector->limitLifetime(300);
+
+        self::assertSame(60, $collector->getLifetimeLimit());
+    }
+
+    #[Test]
+    public function limitLifetimeWhenInactiveIsIgnored(): void
+    {
+        $collector = new CacheTagCollector();
+        $collector->limitLifetime(60);
+
+        self::assertNull($collector->getLifetimeLimit());
+    }
+
+    #[Test]
+    public function resetClearsLifetimeLimit(): void
+    {
+        $collector = new CacheTagCollector();
+        $collector->activate();
+        $collector->limitLifetime(60);
+
+        $collector->reset();
+
+        self::assertNull($collector->getLifetimeLimit());
+    }
+
+    #[Test]
+    public function activateClearsPreviousLifetimeLimit(): void
+    {
+        $collector = new CacheTagCollector();
+        $collector->activate();
+        $collector->limitLifetime(60);
+
+        $collector->activate();
+
+        self::assertNull($collector->getLifetimeLimit());
+    }
+
+    #[Test]
     public function activateResetsPreviousTags(): void
     {
         $collector = new CacheTagCollector();

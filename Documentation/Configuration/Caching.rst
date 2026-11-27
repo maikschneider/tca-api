@@ -46,7 +46,8 @@ Add a ``cache`` section to any resource definition:
    * - ``lifetime``
      - No
      - ``86400``
-     - Cache TTL in seconds.
+     - Cache TTL in seconds. Listeners can shorten it per response, see
+       :ref:`caching-limit-lifetime`.
    * - ``parametersToIgnore``
      - No
      - ``[]``
@@ -107,6 +108,74 @@ Response headers
    * - ``X-Cache-Tags``
      - Space-separated list of tags for the records in this response,
        e.g. ``tx_myext_domain_model_article_1 tx_myext_domain_model_article_2``
+
+..  _caching-limit-lifetime:
+
+Limiting the lifetime
+=====================
+
+Every entry is stored with ``lifetime``. When a response changes at a known
+time, e.g. a record with a future ``starttime`` or ``endtime``, a listener or
+operation handler can shorten the lifetime of the entry it contributes to via
+``CacheTagCollector::limitLifetime()``. This example targets a ``pages`` resource
+backed by the TYPO3 ``pages`` table, whose scheduling field is ``starttime``:
+
+..  code-block:: php
+
+    use MaikSchneider\TcaApi\Cache\CacheTagCollector;
+    use MaikSchneider\TcaApi\Event\AfterOperationEvent;
+    use TYPO3\CMS\Core\Attribute\AsEventListener;
+    use TYPO3\CMS\Core\Database\Connection;
+    use TYPO3\CMS\Core\Database\ConnectionPool;
+    use TYPO3\CMS\Core\Database\Query\Restriction\StartTimeRestriction;
+
+    #[AsEventListener('myext/limit-api-cache-lifetime')]
+    final class LimitApiCacheLifetime
+    {
+        public function __construct(
+            private readonly CacheTagCollector $cacheTagCollector,
+            private readonly ConnectionPool $connectionPool,
+        ) {}
+
+        public function __invoke(AfterOperationEvent $event): void
+        {
+            if ($event->getConfig()->resourceName !== 'pages'
+                || $event->getConfig()->table !== 'pages'
+                || !in_array($event->getOperation(), ['list', 'show'], true)
+            ) {
+                return;
+            }
+
+            $nextStarttime = $this->findNextStarttime($event->getConfig()->table);
+            if ($nextStarttime !== null) {
+                $this->cacheTagCollector->limitLifetime($nextStarttime - $GLOBALS['EXEC_TIME']);
+            }
+        }
+
+        private function findNextStarttime(string $table): ?int
+        {
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+            $queryBuilder->getRestrictions()->removeByType(StartTimeRestriction::class);
+            $next = $queryBuilder
+                ->selectLiteral($queryBuilder->expr()->min('starttime'))
+                ->from($table)
+                ->where($queryBuilder->expr()->gt(
+                    'starttime',
+                    $queryBuilder->createNamedParameter($GLOBALS['EXEC_TIME'], Connection::PARAM_INT),
+                ))
+                ->executeQuery()
+                ->fetchOne();
+
+            return $next === null || $next === false ? null : (int)$next;
+        }
+    }
+
+*   The entry is stored with the smaller of ``lifetime`` and the smallest
+    limit of the request; a limit can't extend ``lifetime``.
+*   A limit below ``1`` skips storing the response.
+*   Calls outside a cache miss of ``list`` or ``show`` (cache disabled, cache
+    hit, write operations) are ignored.
+*   Without a call the lifetime is unchanged.
 
 Cache invalidation
 ==================
