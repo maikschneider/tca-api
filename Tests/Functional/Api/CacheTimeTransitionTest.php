@@ -173,6 +173,13 @@ final class CacheTimeTransitionTest extends ApiFunctionalTestCase
     }
 
     #[Test]
+    public function showOfARecordThatStartsLaterExpiresWhenItStarts(): void
+    {
+        self::assertSame([404, 'MISS'], $this->showAt('/api/content/701', 0));
+        self::assertSame([200, 'MISS'], $this->showAt('/api/content/701', 601));
+    }
+
+    #[Test]
     public function showExpiresWhenItsOverlaidTranslationStarts(): void
     {
         $path = '/de/api/content/706';

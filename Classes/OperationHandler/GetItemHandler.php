@@ -57,14 +57,14 @@ class GetItemHandler implements OperationHandlerInterface
         $language  = $this->languageFromRequest($request);
 
         $row = $this->dataRepository->findById($config->table, $uid, $config, $language);
-        if ($row === null) {
-            return $this->hydraResponseBuilder->buildError(404, 'Resource not found', 'Not Found');
-        }
         if ($this->cacheTagCollector->isActive()) {
             $transition = $this->dataRepository->findNextTimeTransition($config->table, [], $config, $language, $uid);
             if ($transition !== null) {
                 $this->cacheTagCollector->limitLifetime($transition - $GLOBALS['EXEC_TIME']);
             }
+        }
+        if ($row === null) {
+            return $this->hydraResponseBuilder->buildError(404, 'Resource not found', 'Not Found');
         }
 
         $preloaded  = $this->embedPreloader->preload([$row], $config, $language, $fields, 'show', $this->allowedResourcesFromRequest($request)) + ['__request' => $request];
